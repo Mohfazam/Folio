@@ -1,5 +1,7 @@
+/// <reference types="node" />
+
 import { defineConfig } from "drizzle-kit";
-import {dotenv} from "dotenv";
+import "dotenv/config";
 
 export default defineConfig({
   schema: "./src/schema.ts",
