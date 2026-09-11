@@ -2,12 +2,17 @@
   "name": "@repo/db",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "dev": "tsc -b && node ./dist/index.js"
+    "dev": "tsc -b --watch",
+    "build":"tsc -b",
+    "db:generate":"drizzle-kit generate",
+    "db:migrate":"drizzle-kit migrate",
+    "db:studio":"drizzle-kit studio"
   },
   "keywords": [],
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "drizzle-orm": "^0.45.2"
