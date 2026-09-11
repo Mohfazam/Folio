@@ -7,5 +7,9 @@
     "dev": "tsc -b && node ./dist/index.js"
   },
   "keywords": [],
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "drizzle-orm": "^0.45.2"
+  }
 }
