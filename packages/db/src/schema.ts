@@ -28,3 +28,12 @@ export const clients = pgTable('clients', {
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 
 });
+
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').references(() => clients.id), // nullable — internal_admin users have no client
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: userRoleEnum('role').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
