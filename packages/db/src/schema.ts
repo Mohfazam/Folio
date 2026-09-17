@@ -6,3 +6,12 @@ export const planTierEnum = pgEnum('plan_tier', ['trial', 'starter', 'growth', '
 export const clientStatusEnum = pgEnum('client_status', ['trialing', 'active', 'paused', 'suspended']);
 export const userRoleEnum = pgEnum('user_role', ['client_admin', 'client_viewer', 'internal_admin']);
 export const tiersCredits = pgEnum('plan_credits', ['100', '500', '1000', '1500', '2000']);
+
+export const clients = pgTable('clients', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    contactPersonName: text('contact_person_name'),
+    contactEmail: text('contact_email'),
+    contactPhone: text('contact_phone'),
+    callerIdNumber: text('caller_id_numer')
+})
