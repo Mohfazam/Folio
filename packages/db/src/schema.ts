@@ -5,6 +5,8 @@ import { pgTable, uuid, text, integer, timestamp, time, pgEnum } from "drizzle-o
 export const planTierEnum = pgEnum('plan_tier', ['trial', 'starter', 'growth', 'pro', 'scale']);
 export const clientStatusEnum = pgEnum('client_status', ['trialing', 'active', 'paused', 'suspended']);
 export const userRoleEnum = pgEnum('user_role', ['client_admin', 'client_viewer', 'internal_admin']);
+export const uploadStatusEnum = pgEnum('upload_status', ['processing', 'completed', 'failed']);
+
 
 
 export const clients = pgTable('clients', {
@@ -35,5 +37,19 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+
+export const uploadBatches = pgTable('upload_batches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull().references(() => clients.id),
+  filename: text('filename').notNull(),
+  uploadedBy: uuid('uploaded_by').references(() => users.id),
+  totalRows: integer('total_rows'),
+  validRows: integer('valid_rows'),
+  invalidRows: integer('invalid_rows'),
+  duplicateRows: integer('duplicate_rows'),
+  status: uploadStatusEnum('status').notNull().default('processing'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
