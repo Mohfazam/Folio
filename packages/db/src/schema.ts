@@ -147,3 +147,13 @@ export const followUps = pgTable('follow_ups', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
+
+
+export const auditLog = pgTable('audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').references(() => clients.id),
+  userId: uuid('user_id').references(() => users.id),
+  action: text('action').notNull(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});

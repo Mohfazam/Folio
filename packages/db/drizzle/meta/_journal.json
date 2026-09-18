@@ -29,6 +29,13 @@
       "when": 1789710640683,
       "tag": "0003_light_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789711067905,
+      "tag": "0004_rapid_solo",
+      "breakpoints": true
     }
   ]
 }
