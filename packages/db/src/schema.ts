@@ -1,16 +1,30 @@
-import { pgTable, uuid, text, integer, timestamp, time, pgEnum } from "drizzle-orm/pg-core";import { jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, time, pgEnum } from "drizzle-orm/pg-core";
+import { jsonb, boolean } from "drizzle-orm/pg-core";
+import { real } from "drizzle-orm/pg-core";
 
 
 
 
 //enum
 export const planTierEnum = pgEnum('plan_tier', ['trial', 'starter', 'growth', 'pro', 'scale']);
+
 export const clientStatusEnum = pgEnum('client_status', ['trialing', 'active', 'paused', 'suspended']);
+
 export const userRoleEnum = pgEnum('user_role', ['client_admin', 'client_viewer', 'internal_admin']);
+
 export const uploadStatusEnum = pgEnum('upload_status', ['processing', 'completed', 'failed']);
+
 export const contactStatusEnum = pgEnum('contact_status', ['pending', 'queued', 'in_progress', 'completed', 'do_not_call', 'invalid']);
+
 export const queueStatusEnum = pgEnum('queue_status', ['pending', 'in_progress', 'completed', 'failed', 'exhausted']);
 
+
+
+//calls
+
+export const callOutcomeEnum = pgEnum('call_outcome', ['connected', 'no_answer', 'busy', 'voicemail', 'dropped_early', 'failed']);
+export const interestLevelEnum = pgEnum('interest_level', ['high', 'medium', 'low', 'unknown']);
+export const sentimentEnum = pgEnum('sentiment', ['positive', 'neutral', 'negative']);
 
 
 
@@ -87,4 +101,32 @@ export const callQueue = pgTable('call_queue', {
   maxAttempts: integer('max_attempts').notNull().default(2),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+
+
+export const calls = pgTable('calls', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  contactId: uuid('contact_id').notNull().references(() => contacts.id),
+  clientId: uuid('client_id').notNull().references(() => clients.id),
+  queueEntryId: uuid('queue_entry_id').notNull().references(() => callQueue.id),
+  attemptNumber: integer('attempt_number').notNull(),
+  startedAt: timestamp('started_at').notNull(),
+  endedAt: timestamp('ended_at'),
+  durationSeconds: integer('duration_seconds'),
+  outcome: callOutcomeEnum('outcome').notNull(),
+  isBillable: boolean('is_billable').notNull().default(false), /////////////////////
+  creditsCharged: integer('credits_charged').notNull().default(0), // duration in 10-sec units, ceild
+  recordingUrl: text('recording_url'),
+  transcript: jsonb('transcript'), // array of { speaker: 'ai' | 'parent', text, timestamp }
+  interestLevel: interestLevelEnum('interest_level'),
+  objectionsRaised: text('objections_raised').array(),
+  followUpRequested: boolean('follow_up_requested').notNull().default(false),
+  sentiment: sentimentEnum('sentiment'),
+  knowledgeBaseVersionUsed: integer('knowledge_base_version_used'),
+  costTelephony: real('cost_telephony'),
+  costStt: real('cost_stt'),
+  costLlm: real('cost_llm'),
+  costTts: real('cost_tts'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
 });
