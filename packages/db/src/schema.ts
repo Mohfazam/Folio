@@ -9,7 +9,7 @@ export const clientStatusEnum = pgEnum('client_status', ['trialing', 'active', '
 export const userRoleEnum = pgEnum('user_role', ['client_admin', 'client_viewer', 'internal_admin']);
 export const uploadStatusEnum = pgEnum('upload_status', ['processing', 'completed', 'failed']);
 export const contactStatusEnum = pgEnum('contact_status', ['pending', 'queued', 'in_progress', 'completed', 'do_not_call', 'invalid']);
-export const queueStatusEnum = pgEnum('queue_status', ['pending', 'in_progress', 'completed', 'failed', 'retry_scheduled', 'exhausted']);
+export const queueStatusEnum = pgEnum('queue_status', ['pending', 'in_progress', 'completed', 'failed', 'exhausted']);
 
 
 
@@ -79,13 +79,12 @@ export const contacts = pgTable('contacts', {
 export const callQueue = pgTable('call_queue', {
   id: uuid('id').primaryKey().defaultRandom(),
   contactId: uuid('contact_id').notNull().references(() => contacts.id),
-  clientId: uuid('client_id').notNull().references(() => clients.id), 
+  clientId: uuid('client_id').notNull().references(() => clients.id),
   scheduledFor: timestamp('scheduled_for').notNull(),
   attemptNumber: integer('attempt_number').notNull().default(1),
   priority: integer('priority').notNull().default(0),
   status: queueStatusEnum('status').notNull().default('pending'),
   maxAttempts: integer('max_attempts').notNull().default(2),
-  nextRetryAt: timestamp('next_retry_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
