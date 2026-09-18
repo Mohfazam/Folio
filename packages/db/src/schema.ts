@@ -1,4 +1,6 @@
-import { pgTable, uuid, text, integer, timestamp, time, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, time, pgEnum } from "drizzle-orm/pg-core";import { jsonb, boolean } from "drizzle-orm/pg-core";
+
+
 
 
 //enum
@@ -6,6 +8,8 @@ export const planTierEnum = pgEnum('plan_tier', ['trial', 'starter', 'growth', '
 export const clientStatusEnum = pgEnum('client_status', ['trialing', 'active', 'paused', 'suspended']);
 export const userRoleEnum = pgEnum('user_role', ['client_admin', 'client_viewer', 'internal_admin']);
 export const uploadStatusEnum = pgEnum('upload_status', ['processing', 'completed', 'failed']);
+export const contactStatusEnum = pgEnum('contact_status', ['pending', 'queued', 'in_progress', 'completed', 'do_not_call', 'invalid']);
+
 
 
 
@@ -52,4 +56,21 @@ export const uploadBatches = pgTable('upload_batches', {
   duplicateRows: integer('duplicate_rows'),
   status: uploadStatusEnum('status').notNull().default('processing'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const contacts = pgTable('contacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull().references(() => clients.id),
+  uploadBatchId: uuid('upload_batch_id').references(() => uploadBatches.id),
+  parentName: text('parent_name'),
+  studentName: text('student_name'),
+  phoneNumber: text('phone_number').notNull(), // normalized, e.g. +91XXXXXXXXXX
+  phoneNumberRaw: text('phone_number_raw'), // exactly what was in the uploaded file, before cleanup
+  courseOrStream: text('course_or_stream'),
+  customFields: jsonb('custom_fields'), // catch-all for whatever extra columns a client's file has
+  status: contactStatusEnum('status').notNull().default('pending'),
+  isDuplicateOf: uuid('is_duplicate_of'), // self-reference
+  optOut: boolean('opt_out').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
