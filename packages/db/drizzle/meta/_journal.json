@@ -15,6 +15,13 @@
       "when": 1789707369055,
       "tag": "0001_outstanding_roland_deschain",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789709591978,
+      "tag": "0002_bumpy_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }
