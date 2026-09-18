@@ -26,6 +26,9 @@ export const callOutcomeEnum = pgEnum('call_outcome', ['connected', 'no_answer',
 export const interestLevelEnum = pgEnum('interest_level', ['high', 'medium', 'low', 'unknown']);
 export const sentimentEnum = pgEnum('sentiment', ['positive', 'neutral', 'negative']);
 
+//folloups
+export const followUpStatusEnum = pgEnum('follow_up_status', ['open', 'done', 'not_needed']);
+
 
 
 export const clients = pgTable('clients', {
@@ -129,4 +132,18 @@ export const calls = pgTable('calls', {
   costLlm: real('cost_llm'),
   costTts: real('cost_tts'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+
+export const followUps = pgTable('follow_ups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  callId: uuid('call_id').notNull().references(() => calls.id),
+  contactId: uuid('contact_id').notNull().references(() => contacts.id),
+  clientId: uuid('client_id').notNull().references(() => clients.id),
+  requestedCallbackTime: timestamp('requested_callback_time'),
+  assignedTo: uuid('assigned_to').references(() => users.id),
+  status: followUpStatusEnum('status').notNull().default('open'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
