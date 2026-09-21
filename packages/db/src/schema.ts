@@ -29,6 +29,9 @@ export const sentimentEnum = pgEnum('sentiment', ['positive', 'neutral', 'negati
 //folloups
 export const followUpStatusEnum = pgEnum('follow_up_status', ['open', 'done', 'not_needed']);
 
+//knowledgebase
+export const kbEntryTypeEnum = pgEnum('kb_entry_type', ['faq', 'course_info', 'fee', 'deadline', 'policy', 'document']);
+
 
 
 export const clients = pgTable('clients', {
@@ -118,7 +121,7 @@ export const calls = pgTable('calls', {
   endedAt: timestamp('ended_at'),
   durationSeconds: integer('duration_seconds'),
   outcome: callOutcomeEnum('outcome').notNull(),
-  isBillable: boolean('is_billable').notNull().default(false), /////////////////////
+  isBillable: boolean('is_billable').notNull().default(true), 
   creditsCharged: integer('credits_charged').notNull().default(0), // duration in 10-sec units, ceild
   recordingUrl: text('recording_url'),
   transcript: jsonb('transcript'), // array of { speaker: 'ai' | 'parent', text, timestamp }
@@ -156,4 +159,17 @@ export const auditLog = pgTable('audit_log', {
   action: text('action').notNull(),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+
+export const knowledgeBaseEntries = pgTable('knowledge_base_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull().references(() => clients.id),
+  type: kbEntryTypeEnum('type').notNull(),
+  question: text('question'),
+  content: text('content').notNull(),
+  version: integer('version').notNull().default(1),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
