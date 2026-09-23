@@ -1,31 +1,35 @@
 import "dotenv/config";
 import express from "express";
-import Twilio from "twilio";
+import plivo from "plivo";
 
 const app = express();
-const client = Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-const PUBLIC_URL = "https://shavonda-perkier-ruminantly.ngrok-free.dev";
+const plivoClient = new plivo.Client(
+  process.env.PLIVO_AUTH_ID!,
+  process.env.PLIVO_AUTH_TOKEN!
+);
 
-app.post("/voice", (req, res) => {
+const PUBLIC_URL = "https://shavonda-perkier-ruminantly.ngrok-free.dev"; // update if your ngrok URL changed
+
+app.post("/plivo-voice", (req, res) => {
   res.type("text/xml");
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
     <Response>
-      <Say>test calling</Say>
+      <Speak>Hello, this is a test call from the calling service, using Plivo.</Speak>
     </Response>`);
 });
 
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  makeTestCall(); // trigger the call once the server is actually listening
+  makePlivoTestCall();
 });
 
-async function makeTestCall() {
-  const call = await client.calls.create({
-    to: process.env.MY_TEST_PHONE_NUMBER!,
-    from: process.env.TWILIO_PHONE_NUMBER!,
-    url: `${PUBLIC_URL}/voice`,
-  });
-  console.log("Call initiated", call.sid);
+async function makePlivoTestCall() {
+  const call = await plivoClient.calls.create(
+    process.env.PLIVO_PHONE_NUMBER!,
+    process.env.MY_TEST_PHONE_NUMBER!,
+    `${PUBLIC_URL}/plivo-voice`
+  );
+  console.log("Plivo call initiated:", call);
 }
