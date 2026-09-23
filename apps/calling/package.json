@@ -1,0 +1,23 @@
+{
+  "name": "@repo/calling",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b"
+  },
+  "type": "module",
+  "dependencies": {
+    "twilio": "^5.x",
+    "express": "^4.x",
+    "dotenv": "^17.x"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.x",
+    "@types/express": "^4.x",
+    "typescript": "^7.0.2",
+    "tsx": "^4.x"
+  }
+}
