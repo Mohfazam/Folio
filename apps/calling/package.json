@@ -9,16 +9,20 @@
   },
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@google/genai": "^2.24.0",
     "@types/cors": "^2.8.19",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.3",
-    "plivo": "^4.79.0"
+    "plivo": "^4.79.0",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/express": "^4.17.25",
     "@types/node": "^22.15.3",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }
