@@ -13,5 +13,6 @@ export const env = {
   myTestPhoneNumber: required("MY_TEST_PHONE_NUMBER"),
   sarvamApiKey: required("SARVAM_API_KEY"),
   claudeApiKey: required("ANTHROPIC_API_KEY"),
+  geminiApiKey: required("GEMINI_API_KEY"),
   publicUrl: required("PUBLIC_URL"), // your current ngrok URL
 };
