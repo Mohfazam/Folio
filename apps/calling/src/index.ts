@@ -15,7 +15,7 @@ app.post("/plivo-voice", (req, res) => {
   res.type("text/xml");
   res.send(`<?xml version="1.0" encoding="UTF-8"?>
     <Response>
-      <Speak>Hello, this is a test call from the calling service, using Plivo.</Speak>
+      <Speak>Hello test call from folio ai</Speak>
     </Response>`);
 });
 
