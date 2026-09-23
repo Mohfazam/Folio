@@ -41,6 +41,9 @@ importers:
       plivo:
         specifier: ^4.79.0
         version: 4.79.0
+      sarvamai:
+        specifier: ^1.1.10
+        version: 1.1.10
       ws:
         specifier: ^8.21.3
         version: 8.21.3
@@ -2624,6 +2627,10 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+
+  sarvamai@1.1.10:
+    resolution: {integrity: sha512-nynAdGimSfVT6gP1N2HoRBmHdaymzJhrFSL1Q0MOWH3LPikVtss3Cu+LAKXs1fnIHJ+MouU5qlLXiLyDP/z4eQ==}
+    engines: {node: '>=18.0.0'}
 
   sax@1.6.1:
     resolution: {integrity: sha512-42tBVwLWnaQvW5zc4HbZrTuWccECCZfBi92FDuwtqxasH+JbPB3/FOKb1m222K42R4WxuxzzMsTswfzgtSu64Q==}
@@ -5233,6 +5240,13 @@ snapshots:
       is-regex: 1.2.1
 
   safer-buffer@2.1.2: {}
+
+  sarvamai@1.1.10:
+    dependencies:
+      ws: 8.21.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   sax@1.6.1: {}
 

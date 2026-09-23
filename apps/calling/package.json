@@ -16,6 +16,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.22.3",
     "plivo": "^4.79.0",
+    "sarvamai": "^1.1.10",
     "ws": "^8.21.3"
   },
   "devDependencies": {
