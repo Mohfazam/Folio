@@ -1,42 +1,62 @@
 # Phase 0 — Project Setup 🟢 Locked in
 
 ## Decisions locked in
- 
+
 | Area | Choice | Notes |
 |---|---|---|
 | Language | Node.js + TypeScript, across all apps | Chosen for consistency across the repo — one language, one person/small team |
-| Backend framework | Express or Fastify (pick one when scaffolding `/backend`) | Not yet finalized which of the two — both are fine choices |
-| Package manager | **pnpm** | Chosen over Bun for maturity/compatibility with Turborepo tooling and documentation; boring-but-safe choice given the real engineering risk sits in the calling pipeline, not package management |
-| Monorepo tool | **Turborepo** | Task caching + orchestration across apps |
-| Orchestration layer (calling pipeline) | **LiveKit Agents** (confirmed, replaces Pipecat) | Pipecat is Python-native; LiveKit Agents has a genuine Node/TS SDK, keeping the whole repo in one language. Does the same job: real-time STT→LLM→TTS orchestration, turn-taking, interruption handling. This decision belongs to Phase 2 but is confirmed here since it directly shaped the "all Node/TS" call in Phase 0 |
-| Hosting | **Vercel** (frontend) + **Render** (calling service) | Vercel is serverless/short-execution — incompatible with the calling pipeline's need for long-lived, persistent connections during a call. Render (or AWS) hosts `/calling`. Backend API (`/backend`) can likely stay on Vercel if it's simple request/response, or move to Render alongside `/calling` — decide once `/backend`'s responsibilities are clearer |
-| Database | Postgres | Hosting provider TBD (Render/AWS both offer managed Postgres) |
+| Backend framework | Express or Fastify (pick one when scaffolding `/backend`) | The repo currently uses Express in the calling service; a dedicated backend app is still not fully scaffolded |
+| Package manager | **pnpm** | Confirmed and in use |
+| Monorepo tool | **Turborepo** | Confirmed and in use |
+| Orchestration layer (calling pipeline) | **LiveKit Agents** (confirmed, replaces Pipecat) | Still the intended direction; currently the project has a early custom orchestration skeleton rather than full LiveKit integration |
+| Hosting | **Vercel** (frontend) + **Render** (calling service) | Still the intended deployment model; not yet fully implemented |
+| Database | Postgres | Schema is designed and tracked via Drizzle migrations |
 
 ## Repo structure
 
-```
+```text
 /apps
-  /frontend      → dashboard (Next.js or similar), deployed on Vercel
-  /backend       → core API (auth, clients, contacts, calls, dashboard data), Node/TS
-  /calling       → calling pipeline service (LiveKit Agents + Plivo + Sarvam + Claude), Node/TS, deployed on Render
+  /web           → frontend dashboard app
+  /docs          → documentation app
+  /calling       → calling pipeline service (Plivo + Sarvam + Claude/Gemini), Node/TS
 /packages
-  (shared types, DB client/schema, utils — to be defined once schema exists)
+  /db            → database schema and migration setup
+  /ui            → shared UI primitives
+  /documents     → project planning and progress docs
 ```
 
-Each app is a separate deployable unit; Turborepo ties them together for shared tooling, caching, and any shared packages (e.g. database types, shared validation logic).
+This structure matches the original Phase 0 idea, though the repo currently has a `web` app and `docs` app rather than a separate `frontend` app due to the template scaffold.
 
-## Open items to resolve before/while scaffolding
+## Current implementation status
 
-- Express vs Fastify for `/backend`
-- Whether `/backend` and `/calling` end up on the same host (Render) or split (Vercel + Render) — revisit once `/backend`'s actual responsibilities are clearer
-- Postgres hosting provider — Render's managed Postgres vs AWS RDS vs another option
-- Whether `/calling` needs its own separate repo access to the database, or only talks to `/backend` via internal API (recommended: keep `/calling` focused on the call itself, have it report results back to `/backend`, rather than both touching the DB directly — avoids duplicated data-access logic)
+This project has already moved beyond raw planning. The repo has:
 
-## Immediate next steps
+- the Turborepo scaffold
+- TypeScript app configuration
+- a calling service with Express and route setup
+- environment variables for the key API providers
+- database schema definitions and migration files
+- initial STT/TTS/LLM integration hooks
 
-1. `pnpm dlx create-turbo@latest` — scaffold the Turborepo
-2. Set up `pnpm-workspace.yaml` and top-level `turbo.json`
-3. Scaffold `/apps/backend`, `/apps/frontend`, `/apps/calling` as empty apps
-4. Set up `.env` handling per app (Plivo, Sarvam, Claude keys — never committed, `.env.example` checked in instead)
-5. Confirm Express vs Fastify, scaffold `/backend`'s basic server
-6. Move to Phase 1 (schema design) once repo skeleton is in place
+What remains incomplete is the actual production workflow: the full call loop, database-backed call lifecycle, queue automation, and production dashboard.
+
+## Open items still relevant
+
+- Express vs Fastify for `/backend` remains a design decision to settle when the backend app is added
+- Postgres hosting provider is still not finalized
+- Whether `/calling` should directly access the database or only report to a backend API remains a product decision
+- Real payload validation against live Sarvam and Plivo APIs is still pending
+
+## Current next steps
+
+1. Verify live Plivo streaming contract and media WebSocket bridge
+2. Test real Sarvam STT/TTS payload formats against live responses
+3. Connect the calling loop to a stable call state + transcript persistence flow
+4. Build the first real backend API and dashboard screens
+5. Add queue automation and follow-up logic after the conversation loop is fixed
+
+## Updated project assessment
+
+The repo is a real technical foundation, not just a plan. It is now in the prototype stage rather than pure setup. The project plan remains valid, but the implementation reality is: setup and schema are mostly done, while call orchestration and automation are still the main engineering gap.
+
+See [Build Phases.md](./Build%20Phases.md) and [Project Status Update.md](./Project%20Status%20Update.md) for the up-to-date phase and implementation status.
