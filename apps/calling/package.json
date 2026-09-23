@@ -9,6 +9,8 @@
   },
   "type": "module",
   "dependencies": {
+    "@types/cors": "^2.8.19",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^4.22.3",
     "plivo": "^4.79.0"
