@@ -1,5 +1,5 @@
-﻿import { plivoClient } from "./client";
-import { env } from "../../config/env";
+﻿import { plivoClient } from "./client.js";
+import { env } from "../../config/env.js";
 
 export async function dialTestCall() {
   const call = await plivoClient.calls.create(

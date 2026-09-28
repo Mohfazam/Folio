@@ -1,16 +1,15 @@
+import { createServer } from "node:http";
 import express from "express";
-import { plivoVoiceRoute } from "./routes/plivo-voice";
-import cors from "cors"
+import { registerRoutes } from "./routes/index.js";
+import { attachMediaStream } from "./routes/media-stream.js";
 
 export function startServer() {
   const app = express();
-  app.use(cors());
-  app.use(express.json());
+  registerRoutes(app);
 
-  app.post("/plivo-voice", plivoVoiceRoute);
+  const server = createServer(app);
+  attachMediaStream(server);
 
   const PORT = 3000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }

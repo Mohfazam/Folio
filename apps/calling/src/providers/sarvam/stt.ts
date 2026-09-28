@@ -1,32 +1,65 @@
-﻿import WebSocket from "ws";
-import { env } from "../../config/env";
+﻿import { SarvamAIClient } from "sarvamai";
+import { env } from "../../config/env.js";
 
-// Opens a connection to Sarvam's realtime STT endpoint.
-// onTranscript fires every time Sarvam sends back recognized text.
-export function connectSarvamSTT(onTranscript: (text: string) => void): WebSocket {
-  const url = "wss://api.sarvam.ai/speech-to-text/transcribe/realtime/ws?language-code=auto";
+const sarvam = new SarvamAIClient({ apiSubscriptionKey: env.sarvamApiKey });
 
-  const ws = new WebSocket(url, {
-    headers: { "API-SUBSCRIPTION-KEY": env.sarvamApiKey },
-  });
-
-  ws.on("open", () => console.log("Sarvam STT connected"));
-
-  ws.on("message", (data) => {
-    const parsed = JSON.parse(data.toString());
-    // TODO: confirm exact response shape from Sarvam docs once testing starts
-    if (parsed?.transcript) onTranscript(parsed.transcript);
-  });
-
-  ws.on("error", (err) => console.error("Sarvam STT error:", err));
-  ws.on("close", () => console.log("Sarvam STT connection closed"));
-
-  return ws;
+export interface SttHandlers {
+  onSpeechStart?: () => void;
+  onPartial?: (text: string) => void;
+  onFinal: (text: string, language?: string) => void;
+  onError?: (message: string) => void;
 }
 
-// Forward a chunk of audio (from Plivo) into the open Sarvam connection
-export function sendAudioChunk(ws: WebSocket, audioChunk: Buffer) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(audioChunk);
-  }
+export interface SttSession {
+  sendAudio: (mulawChunk: Buffer) => void;
+  close: () => void;
+}
+
+// Opens ONE realtime STT connection for ONE call.
+// Sarvam's own voice-activity detection decides when the caller's turn ends:
+// that moment arrives as a "transcript.final" message.
+export async function openSttSession(handlers: SttHandlers): Promise<SttSession> {
+  const socket = await sarvam.speechToTextRealtimeStreaming.connect({
+    language_code: "auto",
+    model: "saaras:v3-realtime",
+    encoding: "mulaw",
+    sample_rate: "8000",
+    endpointing: "vad",
+    "Api-Subscription-Key": env.sarvamApiKey,
+  });
+
+  socket.on("message", (msg) => {
+    switch (msg.event) {
+      case "vad.speech_start":
+        handlers.onSpeechStart?.();
+        break;
+      case "transcript.partial":
+        handlers.onPartial?.(msg.text);
+        break;
+      case "transcript.final":
+        handlers.onFinal(msg.text, msg.language);
+        break;
+      case "error":
+        handlers.onError?.(`${msg.code}: ${msg.message}`);
+        break;
+      default:
+        break;
+    }
+  });
+
+  socket.on("error", (err) => handlers.onError?.(err.message));
+
+  // NOTE: do NOT call socket.connect() here. The SDK already opens the connection.
+  await socket.waitForOpen();
+
+  return {
+    sendAudio: (chunk) => {
+      if (socket.readyState !== 1) return; // 1 = OPEN
+      socket.sendRealtimeAudioInput({
+        event: "audio_input",
+        audio: chunk.toString("base64"),
+      });
+    },
+    close: () => socket.close(),
+  };
 }

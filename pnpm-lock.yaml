@@ -22,7 +22,7 @@ importers:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.128.0
-        version: 0.128.0
+        version: 0.128.0(zod@4.6.5)
       '@google/genai':
         specifier: ^2.24.0
         version: 2.24.0
@@ -41,6 +41,9 @@ importers:
       plivo:
         specifier: ^4.79.0
         version: 4.79.0
+      plivo-stream-sdk-node:
+        specifier: ^1.0.0
+        version: 1.0.0(typescript@7.0.2)
       sarvamai:
         specifier: ^1.1.10
         version: 1.1.10
@@ -2497,6 +2500,11 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
+  plivo-stream-sdk-node@1.0.0:
+    resolution: {integrity: sha512-6pM7AxU7sBm8ocu96TJaLlVMS+RObxcTR6AfmbV187TKCyKg7DoUVa6RWtvRqFDCCDaBsat5CdgMqQwp9rv/NQ==}
+    peerDependencies:
+      typescript: ^5
+
   plivo@4.79.0:
     resolution: {integrity: sha512-u4plBNTNt41YeogUjBh+5W0Wuf8TFI5YEsQg/Iss567v4ZfSSVL9OG0MmsXeijPGn2Mg9GXZZShDdbiZVTHi7w==}
 
@@ -2966,12 +2974,17 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
+  zod@4.6.5:
+    resolution: {integrity: sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q==}
+
 snapshots:
 
-  '@anthropic-ai/sdk@0.128.0':
+  '@anthropic-ai/sdk@0.128.0(zod@4.6.5)':
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.1.1
+    optionalDependencies:
+      zod: 4.6.5
 
   '@babel/runtime@7.29.7': {}
 
@@ -5062,6 +5075,18 @@ snapshots:
 
   picomatch@4.0.3: {}
 
+  plivo-stream-sdk-node@1.0.0(typescript@7.0.2):
+    dependencies:
+      plivo: 4.79.0
+      typescript: 7.0.2
+      ws: 8.21.3
+      zod: 4.6.5
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - supports-color
+      - utf-8-validate
+
   plivo@4.79.0:
     dependencies:
       '@types/node': 14.18.63
@@ -5695,3 +5720,5 @@ snapshots:
   xmlbuilder@9.0.7: {}
 
   yocto-queue@0.1.0: {}
+
+  zod@4.6.5: {}
