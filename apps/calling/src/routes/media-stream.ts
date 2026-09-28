@@ -1,6 +1,5 @@
 ﻿import type { Server } from "node:http";
 import PlivoWebSocketServer from "plivo-stream-sdk-node";
-import { MEDIA_STREAM_PATH } from "../config/paths.js";
 import {
   createConversationSession,
   type ConversationSession,
@@ -11,7 +10,7 @@ export function attachMediaStream(server: Server) {
   // one ConversationSession per live call, keyed by that call's websocket
   const sessions = new WeakMap<object, ConversationSession>();
 
-  new PlivoWebSocketServer({ server, path: MEDIA_STREAM_PATH })
+  new PlivoWebSocketServer({ server, path: "/media-stream" })
     .onStart((event, ws) => {
       const { callId, mediaFormat } = event.start;
       console.log(`[call ${callId.slice(0, 8)}] stream started`, mediaFormat);
