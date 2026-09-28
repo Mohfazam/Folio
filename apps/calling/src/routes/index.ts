@@ -4,5 +4,5 @@ import { plivoVoiceRoute } from "./plivo-voice.js";
 
 // Every normal HTTP route is registered here, in one place.
 export function registerRoutes(app: Express) {
-  app.post(PLIVO_ANSWER_PATH, plivoVoiceRoute);
+  app.post("/plivo-voice", plivoVoiceRoute);
 }
