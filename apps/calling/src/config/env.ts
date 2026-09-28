@@ -1,9 +1,9 @@
-﻿import "dotenv/config";
+import "dotenv/config";
 
 function required(key: string): string {
   const value = process.env[key];
   if (!value) throw new Error(`Missing required env var: ${key}`);
-  return value;
+  return value.trim();
 }
 
 export const env = {
