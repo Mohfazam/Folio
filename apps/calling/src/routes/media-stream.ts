@@ -1,4 +1,4 @@
-﻿import type { Server } from "node:http";
+import type { Server } from "node:http";
 import PlivoWebSocketServer from "plivo-stream-sdk-node";
 import {
   createConversationSession,
@@ -10,11 +10,27 @@ export function attachMediaStream(server: Server) {
   // one ConversationSession per live call, keyed by that call's websocket
   const sessions = new WeakMap<object, ConversationSession>();
 
-  new PlivoWebSocketServer({ server, path: "/media-stream" })
+  const plivoServer = new PlivoWebSocketServer({ server, path: "/media-stream" });
+
+  plivoServer
     .onStart((event, ws) => {
       const { callId, mediaFormat } = event.start;
       console.log(`[call ${callId.slice(0, 8)}] stream started`, mediaFormat);
-      sessions.set(ws, createConversationSession(callId));
+
+      const session = createConversationSession(callId, {
+        playAudio: (mulawChunk) => {
+          plivoServer.playAudio(ws, "audio/x-mulaw", 8000, mulawChunk);
+        },
+        clearAudio: () => {
+          try {
+            plivoServer.clearAudio(ws);
+          } catch (err: any) {
+            console.warn(`[call ${callId.slice(0, 8)}] clearAudio warning:`, err?.message ?? err);
+          }
+        },
+      });
+
+      sessions.set(ws, session);
     })
     .onMedia((event, ws) => {
       sessions.get(ws)?.handleAudio(event.getRawMedia());
