@@ -1,7 +1,10 @@
-﻿import { SarvamAIClient } from "sarvamai";
+import { SarvamAIClient } from "sarvamai";
 import { env } from "../../config/env.js";
 
-const sarvam = new SarvamAIClient({ apiSubscriptionKey: env.sarvamApiKey });
+delete (globalThis as any).WebSocket;
+
+const KEY = env.sarvamApiKey;
+const sarvam = new SarvamAIClient({ apiSubscriptionKey: KEY });
 
 export interface SttHandlers {
   onSpeechStart?: () => void;
@@ -19,28 +22,35 @@ export interface SttSession {
 // Sarvam's own voice-activity detection decides when the caller's turn ends:
 // that moment arrives as a "transcript.final" message.
 export async function openSttSession(handlers: SttHandlers): Promise<SttSession> {
+  console.log(`[stt.ts] openSttSession: connecting with key ${KEY.slice(0, 8)}...${KEY.slice(-4)}`);
   const socket = await sarvam.speechToTextRealtimeStreaming.connect({
     language_code: "auto",
     model: "saaras:v3-realtime",
     encoding: "mulaw",
     sample_rate: "8000",
     endpointing: "vad",
-    "Api-Subscription-Key": env.sarvamApiKey,
+    "Api-Subscription-Key": KEY,
+    debug: false,
   });
 
   socket.on("message", (msg) => {
-    switch (msg.event) {
+    console.log(`[stt.ts] raw message:`, JSON.stringify(msg));
+    switch ((msg as any).event) {
+      case "session.begin":
+        console.log(`[stt.ts] ✅ session.begin received — key accepted!`);
+        break;
       case "vad.speech_start":
         handlers.onSpeechStart?.();
         break;
       case "transcript.partial":
-        handlers.onPartial?.(msg.text);
+        handlers.onPartial?.((msg as any).text);
         break;
       case "transcript.final":
-        handlers.onFinal(msg.text, msg.language);
+        handlers.onFinal((msg as any).text, (msg as any).language);
         break;
       case "error":
-        handlers.onError?.(`${msg.code}: ${msg.message}`);
+        console.error(`[stt.ts] ❌ Sarvam error event:`, JSON.stringify(msg));
+        handlers.onError?.(`${(msg as any).code}: ${(msg as any).message}`);
         break;
       default:
         break;
