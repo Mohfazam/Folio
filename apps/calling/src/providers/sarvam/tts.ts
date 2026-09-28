@@ -1,30 +1,43 @@
-﻿import WebSocket from "ws";
-import { env } from "../../config/env";
+﻿import { SarvamAIClient } from "sarvamai";
+import { env } from "../../config/env.js";
 
-// Opens a connection to Sarvam's TTS endpoint.
-// onAudioChunk fires every time Sarvam sends back a piece of generated speech.
-export function connectSarvamTTS(onAudioChunk: (chunk: Buffer) => void): WebSocket {
-  const url = "wss://api.sarvam.ai/text-to-speech/ws?model=bulbul:v2";
+const sarvam = new SarvamAIClient({ apiSubscriptionKey: env.sarvamApiKey });
 
-  const ws = new WebSocket(url, {
-    headers: { "API-SUBSCRIPTION-KEY": env.sarvamApiKey },
-  });
+export type TtsSocket = {
+  sendText: (text: string) => Promise<void> | void;
+  close?: () => void;
+};
 
-  ws.on("open", () => console.log("Sarvam TTS connected"));
+// Uses the official SDK instead of a raw WebSocket so the same API key is used
+// consistently across the app. The returned object keeps the old call-site API
+// shape (`sendTextToSpeak(ttsSocket, text)`) while delegating to the SDK.
+export function connectSarvamTTS(onAudioChunk: (chunk: Buffer) => void): TtsSocket {
+  return {
+    async sendText(text: string) {
+      const response = await sarvam.textToSpeech.convert({
+        text,
+        model: "bulbul:v3",
+        language_code: "en-IN",
+        speaker: "anushka",
+      });
 
-  ws.on("message", (data) => {
-    // TODO: confirm exact response shape (likely base64 audio chunks) once testing starts
-    onAudioChunk(data as Buffer);
-  });
+      const audioBase64 = response.audios[0];
+      if (!audioBase64) {
+        throw new Error("No audio returned from Sarvam TTS");
+      }
 
-  ws.on("error", (err) => console.error("Sarvam TTS error:", err));
-  ws.on("close", () => console.log("Sarvam TTS connection closed"));
-
-  return ws;
+      onAudioChunk(Buffer.from(audioBase64, "base64"));
+    },
+    close() {
+      // No persistent socket to close; the SDK call is one-shot.
+    },
+  };
 }
 
-export function sendTextToSpeak(ws: WebSocket, text: string) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ text }));
+export function sendTextToSpeak(ws: TtsSocket | null | undefined, text: string) {
+  if (!ws || typeof ws.sendText !== "function") {
+    return;
   }
+
+  return ws.sendText(text);
 }
