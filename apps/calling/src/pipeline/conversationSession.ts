@@ -1,6 +1,6 @@
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
-import { generateReply } from "../providers/claude/generateReply.js";
-import { convertTextToSpeech } from "../providers/sarvam/tts.js";
+import { generateReplyStream } from "../providers/claude/generateReply.js";
+import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 
 export interface SessionCallbacks {
   playAudio: (mulawChunk: Buffer) => void;
@@ -28,6 +28,7 @@ export function createConversationSession(
   let stt: SttSession | null = null;
   let closed = false;
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
+  let activeTurn: AbortController | null = null;
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
@@ -59,36 +60,50 @@ export function createConversationSession(
     if (!trimmed) return;
 
     const currentGen = ++generationId;
+    const controller = new AbortController();
+    activeTurn = controller;
     console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? "auto"})`);
     history.push({ role: "user", content: trimmed });
 
+    let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
     try {
-      console.log(`${tag} 🧠 Thinking with Gemini...`);
-      const reply = await generateReply(history);
+      const pendingSentences: string[] = [];
+      const ttsPromise = openSarvamTtsStream((audioChunk) => {
+        if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
+      }, {
+        speaker: "priya",
+        languageCode: language?.startsWith("hi") ? "hi-IN" : "en-IN",
+        signal: controller.signal,
+      });
 
-      if (closed || generationId !== currentGen) {
-        console.log(`${tag} 🛑 Turn ${currentGen} cancelled due to interruption`);
-        return;
-      }
+      console.log(`${tag} 🧠 Streaming Gemini reply...`);
+      const replyPromise = generateReplyStream(history, (sentence) => {
+        if (closed || generationId !== currentGen) return;
+        if (tts) tts.sendText(sentence);
+        else pendingSentences.push(sentence);
+      }, controller.signal);
+      void replyPromise.catch(() => {});
+
+      tts = await ttsPromise;
+      for (const sentence of pendingSentences) tts.sendText(sentence);
+      const reply = await replyPromise;
+
+      if (closed || generationId !== currentGen) return;
+
+      await tts.finish();
+      if (closed || generationId !== currentGen) return;
 
       console.log(`${tag} 🤖 AI: "${reply}"`);
       history.push({ role: "assistant", content: reply });
-
-      console.log(`${tag} 🎙️ Synthesizing speech with Sarvam TTS...`);
-      const audioBuffer = await convertTextToSpeech(reply, {
-        speaker: "priya",
-        languageCode: language?.startsWith("hi") ? "hi-IN" : "en-IN",
-      });
-
-      if (closed || generationId !== currentGen) {
-        console.log(`${tag} 🛑 Audio cancelled due to interruption`);
-        return;
-      }
-
-      console.log(`${tag} 🔊 Sending audio to caller (${audioBuffer.length} bytes)`);
-      callbacks.playAudio(audioBuffer);
     } catch (err: any) {
-      console.error(`${tag} Pipeline error:`, err?.message ?? err);
+      const wasAborted = controller.signal.aborted;
+      controller.abort();
+      if (!wasAborted) {
+        console.error(`${tag} Pipeline error:`, err?.message ?? err);
+      }
+    } finally {
+      tts?.close();
+      if (activeTurn === controller) activeTurn = null;
     }
   }
 
@@ -98,6 +113,7 @@ export function createConversationSession(
       console.log(`${tag} ⚡ Caller started speaking (barge-in)`);
       // Interrupt any current AI speech immediately
       generationId++;
+      activeTurn?.abort();
       callbacks.clearAudio();
     },
     onPartial: (text) => {
@@ -138,6 +154,7 @@ export function createConversationSession(
     close() {
       closed = true;
       generationId++;
+      activeTurn?.abort();
       callbacks.clearAudio();
       stt?.close();
       console.log(`${tag} session closed`);
