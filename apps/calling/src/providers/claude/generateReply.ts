@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+﻿import { GoogleGenAI } from "@google/genai";
 import { env } from "../../config/env";
 
 const genAI = new GoogleGenAI({ apiKey: env.geminiApiKey });
@@ -17,7 +17,7 @@ export async function generateReply(conversationHistory: { role: "user" | "assis
   }));
 
   const response = await genAI.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-3.5-flash-lite",
     contents,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
