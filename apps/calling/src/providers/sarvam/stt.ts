@@ -22,7 +22,6 @@ export interface SttSession {
 // Sarvam's own voice-activity detection decides when the caller's turn ends:
 // that moment arrives as a "transcript.final" message.
 export async function openSttSession(handlers: SttHandlers): Promise<SttSession> {
-  console.log(`[stt.ts] openSttSession: connecting with key ${KEY.slice(0, 8)}...${KEY.slice(-4)}`);
   const socket = await sarvam.speechToTextRealtimeStreaming.connect({
     language_code: "auto",
     model: "saaras:v3-realtime",
@@ -35,7 +34,6 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
   });
 
   socket.on("message", (msg) => {
-    console.log(`[stt.ts] raw message:`, JSON.stringify(msg));
     switch ((msg as any).event) {
       case "session.begin":
         console.log(`[stt.ts] ✅ session.begin received — key accepted!`);

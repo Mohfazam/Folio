@@ -1,3 +1,4 @@
+import { performance } from "node:perf_hooks";
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/claude/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
@@ -61,6 +62,7 @@ export function createConversationSession(
 
     const currentGen = ++generationId;
     const controller = new AbortController();
+    const turnStartedAt = performance.now();
     activeTurn = controller;
     console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? "auto"})`);
     history.push({ role: "user", content: trimmed });
@@ -68,7 +70,13 @@ export function createConversationSession(
     let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
     try {
       const pendingSentences: string[] = [];
+      let firstSentenceLogged = false;
+      let firstAudioLogged = false;
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
+        if (!firstAudioLogged) {
+          firstAudioLogged = true;
+          console.log(`${tag} ⏱️ First audio: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+        }
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
         speaker: "priya",
@@ -79,12 +87,17 @@ export function createConversationSession(
       console.log(`${tag} 🧠 Streaming Gemini reply...`);
       const replyPromise = generateReplyStream(history, (sentence) => {
         if (closed || generationId !== currentGen) return;
+        if (!firstSentenceLogged) {
+          firstSentenceLogged = true;
+          console.log(`${tag} ⏱️ First sentence: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+        }
         if (tts) tts.sendText(sentence);
         else pendingSentences.push(sentence);
       }, controller.signal);
       void replyPromise.catch(() => {});
 
       tts = await ttsPromise;
+      console.log(`${tag} ⏱️ TTS ready: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
       for (const sentence of pendingSentences) tts.sendText(sentence);
       const reply = await replyPromise;
 
@@ -117,7 +130,7 @@ export function createConversationSession(
       callbacks.clearAudio();
     },
     onPartial: (text) => {
-      if (text?.trim()) {
+      if (text?.trim() && process.env.NODE_ENV !== "production") {
         console.log(`${tag} ... ${text.trim()}`);
       }
     },

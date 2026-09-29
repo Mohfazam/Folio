@@ -19,7 +19,7 @@ export async function convertTextToSpeech(
     text,
     model: "bulbul:v3",
     language_code: (options?.languageCode as any) ?? "en-IN",
-    speaker: (options?.speaker as any) ?? "priya",
+    speaker: "ritu",
     output_audio_codec: "mulaw",
     speech_sample_rate: 8000,
   });
@@ -51,6 +51,7 @@ export async function openSarvamTtsStream(
   let rejectCompletion!: (error: Error) => void;
   let completed = false;
   let finishCalled = false;
+  let pendingFlushes = 0;
   const completion = new Promise<void>((resolve, reject) => {
     resolveCompletion = resolve;
     rejectCompletion = reject;
@@ -67,8 +68,11 @@ export async function openSarvamTtsStream(
     if (message.type === "audio") {
       onAudioChunk(Buffer.from(message.data.audio, "base64"));
     } else if (message.type === "event" && message.data.event_type === "final") {
-      completed = true;
-      resolveCompletion();
+      pendingFlushes = Math.max(0, pendingFlushes - 1);
+      if (finishCalled && pendingFlushes === 0) {
+        completed = true;
+        resolveCompletion();
+      }
     } else if (message.type === "error") {
       fail(new Error(message.data.message));
     }
@@ -100,12 +104,24 @@ export async function openSarvamTtsStream(
 
   return {
     sendText(text) {
-      if (!completed && !options?.signal?.aborted) socket.convert(text);
+      if (completed || options?.signal?.aborted) return;
+      pendingFlushes++;
+      try {
+        socket.convert(text);
+        socket.flush();
+      } catch (error) {
+        pendingFlushes--;
+        fail(error instanceof Error ? error : new Error(String(error)));
+        throw error;
+      }
     },
     async finish() {
-      if (!finishCalled && !completed) {
+      if (!finishCalled) {
         finishCalled = true;
-        socket.flush();
+        if (pendingFlushes === 0 && !completed) {
+          completed = true;
+          resolveCompletion();
+        }
       }
       await completion;
     },
