@@ -1,12 +1,12 @@
 # Project Status Update
 
-Last updated: 2026-09-24
+Last updated: 2026-10-01
 
 ## Summary
 
-This project has moved past the initial planning and scaffolding stage. The repo is structured as a Turborepo with a calling service, web app, docs app, and a shared database package. The core architecture and schema are defined, and the calling service has the first provider integrations wired in.
+The project has moved beyond starter scaffolding and now has a clearer prototype architecture for an AI-powered calling system. The workspace contains a Turborepo setup with a `calling` service, `web` app, `docs` app, and a shared database package. The data model is well defined, and the calling service includes the first working wiring for Plivo call initiation plus provider-level integrations for speech-to-text, text-to-speech, and LLM reply generation.
 
-However, the project is not yet a complete end-to-end product. The live calling pipeline is still partially implemented, the database is designed but not yet fully integrated into runtime workflows, and the dashboard/front-end is still mostly a starter template.
+At the same time, the product is still not yet an end-to-end operational system. The live call flow is not fully connected, the database layer still needs runtime validation and execution against a real Postgres instance, and the frontend remains a starter shell rather than a business-facing control center.
 
 ## Current implementation status
 
@@ -14,98 +14,101 @@ However, the project is not yet a complete end-to-end product. The live calling 
 Status: Completed / largely complete
 
 Done:
-- Turbo monorepo initialized
-- Root workspace and package configuration present
-- app structure created for `web`, `docs`, and `calling`
-- TypeScript config and package setup in place
-- environment variable handling added for core providers
+- Turbo monorepo initialized and working as a multi-app workspace
+- Root package, workspace, and TypeScript configuration are in place
+- App split exists for `web`, `docs`, and `calling`
+- Shared config packages and environment setup are present
+- Core provider env variables are defined for calling features
 
 Remaining:
-- final backend app decision and scaffolding
-- clearer deployment split between frontend and calling services
-- production-ready docs and environment examples
+- real deployment split between frontend and voice backend
+- project-specific documentation cleanup and environment examples
+- production-level repo hygiene and service ownership boundaries
 
 ### Database and schema
-Status: Mostly complete in design, partial in implementation
+Status: Mostly complete in design and implementation
 
 Done:
-- Postgres schema designed for core entities such as clients, users, contacts, calls, queue, upload batches, follow-ups, and knowledge base entries
-- enum definitions and table structure are defined in [packages/db/src/schema.ts](../db/src/schema.ts)
-- migrations exist for schema evolution and database tracking
+- Postgres schema covers clients, users, contacts, upload batches, call queue, calls, follow-ups, audit logs, and knowledge-base entries
+- Core enums and table definitions are present in [packages/db/src/schema.ts](../db/src/schema.ts)
+- Migration history exists and tracks schema evolution in the database package
+- The schema appears designed to support a real admissions/outreach workflow rather than a generic demo
 
 Remaining:
-- migration execution against a real database instance
-- runtime access layer and data layer for app usage
-- seed scripts and validation flows
+- real database migration execution against a live Postgres instance
+- runtime access layer and query patterns for app usage
+- seed scripts, validation, and integrity checks for production-style data flows
 
 ### Calling service
-Status: In progress / prototype stage
+Status: In progress / early functional prototype
 
 Done:
-- Express service boots and exposes a Plivo voice route
-- Plivo XML stream setup exists
-- env configuration is in place for Plivo, Sarvam, Gemini, and Anthropic
-- STT provider integration skeleton exists
-- TTS provider integration skeleton exists
-- LLM reply generation via Gemini exists
-- conversation orchestration skeleton exists
+- Express service boots and exposes the Plivo voice entrypoint
+- Plivo XML response generation is implemented for call setup
+- Voice route wiring is present in the calling app
+- Provider config is in place for Plivo, Sarvam, Gemini, and Anthropic
+- STT/TTS provider integrations have skeleton code and initial implementations
+- LLM reply generation exists for Gemini-based response flow
+- Conversation orchestration scaffolding exists for multi-step call handling
 
 Not fully complete:
-- real live call audio forwarding is not wired end-to-end
-- Plivo media stream and WebSocket bridge is not fully connected
-- TTS response handling still needs testing against actual live payloads
-- STT message parsing still needs validation against real Sarvam responses
-- conversation loop still needs production logic, buffering, interruption handling, and call lifecycle management
+- end-to-end live call audio forwarding is not fully verified
+- media stream and WebSocket bridge are not fully productionized
+- TTS output handling still needs live validation against real payloads
+- STT parsing still needs verification with actual Sarvam responses
+- turn-taking logic, interruption handling, buffering, and call lifecycle management are not complete
+- there is no confirmed full runtime path from a live inbound/outbound call to persisted transcript and result records
 
 ### Frontend / dashboard
 Status: Not started as a real product
 
 Done:
 - Next.js app scaffolding exists for `web` and `docs`
-- default Turborepo starter pages are present
+- default starter pages are present in both apps
 
 Remaining:
-- actual dashboard design
-- auth pages and protected routes
-- call list and detail views
-- transcript and recording playback UI
-- quota and usage tracking dashboard
+- actual customer dashboard and admin workflow design
+- auth, session, and protected route flow
+- call detail pages and transcript views
+- recording playback and analytics surfaces
+- quota, usage, and lead pipeline management UI
 
 ### Automation and business logic
-Status: Not started
+Status: Not started / design-only
 
 Pending:
-- contact upload parser and validation
-- call queue automation
-- retry logic, scheduling, and no-answer handling
-- follow-up and outcome-analysis systems
-- knowledge-base ingestion and RAG flow
+- contact upload parser and validation workflows
+- call queue automation and scheduling rules
+- retry, escalation, and no-answer handling
+- follow-up and outcome-analysis logic
+- knowledge-base ingestion and retrieval pipeline
+- business rules for admissions or outreach logic beyond generic call flow
 
 ## Phase completion estimate
 
 | Phase | Status | Estimate |
 |---|---|---:|
-| Phase 0 — Project setup | Mostly complete | 85–90% |
-| Phase 1 — Database & schema | Mostly designed and partially implemented | 70–80% |
-| Phase 2 — Core calling pipeline | Prototype stage | 25–35% |
-| Phase 3 — Data flow into the schema | Not started | 0–10% |
-| Phase 4 — Automation layer | Not started | 0–5% |
-| Phase 5 — Outcome intelligence | Not started | 0% |
+| Phase 0 — Project setup | Mostly complete | 90–95% |
+| Phase 1 — Database & schema | Mostly complete | 80–90% |
+| Phase 2 — Core calling pipeline | Early prototype | 35–45% |
+| Phase 3 — Data flow into the schema | Partial design only | 10–20% |
+| Phase 4 — Automation layer | Not started | 0–10% |
+| Phase 5 — Outcome intelligence | Not started | 0–5% |
 | Phase 6 — Dashboard | Not started | 0–10% |
 
-Overall project completion: approximately 20–30%.
+Overall project completion: approximately 25–35%.
 
 ## Recommended next milestones
 
-1. Finish the real call pipeline with a working Plivo audio stream and turn-taking loop.
-2. Validate STT and TTS responses against live Sarvam payloads.
-3. Integrate a stable call record and transcript persistence path into the database.
-4. Create a minimal backend API for queueing and call results.
-5. Build a real frontend dashboard for calls and usage.
-6. Add contact upload, queue automation, and follow-up logic next.
+1. Finish the live call path so Plivo media streaming and the voice session route are validated end-to-end.
+2. Test STT and TTS integrations against actual Sarvam payloads from a live or mocked call flow.
+3. Add a stable database persistence path for calls, transcripts, and outcomes.
+4. Create the first backend API layer for queueing, call status, and lead workflow updates.
+5. Build a minimal real dashboard for call summaries, status, and basic reporting.
+6. Add contact upload processing, lead automation, and follow-up handling after the call flow is stable.
 
 ## Final assessment
 
-The project has a strong foundation: the repo structure, app split, core schema, and initial provider integration work are in place. The main risk and remaining effort are not in setup, but in the actual calling pipeline and business workflow layers that connect the system into a usable product.
+The project now has a credible technical foundation: the monorepo, provider integration patterns, schema design, and voice-service skeleton are all in place. The biggest remaining effort is still not scaffolding or setup; it is the runtime reliability of the calling pipeline and the business workflows that make the system operational.
 
-This is a solid prototype foundation, but not yet a production-ready or end-to-end deployed solution.
+This remains a promising prototype and early implementation, but it is not yet a production-ready or end-to-end deployed product. The next major milestone is to turn the existing provider wiring into a verified live call flow with persisted outcomes.
