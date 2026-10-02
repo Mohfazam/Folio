@@ -9,6 +9,7 @@ import type {
   ProviderErrorRecord,
   RecordingMetadata,
 } from "../types/callTypes.js";
+import { compileSystemPrompt, type PromptContext } from "../prompts/compileSystemPrompt.js";
 
 /**
  * Per-call session state manager.
@@ -29,7 +30,9 @@ export class CallSessionState {
   readonly clientId: string;
   readonly phoneNumber: string;
   readonly language: string;
+  readonly campaignId?: string;
   readonly instructions?: string;
+  readonly context?: PromptContext;
 
   // ── Plivo ─────────────────────────────────────────────────────
   plivoCallId = "";
@@ -67,9 +70,20 @@ export class CallSessionState {
     this.requestId = request.requestId;
     this.contactId = request.contactId;
     this.clientId = request.clientId;
+    this.campaignId = request.campaignId;
     this.phoneNumber = request.phoneNumber;
     this.language = request.language ?? "en-IN";
-    this.instructions = request.instructions;
+    this.context = request.context;
+
+    if (request.context) {
+      const mergedContext = request.instructions
+        ? { ...request.context, additionalInstructions: [request.context.additionalInstructions, request.instructions].filter(Boolean).join("\n") }
+        : request.context;
+      this.instructions = compileSystemPrompt(mergedContext);
+    } else {
+      this.instructions = request.instructions;
+    }
+
     this.startedAt = new Date();
   }
 

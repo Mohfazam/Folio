@@ -11,8 +11,21 @@ export async function dialRoute(req: Request, res: Response) {
   const phoneNumber = (params.phoneNumber as string) || (params.to as string) || undefined;
   const clientId = (params.clientId as string) || undefined;
   const contactId = (params.contactId as string) || undefined;
+  const campaignId = (params.campaignId as string) || undefined;
   const instructions = (params.instructions as string) || undefined;
   const language = (params.language as string) || undefined;
+
+  // Support structured context passed directly or via business/campaign/contact keys
+  const context =
+    params.context ||
+    (params.business || params.campaign || params.contact
+      ? {
+          business: params.business,
+          campaign: params.campaign,
+          contact: params.contact,
+          additionalInstructions: instructions,
+        }
+      : undefined);
 
   const now = Date.now();
   if (phoneNumber && phoneNumber === lastDialPhone && now - lastDialTimestamp < 3000) {
@@ -31,7 +44,9 @@ export async function dialRoute(req: Request, res: Response) {
       phoneNumber,
       clientId,
       contactId,
+      campaignId,
       instructions,
+      context,
       language,
     });
 

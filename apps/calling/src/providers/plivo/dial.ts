@@ -3,12 +3,15 @@ import { plivoClient } from "./client.js";
 import { env } from "../../config/env.js";
 import { activeCallRegistry } from "../../session/ActiveCallRegistry.js";
 import type { CallRequest } from "../../types/callTypes.js";
+import type { PromptContext } from "../../prompts/compileSystemPrompt.js";
 
 export interface InitiateCallParams {
   phoneNumber?: string;
   clientId?: string;
   contactId?: string;
+  campaignId?: string;
   instructions?: string;
+  context?: PromptContext;
   language?: string;
 }
 
@@ -16,7 +19,9 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   const targetPhone = params?.phoneNumber || env.myTestPhoneNumber;
   const clientId = params?.clientId || "default-client";
   const contactId = params?.contactId || "test-contact";
+  const campaignId = params?.campaignId;
   const instructions = params?.instructions;
+  const context = params?.context;
   const language = params?.language || "en-IN";
 
   // Check concurrency lock: is there an active call ongoing or initiating to this phone?
@@ -33,8 +38,10 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     requestId: randomUUID(),
     contactId,
     clientId,
+    campaignId,
     phoneNumber: targetPhone,
     instructions,
+    context,
     language,
   };
 

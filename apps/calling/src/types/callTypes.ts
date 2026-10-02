@@ -7,6 +7,8 @@
  * Schema version: 1.0
  */
 
+import type { PromptContext } from "../prompts/compileSystemPrompt.js";
+
 // ── Call Request (main service → calling service) ──────────────────
 
 export interface CallRequest {
@@ -16,12 +18,16 @@ export interface CallRequest {
   contactId: string;
   /** Client/business identifier */
   clientId: string;
+  /** Optional campaign identifier */
+  campaignId?: string;
   /** Destination phone number in E.164 format (e.g. +91XXXXXXXXXX) */
   phoneNumber: string;
   /** Language preference for STT/TTS (e.g. "en-IN", "hi-IN"). Defaults to "en-IN". */
   language?: string;
   /** Optional call-specific instructions appended to the AI system prompt */
   instructions?: string;
+  /** Optional structured context compiled into the system prompt */
+  context?: PromptContext;
 }
 
 // ── Call Status ─────────────────────────────────────────────────────

@@ -5,6 +5,8 @@ import {
   type ConversationSession,
 } from "../pipeline/conversationSession.js";
 
+import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+
 // The live-audio WebSocket endpoint. Plivo connects here once per call.
 export function attachMediaStream(server: Server) {
   // one ConversationSession per live call, keyed by that call's websocket
@@ -17,18 +19,35 @@ export function attachMediaStream(server: Server) {
       const { callId, mediaFormat } = event.start;
       console.log(`[call ${callId.slice(0, 8)}] stream started`, mediaFormat);
 
-      const session = createConversationSession(callId, {
-        playAudio: (mulawChunk) => {
-          plivoServer.playAudio(ws, "audio/x-mulaw", 8000, mulawChunk);
+      const activeRecord = activeCallRegistry.get(callId);
+      const instructions = activeRecord?.sessionState?.instructions;
+      const language = activeRecord?.sessionState?.language;
+      const greetingText = activeRecord?.sessionState?.context?.campaign?.callOpeningHook;
+
+      if (instructions) {
+        console.log(`[call ${callId.slice(0, 8)}] 📜 Loaded system prompt (${instructions.length} chars)`);
+      }
+
+      const session = createConversationSession(
+        callId,
+        {
+          playAudio: (mulawChunk) => {
+            plivoServer.playAudio(ws, "audio/x-mulaw", 8000, mulawChunk);
+          },
+          clearAudio: () => {
+            try {
+              plivoServer.clearAudio(ws);
+            } catch (err: any) {
+              console.warn(`[call ${callId.slice(0, 8)}] clearAudio warning:`, err?.message ?? err);
+            }
+          },
         },
-        clearAudio: () => {
-          try {
-            plivoServer.clearAudio(ws);
-          } catch (err: any) {
-            console.warn(`[call ${callId.slice(0, 8)}] clearAudio warning:`, err?.message ?? err);
-          }
-        },
-      });
+        {
+          instructions,
+          language,
+          greetingText,
+        }
+      );
 
       sessions.set(ws, session);
     })

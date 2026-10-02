@@ -32,6 +32,35 @@ export const followUpStatusEnum = pgEnum('follow_up_status', ['open', 'done', 'n
 //knowledgebase
 export const kbEntryTypeEnum = pgEnum('kb_entry_type', ['faq', 'course_info', 'fee', 'deadline', 'policy', 'document']);
 
+//multi-industry & campaign enums
+export const industryTypeEnum = pgEnum('industry_type', [
+  'education',
+  'beauty_wellness',
+  'healthcare',
+  'real_estate',
+  'automotive',
+  'fitness',
+  'professional_services',
+  'retail',
+  'general'
+]);
+
+export const campaignTypeEnum = pgEnum('campaign_type', [
+  'outreach_sales',
+  'follow_up',
+  'reminder',
+  'reactivation',
+  'feedback_survey',
+  'announcement'
+]);
+
+export const campaignStatusEnum = pgEnum('campaign_status', [
+  'draft',
+  'active',
+  'paused',
+  'completed'
+]);
+
 
 
 export const clients = pgTable('clients', {
@@ -54,6 +83,41 @@ export const clients = pgTable('clients', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 
+});
+
+export const businessProfiles = pgTable('business_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }).unique(),
+  industry: industryTypeEnum('industry').notNull().default('general'),
+  displayName: text('display_name').notNull(),
+  tagline: text('tagline'),
+  description: text('description').notNull(),
+  website: text('website'),
+  address: text('address'),
+  operatingHours: text('operating_hours'),
+  supportPhone: text('support_phone'),
+  catalogOfferings: jsonb('catalog_offerings').notNull().default([]),
+  toneOfVoice: text('tone_of_voice').notNull().default('Warm, professional, helpful, and concise'),
+  aiPersonaName: text('ai_persona_name').default('Assistant'),
+  guardrails: text('guardrails').array(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+export const campaigns = pgTable('campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clientId: uuid('client_id').notNull().references(() => clients.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: campaignTypeEnum('type').notNull().default('outreach_sales'),
+  status: campaignStatusEnum('status').notNull().default('draft'),
+  primaryObjective: text('primary_objective').notNull(),
+  callOpeningHook: text('call_opening_hook').notNull(),
+  keyTalkingPoints: text('key_talking_points').array().notNull(),
+  objectionHandlers: jsonb('objection_handlers').notNull().default([]),
+  callToAction: text('call_to_action').notNull(),
+  fallbackOffer: text('fallback_offer'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
 
 export const users = pgTable('users', {
@@ -83,11 +147,15 @@ export const contacts = pgTable('contacts', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull().references(() => clients.id),
   uploadBatchId: uuid('upload_batch_id').references(() => uploadBatches.id),
-  parentName: text('parent_name'),
-  studentName: text('student_name'),
+  fullName: text('full_name'),
+  secondaryName: text('secondary_name'),
   phoneNumber: text('phone_number').notNull(), // normalized, e.g. +91XXXXXXXXXX
   phoneNumberRaw: text('phone_number_raw'), // exactly what was in the uploaded file, before cleanup
+  email: text('email'),
+  parentName: text('parent_name'),
+  studentName: text('student_name'),
   courseOrStream: text('course_or_stream'),
+  contextData: jsonb('context_data').default({}),
   customFields: jsonb('custom_fields'), // catch-all for whatever extra columns a client's file has
   status: contactStatusEnum('status').notNull().default('pending'),
   isDuplicateOf: uuid('is_duplicate_of'), // self-reference
@@ -100,6 +168,7 @@ export const callQueue = pgTable('call_queue', {
   id: uuid('id').primaryKey().defaultRandom(),
   contactId: uuid('contact_id').notNull().references(() => contacts.id),
   clientId: uuid('client_id').notNull().references(() => clients.id),
+  campaignId: uuid('campaign_id').references(() => campaigns.id),
   scheduledFor: timestamp('scheduled_for').notNull(),
   attemptNumber: integer('attempt_number').notNull().default(1),
   priority: integer('priority').notNull().default(0),
@@ -115,7 +184,8 @@ export const calls = pgTable('calls', {
   id: uuid('id').primaryKey().defaultRandom(),
   contactId: uuid('contact_id').notNull().references(() => contacts.id),
   clientId: uuid('client_id').notNull().references(() => clients.id),
-  queueEntryId: uuid('queue_entry_id').notNull().references(() => callQueue.id),
+  campaignId: uuid('campaign_id').references(() => campaigns.id),
+  queueEntryId: uuid('queue_entry_id').references(() => callQueue.id),
   attemptNumber: integer('attempt_number').notNull(),
   startedAt: timestamp('started_at').notNull(),
   endedAt: timestamp('ended_at'),

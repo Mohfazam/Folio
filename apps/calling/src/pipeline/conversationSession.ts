@@ -13,6 +13,12 @@ export interface ConversationSession {
   close: () => void;
 }
 
+export interface ConversationSessionOptions {
+  instructions?: string;
+  language?: string;
+  greetingText?: string;
+}
+
 const MAX_BUFFERED_CHUNKS = 500; // ~10 seconds of 20ms chunks
 
 // One instance per live call:
@@ -23,7 +29,8 @@ const MAX_BUFFERED_CHUNKS = 500; // ~10 seconds of 20ms chunks
 // 5. Caller interruption (barge-in) -> cancels ongoing AI speech and clears Plivo queue.
 export function createConversationSession(
   callId: string,
-  callbacks: SessionCallbacks
+  callbacks: SessionCallbacks,
+  options?: ConversationSessionOptions
 ): ConversationSession {
   const tag = `[call ${callId.slice(0, 8)}]`;
   let stt: SttSession | null = null;
@@ -36,7 +43,7 @@ export function createConversationSession(
 
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
-    const greetingText = "Hello! How can I help you today?";
+    const greetingText = options?.greetingText || "Hello! How can I help you today?";
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
 
@@ -44,7 +51,7 @@ export function createConversationSession(
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
       const audio = await convertTextToSpeech(greetingText, {
         speaker: "priya",
-        languageCode: "en-IN",
+        languageCode: options?.language?.startsWith("hi") ? "hi-IN" : "en-IN",
       });
 
       if (closed || generationId !== currentGen) return;
@@ -65,8 +72,9 @@ export function createConversationSession(
     const controller = new AbortController();
     const turnStartedAt = performance.now();
     const searchWeb = shouldSearchWeb(trimmed);
+    const activeLanguage = language || options?.language || "en-IN";
     activeTurn = controller;
-    console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? "auto"})`);
+    console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? options?.language ?? "auto"})`);
     history.push({ role: "user", content: trimmed });
 
     let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
@@ -86,20 +94,26 @@ export function createConversationSession(
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
         speaker: "priya",
-        languageCode: language?.startsWith("hi") ? "hi-IN" : "en-IN",
+        languageCode: activeLanguage.startsWith("hi") ? "hi-IN" : "en-IN",
         signal: controller.signal,
       });
 
       console.log(`${tag} 🧠 Streaming Gemini reply...`);
-      const replyPromise = generateReplyStream(history, (sentence) => {
-        if (closed || generationId !== currentGen) return;
-        if (!firstSentenceLogged) {
-          firstSentenceLogged = true;
-          console.log(`${tag} ⏱️ First sentence: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
-        }
-        if (tts) tts.sendText(sentence);
-        else pendingSentences.push(sentence);
-      }, controller.signal, searchWeb);
+      const replyPromise = generateReplyStream(
+        history,
+        (sentence) => {
+          if (closed || generationId !== currentGen) return;
+          if (!firstSentenceLogged) {
+            firstSentenceLogged = true;
+            console.log(`${tag} ⏱️ First sentence: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+          }
+          if (tts) tts.sendText(sentence);
+          else pendingSentences.push(sentence);
+        },
+        controller.signal,
+        searchWeb,
+        options?.instructions
+      );
       void replyPromise.catch(() => {});
 
       tts = await ttsPromise;
