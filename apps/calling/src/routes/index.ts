@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { dialRoute, activeCallsRoute } from "./dial.js";
 import { plivoVoiceRoute } from "./plivo-voice.js";
 import { plivoHangupRoute } from "./plivo-hangup.js";
+import { metricsRoute } from "./metrics.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 
 export function registerRoutes(app: Express) {
@@ -19,6 +20,9 @@ export function registerRoutes(app: Express) {
 
   // Active call monitoring & diagnostics
   app.get("/active-calls", activeCallsRoute);
+
+  // Comprehensive metrics & monitoring
+  app.get("/metrics", metricsRoute);
 
   // Health check endpoint
   app.get("/health", (_req, res) => {

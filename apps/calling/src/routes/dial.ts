@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { initiateOutboundCall } from "../providers/plivo/dial.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+import { metricsCollector } from "../monitoring/metricsCollector.js";
 
 // Timestamp tracking to prevent rapid duplicate double-triggers (< 3 seconds)
 let lastDialTimestamp = 0;
@@ -65,6 +66,7 @@ export async function dialRoute(req: Request, res: Response) {
   try {
     lastDialTimestamp = now;
     if (phoneNumber) lastDialPhone = phoneNumber;
+    metricsCollector.recordCallInitiated(phoneNumber);
 
     const result = await initiateOutboundCall({
       phoneNumber,
@@ -98,6 +100,8 @@ export async function dialRoute(req: Request, res: Response) {
           : undefined,
       });
     }
+
+    metricsCollector.recordCallEnded("failed", 0, err?.message);
 
     res.status(500).json({
       ok: false,
