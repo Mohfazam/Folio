@@ -1,3 +1,7 @@
+// In Node 22+, globalThis.WebSocket drops custom headers in constructor.
+// Deleting it forces sarvamai SDK to use the 'ws' package with full header support.
+delete (globalThis as any).WebSocket;
+
 import { SarvamAIClient } from "sarvamai";
 import { env } from "../../config/env.js";
 
@@ -15,11 +19,14 @@ export async function convertTextToSpeech(
   text: string,
   options?: TextToSpeechOptions
 ): Promise<Buffer> {
+  const speaker = options?.speaker ?? "priya";
+  const languageCode = options?.languageCode ?? "en-IN";
+
   const response = await sarvam.textToSpeech.convert({
     text,
     model: "bulbul:v3",
-    language_code: (options?.languageCode as any) ?? "en-IN",
-    speaker: "ritu",
+    language_code: languageCode as any,
+    speaker: speaker as any,
     output_audio_codec: "mulaw",
     speech_sample_rate: 8000,
   });
@@ -52,6 +59,7 @@ export async function openSarvamTtsStream(
   let completed = false;
   let finishCalled = false;
   let pendingFlushes = 0;
+
   const completion = new Promise<void>((resolve, reject) => {
     resolveCompletion = resolve;
     rejectCompletion = reject;
@@ -69,7 +77,7 @@ export async function openSarvamTtsStream(
       onAudioChunk(Buffer.from(message.data.audio, "base64"));
     } else if (message.type === "event" && message.data.event_type === "final") {
       pendingFlushes = Math.max(0, pendingFlushes - 1);
-      if (finishCalled && pendingFlushes === 0) {
+      if (finishCalled && pendingFlushes === 0 && !completed) {
         completed = true;
         resolveCompletion();
       }
@@ -77,6 +85,7 @@ export async function openSarvamTtsStream(
       fail(new Error(message.data.message));
     }
   });
+
   socket.on("error", (error) => fail(error));
   socket.on("close", () => {
     if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
@@ -90,16 +99,28 @@ export async function openSarvamTtsStream(
 
   const abort = () => {
     fail(new Error("TTS stream aborted"));
-    socket.close();
+    try {
+      socket.close();
+    } catch {
+      // ignore
+    }
   };
   options?.signal?.addEventListener("abort", abort, { once: true });
 
-  socket.configureConnection({
-    language_code: (options?.languageCode as any) ?? "en-IN",
-    speaker: (options?.speaker as any) ?? "priya",
-    speech_sample_rate: 8000,
-    output_audio_codec: "mulaw",
-    min_buffer_size: 30,
+  const speaker = options?.speaker ?? "priya";
+  const languageCode = options?.languageCode ?? "en-IN";
+
+  // Avoid socket.configureConnection() because the sarvamai SDK automatically
+  // injects `min_buffer_size: 50`, which causes Sarvam's bulbul:v3 API to reject
+  // the configuration with 422: "Input parameters has to be a valid dictionary".
+  (socket as any).sendJson({
+    type: "config",
+    data: {
+      language_code: languageCode,
+      speaker,
+      speech_sample_rate: 8000,
+      output_audio_codec: "mulaw",
+    },
   });
 
   return {
@@ -110,7 +131,7 @@ export async function openSarvamTtsStream(
         socket.convert(text);
         socket.flush();
       } catch (error) {
-        pendingFlushes--;
+        pendingFlushes = Math.max(0, pendingFlushes - 1);
         fail(error instanceof Error ? error : new Error(String(error)));
         throw error;
       }
@@ -123,12 +144,20 @@ export async function openSarvamTtsStream(
           resolveCompletion();
         }
       }
-      await completion;
+      // Safety timeout: don't hang longer than 5 seconds waiting for TTS final flush
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(resolve, 5000).unref();
+      });
+      await Promise.race([completion, timeoutPromise]);
     },
     close() {
       options?.signal?.removeEventListener("abort", abort);
-      if (!completed) fail(new Error("TTS stream closed before completion"));
-      socket.close();
+      if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
+      try {
+        socket.close();
+      } catch {
+        // ignore
+      }
     },
   };
 }
@@ -144,17 +173,11 @@ export function connectSarvamTTS(onAudioChunk: (chunk: Buffer) => void): TtsSock
       const audioBuffer = await convertTextToSpeech(text);
       onAudioChunk(audioBuffer);
     },
-    close() {
-      // No persistent socket to close; the SDK call is one-shot.
-    },
+    close() {},
   };
 }
 
 export function sendTextToSpeak(ws: TtsSocket | null | undefined, text: string) {
-  if (!ws || typeof ws.sendText !== "function") {
-    return;
-  }
-
+  if (!ws || typeof ws.sendText !== "function") return;
   return ws.sendText(text);
 }
-

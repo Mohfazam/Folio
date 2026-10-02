@@ -1,9 +1,33 @@
-﻿import type { Express } from "express";
-import { dialRoute } from "./dial.js";
+import type { Express } from "express";
+import { dialRoute, activeCallsRoute } from "./dial.js";
 import { plivoVoiceRoute } from "./plivo-voice.js";
+import { plivoHangupRoute } from "./plivo-hangup.js";
+import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 
-// Every normal HTTP route is registered here, in one place.
 export function registerRoutes(app: Express) {
+  // Voice call webhook (Plivo calls this when recipient answers)
   app.post("/plivo-voice", plivoVoiceRoute);
+  app.get("/plivo-voice", plivoVoiceRoute);
+
+  // Hangup webhook (Plivo calls this when call ends or fails)
+  app.post("/plivo-hangup", plivoHangupRoute);
+  app.get("/plivo-hangup", plivoHangupRoute);
+
+  // Dial routes (initiate outbound calls)
   app.get("/dial", dialRoute);
+  app.post("/dial", dialRoute);
+
+  // Active call monitoring & diagnostics
+  app.get("/active-calls", activeCallsRoute);
+
+  // Health check endpoint
+  app.get("/health", (_req, res) => {
+    const active = activeCallRegistry.getAllActive();
+    res.json({
+      status: "healthy",
+      uptime: process.uptime(),
+      activeCalls: active.length,
+      timestamp: new Date().toISOString(),
+    });
+  });
 }

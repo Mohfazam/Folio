@@ -1,90 +1,174 @@
-﻿import { GoogleGenAI } from "@google/genai";
-import { env } from "../../config/env";
+import { GoogleGenAI } from "@google/genai";
+import { env } from "../../config/env.js";
 
 const genAI = new GoogleGenAI({ apiKey: env.geminiApiKey });
-const GEMINI_MODEL = "gemini-3.8-flash";
+const PRIMARY_MODEL = "gemini-flash-lite-latest";
+const FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 const SYSTEM_INSTRUCTION = `
-You are a friendly, helpful AI voice assistant on a phone call.
-- Match the level of detail to the question: answer simple questions briefly, but fully explain practical or multi-step requests.
-- For instructions, include the necessary steps, quantities, timing, and relevant cautions.
-- For practical or multi-step questions, open with one concrete summary sentence of about 15 words, then give the complete necessary steps and specifics.
-- Do not omit useful details just to be brief.
-- Use clear, natural spoken language and transitions between steps.
-- Avoid repetition and optional background; make every sentence add useful information.
+You are a friendly, concise, natural AI voice assistant on a live phone call.
+- Keep responses natural, conversational, and direct (1-3 short spoken sentences).
+- Avoid long essays or numbered bullet lists. Use spoken transitions instead.
+- Answer simple questions immediately and concisely.
+- For practical or multi-step questions, give a direct 1-sentence answer first, then provide concise next steps.
 - Never use markdown formatting, bullet points, asterisks, URLs, or emojis.
 - Speak directly to the caller.
 `.trim();
 
-const WEB_SEARCH_INTENT = /\b(?:search(?: the)? (?:web|internet|online)|web search|internet search|browse(?: the)? (?:web|internet|online)|look (?:it )?up online|check online|find (?:it )?online|latest|current(?:ly)?|today|yesterday|right now|this week|this month|this year|recent|news|weather|forecast|stock price|share price|exchange rate|live score|current score|release date|opening hours|open now|near me)\b/i;
+// Specific web search intent (strictly requires explicit request to search online)
+const WEB_SEARCH_INTENT = /\b(?:(?:search|look up|check|browse|find)(?: (?:the|on))? (?:web|internet|google)|latest news|current weather in|live score of)\b/i;
 
 export function shouldSearchWeb(text: string): boolean {
   return WEB_SEARCH_INTENT.test(text);
 }
 
+function formatContents(
+  conversationHistory: { role: "user" | "assistant"; content: string }[]
+) {
+  return conversationHistory.map(({ role, content }) => ({
+    role: role === "assistant" ? "model" : "user",
+    parts: [{ text: content }],
+  }));
+}
+
 export async function generateReply(
-  conversationHistory: { role: "user" | "assistant"; content: string }[]
+  conversationHistory: { role: "user" | "assistant"; content: string }[],
+  systemPrompt?: string
 ): Promise<string> {
-  const response = await genAI.interactions.create({
-    model: GEMINI_MODEL,
-    input: formatConversation(conversationHistory),
-    system_instruction: SYSTEM_INSTRUCTION,
-    store: false,
-  });
+  const contents = formatContents(conversationHistory);
+  const sysInst = systemPrompt ? `${SYSTEM_INSTRUCTION}\n${systemPrompt}` : SYSTEM_INSTRUCTION;
 
-  return response.output_text?.trim() ?? "";
+  try {
+    const response = await genAI.models.generateContent({
+      model: PRIMARY_MODEL,
+      config: {
+        systemInstruction: sysInst,
+        maxOutputTokens: 250,
+      },
+      contents,
+    });
+    return response.text?.trim() ?? "";
+  } catch (err: any) {
+    console.warn(`[generateReply] Primary model ${PRIMARY_MODEL} failed, trying fallback:`, err?.message ?? err);
+    const fallbackResponse = await genAI.models.generateContent({
+      model: FALLBACK_MODEL,
+      config: {
+        systemInstruction: sysInst,
+        maxOutputTokens: 250,
+      },
+      contents,
+    });
+    return fallbackResponse.text?.trim() ?? "";
+  }
 }
 
-function formatConversation(
-  conversationHistory: { role: "user" | "assistant"; content: string }[]
-): string {
-  return conversationHistory
-    .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "Caller"}: ${content}`)
-    .join("\n");
-}
-
+/**
+ * Streams reply sentences from Gemini with low latency (< 1s first chunk).
+ * Dispatches completed sentences and long clauses immediately to TTS.
+ */
 export async function generateReplyStream(
   conversationHistory: { role: "user" | "assistant"; content: string }[],
   onSentence: (sentence: string) => void,
   signal?: AbortSignal,
-  searchWeb = false
+  searchWeb = false,
+  customInstructions?: string
 ): Promise<string> {
-  const stream = await genAI.interactions.create({
-    model: GEMINI_MODEL,
-    input: formatConversation(conversationHistory),
-    system_instruction: searchWeb
-      ? `${SYSTEM_INSTRUCTION}\n- Use Google Search for this request and base current claims on its results. If search does not answer the question, say so.`
-      : SYSTEM_INSTRUCTION,
-    generation_config: { max_output_tokens: 384 },
-    ...(searchWeb ? { tools: [{ type: "google_search" as const }] } : {}),
-    store: false,
-    stream: true,
-  });
+  const contents = formatContents(conversationHistory);
+  const sysInst = [
+    SYSTEM_INSTRUCTION,
+    customInstructions ? `Additional call context: ${customInstructions}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   let buffer = "";
-  let reply = "";
-  for await (const event of stream) {
-    if (signal?.aborted) break;
-    if (event.event_type !== "step.delta" || event.delta.type !== "text") continue;
-    buffer += event.delta.text;
+  let fullReply = "";
 
-    let boundary = /[.!?।](?=\s)/.exec(buffer);
-    while (boundary) {
-      const sentence = buffer.slice(0, boundary.index + 1).trim();
+  const dispatchSentence = (text: string) => {
+    const cleaned = text.trim();
+    if (!cleaned) return;
+    onSentence(cleaned);
+    fullReply += (fullReply ? " " : "") + cleaned;
+  };
+
+  const processChunk = (chunkText: string) => {
+    buffer += chunkText;
+
+    // Split on sentence boundaries (. ! ? or Hindi danda ।)
+    let match = /([.!?।]+)(?:\s+|$)/.exec(buffer);
+    while (match && match.index !== undefined && match[1]) {
+      const sentenceEnd = match.index + match[1].length;
+      const sentence = buffer.slice(0, sentenceEnd).trim();
       if (sentence) {
-        onSentence(sentence);
-        reply += `${sentence} `;
+        dispatchSentence(sentence);
       }
-      buffer = buffer.slice(boundary.index + 1).trimStart();
-      boundary = /[.!?।](?=\s)/.exec(buffer);
+      buffer = buffer.slice(sentenceEnd).trimStart();
+      match = /([.!?।]+)(?:\s+|$)/.exec(buffer);
+    }
+
+    // Split long clauses (> 100 chars) on comma/semicolon for low TTS delay
+    if (buffer.length > 100) {
+      const clauseMatch = /([,;]+)\s+/.exec(buffer);
+      const delimiter = clauseMatch?.[1];
+      if (clauseMatch && delimiter && clauseMatch.index > 25) {
+        const clauseEnd = clauseMatch.index + delimiter.length;
+        const clause = buffer.slice(0, clauseEnd).trim();
+        if (clause) {
+          dispatchSentence(clause);
+        }
+        buffer = buffer.slice(clauseEnd).trimStart();
+      }
+    }
+  };
+
+  // Helper to run stream with a given model
+  const runStream = async (model: string, withSearch: boolean) => {
+    const config: any = {
+      systemInstruction: sysInst,
+      maxOutputTokens: 250,
+    };
+    if (withSearch) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    const responseStream = await genAI.models.generateContentStream({
+      model,
+      config,
+      contents,
+    });
+
+    for await (const chunk of responseStream) {
+      if (signal?.aborted) break;
+      if (chunk.text) {
+        processChunk(chunk.text);
+      }
+    }
+  };
+
+  try {
+    await runStream(PRIMARY_MODEL, searchWeb);
+  } catch (err: any) {
+    if (signal?.aborted) return fullReply.trim();
+
+    // If searchWeb failed with 429 quota or other error, retry immediately without search
+    if (searchWeb) {
+      console.warn(`[generateReplyStream] Search failed, retrying without search tool:`, err?.message ?? err);
+      try {
+        await runStream(PRIMARY_MODEL, false);
+      } catch (retryErr: any) {
+        console.warn(`[generateReplyStream] Primary retry failed, using fallback model:`, retryErr?.message ?? retryErr);
+        await runStream(FALLBACK_MODEL, false);
+      }
+    } else {
+      console.warn(`[generateReplyStream] Primary model failed, trying fallback:`, err?.message ?? err);
+      await runStream(FALLBACK_MODEL, false);
     }
   }
 
+  // Flush any remaining buffer text
   if (!signal?.aborted && buffer.trim()) {
-    const sentence = buffer.trim();
-    onSentence(sentence);
-    reply += sentence;
+    dispatchSentence(buffer.trim());
   }
 
-  return reply.trim();
+  return fullReply.trim();
 }
