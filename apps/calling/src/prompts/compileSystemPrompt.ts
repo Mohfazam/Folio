@@ -161,3 +161,52 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
   return sections.join("\n\n");
 }
+
+/**
+ * Builds a natural, personalized outbound opening greeting based on context.
+ * Falls back to an appropriate outbound greeting if details are missing.
+ */
+export function buildPersonalizedGreeting(ctx?: PromptContext): string {
+  const DEFAULT_OUTBOUND_GREETING = "Hello! Thanks for taking my call. Do you have a quick moment?";
+  if (!ctx) return DEFAULT_OUTBOUND_GREETING;
+
+  const businessName = ctx.business?.displayName?.trim();
+  const persona = ctx.business?.aiPersonaName?.trim();
+  const contactName = ctx.contact?.fullName?.trim();
+  const hook = ctx.campaign?.callOpeningHook?.trim();
+  const objective = ctx.campaign?.primaryObjective?.trim();
+
+  // 1. Explicit campaign opening hook provided
+  if (hook) {
+    if (contactName && !new RegExp(`\\b${contactName}\\b`, "i").test(hook)) {
+      return `Hi ${contactName}! ${hook}`;
+    }
+    return hook;
+  }
+
+  // 2. Both business and contact name known
+  if (businessName && contactName) {
+    const callerIntro = persona ? `this is ${persona} calling from ${businessName}` : `calling from ${businessName}`;
+    if (objective) {
+      return `Hi ${contactName}, ${callerIntro} regarding ${objective}. Do you have a quick moment?`;
+    }
+    return `Hi ${contactName}, ${callerIntro}. Do you have a quick moment to speak?`;
+  }
+
+  // 3. Only business known
+  if (businessName) {
+    const callerIntro = persona ? `this is ${persona} calling from ${businessName}` : `calling from ${businessName}`;
+    if (objective) {
+      return `Hello! ${callerIntro} regarding ${objective}. Do you have a moment to speak?`;
+    }
+    return `Hello! ${callerIntro}. Do you have a quick moment?`;
+  }
+
+  // 4. Only contact name known
+  if (contactName) {
+    return `Hi ${contactName}! Thanks for taking my call. Do you have a quick moment?`;
+  }
+
+  // 5. Default fallback
+  return DEFAULT_OUTBOUND_GREETING;
+}

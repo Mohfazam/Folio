@@ -9,7 +9,11 @@ import type {
   ProviderErrorRecord,
   RecordingMetadata,
 } from "../types/callTypes.js";
-import { compileSystemPrompt, type PromptContext } from "../prompts/compileSystemPrompt.js";
+import {
+  compileSystemPrompt,
+  buildPersonalizedGreeting,
+  type PromptContext,
+} from "../prompts/compileSystemPrompt.js";
 
 /**
  * Per-call session state manager.
@@ -33,6 +37,7 @@ export class CallSessionState {
   readonly campaignId?: string;
   readonly instructions?: string;
   readonly context?: PromptContext;
+  readonly greetingText: string;
 
   // ── Plivo ─────────────────────────────────────────────────────
   plivoCallId = "";
@@ -83,6 +88,10 @@ export class CallSessionState {
     } else {
       this.instructions = request.instructions;
     }
+
+    this.greetingText =
+      request.greetingText ||
+      buildPersonalizedGreeting(request.context);
 
     this.startedAt = new Date();
   }

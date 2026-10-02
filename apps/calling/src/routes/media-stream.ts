@@ -22,10 +22,13 @@ export function attachMediaStream(server: Server) {
       const activeRecord = activeCallRegistry.get(callId);
       const instructions = activeRecord?.sessionState?.instructions;
       const language = activeRecord?.sessionState?.language;
-      const greetingText = activeRecord?.sessionState?.context?.campaign?.callOpeningHook;
+      const greetingText = activeRecord?.sessionState?.greetingText;
 
       if (instructions) {
         console.log(`[call ${callId.slice(0, 8)}] 📜 Loaded system prompt (${instructions.length} chars)`);
+      }
+      if (greetingText) {
+        console.log(`[call ${callId.slice(0, 8)}] 🗣️ Initial greeting: "${greetingText}"`);
       }
 
       const session = createConversationSession(

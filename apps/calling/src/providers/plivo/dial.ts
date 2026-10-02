@@ -12,6 +12,7 @@ export interface InitiateCallParams {
   campaignId?: string;
   instructions?: string;
   context?: PromptContext;
+  greetingText?: string;
   language?: string;
 }
 
@@ -22,6 +23,7 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   const campaignId = params?.campaignId;
   const instructions = params?.instructions;
   const context = params?.context;
+  const greetingText = params?.greetingText;
   const language = params?.language || "en-IN";
 
   // Check concurrency lock: is there an active call ongoing or initiating to this phone?
@@ -42,6 +44,7 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     phoneNumber: targetPhone,
     instructions,
     context,
+    greetingText,
     language,
   };
 

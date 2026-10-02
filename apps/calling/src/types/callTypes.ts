@@ -28,6 +28,8 @@ export interface CallRequest {
   instructions?: string;
   /** Optional structured context compiled into the system prompt */
   context?: PromptContext;
+  /** Optional custom greeting text played when call connects */
+  greetingText?: string;
 }
 
 // ── Call Status ─────────────────────────────────────────────────────

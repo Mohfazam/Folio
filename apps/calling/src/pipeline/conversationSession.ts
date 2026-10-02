@@ -43,7 +43,8 @@ export function createConversationSession(
 
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
-    const greetingText = options?.greetingText || "Hello! How can I help you today?";
+    const greetingText =
+      options?.greetingText || "Hello! Thanks for taking my call. Do you have a quick moment?";
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
 
