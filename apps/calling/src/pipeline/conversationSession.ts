@@ -30,6 +30,7 @@ export function createConversationSession(
   let closed = false;
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
   let activeTurn: AbortController | null = null;
+  let interruptionHandled = false;
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
@@ -74,7 +75,7 @@ export function createConversationSession(
       const pendingSentences: string[] = [];
       if (searchWeb) {
         console.log(`${tag} 🌐 Searching the web for this question`);
-        pendingSentences.push("I'll check the latest information online. Give me a few seconds.");
+        pendingSentences.push("I'll search the internet for this information. Give me a few seconds.");
       }
       let firstAudioLogged = false;
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
@@ -142,21 +143,30 @@ export function createConversationSession(
     }
   }
 
+  function interruptForCallerSpeech() {
+    if (interruptionHandled) return;
+    interruptionHandled = true;
+    generationId++;
+    activeTurn?.abort();
+    callbacks.clearAudio();
+  }
+
   // Connects realtime STT to Sarvam
   openSttSession({
     onSpeechStart: () => {
-      console.log(`${tag} ⚡ Caller started speaking (barge-in)`);
-      // Interrupt any current AI speech immediately
-      generationId++;
-      activeTurn?.abort();
-      callbacks.clearAudio();
+      interruptionHandled = false;
+      console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
     },
     onPartial: (text) => {
-      if (text?.trim() && process.env.NODE_ENV !== "production") {
-        console.log(`${tag} ... ${text.trim()}`);
+      if (text?.trim()) {
+        interruptForCallerSpeech();
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`${tag} ... ${text.trim()}`);
+        }
       }
     },
     onFinal: (text, language) => {
+      if (text?.trim()) interruptForCallerSpeech();
       handleCallerTurn(text, language);
     },
     onError: (message) => {

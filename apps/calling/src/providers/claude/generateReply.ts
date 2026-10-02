@@ -2,6 +2,7 @@
 import { env } from "../../config/env";
 
 const genAI = new GoogleGenAI({ apiKey: env.geminiApiKey });
+const GEMINI_MODEL = "gemini-3.8-flash";
 
 const SYSTEM_INSTRUCTION = `
 You are a friendly, helpful AI voice assistant on a phone call.
@@ -15,7 +16,7 @@ You are a friendly, helpful AI voice assistant on a phone call.
 - Speak directly to the caller.
 `.trim();
 
-const WEB_SEARCH_INTENT = /\b(?:search(?: the)? (?:web|internet)|web search|internet search|browse(?: the)? (?:web|internet)|look up|look online|check online|from (?:the )?(?:web|internet)|on the web|online|internet|latest|current(?:ly)?|today|yesterday|right now|this week|this month|this year|recent|news|weather|forecast|stock price|share price|exchange rate|score|results|release date|opening hours|open now|near me|availability|available now|price of|cost of|version of|president|prime minister|ceo|governor|mayor)\b/i;
+const WEB_SEARCH_INTENT = /\b(?:search(?: the)? (?:web|internet|online)|web search|internet search|browse(?: the)? (?:web|internet|online)|look (?:it )?up online|check online|find (?:it )?online|latest|current(?:ly)?|today|yesterday|right now|this week|this month|this year|recent|news|weather|forecast|stock price|share price|exchange rate|live score|current score|release date|opening hours|open now|near me)\b/i;
 
 export function shouldSearchWeb(text: string): boolean {
   return WEB_SEARCH_INTENT.test(text);
@@ -24,18 +25,22 @@ export function shouldSearchWeb(text: string): boolean {
 export async function generateReply(
   conversationHistory: { role: "user" | "assistant"; content: string }[]
 ): Promise<string> {
-  const contents = conversationHistory.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const response = await genAI.models.generateContent({
-    model: "gemini-3.5-flash-lite",
-    contents,
-    config: { systemInstruction: SYSTEM_INSTRUCTION },
+  const response = await genAI.interactions.create({
+    model: GEMINI_MODEL,
+    input: formatConversation(conversationHistory),
+    system_instruction: SYSTEM_INSTRUCTION,
+    store: false,
   });
 
-  return (response.text ?? "").trim();
+  return response.output_text?.trim() ?? "";
+}
+
+function formatConversation(
+  conversationHistory: { role: "user" | "assistant"; content: string }[]
+): string {
+  return conversationHistory
+    .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "Caller"}: ${content}`)
+    .join("\n");
 }
 
 export async function generateReplyStream(
@@ -44,40 +49,24 @@ export async function generateReplyStream(
   signal?: AbortSignal,
   searchWeb = false
 ): Promise<string> {
-  const contents = conversationHistory.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-
-  const response = await genAI.models.generateContentStream({
-    model: "gemini-3.5-flash-lite",
-    contents,
-    config: {
-      systemInstruction: searchWeb
-        ? `${SYSTEM_INSTRUCTION}\n- This request needs current web information. Use Google Search and base the answer on its results. If the results do not answer the question, say so.`
-        : SYSTEM_INSTRUCTION,
-      maxOutputTokens: 384,
-      ...(searchWeb ? { tools: [{ googleSearch: {} }] } : {}),
-    },
+  const stream = await genAI.interactions.create({
+    model: GEMINI_MODEL,
+    input: formatConversation(conversationHistory),
+    system_instruction: searchWeb
+      ? `${SYSTEM_INSTRUCTION}\n- Use Google Search for this request and base current claims on its results. If search does not answer the question, say so.`
+      : SYSTEM_INSTRUCTION,
+    generation_config: { max_output_tokens: 384 },
+    ...(searchWeb ? { tools: [{ type: "google_search" as const }] } : {}),
+    store: false,
+    stream: true,
   });
 
   let buffer = "";
   let reply = "";
-  const sourceDomains = new Set<string>();
-
-  for await (const chunk of response) {
+  for await (const event of stream) {
     if (signal?.aborted) break;
-    buffer += chunk.text ?? "";
-
-    for (const groundingChunk of chunk.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []) {
-      const uri = groundingChunk.web?.uri;
-      if (!uri) continue;
-      try {
-        sourceDomains.add(new URL(uri).hostname.replace(/^www\./, ""));
-      } catch {
-        continue;
-      }
-    }
+    if (event.event_type !== "step.delta" || event.delta.type !== "text") continue;
+    buffer += event.delta.text;
 
     let boundary = /[.!?।](?=\s)/.exec(buffer);
     while (boundary) {
@@ -95,12 +84,6 @@ export async function generateReplyStream(
     const sentence = buffer.trim();
     onSentence(sentence);
     reply += sentence;
-  }
-
-  if (!signal?.aborted && sourceDomains.size) {
-    const attribution = `I checked ${Array.from(sourceDomains).slice(0, 2).join(" and ")} for that.`;
-    onSentence(attribution);
-    reply += ` ${attribution}`;
   }
 
   return reply.trim();
