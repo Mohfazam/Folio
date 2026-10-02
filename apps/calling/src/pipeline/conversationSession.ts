@@ -8,6 +8,7 @@ import type { CallSessionState } from "../session/CallSessionState.js";
 export interface SessionCallbacks {
   playAudio: (mulawChunk: Buffer) => void;
   clearAudio: () => void;
+  hangup?: (reason?: string) => void;
 }
 
 export interface ConversationSession {
@@ -88,6 +89,7 @@ export function createConversationSession(
 
     let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
     let firstSentenceLogged = false;
+    let turnAudioBytes = 0;
     try {
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
@@ -98,6 +100,7 @@ export function createConversationSession(
           options?.sessionState?.recordFirstAudioTime(audioMs);
           console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
         }
+        turnAudioBytes += audioChunk.length;
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
         speaker: "priya",
@@ -135,9 +138,30 @@ export function createConversationSession(
       await tts.finish();
       if (closed || generationId !== currentGen) return;
 
-      console.log(`${tag} 🤖 AI: "${reply}"`);
-      history.push({ role: "assistant", content: reply });
-      options?.sessionState?.addAssistantTurn(reply);
+      // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
+      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect)\b/i.test(trimmed);
+      const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
+      const shouldHangup = hasHangupToken || isExitPhrase;
+
+      const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
+
+      console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
+      history.push({ role: "assistant", content: cleanReply });
+      options?.sessionState?.addAssistantTurn(cleanReply);
+
+      // If call is concluded, wait for audio playback to reach the phone and hang up
+      if (shouldHangup && callbacks.hangup) {
+        // 8000 bytes = 1.0s of 8kHz mu-law audio
+        const audioDurationMs = Math.round((turnAudioBytes / 8000) * 1000);
+        const waitMs = Math.max(1200, audioDurationMs + 800);
+        console.log(`${tag} ⏳ Waiting ${waitMs}ms (${audioDurationMs}ms playback + buffer) before hanging up...`);
+
+        setTimeout(() => {
+          if (!closed) {
+            callbacks.hangup?.("Conversation completed by user or AI farewell");
+          }
+        }, waitMs);
+      }
     } catch (err: any) {
       const wasAborted = controller.signal.aborted;
       controller.abort();

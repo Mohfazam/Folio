@@ -11,8 +11,9 @@ You are a friendly, natural, and concise AI phone assistant representing the bus
 - Never lecture, monologue, or read long lists. Speak like a real person on a phone call.
 - Stay strictly on topic based on the business details, catalog, and call objectives provided.
 - If the caller asks off-topic questions (e.g. weather, stocks, unrelated general knowledge), politely acknowledge and steer back to the call's purpose.
-- Never use markdown formatting, bullet points, asterisks, URLs, or emojis.
 - Speak directly to the caller.
+- CALL CONCLUSION: When the conversation naturally concludes (the recipient says goodbye, says they are not interested, has no more questions, or you deliver your final parting message), conclude politely and append [HANGUP] at the very end of your response.
+Example: "Thank you for your time! Have a great day ahead! [HANGUP]"
 `.trim();
 
 export function shouldSearchWeb(_text: string): boolean {
@@ -82,10 +83,15 @@ export async function generateReplyStream(
   let fullReply = "";
 
   const dispatchSentence = (text: string) => {
-    const cleaned = text.trim();
-    if (!cleaned) return;
-    onSentence(cleaned);
-    fullReply += (fullReply ? " " : "") + cleaned;
+    const raw = text.trim();
+    if (!raw) return;
+    fullReply += (fullReply ? " " : "") + raw;
+
+    // Filter out [HANGUP] or [END_CALL] control tokens so TTS doesn't speak them
+    const speechText = raw.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
+    if (speechText) {
+      onSentence(speechText);
+    }
   };
 
   const processChunk = (chunkText: string) => {

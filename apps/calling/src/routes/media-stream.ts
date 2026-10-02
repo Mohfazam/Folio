@@ -6,6 +6,7 @@ import {
 } from "../pipeline/conversationSession.js";
 
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+import { plivoClient } from "../providers/plivo/client.js";
 
 // The live-audio WebSocket endpoint. Plivo connects here once per call.
 export function attachMediaStream(server: Server) {
@@ -42,6 +43,15 @@ export function attachMediaStream(server: Server) {
               plivoServer.clearAudio(ws);
             } catch (err: any) {
               console.warn(`[call ${callId.slice(0, 8)}] clearAudio warning:`, err?.message ?? err);
+            }
+          },
+          hangup: async (reason?: string) => {
+            console.log(`[call ${callId.slice(0, 8)}] 🛑 Auto-hangup executing: "${reason || "call ended"}". Terminating Plivo call...`);
+            try {
+              session.close();
+              await plivoClient.calls.hangup(callId);
+            } catch (err: any) {
+              console.warn(`[call ${callId.slice(0, 8)}] Plivo hangup error:`, err?.message ?? err);
             }
           },
         },

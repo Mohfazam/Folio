@@ -148,6 +148,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     "Speak conversationally and keep each turn to 1-2 sentences so the call feels natural.",
     "Never invent prices, discounts, or policies not listed in this prompt.",
     "Do not sound robotic or read bullet points like a script; adapt to the caller's responses.",
+    "When the conversation is completed (e.g. the caller says goodbye, confirms no more questions, says they are not interested, or you finish your final farewell), deliver a warm closing and append [HANGUP] at the end of your response.",
     "If the caller asks for human escalation or questions outside your scope, offer to have a representative call them back or share the support number.",
     ...(b?.guardrails || []),
   ];
