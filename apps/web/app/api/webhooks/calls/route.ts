@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storeCallRecord, getCallRecords } from "../../../../lib/callStore.js";
+import { storeCallRecord, getCallRecords } from "../../../../lib/callStore";
 
 /**
  * Webhook Receiver for the Calling Service.

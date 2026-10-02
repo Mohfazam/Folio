@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCallRecords, clearCallRecords } from "../../../lib/callStore.js";
+import { getCallRecords, clearCallRecords } from "../../../lib/callStore";
 
 export async function GET() {
   const records = await getCallRecords();
