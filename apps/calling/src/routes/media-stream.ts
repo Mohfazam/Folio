@@ -49,6 +49,7 @@ export function attachMediaStream(server: Server) {
           instructions,
           language,
           greetingText,
+          sessionState: activeRecord?.sessionState,
         }
       );
 

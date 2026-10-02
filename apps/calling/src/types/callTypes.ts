@@ -30,6 +30,10 @@ export interface CallRequest {
   context?: PromptContext;
   /** Optional custom greeting text played when call connects */
   greetingText?: string;
+  /** Optional webhook callback URL where final CallResult is posted when call ends */
+  callbackUrl?: string;
+  /** Whether to record this call with Plivo */
+  recordCall?: boolean;
 }
 
 // ── Call Status ─────────────────────────────────────────────────────
@@ -167,6 +171,28 @@ export interface CallResult {
     /** Average time from user transcript final to first TTS audio chunk (ms) */
     avgFirstAudioMs?: number;
   };
+
+  /** AI post-call analysis extracting outcome, sentiment, and summary */
+  analysis?: CallAnalysisResult;
+}
+
+// ── Call Analysis Result ────────────────────────────────────────────
+
+export interface CallAnalysisResult {
+  /** 1-2 sentence summary of what was discussed */
+  summary: string;
+  /** Evaluated interest level of the caller */
+  interestLevel: "high" | "medium" | "low" | "unknown";
+  /** Overall caller sentiment during the conversation */
+  sentiment: "positive" | "neutral" | "negative";
+  /** Specific objections, hesitation, or pain points raised */
+  objectionsRaised: string[];
+  /** Whether the caller requested a callback or follow-up */
+  followUpRequested: boolean;
+  /** Explicit callback time requested, if any */
+  requestedCallbackTime?: string;
+  /** Additional notes or next steps for human sales / support reps */
+  notes?: string;
 }
 
 // ── API Responses ───────────────────────────────────────────────────

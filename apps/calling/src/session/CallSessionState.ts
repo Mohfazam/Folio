@@ -38,6 +38,8 @@ export class CallSessionState {
   readonly instructions?: string;
   readonly context?: PromptContext;
   readonly greetingText: string;
+  readonly callbackUrl?: string;
+  readonly recordCall?: boolean;
 
   // ── Plivo ─────────────────────────────────────────────────────
   plivoCallId = "";
@@ -93,6 +95,9 @@ export class CallSessionState {
       request.greetingText ||
       buildPersonalizedGreeting(request.context);
 
+    this.callbackUrl = request.callbackUrl;
+    this.recordCall = request.recordCall;
+
     this.startedAt = new Date();
   }
 
@@ -102,6 +107,10 @@ export class CallSessionState {
 
   get status(): CallStatus {
     return this._status;
+  }
+
+  get transcript(): TranscriptTurn[] {
+    return [...this._transcript];
   }
 
   /** Short log prefix for structured logging */

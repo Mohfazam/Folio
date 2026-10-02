@@ -14,6 +14,8 @@ export async function dialRoute(req: Request, res: Response) {
   const campaignId = (params.campaignId as string) || undefined;
   const instructions = (params.instructions as string) || undefined;
   const greetingText = (params.greetingText as string) || (params.greeting as string) || undefined;
+  const callbackUrl = (params.callbackUrl as string) || (params.webhookUrl as string) || undefined;
+  const recordCall = params.recordCall !== undefined ? Boolean(params.recordCall) : false;
   const language = (params.language as string) || undefined;
 
   // Support structured context passed directly or via business/campaign/contact keys
@@ -49,6 +51,8 @@ export async function dialRoute(req: Request, res: Response) {
       instructions,
       context,
       greetingText,
+      callbackUrl,
+      recordCall,
       language,
     });
 

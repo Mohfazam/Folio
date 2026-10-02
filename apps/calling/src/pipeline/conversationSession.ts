@@ -3,6 +3,8 @@ import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/claude/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 
+import type { CallSessionState } from "../session/CallSessionState.js";
+
 export interface SessionCallbacks {
   playAudio: (mulawChunk: Buffer) => void;
   clearAudio: () => void;
@@ -17,6 +19,7 @@ export interface ConversationSessionOptions {
   instructions?: string;
   language?: string;
   greetingText?: string;
+  sessionState?: CallSessionState;
 }
 
 const MAX_BUFFERED_CHUNKS = 500; // ~10 seconds of 20ms chunks
@@ -41,12 +44,15 @@ export function createConversationSession(
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
+  const sessionStartTime = performance.now();
+
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
     const greetingText =
       options?.greetingText || "Hello! Thanks for taking my call. Do you have a quick moment?";
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
+    options?.sessionState?.addAssistantTurn(greetingText);
 
     try {
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
@@ -59,8 +65,10 @@ export function createConversationSession(
 
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
+      options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
+      options?.sessionState?.recordError("tts", "tts_synthesis", err?.message ?? "Greeting error");
     }
   }
 
@@ -76,6 +84,7 @@ export function createConversationSession(
     activeTurn = controller;
     console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? options?.language ?? "auto"})`);
     history.push({ role: "user", content: trimmed });
+    options?.sessionState?.addUserTurn(trimmed, activeLanguage);
 
     let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
     let firstSentenceLogged = false;
@@ -85,7 +94,9 @@ export function createConversationSession(
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
         if (!firstAudioLogged) {
           firstAudioLogged = true;
-          console.log(`${tag} ⏱️ First audio: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+          const audioMs = Math.round(performance.now() - turnStartedAt);
+          options?.sessionState?.recordFirstAudioTime(audioMs);
+          console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
         }
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
@@ -101,7 +112,9 @@ export function createConversationSession(
           if (closed || generationId !== currentGen) return;
           if (!firstSentenceLogged) {
             firstSentenceLogged = true;
-            console.log(`${tag} ⏱️ First sentence: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+            const sentenceMs = Math.round(performance.now() - turnStartedAt);
+            options?.sessionState?.recordFirstSentenceTime(sentenceMs);
+            console.log(`${tag} ⏱️ First sentence: ${sentenceMs}ms after transcript final`);
           }
           if (tts) tts.sendText(sentence);
           else pendingSentences.push(sentence);
@@ -124,11 +137,13 @@ export function createConversationSession(
 
       console.log(`${tag} 🤖 AI: "${reply}"`);
       history.push({ role: "assistant", content: reply });
+      options?.sessionState?.addAssistantTurn(reply);
     } catch (err: any) {
       const wasAborted = controller.signal.aborted;
       controller.abort();
       if (!wasAborted) {
         console.error(`${tag} Pipeline error:`, err?.message ?? err);
+        options?.sessionState?.recordError("model", "model_request", err?.message ?? "Pipeline error");
       }
     } finally {
       tts?.close();
@@ -164,6 +179,7 @@ export function createConversationSession(
     },
     onError: (message) => {
       console.error(`${tag} STT error: ${message}`);
+      options?.sessionState?.recordError("stt", "stt_stream", message);
     },
   })
     .then((session) => {
@@ -172,6 +188,7 @@ export function createConversationSession(
         return;
       }
       stt = session;
+      options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
       console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
       for (const chunk of pending) session.sendAudio(chunk);
       pending.length = 0;

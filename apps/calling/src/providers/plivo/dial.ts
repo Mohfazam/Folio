@@ -13,6 +13,8 @@ export interface InitiateCallParams {
   instructions?: string;
   context?: PromptContext;
   greetingText?: string;
+  callbackUrl?: string;
+  recordCall?: boolean;
   language?: string;
 }
 
@@ -24,6 +26,8 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   const instructions = params?.instructions;
   const context = params?.context;
   const greetingText = params?.greetingText;
+  const callbackUrl = params?.callbackUrl;
+  const recordCall = params?.recordCall;
   const language = params?.language || "en-IN";
 
   // Check concurrency lock: is there an active call ongoing or initiating to this phone?
@@ -45,6 +49,8 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     instructions,
     context,
     greetingText,
+    callbackUrl,
+    recordCall,
     language,
   };
 
@@ -57,16 +63,23 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
 
     console.log(`[plivo/dial] 📞 Initiating call from ${env.plivoPhoneNumber} to ${targetPhone}...`);
 
+    const callCreateOptions: Record<string, any> = {
+      answer_method: "POST",
+      hangup_url: hangupUrl,
+      hangup_method: "POST",
+      time_limit: 900, // 15 minutes max
+    };
+
+    if (recordCall) {
+      callCreateOptions.record = true;
+      callCreateOptions.record_when_answer = true;
+    }
+
     const plivoResponse = await plivoClient.calls.create(
       env.plivoPhoneNumber,
       targetPhone,
       answerUrl,
-      {
-        answer_method: "POST",
-        hangup_url: hangupUrl,
-        hangup_method: "POST",
-        time_limit: 900, // 15 minutes max
-      }
+      callCreateOptions
     );
 
     const requestUuid = Array.isArray(plivoResponse.requestUuid)
