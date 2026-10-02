@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 import { dispatchCallCompleted } from "../delivery/callDelivery.js";
+import { metricsCollector } from "../monitoring/metricsCollector.js";
 import type { CallStatus } from "../types/callTypes.js";
 
 function mapHangupCauseToStatus(cause?: string, callStatus?: string): CallStatus {
@@ -30,11 +31,21 @@ export function plivoHangupRoute(req: Request, res: Response) {
     if (record) {
       console.log(`[plivo-hangup] 🏁 Call ${callUuid} finalized with status "${status}"`);
 
+      const durSec = parseInt(duration, 10) || 0;
+      metricsCollector.recordCallEnded(
+        status,
+        durSec,
+        hangupCause,
+        record.requestId,
+        record.phoneNumber,
+        record.sessionState.transcript.length
+      );
+
       if (recordingUrl) {
         record.sessionState.setRecording({
           available: true,
           storageKey: recordingUrl,
-          durationSeconds: parseInt(duration, 10) || undefined,
+          durationSeconds: durSec || undefined,
           mimeType: "audio/mp3",
         });
       }

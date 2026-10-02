@@ -7,6 +7,7 @@ import {
 
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 import { plivoClient } from "../providers/plivo/client.js";
+import { metricsCollector } from "../monitoring/metricsCollector.js";
 
 // The live-audio WebSocket endpoint. Plivo connects here once per call.
 export function attachMediaStream(server: Server) {
@@ -19,6 +20,7 @@ export function attachMediaStream(server: Server) {
     .onStart((event, ws) => {
       const { callId, mediaFormat } = event.start;
       console.log(`[call ${callId.slice(0, 8)}] stream started`, mediaFormat);
+      metricsCollector.recordCallConnected();
 
       const activeRecord = activeCallRegistry.get(callId);
       const instructions = activeRecord?.sessionState?.instructions;

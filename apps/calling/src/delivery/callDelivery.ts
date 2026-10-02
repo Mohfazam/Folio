@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeCallTranscript } from "../pipeline/callAnalysis.js";
 import { CallSessionState } from "../session/CallSessionState.js";
+import { metricsCollector } from "../monitoring/metricsCollector.js";
 import type { CallResult } from "../types/callTypes.js";
 
 const SPOOL_DIR = join(process.cwd(), ".call-results");
@@ -35,6 +36,7 @@ export async function dispatchCallCompleted(
   try {
     const analysis = await analyzeCallTranscript(result.transcript, sessionState.context);
     result.analysis = analysis;
+    metricsCollector.recordCallAnalysis(result.requestId, analysis);
   } catch (analysisErr: any) {
     console.warn(`${tag} Analysis extraction error:`, analysisErr?.message ?? analysisErr);
   }
@@ -81,6 +83,8 @@ export async function dispatchCallCompleted(
         await new Promise((r) => setTimeout(r, attempt * 1000));
       }
     }
+
+    metricsCollector.recordWebhookResult(deliverySuccess);
 
     if (!deliverySuccess) {
       console.error(`${tag} ❌ All 3 webhook delivery attempts failed for ${targetUrl}. Spooled locally.`);

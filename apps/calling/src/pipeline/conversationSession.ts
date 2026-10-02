@@ -2,6 +2,7 @@ import { performance } from "node:perf_hooks";
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/claude/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
+import { metricsCollector } from "../monitoring/metricsCollector.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -60,6 +61,7 @@ export function createConversationSession(
   const maxDurationTimer = setTimeout(() => {
     if (!closed) {
       console.warn(`${tag} ⏰ MAX CALL DURATION (${MAX_CALL_DURATION_MS / 60000}min) reached — forcing hangup`);
+      metricsCollector.recordMaxDurationHangup();
       options?.sessionState?.recordError("plivo", "plivo_disconnect", "Max call duration exceeded");
       callbacks.hangup?.("Maximum call duration exceeded");
     }
@@ -126,6 +128,7 @@ export function createConversationSession(
           firstAudioLogged = true;
           const audioMs = Math.round(performance.now() - turnStartedAt);
           options?.sessionState?.recordFirstAudioTime(audioMs);
+          metricsCollector.recordTurnLatency(undefined, audioMs);
           console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
         }
         turnAudioBytes += audioChunk.length;
@@ -146,6 +149,7 @@ export function createConversationSession(
             firstSentenceLogged = true;
             const sentenceMs = Math.round(performance.now() - turnStartedAt);
             options?.sessionState?.recordFirstSentenceTime(sentenceMs);
+            metricsCollector.recordTurnLatency(sentenceMs, undefined);
             console.log(`${tag} ⏱️ First sentence: ${sentenceMs}ms after transcript final`);
           }
           if (tts) tts.sendText(sentence);
@@ -167,6 +171,7 @@ export function createConversationSession(
       // ── Empty reply safety net: if Gemini returned nothing, speak a fallback ──
       if (!reply.trim() && sentenceCount === 0) {
         console.warn(`${tag} ⚠️ Gemini returned empty reply — speaking fallback`);
+        metricsCollector.recordEmptyReplyFallback();
         options?.sessionState?.recordError("model", "model_empty", "Gemini returned empty response");
         const fallbackAudio = await convertTextToSpeech(EMPTY_REPLY_FALLBACK, {
           speaker: "priya",
@@ -284,6 +289,7 @@ export function createConversationSession(
       // ── Auto-reconnect logic ──
       if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
         sttReconnectAttempts++;
+        metricsCollector.recordSttReconnect();
         console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
         setTimeout(() => {
           if (!closed) connectStt();
