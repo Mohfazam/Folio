@@ -8,6 +8,7 @@
 
 # testing
 /coverage
+.call-history/
 
 # next.js
 /.next/
