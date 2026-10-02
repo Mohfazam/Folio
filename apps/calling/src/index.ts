@@ -4,6 +4,7 @@
 // Deleting it forces the SDK to fall back to the `ws` package in Node runtime.
 delete (globalThis as any).WebSocket;
 
-import { startServer } from "./sarwar";
+import { startServer } from "./sarwar.js";
 
-startServer();
+startServer();
+

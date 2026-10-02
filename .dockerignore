@@ -1,0 +1,18 @@
+# Fly.io build context .dockerignore
+# Build context is the monorepo root
+
+# Global ignores
+node_modules
+.git
+.turbo
+*.log
+
+# Other apps (not needed for calling service build)
+apps/web
+
+# Test files
+apps/calling/test-audio.wav
+apps/calling/test-output.wav
+apps/calling/dist
+apps/calling/.env
+apps/calling/*.tsbuildinfo

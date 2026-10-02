@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+*.log
+.turbo
+.git
+test-audio.wav
+test-output.wav
+*.tsbuildinfo
