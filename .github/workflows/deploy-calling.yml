@@ -1,0 +1,28 @@
+name: Deploy Calling Service to Railway
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/calling/**"
+      - "packages/typescript-config/**"
+      - "railway.toml"
+      - ".dockerignore"
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Service
+        run: railway up --service folio-calling --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
