@@ -1,7 +1,7 @@
 import os from "node:os";
 import { performance } from "node:perf_hooks";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
-import type { CallAnalysis, CallResult, CallStatus } from "../types/callTypes.js";
+import type { CallAnalysisResult, CallResult, CallStatus } from "../types/callTypes.js";
 
 function formatSeconds(sec: number): string {
   if (sec <= 0) return "0s";
@@ -207,7 +207,7 @@ export class MetricsCollector {
     this.maxDurationExceeded++;
   }
 
-  recordCallAnalysis(requestId: string, analysis?: CallAnalysis) {
+  recordCallAnalysis(requestId: string, analysis?: CallAnalysisResult) {
     if (!analysis) return;
 
     // Update recent call record if present
