@@ -197,7 +197,12 @@ class ActiveCallRegistry {
         console.warn(`[registry] ⚠️ Expiring stale initiating call ${record.requestId} for ${phone}`);
         this.markEnded(record.requestId, "no_answer", "Initiation timed out before answer");
       }
-      // If call is older than 2 hours, clean it up
+      // If in-progress for more than 15 minutes (Plivo time_limit), assume hangup webhook was lost
+      if (record.phase === "in-progress" && elapsed > 15 * 60 * 1000) {
+        console.warn(`[registry] ⚠️ Expiring stale in-progress call ${record.requestId} for ${phone} (${Math.round(elapsed / 60000)}min)`);
+        this.markEnded(record.requestId, "interrupted", "Call exceeded 15-minute in-progress limit (hangup webhook likely lost)");
+      }
+      // If call is older than 2 hours, clean it up regardless of phase
       if (elapsed > 2 * 60 * 60 * 1000) {
         this.markEnded(record.requestId, "failed", "Call exceeded max allowed lifetime");
       }

@@ -24,6 +24,10 @@ export interface ConversationSessionOptions {
 }
 
 const MAX_BUFFERED_CHUNKS = 500; // ~10 seconds of 20ms chunks
+const MAX_CALL_DURATION_MS = 12 * 60 * 1000; // 12 minutes (Plivo limit is 15min)
+const STT_RECONNECT_MAX_ATTEMPTS = 2;
+const STT_RECONNECT_DELAY_MS = 1500;
+const EMPTY_REPLY_FALLBACK = "I'm sorry, I didn't catch that. Could you please repeat?";
 
 // One instance per live call:
 // 1. Caller speaks -> Sarvam STT transcribes.
@@ -42,10 +46,25 @@ export function createConversationSession(
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
   let activeTurn: AbortController | null = null;
   let interruptionHandled = false;
+  let turnInProgress = false; // serialize turns to prevent history corruption
+  let queuedTurn: { text: string; language?: string } | null = null;
+  let sttReconnectAttempts = 0;
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
   const sessionStartTime = performance.now();
+
+  // ── Safety: max call duration timer ─────────────────────────────
+  // If auto-hangup never triggers (edge case), force-terminate the call
+  // before Plivo's 15-minute hard limit to cleanly deliver results.
+  const maxDurationTimer = setTimeout(() => {
+    if (!closed) {
+      console.warn(`${tag} ⏰ MAX CALL DURATION (${MAX_CALL_DURATION_MS / 60000}min) reached — forcing hangup`);
+      options?.sessionState?.recordError("plivo", "plivo_disconnect", "Max call duration exceeded");
+      callbacks.hangup?.("Maximum call duration exceeded");
+    }
+  }, MAX_CALL_DURATION_MS);
+  maxDurationTimer.unref();
 
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
@@ -78,6 +97,14 @@ export function createConversationSession(
     const trimmed = userText.trim();
     if (!trimmed) return;
 
+    // ── Turn serialization: if a turn is already in progress, queue this one ──
+    if (turnInProgress) {
+      queuedTurn = { text: trimmed, language };
+      console.log(`${tag} ⏳ Turn queued (another turn in progress): "${trimmed.slice(0, 50)}..."`);
+      return;
+    }
+    turnInProgress = true;
+
     const currentGen = ++generationId;
     const controller = new AbortController();
     const turnStartedAt = performance.now();
@@ -90,6 +117,7 @@ export function createConversationSession(
     let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
     let firstSentenceLogged = false;
     let turnAudioBytes = 0;
+    let sentenceCount = 0;
     try {
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
@@ -113,6 +141,7 @@ export function createConversationSession(
         history,
         (sentence) => {
           if (closed || generationId !== currentGen) return;
+          sentenceCount++;
           if (!firstSentenceLogged) {
             firstSentenceLogged = true;
             const sentenceMs = Math.round(performance.now() - turnStartedAt);
@@ -134,6 +163,22 @@ export function createConversationSession(
       const reply = await replyPromise;
 
       if (closed || generationId !== currentGen) return;
+
+      // ── Empty reply safety net: if Gemini returned nothing, speak a fallback ──
+      if (!reply.trim() && sentenceCount === 0) {
+        console.warn(`${tag} ⚠️ Gemini returned empty reply — speaking fallback`);
+        options?.sessionState?.recordError("model", "model_empty", "Gemini returned empty response");
+        const fallbackAudio = await convertTextToSpeech(EMPTY_REPLY_FALLBACK, {
+          speaker: "priya",
+          languageCode: activeLanguage.startsWith("hi") ? "hi-IN" : "en-IN",
+        });
+        if (!closed && generationId === currentGen) {
+          callbacks.playAudio(fallbackAudio);
+          history.push({ role: "assistant", content: EMPTY_REPLY_FALLBACK });
+          options?.sessionState?.addAssistantTurn(EMPTY_REPLY_FALLBACK);
+        }
+        return;
+      }
 
       await tts.finish();
       if (closed || generationId !== currentGen) return;
@@ -172,6 +217,15 @@ export function createConversationSession(
     } finally {
       tts?.close();
       if (activeTurn === controller) activeTurn = null;
+      turnInProgress = false;
+
+      // ── Process queued turn if one arrived during this turn ──
+      if (queuedTurn && !closed) {
+        const next = queuedTurn;
+        queuedTurn = null;
+        console.log(`${tag} ▶️ Processing queued turn: "${next.text.slice(0, 50)}..."`);
+        handleCallerTurn(next.text, next.language);
+      }
     }
   }
 
@@ -183,35 +237,39 @@ export function createConversationSession(
     callbacks.clearAudio();
   }
 
-  // Connects realtime STT to Sarvam
-  openSttSession({
-    onSpeechStart: () => {
-      interruptionHandled = false;
-      console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
-    },
-    onPartial: (text) => {
-      if (text?.trim()) {
-        interruptForCallerSpeech();
-        if (process.env.NODE_ENV !== "production") {
-          console.log(`${tag} ... ${text.trim()}`);
-        }
-      }
-    },
-    onFinal: (text, language) => {
-      if (text?.trim()) interruptForCallerSpeech();
-      handleCallerTurn(text, language);
-    },
-    onError: (message) => {
-      console.error(`${tag} STT error: ${message}`);
-      options?.sessionState?.recordError("stt", "stt_stream", message);
-    },
-  })
-    .then((session) => {
+  // ── STT Connection with auto-reconnect ─────────────────────────
+  async function connectStt() {
+    try {
+      const session = await openSttSession({
+        onSpeechStart: () => {
+          interruptionHandled = false;
+          console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
+        },
+        onPartial: (text) => {
+          if (text?.trim()) {
+            interruptForCallerSpeech();
+            if (process.env.NODE_ENV !== "production") {
+              console.log(`${tag} ... ${text.trim()}`);
+            }
+          }
+        },
+        onFinal: (text, language) => {
+          if (text?.trim()) interruptForCallerSpeech();
+          handleCallerTurn(text, language);
+        },
+        onError: (message) => {
+          console.error(`${tag} STT error: ${message}`);
+          options?.sessionState?.recordError("stt", "stt_stream", message);
+        },
+      });
+
       if (closed) {
         session.close();
         return;
       }
+
       stt = session;
+      sttReconnectAttempts = 0; // reset on successful connect
       options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
       console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
       for (const chunk of pending) session.sendAudio(chunk);
@@ -219,8 +277,26 @@ export function createConversationSession(
 
       // Speak greeting as soon as connection is ready
       speakGreeting();
-    })
-    .catch((err) => console.error(`${tag} could not open STT:`, err));
+    } catch (err: any) {
+      console.error(`${tag} could not open STT:`, err?.message ?? err);
+      options?.sessionState?.recordError("stt", "stt_connection", err?.message ?? "STT connection failed");
+
+      // ── Auto-reconnect logic ──
+      if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
+        sttReconnectAttempts++;
+        console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
+        setTimeout(() => {
+          if (!closed) connectStt();
+        }, STT_RECONNECT_DELAY_MS);
+      } else if (!closed) {
+        console.error(`${tag} ❌ STT reconnect attempts exhausted — hanging up call`);
+        callbacks.hangup?.("STT connection failed after retries");
+      }
+    }
+  }
+
+  // Start the STT connection
+  connectStt();
 
   return {
     handleAudio(chunk) {
@@ -231,12 +307,15 @@ export function createConversationSession(
       }
     },
     close() {
+      if (closed) return; // idempotent
       closed = true;
+      clearTimeout(maxDurationTimer);
       generationId++;
       activeTurn?.abort();
       callbacks.clearAudio();
       stt?.close();
-      console.log(`${tag} session closed`);
+      const durationSec = ((performance.now() - sessionStartTime) / 1000).toFixed(1);
+      console.log(`${tag} session closed (duration: ${durationSec}s, turns: ${history.length})`);
     },
   };
 }

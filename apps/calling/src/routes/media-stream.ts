@@ -48,10 +48,13 @@ export function attachMediaStream(server: Server) {
           hangup: async (reason?: string) => {
             console.log(`[call ${callId.slice(0, 8)}] 🛑 Auto-hangup executing: "${reason || "call ended"}". Terminating Plivo call...`);
             try {
-              session.close();
+              // Hangup the Plivo call first, THEN close the session.
+              // Closing the session first could abort the outgoing HTTP request.
               await plivoClient.calls.hangup(callId);
             } catch (err: any) {
               console.warn(`[call ${callId.slice(0, 8)}] Plivo hangup error:`, err?.message ?? err);
+            } finally {
+              session.close();
             }
           },
         },

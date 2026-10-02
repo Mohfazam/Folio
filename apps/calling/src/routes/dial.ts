@@ -31,6 +31,29 @@ export async function dialRoute(req: Request, res: Response) {
       : undefined);
 
   const now = Date.now();
+
+  // ── Input validation ────────────────────────────────────────────
+  // In production, phoneNumber must be explicitly provided. Silently falling
+  // back to MY_TEST_PHONE_NUMBER could cause accidental calls to the dev's phone.
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+  if (!phoneNumber && isProduction) {
+    return res.status(400).json({
+      ok: false,
+      error: "Missing required field: phoneNumber. You must provide a destination phone number.",
+      code: "MISSING_PHONE_NUMBER",
+    });
+  }
+
+  // Basic E.164 validation: must be digits, optionally with leading +
+  const targetPhone = phoneNumber || (params.to as string) || undefined;
+  if (targetPhone && !/^\+?\d{7,15}$/.test(targetPhone.replace(/[\s\-()]/g, ""))) {
+    return res.status(400).json({
+      ok: false,
+      error: `Invalid phone number format: "${targetPhone}". Expected E.164 format (e.g., +91XXXXXXXXXX).`,
+      code: "INVALID_PHONE_NUMBER",
+    });
+  }
+
   if (phoneNumber && phoneNumber === lastDialPhone && now - lastDialTimestamp < 3000) {
     return res.status(429).json({
       ok: false,
