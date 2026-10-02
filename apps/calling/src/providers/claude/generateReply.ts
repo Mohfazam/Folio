@@ -6,20 +6,17 @@ const PRIMARY_MODEL = "gemini-flash-lite-latest";
 const FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 const SYSTEM_INSTRUCTION = `
-You are a friendly, concise, natural AI voice assistant on a live phone call.
-- Keep responses natural, conversational, and direct (1-3 short spoken sentences).
-- Avoid long essays or numbered bullet lists. Use spoken transitions instead.
-- Answer simple questions immediately and concisely.
-- For practical or multi-step questions, give a direct 1-sentence answer first, then provide concise next steps.
+You are a friendly, natural, and concise AI phone assistant representing the business on a live call.
+- Keep responses short, direct, and conversational (1-2 spoken sentences per turn).
+- Never lecture, monologue, or read long lists. Speak like a real person on a phone call.
+- Stay strictly on topic based on the business details, catalog, and call objectives provided.
+- If the caller asks off-topic questions (e.g. weather, stocks, unrelated general knowledge), politely acknowledge and steer back to the call's purpose.
 - Never use markdown formatting, bullet points, asterisks, URLs, or emojis.
 - Speak directly to the caller.
 `.trim();
 
-// Specific web search intent (strictly requires explicit request to search online)
-const WEB_SEARCH_INTENT = /\b(?:(?:search|look up|check|browse|find)(?: (?:the|on))? (?:web|internet|google)|latest news|current weather in|live score of)\b/i;
-
-export function shouldSearchWeb(text: string): boolean {
-  return WEB_SEARCH_INTENT.test(text);
+export function shouldSearchWeb(_text: string): boolean {
+  return false;
 }
 
 function formatContents(
@@ -122,18 +119,13 @@ export async function generateReplyStream(
   };
 
   // Helper to run stream with a given model
-  const runStream = async (model: string, withSearch: boolean) => {
-    const config: any = {
-      systemInstruction: sysInst,
-      maxOutputTokens: 250,
-    };
-    if (withSearch) {
-      config.tools = [{ googleSearch: {} }];
-    }
-
+  const runStream = async (model: string) => {
     const responseStream = await genAI.models.generateContentStream({
       model,
-      config,
+      config: {
+        systemInstruction: sysInst,
+        maxOutputTokens: 200,
+      },
       contents,
     });
 
@@ -146,22 +138,14 @@ export async function generateReplyStream(
   };
 
   try {
-    await runStream(PRIMARY_MODEL, searchWeb);
+    await runStream(PRIMARY_MODEL);
   } catch (err: any) {
     if (signal?.aborted) return fullReply.trim();
-
-    // If searchWeb failed with 429 quota or other error, retry immediately without search
-    if (searchWeb) {
-      console.warn(`[generateReplyStream] Search failed, retrying without search tool:`, err?.message ?? err);
-      try {
-        await runStream(PRIMARY_MODEL, false);
-      } catch (retryErr: any) {
-        console.warn(`[generateReplyStream] Primary retry failed, using fallback model:`, retryErr?.message ?? retryErr);
-        await runStream(FALLBACK_MODEL, false);
-      }
-    } else {
-      console.warn(`[generateReplyStream] Primary model failed, trying fallback:`, err?.message ?? err);
-      await runStream(FALLBACK_MODEL, false);
+    console.warn(`[generateReplyStream] Primary model failed, trying fallback:`, err?.message ?? err);
+    try {
+      await runStream(FALLBACK_MODEL);
+    } catch (retryErr: any) {
+      console.error(`[generateReplyStream] Fallback model also failed:`, retryErr?.message ?? retryErr);
     }
   }
 

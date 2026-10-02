@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
-import { generateReplyStream, shouldSearchWeb } from "../providers/claude/generateReply.js";
+import { generateReplyStream } from "../providers/claude/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 
 export interface SessionCallbacks {
@@ -71,7 +71,6 @@ export function createConversationSession(
     const currentGen = ++generationId;
     const controller = new AbortController();
     const turnStartedAt = performance.now();
-    const searchWeb = shouldSearchWeb(trimmed);
     const activeLanguage = language || options?.language || "en-IN";
     activeTurn = controller;
     console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? options?.language ?? "auto"})`);
@@ -81,10 +80,6 @@ export function createConversationSession(
     let firstSentenceLogged = false;
     try {
       const pendingSentences: string[] = [];
-      if (searchWeb) {
-        console.log(`${tag} 🌐 Searching the web for this question`);
-        pendingSentences.push("I'll search the internet for this information. Give me a few seconds.");
-      }
       let firstAudioLogged = false;
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
         if (!firstAudioLogged) {
@@ -111,7 +106,7 @@ export function createConversationSession(
           else pendingSentences.push(sentence);
         },
         controller.signal,
-        searchWeb,
+        false,
         options?.instructions
       );
       void replyPromise.catch(() => {});
@@ -130,23 +125,6 @@ export function createConversationSession(
       history.push({ role: "assistant", content: reply });
     } catch (err: any) {
       const wasAborted = controller.signal.aborted;
-      if (
-        !wasAborted &&
-        searchWeb &&
-        tts &&
-        !firstSentenceLogged &&
-        !closed &&
-        generationId === currentGen
-      ) {
-        const fallback = "I couldn't access live web search just now, so I can't verify that information.";
-        try {
-          tts.sendText(fallback);
-          await tts.finish();
-          history.push({ role: "assistant", content: fallback });
-        } catch (fallbackError: any) {
-          console.error(`${tag} Search fallback error:`, fallbackError?.message ?? fallbackError);
-        }
-      }
       controller.abort();
       if (!wasAborted) {
         console.error(`${tag} Pipeline error:`, err?.message ?? err);
