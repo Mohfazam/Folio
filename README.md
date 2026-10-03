@@ -1,159 +1,64 @@
-# Turborepo starter
+# Folio
 
-This Turborepo starter is maintained by the Turborepo core team.
+Folio is a TypeScript monorepo for an AI-powered outbound calling product. The calling service is deployed on Railway and has been used for more than 10 live calls, with positive user feedback on call quality (as reported by the project owner).
 
-## Using this example
+## Repository
 
-Run the following command:
+| Path | Purpose |
+|---|---|
+| `apps/calling` | Express calling service: Plivo call control and media streaming, Sarvam speech, Gemini replies, and call lifecycle handling |
+| `apps/web` | Next.js web app and API routes; product dashboard functionality is still in progress |
+| `apps/docs` | Next.js documentation-site scaffold |
+| `packages/db` | Drizzle schema and Postgres migrations |
+| `packages/ui` | Shared UI components |
+| `packages/documents` | Project plan and progress documents |
 
-```sh
-npx create-turbo@latest
-```
+## Requirements
 
-## What's inside?
+- Node.js 22 for the calling service
+- pnpm 9
+- Provider credentials for local calling-service development
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+Install workspace dependencies from the repository root:
 
 ```sh
-cd my-turborepo
-turbo build
+pnpm install
 ```
 
-Without global `turbo`, use your package manager:
+## Local development
+
+Create `apps/calling/.env` for local calling-service development. Do not commit this file. The service requires:
+
+```text
+PLIVO_AUTH_ID=
+PLIVO_AUTH_TOKEN=
+PLIVO_PHONE_NUMBER=
+MY_TEST_PHONE_NUMBER=
+SARVAM_API_KEY=
+GEMINI_API_KEY=
+PUBLIC_URL=
+```
+
+`ANTHROPIC_API_KEY` is optional for the currently wired Gemini reply path. `PUBLIC_URL` must be a publicly reachable HTTP(S) base URL for Plivo webhooks; the service derives the secure WebSocket stream URL from it.
+
+Run the calling service in watch mode:
 
 ```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+pnpm --filter @repo/calling dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+Build it:
 
 ```sh
-turbo build --filter=docs
+pnpm --filter @repo/calling build
 ```
 
-Without global `turbo`:
+The HTTP service exposes `/health`, `/dial`, `/active-calls`, and `/metrics`; Plivo uses `/plivo-voice`, `/plivo-hangup`, and `/media-stream`.
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-```
+## Deployment and validation
 
-### Develop
+The repository includes a Railway configuration at `railway.toml` that builds `apps/calling/Dockerfile` and checks `/health`. Configure provider credentials and the public service URL as Railway environment variables; local `.env` values are not deployed automatically.
 
-To develop all apps and packages, run the following command:
+The live calling flow has been exercised in more than 10 calls with positive feedback, according to the project owner. This is useful real-world prototype validation, not a substitute for automated regression, load, security, or recovery testing. The web dashboard, database-backed call persistence, queue automation, and production operations still need work.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+For the current phase-by-phase status and next milestones, see [Project Status Update](./packages/documents/Project%20Status%20Update.md) and [Build Phases](./packages/documents/Build%20Phases.md).
