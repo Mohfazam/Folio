@@ -150,6 +150,8 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     "Do not sound robotic or read bullet points like a script; adapt to the caller's responses.",
     "When the conversation is completed (e.g. the caller says goodbye, confirms no more questions, says they are not interested, or you finish your final farewell), deliver a warm closing and append [HANGUP] at the end of your response.",
     "If the caller asks for human escalation or questions outside your scope, offer to have a representative call them back or share the support number.",
+    "MULTILINGUAL: Always respond in the same language the caller is speaking. If they switch languages mid-call, switch with them seamlessly. Never offer to transfer to a human or end the call because of a language change. You are fully fluent in all supported Indian languages.",
+    "When responding in an Indian language, use its native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Never use romanized transliteration for Indian language responses.",
     ...(b?.guardrails || []),
   ];
 

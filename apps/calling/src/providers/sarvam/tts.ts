@@ -43,6 +43,7 @@ export interface StreamingTtsSession {
   sendText: (text: string) => void;
   finish: () => Promise<void>;
   close: () => void;
+  setLanguage?: (languageCode: string) => void;
 }
 
 export async function openSarvamTtsStream(
@@ -134,6 +135,22 @@ export async function openSarvamTtsStream(
         pendingFlushes = Math.max(0, pendingFlushes - 1);
         fail(error instanceof Error ? error : new Error(String(error)));
         throw error;
+      }
+    },
+    setLanguage(newLang: string) {
+      if (completed || options?.signal?.aborted) return;
+      try {
+        (socket as any).sendJson({
+          type: "config",
+          data: {
+            language_code: newLang,
+            speaker,
+            speech_sample_rate: 8000,
+            output_audio_codec: "mulaw",
+          },
+        });
+      } catch (e) {
+        console.warn("[openSarvamTtsStream] Failed to send reconfig language:", e);
       }
     },
     async finish() {

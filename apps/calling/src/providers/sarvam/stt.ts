@@ -28,7 +28,7 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
     encoding: "mulaw",
     sample_rate: "8000",
     endpointing: "vad",
-    silence_duration_ms: "800",
+    silence_duration_ms: "1200",
     "Api-Subscription-Key": KEY,
     debug: false,
   });
@@ -44,9 +44,14 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
       case "transcript.partial":
         handlers.onPartial?.((msg as any).text);
         break;
-      case "transcript.final":
-        handlers.onFinal((msg as any).text, (msg as any).language);
+      case "transcript.final": {
+        const detected =
+          (msg as any).detected_language ??
+          (msg as any).language_code ??
+          (msg as any).language;
+        handlers.onFinal((msg as any).text, detected);
         break;
+      }
       case "error":
         console.error(`[stt.ts] ❌ Sarvam error event:`, JSON.stringify(msg));
         handlers.onError?.(`${(msg as any).code}: ${(msg as any).message}`);

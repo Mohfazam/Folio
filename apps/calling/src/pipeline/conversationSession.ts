@@ -3,6 +3,7 @@ import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/claude/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
+import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -53,6 +54,11 @@ export function createConversationSession(
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
+  // ── Dynamic language tracking ──────────────────────────────────
+  // Tracks the active language detected from caller speech across turns.
+  // Starts with the configured language and updates per-turn from STT detection.
+  let currentLanguage = normalizeLanguageCode(options?.language);
+
   const sessionStartTime = performance.now();
 
   // ── Safety: max call duration timer ─────────────────────────────
@@ -80,7 +86,7 @@ export function createConversationSession(
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
       const audio = await convertTextToSpeech(greetingText, {
         speaker: "priya",
-        languageCode: options?.language?.startsWith("hi") ? "hi-IN" : "en-IN",
+        languageCode: currentLanguage,
       });
 
       if (closed || generationId !== currentGen) return;
@@ -110,9 +116,21 @@ export function createConversationSession(
     const currentGen = ++generationId;
     const controller = new AbortController();
     const turnStartedAt = performance.now();
-    const activeLanguage = language || options?.language || "en-IN";
+
+    // ── Dynamic language detection ──────────────────────────────
+    // Priority: STT-detected language > text-based detection > previous language
+    const sttDetected = language ? normalizeLanguageCode(language) : null;
+    const textDetected = detectLanguageFromText(trimmed);
+    const activeLanguage = sttDetected || textDetected || currentLanguage;
+
+    // Update session-wide language if we detected a change
+    if (activeLanguage !== currentLanguage) {
+      console.log(`${tag} 🌐 Language switched: ${currentLanguage} → ${activeLanguage}`);
+      currentLanguage = activeLanguage;
+    }
+
     activeTurn = controller;
-    console.log(`${tag} 🗣️ Caller: "${trimmed}" (${language ?? options?.language ?? "auto"})`);
+    console.log(`${tag} 🗣️ Caller: "${trimmed}" (detected: ${activeLanguage})`);
     history.push({ role: "user", content: trimmed });
     options?.sessionState?.addUserTurn(trimmed, activeLanguage);
 
@@ -135,7 +153,7 @@ export function createConversationSession(
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
         speaker: "priya",
-        languageCode: activeLanguage.startsWith("hi") ? "hi-IN" : "en-IN",
+        languageCode: activeLanguage,
         signal: controller.signal,
       });
 
@@ -175,7 +193,7 @@ export function createConversationSession(
         options?.sessionState?.recordError("model", "model_empty", "Gemini returned empty response");
         const fallbackAudio = await convertTextToSpeech(EMPTY_REPLY_FALLBACK, {
           speaker: "priya",
-          languageCode: activeLanguage.startsWith("hi") ? "hi-IN" : "en-IN",
+          languageCode: activeLanguage,
         });
         if (!closed && generationId === currentGen) {
           callbacks.playAudio(fallbackAudio);
@@ -189,9 +207,11 @@ export function createConversationSession(
       if (closed || generationId !== currentGen) return;
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
+      // IMPORTANT: Do NOT treat language-switch turns as exit phrases
       const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect)\b/i.test(trimmed);
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const shouldHangup = hasHangupToken || isExitPhrase;
+      const isLanguageSwitch = sttDetected !== null || textDetected !== null;
+      const shouldHangup = (hasHangupToken || isExitPhrase) && !isLanguageSwitch;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
@@ -251,7 +271,9 @@ export function createConversationSession(
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
-          if (text?.trim()) {
+          // Only interrupt on substantial partial transcripts (>15 chars)
+          // to reduce false barge-in on brief noise / background sounds
+          if (text?.trim() && text.trim().length > 15) {
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
               console.log(`${tag} ... ${text.trim()}`);
