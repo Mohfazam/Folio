@@ -3,7 +3,7 @@ import cors from "cors";
 import { env } from "./config/env.js";
 import { registerRoutes } from "./routes/index.js";
 
-export function createApp() {
+export function createApp(): express.Express {
   const app = express();
 
   app.use(cors());
@@ -15,7 +15,7 @@ export function createApp() {
   return app;
 }
 
-export function startServer() {
+export function startServer(): express.Express {
   const app = createApp();
 
   app.listen(env.port, "0.0.0.0", () => {
