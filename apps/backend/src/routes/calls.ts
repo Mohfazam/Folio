@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { calls, callQueue, clients } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
@@ -141,7 +141,13 @@ export async function callCompleteRoute(req: Request, res: Response) {
     const [queueEntry] = await db
       .select()
       .from(callQueue)
-      .where(eq(callQueue.contactId, payload.contactId))
+      .where(
+        and(
+          eq(callQueue.contactId, payload.contactId),
+          eq(callQueue.clientId, payload.clientId),
+          eq(callQueue.status, "in_progress")
+        )
+      )
       .orderBy(sql`${callQueue.updatedAt} DESC`)
       .limit(1);
 

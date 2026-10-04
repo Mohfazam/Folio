@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { eq } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { contacts, uploadBatches } from "@repo/db";
 
@@ -75,7 +76,6 @@ export async function bulkContactsRoute(req: Request, res: Response) {
     }
 
     // 3. Update batch with final counts
-    const { eq } = await import("drizzle-orm");
     await db
       .update(uploadBatches)
       .set({
