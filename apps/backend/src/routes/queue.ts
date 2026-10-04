@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { contacts, callQueue } from "@repo/db";
+import { processNextEligibleCall } from "../worker/processQueue.js";
 
 /**
  * POST /api/queue/enqueue
@@ -104,6 +105,13 @@ export async function enqueueRoute(req: Request, res: Response) {
         const message = err instanceof Error ? err.message : String(err);
         failedEntries.push({ contactId: cId, error: message });
       }
+    }
+
+    // Automatically trigger queue processing if we enqueued new entries
+    if (enqueuedCount > 0) {
+      void processNextEligibleCall().catch((err) => {
+        console.error("[queue/enqueue] Background worker trigger error:", err);
+      });
     }
 
     return res.status(201).json({
