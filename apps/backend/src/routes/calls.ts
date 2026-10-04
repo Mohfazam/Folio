@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { calls, callQueue, clients } from "@repo/db";
+import { calls, callQueue, clients, contacts } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 
 /**
@@ -156,6 +156,13 @@ export async function callCompleteRoute(req: Request, res: Response) {
       attemptNumber = queueEntry.attemptNumber;
     }
 
+    // Look up the contact to get name and phone for denormalization
+    const [contact] = await db
+      .select({ fullName: contacts.fullName, phoneNumber: contacts.phoneNumber })
+      .from(contacts)
+      .where(eq(contacts.id, payload.contactId))
+      .limit(1);
+
     // 1. Insert call record
     const [callRecord] = await db
       .insert(calls)
@@ -164,6 +171,8 @@ export async function callCompleteRoute(req: Request, res: Response) {
         clientId: payload.clientId,
         campaignId: queueEntry?.campaignId ?? null,
         queueEntryId,
+        contactName: contact?.fullName ?? null,
+        phoneNumber: contact?.phoneNumber ?? null,
         attemptNumber,
         startedAt: new Date(payload.startedAt),
         endedAt: payload.endedAt ? new Date(payload.endedAt) : null,

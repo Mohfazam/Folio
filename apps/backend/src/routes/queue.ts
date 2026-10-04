@@ -73,16 +73,26 @@ export async function enqueueRoute(req: Request, res: Response) {
     const scheduleDate = scheduledFor ? new Date(scheduledFor) : new Date();
     const maxAtt = maxAttempts ?? 2;
 
-    // Insert queue entries
+
+    // Insert queue entries — look up each contact to denormalize name + phone
     const failedEntries: { contactId: string; error: string }[] = [];
     let enqueuedCount = 0;
 
     for (const cId of targetContactIds) {
       try {
+        // Look up contact to get name and phone
+        const [contact] = await db
+          .select({ fullName: contacts.fullName, phoneNumber: contacts.phoneNumber })
+          .from(contacts)
+          .where(eq(contacts.id, cId))
+          .limit(1);
+
         await db.insert(callQueue).values({
           contactId: cId,
           clientId,
           campaignId: campaignId ?? null,
+          contactName: contact?.fullName ?? null,
+          phoneNumber: contact?.phoneNumber ?? null,
           scheduledFor: scheduleDate,
           attemptNumber: 1,
           status: "pending",
