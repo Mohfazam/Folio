@@ -242,29 +242,27 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       phoneNumber: contact.phoneNumber,
       clientId: client.id,
       contactId: contact.id,
-      callbackUrl: `${env.callingServiceUrl.replace(/\/$/, "").replace(env.callingServiceUrl, "")}`,
       recordCall: true,
     };
 
-    // The callbackUrl should point BACK to this backend's /api/calls/complete
-    // We need our own public URL for this — but since we don't know it in env
-    // yet, we leave it for the /calling service's CALLBACK_URL env var fallback.
-    // If /calling has CALLBACK_URL set to point to this backend, it will work.
-    // Delete the empty callbackUrl and rely on /calling's env-level CALLBACK_URL.
-    delete dialBody.callbackUrl;
+    // If we know our own public URL, pass it as callbackUrl so /calling
+    // posts the CallResult back to POST /api/calls/complete.
+    // Otherwise, /calling falls back to its own CALLBACK_URL env var.
+    const backendUrl = process.env.BACKEND_PUBLIC_URL?.trim();
+    if (backendUrl) {
+      dialBody.callbackUrl = `${backendUrl.replace(/\/$/, "")}/api/calls/complete`;
+    }
 
     if (queueEntry.campaignId) {
       dialBody.campaignId = queueEntry.campaignId;
     }
 
-    // Pass structured context if we have business/campaign data
-    if (businessProfile || campaign) {
-      dialBody.context = {
-        business: businessProfile,
-        campaign,
-        contact: contactContext,
-      };
-    }
+    // Always pass structured context with whatever data we have
+    dialBody.context = {
+      business: businessProfile,
+      campaign,
+      contact: contactContext,
+    };
 
     // ── Trigger the dial via /calling's POST /dial endpoint ────
     const callingUrl = `${env.callingServiceUrl.replace(/\/$/, "")}/dial`;
