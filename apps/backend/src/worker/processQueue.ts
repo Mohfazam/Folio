@@ -268,7 +268,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
     const callingUrl = `${env.callingServiceUrl.replace(/\/$/, "")}/dial`;
 
     try {
-      console.log(`[worker] 📞 Dialing contact ${contact.id.slice(0, 8)} (${contact.phoneNumber}) for client ${client.id.slice(0, 8)}...`);
+      console.log(`[worker] 📞 Dialing contact ${contact.id.slice(0, 8)} (${contact.phoneNumber}) for client ${client.id.slice(0, 8)} with callbackUrl: ${dialBody.callbackUrl || "none (using calling default)"}...`);
 
       const dialResponse = await fetch(callingUrl, {
         method: "POST",

@@ -31,6 +31,14 @@ const STT_RECONNECT_MAX_ATTEMPTS = 2;
 const STT_RECONNECT_DELAY_MS = 1500;
 const EMPTY_REPLY_FALLBACK = "I'm sorry, I didn't catch that. Could you please repeat?";
 
+function isNoiseOrFiller(text: string): boolean {
+  const clean = text.replace(/\[.*?\]/g, "").replace(/[^\w\s]/g, "").trim().toLowerCase();
+  if (!clean) return true; // pure punctuation or tags like [noise]
+  if (clean.length <= 2 && !["no", "hi", "ok", "ya"].includes(clean)) return true;
+  if (["uh", "um", "ah", "er", "hmm", "hm", "mhm", "huh"].includes(clean)) return true;
+  return false;
+}
+
 // One instance per live call:
 // 1. Caller speaks -> Sarvam STT transcribes.
 // 2. STT final transcript -> Gemini generates conversational reply.
@@ -113,6 +121,7 @@ export function createConversationSession(
     }
     turnInProgress = true;
 
+    const previousLanguage = currentLanguage;
     const currentGen = ++generationId;
     const controller = new AbortController();
     const turnStartedAt = performance.now();
@@ -123,9 +132,10 @@ export function createConversationSession(
     const textDetected = detectLanguageFromText(trimmed);
     const activeLanguage = sttDetected || textDetected || currentLanguage;
 
-    // Update session-wide language if we detected a change
-    if (activeLanguage !== currentLanguage) {
-      console.log(`${tag} 🌐 Language switched: ${currentLanguage} → ${activeLanguage}`);
+    // Update session-wide language if we detected an actual change
+    const isLanguageSwitch = activeLanguage !== previousLanguage;
+    if (isLanguageSwitch) {
+      console.log(`${tag} 🌐 Language switched: ${previousLanguage} → ${activeLanguage}`);
       currentLanguage = activeLanguage;
     }
 
@@ -208,9 +218,8 @@ export function createConversationSession(
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
       // IMPORTANT: Do NOT treat language-switch turns as exit phrases
-      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect)\b/i.test(trimmed);
+      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect|not interested|dont call|don't call)\b/i.test(trimmed);
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const isLanguageSwitch = sttDetected !== null || textDetected !== null;
       const shouldHangup = (hasHangupToken || isExitPhrase) && !isLanguageSwitch;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
@@ -271,9 +280,10 @@ export function createConversationSession(
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
-          // Only interrupt on substantial partial transcripts (>15 chars)
-          // to reduce false barge-in on brief noise / background sounds
-          if (text?.trim() && text.trim().length > 15) {
+          if (!text?.trim()) return;
+          if (isNoiseOrFiller(text)) return;
+          // Only interrupt on substantial partial transcripts (>10 chars)
+          if (text.trim().length > 10) {
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
               console.log(`${tag} ... ${text.trim()}`);
@@ -281,14 +291,21 @@ export function createConversationSession(
           }
         },
         onFinal: (text, language) => {
-          if (text?.trim()) interruptForCallerSpeech();
-          handleCallerTurn(text, language);
+          const finalTrimmed = text?.trim() || "";
+          if (!finalTrimmed) return;
+          if (isNoiseOrFiller(finalTrimmed)) {
+            console.log(`${tag} 🔇 Ignored background noise/filler: "${finalTrimmed}"`);
+            return;
+          }
+          interruptForCallerSpeech();
+          handleCallerTurn(finalTrimmed, language);
         },
         onError: (message) => {
           console.error(`${tag} STT error: ${message}`);
           options?.sessionState?.recordError("stt", "stt_stream", message);
         },
       });
+
 
       if (closed) {
         session.close();

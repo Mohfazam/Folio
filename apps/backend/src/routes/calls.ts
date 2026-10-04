@@ -121,6 +121,8 @@ export async function callCompleteRoute(req: Request, res: Response) {
       });
     }
 
+    console.log(`[calls/complete] 📥 Received call webhook: contactId=${payload.contactId}, status=${payload.status}, duration=${payload.durationSeconds}s`);
+
     const outcome = mapStatusToOutcome(payload.status);
     const isBillable = outcome === "connected";
 
