@@ -5,24 +5,34 @@ import { knowledgeBaseEntries } from "@repo/db";
 
 const VALID_KB_TYPES = [
   "faq",
+  "product_feature",
+  "pricing_plan",
+  "technical_spec",
+  "troubleshooting",
+  "integration_guide",
+  "competitor_comparison",
+  "case_study",
+  "policy_legal",
+  "document",
   "course_info",
   "fee",
   "deadline",
   "policy",
-  "document",
 ] as const;
 type KbEntryType = (typeof VALID_KB_TYPES)[number];
 
 /**
  * GET /api/knowledge-base
  *
- * List knowledge base entries with optional filtering by type, active status, search keyword, and pagination.
+ * List knowledge base entries with sophisticated filtering by type, category, target personas,
+ * active status, search keywords, and pagination.
  */
 export async function getKnowledgeBaseRoute(req: Request, res: Response) {
   try {
-    const { clientId, type, isActive, search, limit, offset } = req.query as {
+    const { clientId, type, category, isActive, search, limit, offset } = req.query as {
       clientId?: string;
       type?: string;
+      category?: string;
       isActive?: string;
       search?: string;
       limit?: string;
@@ -42,6 +52,10 @@ export async function getKnowledgeBaseRoute(req: Request, res: Response) {
       conditions.push(eq(knowledgeBaseEntries.type, type as KbEntryType));
     }
 
+    if (category && category.trim()) {
+      conditions.push(eq(knowledgeBaseEntries.category, category.trim()));
+    }
+
     if (isActive !== undefined) {
       conditions.push(eq(knowledgeBaseEntries.isActive, isActive === "true"));
     }
@@ -49,8 +63,10 @@ export async function getKnowledgeBaseRoute(req: Request, res: Response) {
     if (search && search.trim()) {
       const pattern = `%${search.trim()}%`;
       const searchOr = or(
+        like(knowledgeBaseEntries.title, pattern),
         like(knowledgeBaseEntries.question, pattern),
-        like(knowledgeBaseEntries.content, pattern)
+        like(knowledgeBaseEntries.content, pattern),
+        like(knowledgeBaseEntries.category, pattern)
       );
       if (searchOr) conditions.push(searchOr);
     }
@@ -58,10 +74,26 @@ export async function getKnowledgeBaseRoute(req: Request, res: Response) {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const items = await db
-      .select()
+      .select({
+        id: knowledgeBaseEntries.id,
+        clientId: knowledgeBaseEntries.clientId,
+        type: knowledgeBaseEntries.type,
+        title: knowledgeBaseEntries.title,
+        category: knowledgeBaseEntries.category,
+        question: knowledgeBaseEntries.question,
+        content: knowledgeBaseEntries.content,
+        tags: knowledgeBaseEntries.tags,
+        metadata: knowledgeBaseEntries.metadata,
+        priority: knowledgeBaseEntries.priority,
+        targetPersonas: knowledgeBaseEntries.targetPersonas,
+        version: knowledgeBaseEntries.version,
+        isActive: knowledgeBaseEntries.isActive,
+        createdAt: knowledgeBaseEntries.createdAt,
+        updatedAt: knowledgeBaseEntries.updatedAt,
+      })
       .from(knowledgeBaseEntries)
       .where(whereClause)
-      .orderBy(desc(knowledgeBaseEntries.updatedAt))
+      .orderBy(desc(knowledgeBaseEntries.priority), desc(knowledgeBaseEntries.updatedAt))
       .limit(take)
       .offset(skip);
 
@@ -122,21 +154,33 @@ export async function getKnowledgeBaseEntryByIdRoute(req: Request, res: Response
 /**
  * POST /api/knowledge-base
  *
- * Create a new KB entry.
+ * Create a new sophisticated KB entry (features, architecture, pricing, security specs, FAQs, etc.).
  */
 export async function createKnowledgeBaseEntryRoute(req: Request, res: Response) {
   try {
     const {
       clientId,
-      type = "faq",
+      type = "product_feature",
+      title,
+      category,
       question,
       content,
+      tags = [],
+      metadata = {},
+      priority = 0,
+      targetPersonas = [],
       isActive = true,
     } = req.body as {
       clientId?: string;
       type?: string;
+      title?: string;
+      category?: string;
       question?: string;
       content?: string;
+      tags?: string[];
+      metadata?: Record<string, any>;
+      priority?: number;
+      targetPersonas?: string[];
       isActive?: boolean;
     };
 
@@ -149,15 +193,21 @@ export async function createKnowledgeBaseEntryRoute(req: Request, res: Response)
 
     const validatedType = VALID_KB_TYPES.includes(type as KbEntryType)
       ? (type as KbEntryType)
-      : "faq";
+      : "product_feature";
 
     const [newEntry] = await db
       .insert(knowledgeBaseEntries)
       .values({
         clientId,
         type: validatedType,
+        title: title ?? null,
+        category: category ?? null,
         question: question ?? null,
         content,
+        tags,
+        metadata,
+        priority: typeof priority === "number" ? priority : 0,
+        targetPersonas,
         version: 1,
         isActive,
       })
@@ -186,12 +236,29 @@ export async function updateKnowledgeBaseEntryRoute(req: Request, res: Response)
       return res.status(400).json({ ok: false, error: "KB Entry ID is required" });
     }
 
-    const { type, question, content, isActive } = req.body as {
-      type?: string;
-      question?: string;
-      content?: string;
-      isActive?: boolean;
-    };
+    const {
+      type,
+      title,
+      category,
+      question,
+      content,
+      tags,
+      metadata,
+      priority,
+      targetPersonas,
+      isActive,
+    } = req.body as Partial<{
+      type: string;
+      title: string;
+      category: string;
+      question: string;
+      content: string;
+      tags: string[];
+      metadata: Record<string, any>;
+      priority: number;
+      targetPersonas: string[];
+      isActive: boolean;
+    }>;
 
     const updateData: Partial<typeof knowledgeBaseEntries.$inferInsert> = {
       updatedAt: new Date(),
@@ -201,17 +268,18 @@ export async function updateKnowledgeBaseEntryRoute(req: Request, res: Response)
       updateData.type = type as KbEntryType;
     }
 
-    if (question !== undefined) {
-      updateData.question = question;
-    }
+    if (title !== undefined) updateData.title = title;
+    if (category !== undefined) updateData.category = category;
+    if (question !== undefined) updateData.question = question;
+    if (tags !== undefined) updateData.tags = tags;
+    if (metadata !== undefined) updateData.metadata = metadata;
+    if (priority !== undefined) updateData.priority = priority;
+    if (targetPersonas !== undefined) updateData.targetPersonas = targetPersonas;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
     if (content !== undefined) {
       updateData.content = content;
       updateData.version = sql`${knowledgeBaseEntries.version} + 1` as any;
-    }
-
-    if (isActive !== undefined) {
-      updateData.isActive = isActive;
     }
 
     const [updated] = await db

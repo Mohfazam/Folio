@@ -30,10 +30,32 @@ export const sentimentEnum = pgEnum('sentiment', ['positive', 'neutral', 'negati
 export const followUpStatusEnum = pgEnum('follow_up_status', ['open', 'done', 'not_needed']);
 
 //knowledgebase
-export const kbEntryTypeEnum = pgEnum('kb_entry_type', ['faq', 'course_info', 'fee', 'deadline', 'policy', 'document']);
+export const kbEntryTypeEnum = pgEnum('kb_entry_type', [
+  'faq',
+  'product_feature',
+  'pricing_plan',
+  'technical_spec',
+  'troubleshooting',
+  'integration_guide',
+  'competitor_comparison',
+  'case_study',
+  'policy_legal',
+  'document',
+  'course_info',
+  'fee',
+  'deadline',
+  'policy'
+]);
 
 //multi-industry & campaign enums
 export const industryTypeEnum = pgEnum('industry_type', [
+  'saas_software',
+  'developer_tools',
+  'fintech',
+  'ai_cloud',
+  'healthtech',
+  'ecommerce_retail',
+  'cybersecurity',
   'education',
   'beauty_wellness',
   'healthcare',
@@ -243,8 +265,14 @@ export const knowledgeBaseEntries = pgTable('knowledge_base_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   clientId: uuid('client_id').notNull().references(() => clients.id),
   type: kbEntryTypeEnum('type').notNull(),
+  title: text('title'),
+  category: text('category'),
   question: text('question'),
   content: text('content').notNull(),
+  tags: text('tags').array(),
+  metadata: jsonb('metadata').default({}),
+  priority: integer('priority').notNull().default(0),
+  targetPersonas: text('target_personas').array(),
   version: integer('version').notNull().default(1),
   isActive: boolean('is_active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow(),

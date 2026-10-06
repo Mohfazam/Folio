@@ -1,6 +1,6 @@
 /**
- * Structured Context and Dynamic System Prompt Compiler for Multi-Industry AI Calls.
- * Supports colleges, schools, salons, clinics, gyms, real estate, and general businesses.
+ * Structured Context and Dynamic System Prompt Compiler for Multi-Tech & Multi-Industry AI Calls.
+ * Supports SaaS, Developer Tools, AI/Cloud, FinTech, HealthTech, CyberSecurity, E-Commerce, EdTech, and General Tech.
  */
 
 export interface CatalogOffering {
@@ -15,6 +15,34 @@ export interface CatalogOffering {
 export interface ObjectionHandler {
   objection: string;
   counterResponse: string;
+}
+
+export interface KnowledgeBaseItem {
+  id?: string;
+  type:
+    | "faq"
+    | "product_feature"
+    | "pricing_plan"
+    | "technical_spec"
+    | "troubleshooting"
+    | "integration_guide"
+    | "competitor_comparison"
+    | "case_study"
+    | "policy_legal"
+    | "document"
+    | "course_info"
+    | "fee"
+    | "deadline"
+    | "policy"
+    | string;
+  title?: string;
+  category?: string;
+  question?: string;
+  content: string;
+  tags?: string[];
+  metadata?: Record<string, any>;
+  priority?: number;
+  targetPersonas?: string[];
 }
 
 export interface BusinessContext {
@@ -53,6 +81,7 @@ export interface PromptContext {
   business?: BusinessContext;
   campaign?: CampaignContext;
   contact?: ContactContext;
+  knowledgeBase?: KnowledgeBaseItem[];
   additionalInstructions?: string;
 }
 
@@ -63,16 +92,18 @@ export function compileSystemPrompt(ctx: PromptContext): string {
   const b = ctx.business;
   const persona = b?.aiPersonaName || "Assistant";
   const businessName = b?.displayName || "our company";
-  const tone = b?.toneOfVoice || "Warm, professional, conversational, and concise";
+  const tone = b?.toneOfVoice || "Warm, professional, knowledgeable, conversational, and concise";
 
-  sections.push(`### Role & Identity
-You are ${persona}, an AI phone agent representing "${businessName}"${b?.industry ? ` in the ${b.industry.replace('_', ' ')} industry` : ""}.
+  sections.push(
+    `### Role & Identity
+You are ${persona}, an AI phone agent representing "${businessName}"${b?.industry ? ` in the ${b.industry.replace(/_/g, " ")} sector` : ""}.
 Your tone is: ${tone}.
 ${b?.tagline ? `Company Tagline: "${b.tagline}"` : ""}
-${b?.description ? `About the Company: ${b.description}` : ""}
-${b?.address ? `Location/Address: ${b.address}` : ""}
-${b?.operatingHours ? `Hours of Operation: ${b.operatingHours}` : ""}
-${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`.trim());
+${b?.description ? `About the Company / Product: ${b.description}` : ""}
+${b?.address ? `Location/Headquarters: ${b.address}` : ""}
+${b?.operatingHours ? `Operating Hours / Availability: ${b.operatingHours}` : ""}
+${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`.trim()
+  );
 
   // 2. Contact Information
   const c = ctx.contact;
@@ -84,7 +115,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     if (c.phoneNumber) contactLines.push(`- Phone: ${c.phoneNumber}`);
 
     if (c.contextData && Object.keys(c.contextData).length > 0) {
-      contactLines.push("- Dynamic Customer Details & History:");
+      contactLines.push("- Dynamic Customer Details & Profile:");
       for (const [k, v] of Object.entries(c.contextData)) {
         contactLines.push(`  • ${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`);
       }
@@ -120,7 +151,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
       const details = [
         item.category ? `Category: ${item.category}` : null,
         item.price ? `Price: ${item.price}` : null,
-        item.duration ? `Duration: ${item.duration}` : null,
+        item.duration ? `Duration/Tier: ${item.duration}` : null,
       ]
         .filter(Boolean)
         .join(" | ");
@@ -133,7 +164,62 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     sections.push(catalogLines.join("\n"));
   }
 
-  // 5. Objection Handling
+  // 5. Sophisticated Multi-Tech Knowledge Base
+  if (ctx.knowledgeBase && ctx.knowledgeBase.length > 0) {
+    const kbLines: string[] = ["### Company Knowledge Base & Technical Intelligence"];
+
+    // Group entries by type for maximum prompt clarity
+    const grouped: Record<string, KnowledgeBaseItem[]> = {};
+    for (const entry of ctx.knowledgeBase) {
+      const type = entry.type || "general";
+      if (!grouped[type]) grouped[type] = [];
+      grouped[type]!.push(entry);
+    }
+
+    const typeLabels: Record<string, string> = {
+      product_feature: "Product Features & Architecture",
+      technical_spec: "Technical Specs, Security & Compliance",
+      integration_guide: "APIs, Webhooks & Integrations",
+      pricing_plan: "Pricing Plans & Licensing",
+      fee: "Fees & Pricing Structure",
+      competitor_comparison: "Competitive Differentiators & Battlecards",
+      troubleshooting: "Troubleshooting & Common Technical Issues",
+      case_study: "Case Studies & Customer Proof Points",
+      faq: "Frequently Asked Questions",
+      policy_legal: "Legal, Privacy & Policies",
+      policy: "Policies & Terms",
+      deadline: "Deadlines & Milestones",
+      course_info: "Course / Curriculum Details",
+      document: "Documentation & Reference Notes",
+    };
+
+    for (const [type, items] of Object.entries(grouped)) {
+      const header = typeLabels[type] || `${type.toUpperCase()} Reference`;
+      kbLines.push(`\n#### ${header}:`);
+
+      for (const item of items) {
+        const titleOrQuestion = item.title || item.question || "";
+        const categoryTag = item.category ? `[Category: ${item.category}] ` : "";
+        const tags = item.tags && item.tags.length > 0 ? ` (Tags: ${item.tags.join(", ")})` : "";
+        
+        let metaString = "";
+        if (item.metadata && Object.keys(item.metadata).length > 0) {
+          metaString = ` | Specs: ${JSON.stringify(item.metadata)}`;
+        }
+
+        if (titleOrQuestion) {
+          kbLines.push(`- **${categoryTag}${titleOrQuestion}**${tags}${metaString}:`);
+          kbLines.push(`  ${item.content}`);
+        } else {
+          kbLines.push(`- ${categoryTag}${item.content}${tags}${metaString}`);
+        }
+      }
+    }
+
+    sections.push(kbLines.join("\n"));
+  }
+
+  // 6. Objection Handling
   if (cp?.objectionHandlers && cp.objectionHandlers.length > 0) {
     const objectionLines: string[] = ["### Objection Handling Guide"];
     for (const obj of cp.objectionHandlers) {
@@ -143,10 +229,10 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     sections.push(objectionLines.join("\n"));
   }
 
-  // 6. Hard Guardrails & Boundaries
+  // 7. Hard Guardrails & Boundaries
   const guardrails: string[] = [
     "Speak conversationally and keep each turn to 1-2 sentences so the call feels natural.",
-    "Never invent prices, discounts, or policies not listed in this prompt.",
+    "Never invent prices, specs, discounts, or policies not listed in this knowledge base or prompt.",
     "Do not sound robotic or read bullet points like a script; adapt to the caller's responses.",
     "When the conversation is completed (e.g. the caller says goodbye, confirms no more questions, says they are not interested, or you finish your final farewell), deliver a warm closing and append [HANGUP] at the end of your response.",
     "If the caller asks for human escalation or questions outside your scope, offer to have a representative call them back or share the support number.",
@@ -157,7 +243,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
   sections.push(`### Guardrails & Safety\n${guardrails.map((g) => `- ${g}`).join("\n")}`);
 
-  // 7. Additional One-Off Instructions
+  // 8. Additional One-Off Instructions
   if (ctx.additionalInstructions) {
     sections.push(`### Special Instructions for this Call\n${ctx.additionalInstructions}`);
   }

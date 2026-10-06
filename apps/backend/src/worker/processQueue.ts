@@ -1,6 +1,6 @@
 import { eq, lte, sql, and, asc } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { callQueue, clients, contacts, campaigns, businessProfiles } from "@repo/db";
+import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
 
 /**
@@ -237,6 +237,30 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       customFields: contact.customFields,
     };
 
+    // Fetch active knowledge base entries (prioritized)
+    const kbEntries = await db
+      .select({
+        id: knowledgeBaseEntries.id,
+        type: knowledgeBaseEntries.type,
+        title: knowledgeBaseEntries.title,
+        category: knowledgeBaseEntries.category,
+        question: knowledgeBaseEntries.question,
+        content: knowledgeBaseEntries.content,
+        tags: knowledgeBaseEntries.tags,
+        metadata: knowledgeBaseEntries.metadata,
+        priority: knowledgeBaseEntries.priority,
+        targetPersonas: knowledgeBaseEntries.targetPersonas,
+      })
+      .from(knowledgeBaseEntries)
+      .where(
+        and(
+          eq(knowledgeBaseEntries.clientId, client.id),
+          eq(knowledgeBaseEntries.isActive, true)
+        )
+      )
+      .orderBy(sql`${knowledgeBaseEntries.priority} DESC`, sql`${knowledgeBaseEntries.updatedAt} DESC`)
+      .limit(30);
+
     // Build the request body matching /calling's dialRoute expectations
     const dialBody: Record<string, unknown> = {
       phoneNumber: contact.phoneNumber,
@@ -257,11 +281,12 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       dialBody.campaignId = queueEntry.campaignId;
     }
 
-    // Always pass structured context with whatever data we have
+    // Pass structured context with business, campaign, contact, and knowledge base
     dialBody.context = {
       business: businessProfile,
       campaign,
       contact: contactContext,
+      knowledgeBase: kbEntries.length > 0 ? kbEntries : undefined,
     };
 
     // ── Trigger the dial via /calling's POST /dial endpoint ────
