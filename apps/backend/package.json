@@ -15,7 +15,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
-    "express": "^4.22.3"
+    "express": "^4.22.3",
+    "firebase-admin": "^14.5.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
