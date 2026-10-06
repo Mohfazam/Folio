@@ -88,6 +88,7 @@ export async function dispatchCallCompleted(
           headers: {
             "Content-Type": "application/json",
             "User-Agent": "Folio-VoiceService/1.0",
+            ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
           },
           body: JSON.stringify(result),
           signal: AbortSignal.timeout(10000), // 10s timeout

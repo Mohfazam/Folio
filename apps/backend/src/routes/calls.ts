@@ -98,6 +98,16 @@ function mapStatusToOutcome(
  */
 export async function callCompleteRoute(req: Request, res: Response) {
   try {
+    // Optional Webhook Security Check
+    const expectedSecret = process.env.WEBHOOK_SECRET?.trim();
+    if (expectedSecret) {
+      const incomingSecret = (req.headers["x-webhook-secret"] as string | undefined)?.trim();
+      if (!incomingSecret || incomingSecret !== expectedSecret) {
+        console.warn("[calls/complete] ⚠️ Rejected webhook call: missing or invalid x-webhook-secret");
+        return res.status(401).json({ ok: false, error: "Unauthorized: Invalid webhook secret" });
+      }
+    }
+
     const payload = req.body as CallingServicePayload;
 
     if (!payload.contactId || !payload.clientId || !payload.status) {
