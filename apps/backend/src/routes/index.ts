@@ -31,6 +31,7 @@ import {
   deleteKnowledgeBaseEntryRoute,
 } from "./knowledgeBase.js";
 import { getClientsRoute, getClientByIdRoute, updateClientRoute } from "./clients.js";
+import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
 
 export function registerRoutes(app: Express) {
   // ── Contacts ────────────────────────────────────────────────────────

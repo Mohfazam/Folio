@@ -120,6 +120,7 @@ export const clients = pgTable("clients", {
   nextBillingResetAt: timestamp("next_billing_reset_at"),
   trialEndsAt: timestamp("trial_ends_at"),
   status: clientStatusEnum("status").notNull().default("trialing"),
+  isPhoneVerified: boolean("is_phone_verified").notNull().default(false),
   metadata: jsonb("metadata").default({}),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -175,10 +176,19 @@ export const campaigns = pgTable("campaigns", {
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   clientId: uuid("client_id").references(() => clients.id),
-  email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  role: userRoleEnum("role").notNull(),
+  firebaseUid: text("firebase_uid").unique(),
+  email: text("email"),
+  phoneNumber: text("phone_number"),
+  phoneVerified: boolean("phone_verified").notNull().default(false),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  displayName: text("display_name"),
+  avatarUrl: text("avatar_url"),
+  authProvider: text("auth_provider").default("firebase"), // 'google', 'github', 'phone', 'password'
+  passwordHash: text("password_hash"), // optional for OAuth/phone OTP
+  role: userRoleEnum("role").notNull().default("client_admin"),
+  lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const uploadBatches = pgTable("upload_batches", {
