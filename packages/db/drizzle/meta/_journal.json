@@ -64,6 +64,13 @@
       "when": 1791105052391,
       "tag": "0008_sudden_paladin",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791315245673,
+      "tag": "0009_productive_dragon_lord",
+      "breakpoints": true
     }
   ]
 }
