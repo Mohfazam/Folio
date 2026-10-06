@@ -6,7 +6,7 @@ import { processNextEligibleCall } from "../worker/processQueue.js";
 import { calculateNextRetrySchedule } from "../utils/retrySchedule.js";
 
 /**
- * The shape posted by /apps/calling's dispatchCallCompleted (see callTypes.ts → CallResult).
+ * The shape posted by /apps/calling's dispatchCallCompleted.
  */
 interface CallingServicePayload {
   schemaVersion: "1.0";
@@ -94,14 +94,12 @@ function mapStatusToOutcome(
 /**
  * POST /api/calls/complete
  *
- * Webhook endpoint that receives the CallResult payload from /apps/calling
- * after a call finishes.
+ * Webhook endpoint receiving the completed call payload from /apps/calling.
  */
 export async function callCompleteRoute(req: Request, res: Response) {
   try {
     const payload = req.body as CallingServicePayload;
 
-    // Basic validation
     if (!payload.contactId || !payload.clientId || !payload.status) {
       return res.status(400).json({
         ok: false,
@@ -112,21 +110,20 @@ export async function callCompleteRoute(req: Request, res: Response) {
     const outcome = mapStatusToOutcome(payload.status);
     const isBillable = outcome === "connected";
 
-    // Compute credits: 1 credit per 10s connected unit
+    // 1 credit per 10s connected unit
     const creditsCharged = isBillable
       ? (payload.costEstimate?.credits ?? Math.ceil((payload.durationSeconds || 0) / 10))
       : 0;
 
-    // Provider cost breakdowns
     const costTelephony = payload.costEstimate?.costTelephony ?? (isBillable ? Number(((payload.durationSeconds / 60) * 0.015).toFixed(4)) : 0);
     const costStt = payload.costEstimate?.costStt ?? (isBillable ? Number((payload.durationSeconds * 0.0006).toFixed(4)) : 0);
     const costLlm = payload.costEstimate?.costLlm ?? 0;
     const costTts = payload.costEstimate?.costTts ?? 0;
+    const costTotal = payload.costEstimate?.totalEstimatedCost ?? Number((costTelephony + costStt + costLlm + costTts).toFixed(4));
 
-    // Extract analysis fields
     const analysis = payload.analysis;
 
-    // Find the queue entry this call belongs to
+    // Find the matching queue entry
     let queueEntryId: string | null = null;
     let attemptNumber = 1;
 
@@ -157,7 +154,12 @@ export async function callCompleteRoute(req: Request, res: Response) {
 
     // Look up contact
     const [contact] = await db
-      .select({ fullName: contacts.fullName, phoneNumber: contacts.phoneNumber })
+      .select({
+        fullName: contacts.fullName,
+        phoneNumber: contacts.phoneNumber,
+        companyName: contacts.companyName,
+        jobTitle: contacts.jobTitle,
+      })
       .from(contacts)
       .where(eq(contacts.id, payload.contactId))
       .limit(1);
@@ -179,16 +181,18 @@ export async function callCompleteRoute(req: Request, res: Response) {
         outcome,
         isBillable,
         creditsCharged,
+        summary: analysis?.summary ?? null,
+        interestLevel: analysis?.interestLevel ?? null,
+        sentiment: analysis?.sentiment ?? null,
+        objectionsRaised: analysis?.objectionsRaised ?? null,
+        followUpRequested: analysis?.followUpRequested ?? false,
         costTelephony,
         costStt,
         costLlm,
         costTts,
+        costTotal,
         recordingUrl: payload.recording?.storageKey ?? null,
         transcript: payload.transcript,
-        interestLevel: analysis?.interestLevel ?? null,
-        objectionsRaised: analysis?.objectionsRaised ?? null,
-        followUpRequested: analysis?.followUpRequested ?? false,
-        sentiment: analysis?.sentiment ?? null,
       })
       .returning();
 
@@ -218,7 +222,10 @@ export async function callCompleteRoute(req: Request, res: Response) {
           callId: callRecord.id,
           contactId: payload.contactId,
           clientId: payload.clientId,
+          type: "call_back",
+          priority: analysis?.interestLevel === "high" ? "high" : "medium",
           requestedCallbackTime: callbackDate,
+          dueDate: callbackDate,
           status: "open",
           notes,
         })
@@ -314,10 +321,10 @@ export async function callCompleteRoute(req: Request, res: Response) {
     }
 
     console.log(`[calls/complete] 💳 Call Log & Cost Summary:`);
-    console.log(`                 Contact: ${contact?.fullName || payload.contactId} (${contact?.phoneNumber || "N/A"})`);
+    console.log(`                 Contact: ${contact?.fullName || payload.contactId} (${contact?.phoneNumber || "N/A"}) ${contact?.companyName ? `[${contact.companyName}]` : ""}`);
     console.log(`                 Outcome: ${outcome} | Duration: ${payload.durationSeconds}s | Billable: ${isBillable}`);
     console.log(`                 Credits Charged: ${creditsCharged} credits (Cycle total: ${updatedTotalCreditsUsed}/${client?.monthlyCreditsAllowance ?? "N/A"})`);
-    console.log(`                 Provider Infrastructure Cost: Telephony=$${costTelephony}, STT=$${costStt}, LLM=$${costLlm}, TTS=$${costTts}`);
+    console.log(`                 Provider Costs: Total=$${costTotal} (Telephony=$${costTelephony}, STT=$${costStt}, LLM=$${costLlm}, TTS=$${costTts})`);
 
     // 5. Trigger the queue worker for the next eligible call
     void processNextEligibleCall().catch((err) => {
@@ -338,7 +345,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         costStt,
         costLlm,
         costTts,
-        totalCost: Number((costTelephony + costStt + costLlm + costTts).toFixed(4)),
+        totalCost: costTotal,
       },
     });
   } catch (err: unknown) {
@@ -351,8 +358,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
 /**
  * GET /api/calls
  *
- * List calls with filtering (clientId, campaignId, outcome, sentiment, interestLevel, search, date range)
- * and pagination (limit, offset).
+ * List calls with filtering and pagination.
  */
 export async function getCallsRoute(req: Request, res: Response) {
   try {
@@ -417,7 +423,11 @@ export async function getCallsRoute(req: Request, res: Response) {
 
     if (search && search.trim()) {
       const pattern = `%${search.trim()}%`;
-      const searchOr = or(like(calls.contactName, pattern), like(calls.phoneNumber, pattern));
+      const searchOr = or(
+        like(calls.contactName, pattern),
+        like(calls.phoneNumber, pattern),
+        like(calls.summary, pattern)
+      );
       if (searchOr) conditions.push(searchOr);
     }
 
@@ -438,10 +448,12 @@ export async function getCallsRoute(req: Request, res: Response) {
         outcome: calls.outcome,
         isBillable: calls.isBillable,
         creditsCharged: calls.creditsCharged,
+        summary: calls.summary,
         interestLevel: calls.interestLevel,
         sentiment: calls.sentiment,
         followUpRequested: calls.followUpRequested,
         objectionsRaised: calls.objectionsRaised,
+        costTotal: calls.costTotal,
         recordingUrl: calls.recordingUrl,
         createdAt: calls.createdAt,
         campaignName: campaigns.name,
@@ -502,24 +514,32 @@ export async function getCallByIdRoute(req: Request, res: Response) {
         outcome: calls.outcome,
         isBillable: calls.isBillable,
         creditsCharged: calls.creditsCharged,
-        costTelephony: calls.costTelephony,
-        costStt: calls.costStt,
-        costLlm: calls.costLlm,
-        costTts: calls.costTts,
-        recordingUrl: calls.recordingUrl,
-        transcript: calls.transcript,
+        summary: calls.summary,
         interestLevel: calls.interestLevel,
         sentiment: calls.sentiment,
         objectionsRaised: calls.objectionsRaised,
         followUpRequested: calls.followUpRequested,
+        costTelephony: calls.costTelephony,
+        costStt: calls.costStt,
+        costLlm: calls.costLlm,
+        costTts: calls.costTts,
+        costTotal: calls.costTotal,
+        recordingUrl: calls.recordingUrl,
+        transcript: calls.transcript,
         createdAt: calls.createdAt,
         contact: {
           id: contacts.id,
           fullName: contacts.fullName,
           email: contacts.email,
+          companyName: contacts.companyName,
+          jobTitle: contacts.jobTitle,
+          department: contacts.department,
+          industry: contacts.industry,
+          city: contacts.city,
+          leadScore: contacts.leadScore,
+          lifecycleStage: contacts.lifecycleStage,
+          accountTier: contacts.accountTier,
           courseOrStream: contacts.courseOrStream,
-          parentName: contacts.parentName,
-          studentName: contacts.studentName,
         },
         campaign: {
           id: campaigns.id,

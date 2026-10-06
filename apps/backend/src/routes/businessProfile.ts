@@ -4,6 +4,13 @@ import { db } from "../config/db.js";
 import { businessProfiles } from "@repo/db";
 
 const VALID_INDUSTRIES = [
+  "saas_software",
+  "developer_tools",
+  "fintech",
+  "ai_cloud",
+  "healthtech",
+  "ecommerce_retail",
+  "cybersecurity",
   "education",
   "beauty_wellness",
   "healthcare",
@@ -68,9 +75,12 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
       operatingHours,
       supportPhone,
       catalogOfferings = [],
-      toneOfVoice = "Warm, professional, helpful, and concise",
+      toneOfVoice = "Warm, professional, knowledgeable, and concise",
       aiPersonaName = "Assistant",
       guardrails = [],
+      keyDifferentiators = [],
+      complianceNotes,
+      metadata = {},
     } = req.body as {
       clientId?: string;
       industry?: string;
@@ -85,6 +95,9 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
       toneOfVoice?: string;
       aiPersonaName?: string;
       guardrails?: string[];
+      keyDifferentiators?: string[];
+      complianceNotes?: string;
+      metadata?: Record<string, any>;
     };
 
     if (!clientId || !displayName || !description) {
@@ -122,6 +135,9 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
           toneOfVoice,
           aiPersonaName,
           guardrails,
+          keyDifferentiators,
+          complianceNotes: complianceNotes ?? null,
+          metadata,
           updatedAt: new Date(),
         })
         .where(eq(businessProfiles.id, existing.id))
@@ -144,6 +160,9 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
           toneOfVoice,
           aiPersonaName,
           guardrails,
+          keyDifferentiators,
+          complianceNotes: complianceNotes ?? null,
+          metadata,
         })
         .returning();
       result = inserted;

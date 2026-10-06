@@ -1,9 +1,20 @@
 import type { Express } from "express";
-import { bulkContactsRoute } from "./contacts.js";
+import {
+  getContactsRoute,
+  getContactByIdRoute,
+  bulkContactsRoute,
+  updateContactRoute,
+  deleteContactRoute,
+} from "./contacts.js";
 import { getQueueRoute, enqueueRoute, updateQueueRoute, deleteQueueRoute } from "./queue.js";
 import { processQueueRoute } from "./process.js";
 import { callCompleteRoute, getCallsRoute, getCallByIdRoute } from "./calls.js";
-import { getFollowUpsRoute, updateFollowUpRoute } from "./followUps.js";
+import {
+  getFollowUpsRoute,
+  createFollowUpRoute,
+  updateFollowUpRoute,
+  deleteFollowUpRoute,
+} from "./followUps.js";
 import {
   getCampaignsRoute,
   getCampaignByIdRoute,
@@ -19,11 +30,15 @@ import {
   updateKnowledgeBaseEntryRoute,
   deleteKnowledgeBaseEntryRoute,
 } from "./knowledgeBase.js";
-import { getClientByIdRoute, updateClientRoute } from "./clients.js";
+import { getClientsRoute, getClientByIdRoute, updateClientRoute } from "./clients.js";
 
 export function registerRoutes(app: Express) {
   // ── Contacts ────────────────────────────────────────────────────────
+  app.get("/api/contacts", getContactsRoute);
+  app.get("/api/contacts/:id", getContactByIdRoute);
   app.post("/api/contacts/bulk", bulkContactsRoute);
+  app.patch("/api/contacts/:id", updateContactRoute);
+  app.delete("/api/contacts/:id", deleteContactRoute);
 
   // ── Call Queue ──────────────────────────────────────────────────────
   app.get("/api/queue", getQueueRoute);
@@ -39,7 +54,9 @@ export function registerRoutes(app: Express) {
 
   // ── Follow-Ups ──────────────────────────────────────────────────────
   app.get("/api/follow-ups", getFollowUpsRoute);
+  app.post("/api/follow-ups", createFollowUpRoute);
   app.patch("/api/follow-ups/:id", updateFollowUpRoute);
+  app.delete("/api/follow-ups/:id", deleteFollowUpRoute);
 
   // ── Campaigns ───────────────────────────────────────────────────────
   app.get("/api/campaigns", getCampaignsRoute);
@@ -61,6 +78,7 @@ export function registerRoutes(app: Express) {
   app.delete("/api/knowledge-base/:id", deleteKnowledgeBaseEntryRoute);
 
   // ── Clients ─────────────────────────────────────────────────────────
+  app.get("/api/clients", getClientsRoute);
   app.get("/api/clients/:id", getClientByIdRoute);
   app.patch("/api/clients/:id", updateClientRoute);
 

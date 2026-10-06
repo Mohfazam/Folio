@@ -1,7 +1,52 @@
 import type { Request, Response } from "express";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { clients } from "@repo/db";
+
+/**
+ * Validates timezone identifier.
+ */
+function isValidTimezone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates HH:MM or HH:MM:SS time format.
+ */
+function isValidTimeFormat(t: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(t.trim());
+}
+
+/**
+ * GET /api/clients
+ *
+ * List all clients (admin/overview).
+ */
+export async function getClientsRoute(req: Request, res: Response) {
+  try {
+    const items = await db
+      .select()
+      .from(clients)
+      .orderBy(desc(clients.createdAt));
+
+    const enriched = items.map((c) => ({
+      ...c,
+      creditsRemaining: Math.max(0, c.monthlyCreditsAllowance - c.creditsUsedThisCycle),
+      callsRemainingToday: Math.max(0, c.maxCallsPerDay - c.callsMadeToday),
+    }));
+
+    return res.json({ ok: true, clients: enriched, total: enriched.length });
+  } catch (err: unknown) {
+    console.error("[clients/get] Unexpected error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ ok: false, error: message });
+  }
+}
 
 /**
  * GET /api/clients/:id
@@ -46,7 +91,7 @@ export async function getClientByIdRoute(req: Request, res: Response) {
 /**
  * PATCH /api/clients/:id
  *
- * Update client settings (callingHoursStart, callingHoursEnd, timezone, maxCallsPerDay, callerIdNumber, etc.).
+ * Update client settings (callingHoursStart, callingHoursEnd, timezone, maxCallsPerDay, callerIdNumber, metadata, etc.).
  */
 export async function updateClientRoute(req: Request, res: Response) {
   try {
@@ -65,7 +110,9 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursEnd,
       timezone,
       maxCallsPerDay,
+      monthlyCreditsAllowance,
       status,
+      metadata,
     } = req.body as Partial<{
       name: string;
       contactPersonName: string;
@@ -76,8 +123,31 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursEnd: string;
       timezone: string;
       maxCallsPerDay: number;
+      monthlyCreditsAllowance: number;
       status: any;
+      metadata: Record<string, any>;
     }>;
+
+    if (timezone && !isValidTimezone(timezone)) {
+      return res.status(400).json({
+        ok: false,
+        error: `Invalid IANA timezone identifier: '${timezone}' (e.g. 'Asia/Kolkata', 'America/New_York')`,
+      });
+    }
+
+    if (callingHoursStart && !isValidTimeFormat(callingHoursStart)) {
+      return res.status(400).json({
+        ok: false,
+        error: `Invalid callingHoursStart format '${callingHoursStart}'. Expected 'HH:MM' or 'HH:MM:SS'`,
+      });
+    }
+
+    if (callingHoursEnd && !isValidTimeFormat(callingHoursEnd)) {
+      return res.status(400).json({
+        ok: false,
+        error: `Invalid callingHoursEnd format '${callingHoursEnd}'. Expected 'HH:MM' or 'HH:MM:SS'`,
+      });
+    }
 
     const updateData: Partial<typeof clients.$inferInsert> = {
       updatedAt: new Date(),
@@ -92,7 +162,11 @@ export async function updateClientRoute(req: Request, res: Response) {
     if (callingHoursEnd !== undefined) updateData.callingHoursEnd = callingHoursEnd;
     if (timezone) updateData.timezone = timezone;
     if (typeof maxCallsPerDay === "number" && maxCallsPerDay > 0) updateData.maxCallsPerDay = maxCallsPerDay;
+    if (typeof monthlyCreditsAllowance === "number" && monthlyCreditsAllowance >= 0) {
+      updateData.monthlyCreditsAllowance = monthlyCreditsAllowance;
+    }
     if (status) updateData.status = status;
+    if (metadata !== undefined) updateData.metadata = metadata;
 
     const [updated] = await db
       .update(clients)

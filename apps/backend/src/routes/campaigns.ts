@@ -56,6 +56,10 @@ export async function getCampaignsRoute(req: Request, res: Response) {
         objectionHandlers: campaigns.objectionHandlers,
         callToAction: campaigns.callToAction,
         fallbackOffer: campaigns.fallbackOffer,
+        targetAudience: campaigns.targetAudience,
+        language: campaigns.language,
+        maxDurationSeconds: campaigns.maxDurationSeconds,
+        metadata: campaigns.metadata,
         createdAt: campaigns.createdAt,
         updatedAt: campaigns.updatedAt,
       })
@@ -167,6 +171,10 @@ export async function createCampaignRoute(req: Request, res: Response) {
       objectionHandlers = [],
       callToAction,
       fallbackOffer,
+      targetAudience,
+      language = "en-IN",
+      maxDurationSeconds = 300,
+      metadata = {},
     } = req.body as {
       clientId?: string;
       name?: string;
@@ -178,6 +186,10 @@ export async function createCampaignRoute(req: Request, res: Response) {
       objectionHandlers?: any[];
       callToAction?: string;
       fallbackOffer?: string;
+      targetAudience?: string;
+      language?: string;
+      maxDurationSeconds?: number;
+      metadata?: Record<string, any>;
     };
 
     if (!clientId || !name || !primaryObjective || !callOpeningHook || !callToAction) {
@@ -200,6 +212,10 @@ export async function createCampaignRoute(req: Request, res: Response) {
         objectionHandlers,
         callToAction,
         fallbackOffer: fallbackOffer ?? null,
+        targetAudience: targetAudience ?? null,
+        language,
+        maxDurationSeconds,
+        metadata,
       })
       .returning();
 
@@ -236,6 +252,10 @@ export async function updateCampaignRoute(req: Request, res: Response) {
       objectionHandlers,
       callToAction,
       fallbackOffer,
+      targetAudience,
+      language,
+      maxDurationSeconds,
+      metadata,
     } = req.body as Partial<{
       name: string;
       type: CampaignType;
@@ -246,6 +266,10 @@ export async function updateCampaignRoute(req: Request, res: Response) {
       objectionHandlers: any[];
       callToAction: string;
       fallbackOffer: string;
+      targetAudience: string;
+      language: string;
+      maxDurationSeconds: number;
+      metadata: Record<string, any>;
     }>;
 
     const updateData: Partial<typeof campaigns.$inferInsert> = {
@@ -261,6 +285,10 @@ export async function updateCampaignRoute(req: Request, res: Response) {
     if (objectionHandlers) updateData.objectionHandlers = objectionHandlers;
     if (callToAction) updateData.callToAction = callToAction;
     if (fallbackOffer !== undefined) updateData.fallbackOffer = fallbackOffer;
+    if (targetAudience !== undefined) updateData.targetAudience = targetAudience;
+    if (language) updateData.language = language;
+    if (typeof maxDurationSeconds === "number") updateData.maxDurationSeconds = maxDurationSeconds;
+    if (metadata !== undefined) updateData.metadata = metadata;
 
     const [updated] = await db
       .update(campaigns)
