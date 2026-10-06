@@ -174,6 +174,16 @@ export interface CallResult {
 
   /** AI post-call analysis extracting outcome, sentiment, and summary */
   analysis?: CallAnalysisResult;
+
+  /** Calculated credits and estimated provider infrastructure costs */
+  costEstimate?: {
+    credits: number;
+    costTelephony?: number;
+    costStt?: number;
+    costLlm?: number;
+    costTts?: number;
+    totalEstimatedCost?: number;
+  };
 }
 
 // ── Call Analysis Result ────────────────────────────────────────────

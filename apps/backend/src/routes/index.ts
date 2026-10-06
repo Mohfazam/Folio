@@ -1,28 +1,70 @@
 import type { Express } from "express";
 import { bulkContactsRoute } from "./contacts.js";
-import { enqueueRoute } from "./queue.js";
+import { getQueueRoute, enqueueRoute, updateQueueRoute, deleteQueueRoute } from "./queue.js";
 import { processQueueRoute } from "./process.js";
-import { callCompleteRoute } from "./calls.js";
+import { callCompleteRoute, getCallsRoute, getCallByIdRoute } from "./calls.js";
 import { getFollowUpsRoute, updateFollowUpRoute } from "./followUps.js";
+import {
+  getCampaignsRoute,
+  getCampaignByIdRoute,
+  createCampaignRoute,
+  updateCampaignRoute,
+  deleteCampaignRoute,
+} from "./campaigns.js";
+import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
+import {
+  getKnowledgeBaseRoute,
+  getKnowledgeBaseEntryByIdRoute,
+  createKnowledgeBaseEntryRoute,
+  updateKnowledgeBaseEntryRoute,
+  deleteKnowledgeBaseEntryRoute,
+} from "./knowledgeBase.js";
+import { getClientByIdRoute, updateClientRoute } from "./clients.js";
 
 export function registerRoutes(app: Express) {
-  // Bulk contact ingestion
+  // ── Contacts ────────────────────────────────────────────────────────
   app.post("/api/contacts/bulk", bulkContactsRoute);
 
-  // Enqueue contacts for calling
+  // ── Call Queue ──────────────────────────────────────────────────────
+  app.get("/api/queue", getQueueRoute);
   app.post("/api/queue/enqueue", enqueueRoute);
-
-  // Manual / cron trigger for the queue worker
+  app.patch("/api/queue/:id", updateQueueRoute);
+  app.delete("/api/queue/:id", deleteQueueRoute);
   app.post("/api/queue/process", processQueueRoute);
 
-  // Call completion webhook (receives results from /apps/calling)
+  // ── Calls & Logs ────────────────────────────────────────────────────
+  app.get("/api/calls", getCallsRoute);
+  app.get("/api/calls/:id", getCallByIdRoute);
   app.post("/api/calls/complete", callCompleteRoute);
 
-  // Follow-ups management
+  // ── Follow-Ups ──────────────────────────────────────────────────────
   app.get("/api/follow-ups", getFollowUpsRoute);
   app.patch("/api/follow-ups/:id", updateFollowUpRoute);
 
-  // Health check
+  // ── Campaigns ───────────────────────────────────────────────────────
+  app.get("/api/campaigns", getCampaignsRoute);
+  app.get("/api/campaigns/:id", getCampaignByIdRoute);
+  app.post("/api/campaigns", createCampaignRoute);
+  app.patch("/api/campaigns/:id", updateCampaignRoute);
+  app.delete("/api/campaigns/:id", deleteCampaignRoute);
+
+  // ── Business Profile ────────────────────────────────────────────────
+  app.get("/api/business-profile", getBusinessProfileRoute);
+  app.post("/api/business-profile", upsertBusinessProfileRoute);
+  app.put("/api/business-profile", upsertBusinessProfileRoute);
+
+  // ── Knowledge Base ──────────────────────────────────────────────────
+  app.get("/api/knowledge-base", getKnowledgeBaseRoute);
+  app.get("/api/knowledge-base/:id", getKnowledgeBaseEntryByIdRoute);
+  app.post("/api/knowledge-base", createKnowledgeBaseEntryRoute);
+  app.patch("/api/knowledge-base/:id", updateKnowledgeBaseEntryRoute);
+  app.delete("/api/knowledge-base/:id", deleteKnowledgeBaseEntryRoute);
+
+  // ── Clients ─────────────────────────────────────────────────────────
+  app.get("/api/clients/:id", getClientByIdRoute);
+  app.patch("/api/clients/:id", updateClientRoute);
+
+  // ── Health Check ────────────────────────────────────────────────────
   app.get("/health", (_req, res) => {
     res.json({
       status: "healthy",

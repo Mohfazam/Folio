@@ -41,6 +41,32 @@ export async function dispatchCallCompleted(
     console.warn(`${tag} Analysis extraction error:`, analysisErr?.message ?? analysisErr);
   }
 
+  // 2b. Compute credits & provider cost estimates
+  const isConnected = result.status === "completed";
+  const credits = isConnected ? Math.ceil((result.durationSeconds || 0) / 10) : 0;
+  
+  // Approximate provider cost estimates
+  const telephonyCost = isConnected ? Number(((result.durationSeconds / 60) * 0.015).toFixed(4)) : 0;
+  const sttCost = isConnected ? Number((result.durationSeconds * 0.0006).toFixed(4)) : 0;
+  
+  const assistantChars = result.transcript
+    .filter((t) => t.speaker === "assistant")
+    .reduce((acc, t) => acc + (t.text?.length || 0), 0);
+  const ttsCost = Number((assistantChars * 0.000018).toFixed(4));
+  
+  const userTurns = result.transcript.filter((t) => t.speaker === "user").length;
+  const llmCost = Number((userTurns * 0.0001).toFixed(4));
+  const totalEstimatedCost = Number((telephonyCost + sttCost + ttsCost + llmCost).toFixed(4));
+
+  result.costEstimate = {
+    credits,
+    costTelephony: telephonyCost,
+    costStt: sttCost,
+    costLlm: llmCost,
+    costTts: ttsCost,
+    totalEstimatedCost,
+  };
+
   // 3. Durable local disk backup (so data is never lost)
   try {
     await ensureSpoolDir();
@@ -95,6 +121,9 @@ export async function dispatchCallCompleted(
   console.log(`${tag} ══════════════════════════════════════════════════`);
   console.log(`${tag} 📊 Post-Call Report:`);
   console.log(`${tag}    Outcome: ${result.status} | Duration: ${result.durationSeconds}s | Turns: ${result.transcript.length}`);
+  console.log(`${tag} 💳 Credits & Costs:`);
+  console.log(`${tag}    Credits Charged: ${credits} credit(s) (1 credit / 10s unit)`);
+  console.log(`${tag}    Est. Provider Cost: $${totalEstimatedCost.toFixed(4)} (Telephony: $${telephonyCost}, STT: $${sttCost}, LLM: $${llmCost}, TTS: $${ttsCost})`);
   if (result.analysis) {
     console.log(`${tag}    Interest Level: [${result.analysis.interestLevel.toUpperCase()}] | Sentiment: [${result.analysis.sentiment}]`);
     console.log(`${tag}    Summary: "${result.analysis.summary}"`);
