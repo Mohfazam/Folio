@@ -3,6 +3,7 @@ import { bulkContactsRoute } from "./contacts.js";
 import { enqueueRoute } from "./queue.js";
 import { processQueueRoute } from "./process.js";
 import { callCompleteRoute } from "./calls.js";
+import { getFollowUpsRoute, updateFollowUpRoute } from "./followUps.js";
 
 export function registerRoutes(app: Express) {
   // Bulk contact ingestion
@@ -16,6 +17,10 @@ export function registerRoutes(app: Express) {
 
   // Call completion webhook (receives results from /apps/calling)
   app.post("/api/calls/complete", callCompleteRoute);
+
+  // Follow-ups management
+  app.get("/api/follow-ups", getFollowUpsRoute);
+  app.patch("/api/follow-ups/:id", updateFollowUpRoute);
 
   // Health check
   app.get("/health", (_req, res) => {
