@@ -78,6 +78,11 @@ export function registerRoutes(app: Express) {
   app.patch("/api/knowledge-base/:id", updateKnowledgeBaseEntryRoute);
   app.delete("/api/knowledge-base/:id", deleteKnowledgeBaseEntryRoute);
 
+  // ── Authentication & User Onboarding ──────────────────────────────
+  app.post("/api/auth/sync", syncAuthUserRoute);
+  app.get("/api/auth/me", getAuthMeRoute);
+  app.patch("/api/auth/phone", updateAuthPhoneRoute);
+
   // ── Clients ─────────────────────────────────────────────────────────
   app.get("/api/clients", getClientsRoute);
   app.get("/api/clients/:id", getClientByIdRoute);
