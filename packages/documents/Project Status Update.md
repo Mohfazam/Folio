@@ -1,12 +1,14 @@
 # Project Status Update
 
-Last updated: 2026-10-04
+Last updated: 2026-10-08
 
 ## Summary
 
-The project has moved beyond starter scaffolding: the calling service is deployed on Railway, and the project owner reports more than 10 live calls with positive feedback on call quality and the overall experience. The workspace contains a Turborepo monorepo with a `calling` service, `web` app, `docs` app, and a shared database package.
+The project has moved beyond starter scaffolding: the calling service is deployed on Railway, and the project owner reports more than 10 live calls with positive feedback on call quality and the overall experience. A separate TypeScript/Express backend now contains database-backed APIs and a call queue worker, but its authenticated, end-to-end production behavior has not yet been verified.
 
-This is meaningful user validation of a live calling prototype. It does not by itself establish load capacity, failure recovery, security posture, automated regression coverage, or a complete business workflow. Durable call data, queue automation, and a business-facing dashboard remain key gaps.
+**Backend estimate:** roughly 65% of the planned backend feature scope is implemented in code. This is a repository-based estimate, not a production-readiness score: the backend TypeScript build passes, while authentication/tenant authorization, automated tests, and a verified live database-to-calling workflow remain incomplete.
+
+This is meaningful user validation of a live calling prototype. It does not by itself establish load capacity, failure recovery, security posture, automated regression coverage, or a complete business workflow. The backend now contains call persistence and queue automation paths, but production-safe access control, end-to-end verification, and a complete business-facing dashboard remain key gaps.
 
 ## Current implementation status
 
@@ -16,7 +18,7 @@ Status: Completed / largely complete
 Done:
 - Turbo monorepo initialized and working as a multi-app workspace
 - Root package, workspace, and TypeScript configuration are in place
-- App split exists for `web`, `docs`, and `calling`
+- App split exists for `web`, `docs`, `calling`, and `backend`
 - Shared config packages and environment setup are present
 - Core provider env variables are defined for calling features
 
@@ -26,18 +28,39 @@ Remaining:
 - production-level repo hygiene and service ownership boundaries
 
 ### Database and schema
-Status: Mostly complete in design and implementation
+Status: Schema, migrations, and backend query layer implemented; live database verification remains
 
 Done:
 - Postgres schema covers clients, users, contacts, upload batches, call queue, calls, follow-ups, audit logs, and knowledge-base entries
 - Core enums and table definitions are present in [packages/db/src/schema.ts](../db/src/schema.ts)
 - Migration history exists and tracks schema evolution in the database package
 - The schema appears designed to support a real admissions/outreach workflow rather than a generic demo
+- Backend database access is configured through Neon and Drizzle
 
 Remaining:
-- real database migration execution against a live Postgres instance
-- runtime access layer and query patterns for app usage
-- seed scripts, validation, and integrity checks for production-style data flows
+- Verify migrations and representative CRUD/workflow queries against the intended Postgres environment
+- Add automated data-flow, integrity, and migration checks; seed scripts exist but do not replace these checks
+
+### Backend API and workflow
+Status: Core feature paths implemented in code; not yet verified as a secure, production-ready service
+
+Done:
+- TypeScript/Express backend with a Docker build, `/health`, environment configuration, and Neon/Drizzle database access
+- Firebase Admin initialization and user synchronization/profile endpoints, including initial client workspace provisioning
+- API handlers for clients, business profiles, campaigns, contacts, knowledge-base entries, calls, queue items, and follow-ups
+- JSON bulk contact import with per-row results; queue enqueueing and scheduled processing are implemented
+- Queue worker checks calling hours, per-client daily limits and monthly credits, supplies campaign/business/contact/knowledge-base context to the calling service, and retries eligible failures
+- Call completion handler stores call summaries, transcripts, cost estimates, and outcomes; updates queue/contact status and credit usage; and creates requested follow-ups
+- Analytics overview handler exists in source
+
+Remaining / not yet verified:
+- **Authentication and tenant authorization:** `requireAuth` exists but is not attached to registered API routes; client/workspace ownership is therefore not enforced by the backend route layer. Do not treat these APIs as production-safe until this is fixed and tested.
+- **Analytics routing:** the analytics handler is not registered in the route table, so `/api/analytics/overview` is not currently exposed by this service.
+- **Automated coverage:** no backend test files were found; only the TypeScript build was verified for this update.
+- **Database and integration validation:** migrations have not been verified against a live database here, and the complete backend → calling service → completion webhook → persisted record flow has not been demonstrated.
+- **Contact ingestion:** the backend accepts JSON rows; file upload plus CSV/XLSX parsing, duplicate handling, and robust batch/large-import processing remain.
+- **Media and operations:** recording storage/playback, webhook delivery/replay, queue recovery, multi-instance coordination, monitoring, rate limits, and operational alerting need validation or implementation.
+- **Production deployment:** a Dockerfile exists, but the backend deployment and runtime configuration were not independently checked.
 
 ### Calling service
 Status: Railway-deployed live MVP; call quality validated by user feedback
@@ -53,54 +76,60 @@ Done:
 Still to validate and improve:
 - Automated tests for live call, provider failure, interruption, and recovery paths
 - Load/concurrency limits, reliability targets, and operational monitoring
-- Durable persistence of calls, transcripts, and outcomes through the database
+- Verify that call lifecycle, transcripts, and outcomes persist end-to-end through the backend database
 - Quality and reliability across a broader set of callers, network conditions, and call scenarios
 
 ### Frontend / dashboard
-Status: Early application/API work; not yet a complete business dashboard
+Status: Early application/API work; backend endpoints exist, but this is not yet a complete business dashboard
 
 Done:
 - Next.js apps exist for `web` and `docs`; the docs page remains a starter scaffold
-- The web app contains API routes and a call store, but is not yet a complete customer-facing control center
+- The web app contains API routes and a call store, and the backend now provides much of the corresponding data API; this is not yet a complete customer-facing control center
 
 Remaining:
 - auth, session, and protected route flow
 - call detail pages and transcript views
 - recording playback and analytics surfaces
 - quota, usage, and lead pipeline management UI
+- Wire and verify the dashboard against authenticated backend endpoints
 
 ### Automation and business logic
-Status: Not started / design-only
+Status: Core queue and retry paths implemented; broader automation and production hardening remain
+
+Implemented in backend code:
+- JSON bulk contact import and queue scheduling/processing
+- Retry scheduling for eligible unsuccessful calls
+- Follow-up creation from call analysis payloads and manual follow-up APIs
+- CRUD APIs for business profiles, campaigns, and knowledge-base entries; active knowledge entries are passed into the calling flow
 
 Pending:
-- contact upload parser and validation workflows
-- call queue automation and scheduling rules
-- retry, escalation, and no-answer handling
-- follow-up and outcome-analysis logic
-- knowledge-base ingestion and retrieval pipeline
-- business rules for admissions or outreach logic beyond generic call flow
+- CSV/XLSX file parsing, duplicate detection, and stronger batch validation
+- Verify calling-hours, quota, retry, and follow-up behavior with automated and end-to-end tests
+- Add durable queue locking/recovery and webhook idempotency/replay for restart and multi-instance safety
+- Knowledge-base document ingestion/search beyond manually managed entries
+- Complete outcome analysis generation and business-specific workflow rules
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
 | Phase 0 — Project setup | Complete |
-| Phase 1 — Database & schema | Schema and migrations implemented; live runtime integration remains to verify |
+| Phase 1 — Database & schema | Schema, migrations, and runtime access layer implemented; live DB verification remains |
 | Phase 2 — Core calling pipeline | Live MVP deployed; more than 10 positively reviewed calls reported by the project owner |
-| Phase 3 — Data flow into the schema | Not yet validated as a durable end-to-end workflow |
-| Phase 4 — Automation layer | Not started |
-| Phase 5 — Outcome intelligence | Not started |
-| Phase 6 — Dashboard | Early web/API implementation; product dashboard incomplete |
+| Phase 3 — Data flow into the schema | Persistence and webhook handler implemented in code; complete deployed flow not yet verified |
+| Phase 4 — Automation layer | Queue, scheduling, and retries implemented in code; CSV/XLSX import and reliability hardening remain |
+| Phase 5 — Outcome intelligence | Call-analysis ingestion and follow-up creation implemented; analysis generation and validation remain |
+| Phase 6 — Dashboard | Backend APIs and early web work exist; authentication, analytics route wiring, and product UI remain |
 
 ## Recommended next milestones
 
-1. Restrict `/dial` to authenticated, authorized callers and apply destination/rate limits.
-2. Remove user-controlled server-side request destinations or enforce strict trusted-host allowlists; authenticate webhooks and protect call history APIs.
-3. Add a durable, replayable webhook delivery queue instead of relying on local spool files.
-4. Add STT mid-call reconnect/recovery and make model fallback safe after partial streamed output.
-5. Add automated regression coverage for successful calls, provider errors, interruption, and recovery.
-6. Persist call lifecycle, transcripts, and outcomes to the database and verify the deployed data flow.
-7. Complete a minimal dashboard for call status, summaries, and transcripts; then add queueing, contact import, retry policy, and follow-up automation.
+1. Apply Firebase authentication and per-client authorization to all user-facing backend routes; make webhook authentication mandatory in deployment and limit/authorize queue processing triggers.
+2. Verify database migrations and the full backend → calling → webhook → database path in a non-production environment.
+3. Add automated backend tests for authorization/tenant isolation, CRUD, bulk-import failures, queue limits/scheduling/retries, webhook validation, and duplicate delivery.
+4. Register the analytics endpoint and wire it into the authenticated dashboard.
+5. Add CSV/XLSX import, duplicate handling, and resilient batch processing.
+6. Add durable queue coordination/recovery and webhook idempotency/replay; verify recording storage and playback.
+7. Address calling-service risks already documented below, including dial authorization, trusted request targets, webhook protection, delivery replay, STT recovery, and partial-stream fallback.
 8. Measure production reliability and concurrency before making capacity or readiness claims.
 
 ## Repository review findings (2026-10-04)
