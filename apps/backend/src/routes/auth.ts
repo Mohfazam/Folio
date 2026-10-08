@@ -117,6 +117,7 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
               email: profile.email ?? existingByUid.email,
               phoneNumber: profile.phoneNumber ?? existingByUid.phoneNumber,
               phoneVerified: profile.phoneVerified || existingByUid.phoneVerified,
+              emailVerified: Boolean(req.firebaseToken?.email_verified),
               displayName: profile.displayName ?? existingByUid.displayName,
               avatarUrl: profile.avatarUrl ?? existingByUid.avatarUrl,
               authProvider: profile.authProvider,
@@ -203,26 +204,30 @@ export async function updateAuthPhoneRoute(req: Request, res: Response) {
   }
 
   try {
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        phoneNumber: profile.phoneNumber,
-        phoneVerified: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, req.user.id))
-      .returning();
-
-    if (updatedUser?.clientId) {
-      await db
-        .update(clients)
+    const updatedUser = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .update(users)
         .set({
-          contactPhone: profile.phoneNumber,
-          isPhoneVerified: true,
+          phoneNumber: profile.phoneNumber,
+          phoneVerified: true,
           updatedAt: new Date(),
         })
-        .where(eq(clients.id, updatedUser.clientId));
-    }
+        .where(eq(users.id, req.user!.id))
+        .returning();
+
+      if (user?.clientId) {
+        await tx
+          .update(clients)
+          .set({
+            contactPhone: profile.phoneNumber,
+            isPhoneVerified: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(clients.id, user.clientId));
+      }
+
+      return user;
+    });
 
     return res.json({ ok: true, user: updatedUser ? publicUser(updatedUser) : null });
   } catch (err: unknown) {
