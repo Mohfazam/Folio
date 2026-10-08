@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { followUps, contacts, calls } from "@repo/db";
+import { followUps, contacts, calls, users } from "@repo/db";
 
 const VALID_STATUSES = ["open", "done", "not_needed"] as const;
 type FollowUpStatus = (typeof VALID_STATUSES)[number];
@@ -15,8 +15,7 @@ const VALID_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
  */
 export async function getFollowUpsRoute(req: Request, res: Response) {
   try {
-    const { clientId, status, assignedTo, priority, type, limit, offset } = req.query as {
-      clientId?: string;
+    const { status, assignedTo, priority, type, limit, offset } = req.query as {
       status?: string;
       assignedTo?: string;
       priority?: string;
@@ -28,11 +27,7 @@ export async function getFollowUpsRoute(req: Request, res: Response) {
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
 
-    const conditions = [];
-
-    if (clientId) {
-      conditions.push(eq(followUps.clientId, clientId));
-    }
+    const conditions = [eq(followUps.clientId, req.clientId!)];
 
     if (status && VALID_STATUSES.includes(status as FollowUpStatus)) {
       conditions.push(eq(followUps.status, status as FollowUpStatus));
@@ -87,8 +82,8 @@ export async function getFollowUpsRoute(req: Request, res: Response) {
         },
       })
       .from(followUps)
-      .leftJoin(contacts, eq(followUps.contactId, contacts.id))
-      .leftJoin(calls, eq(followUps.callId, calls.id))
+      .leftJoin(contacts, and(eq(followUps.contactId, contacts.id), eq(followUps.clientId, contacts.clientId)))
+      .leftJoin(calls, and(eq(followUps.callId, calls.id), eq(followUps.clientId, calls.clientId)))
       .where(whereClause)
       .orderBy(desc(followUps.createdAt))
       .limit(take)
@@ -123,7 +118,6 @@ export async function getFollowUpsRoute(req: Request, res: Response) {
 export async function createFollowUpRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       contactId,
       callId,
       type = "call_back",
@@ -133,7 +127,6 @@ export async function createFollowUpRoute(req: Request, res: Response) {
       assignedTo,
       notes,
     } = req.body as {
-      clientId?: string;
       contactId?: string;
       callId?: string;
       type?: string;
@@ -144,8 +137,53 @@ export async function createFollowUpRoute(req: Request, res: Response) {
       notes?: string;
     };
 
-    if (!clientId || !contactId) {
-      return res.status(400).json({ ok: false, error: "clientId and contactId are required" });
+    const clientId = req.clientId!;
+    if (!contactId) {
+      return res.status(400).json({ ok: false, error: "contactId is required" });
+    }
+
+    if (!VALID_PRIORITIES.includes(priority as (typeof VALID_PRIORITIES)[number])) {
+      return res.status(400).json({ ok: false, error: "Invalid follow-up priority" });
+    }
+
+    const parsedDueDate = dueDate ? new Date(dueDate) : null;
+    const parsedCallbackTime = requestedCallbackTime ? new Date(requestedCallbackTime) : null;
+    if (
+      (parsedDueDate && Number.isNaN(parsedDueDate.getTime())) ||
+      (parsedCallbackTime && Number.isNaN(parsedCallbackTime.getTime()))
+    ) {
+      return res.status(400).json({ ok: false, error: "Follow-up dates must be valid timestamps" });
+    }
+
+    const [contact] = await db
+      .select({ id: contacts.id })
+      .from(contacts)
+      .where(and(eq(contacts.id, contactId), eq(contacts.clientId, clientId)))
+      .limit(1);
+    if (!contact) {
+      return res.status(404).json({ ok: false, error: "Contact not found in this workspace" });
+    }
+
+    if (callId) {
+      const [call] = await db
+        .select({ id: calls.id })
+        .from(calls)
+        .where(and(eq(calls.id, callId), eq(calls.clientId, clientId)))
+        .limit(1);
+      if (!call) {
+        return res.status(404).json({ ok: false, error: "Call not found in this workspace" });
+      }
+    }
+
+    if (assignedTo) {
+      const [assignee] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, assignedTo), eq(users.clientId, clientId)))
+        .limit(1);
+      if (!assignee) {
+        return res.status(400).json({ ok: false, error: "assignedTo must be a user in this workspace" });
+      }
     }
 
     const [newFollowUp] = await db
@@ -153,11 +191,11 @@ export async function createFollowUpRoute(req: Request, res: Response) {
       .values({
         clientId,
         contactId,
-        callId: callId ?? null as any,
+        callId: callId ?? null,
         type,
-        priority: VALID_PRIORITIES.includes(priority as any) ? priority : "medium",
-        dueDate: dueDate ? new Date(dueDate) : null,
-        requestedCallbackTime: requestedCallbackTime ? new Date(requestedCallbackTime) : null,
+        priority,
+        dueDate: parsedDueDate,
+        requestedCallbackTime: parsedCallbackTime,
         assignedTo: assignedTo ?? null,
         status: "open",
         notes: notes ?? null,
@@ -200,6 +238,25 @@ export async function updateFollowUpRoute(req: Request, res: Response) {
         error: `Invalid status '${status}'. Must be one of: ${VALID_STATUSES.join(", ")}`,
       });
     }
+    if (priority && !VALID_PRIORITIES.includes(priority as (typeof VALID_PRIORITIES)[number])) {
+      return res.status(400).json({ ok: false, error: "Invalid follow-up priority" });
+    }
+    if (requestedCallbackTime && Number.isNaN(new Date(requestedCallbackTime).getTime())) {
+      return res.status(400).json({ ok: false, error: "requestedCallbackTime must be a valid timestamp" });
+    }
+    if (dueDate && Number.isNaN(new Date(dueDate).getTime())) {
+      return res.status(400).json({ ok: false, error: "dueDate must be a valid timestamp" });
+    }
+    if (assignedTo) {
+      const [assignee] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, assignedTo), eq(users.clientId, req.clientId!)))
+        .limit(1);
+      if (!assignee) {
+        return res.status(400).json({ ok: false, error: "assignedTo must be a user in this workspace" });
+      }
+    }
 
     const updateData: Partial<typeof followUps.$inferInsert> = {
       updatedAt: new Date(),
@@ -224,7 +281,7 @@ export async function updateFollowUpRoute(req: Request, res: Response) {
     const [updated] = await db
       .update(followUps)
       .set(updateData)
-      .where(eq(followUps.id, id))
+      .where(and(eq(followUps.id, id), eq(followUps.clientId, req.clientId!)))
       .returning();
 
     if (!updated) {
@@ -253,7 +310,7 @@ export async function deleteFollowUpRoute(req: Request, res: Response) {
 
     const [deleted] = await db
       .delete(followUps)
-      .where(eq(followUps.id, id))
+      .where(and(eq(followUps.id, id), eq(followUps.clientId, req.clientId!)))
       .returning();
 
     if (!deleted) {

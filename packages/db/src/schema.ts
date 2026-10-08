@@ -113,6 +113,7 @@ export const clients = pgTable("clients", {
   planTier: planTierEnum("plan_tier").notNull().default("trial"),
   monthlyCreditsAllowance: integer("monthly_credit_allowance").notNull().default(360),
   creditsUsedThisCycle: integer("credits_used_this_cycle").notNull().default(0),
+  creditsReservedThisCycle: integer("credits_reserved_this_cycle").notNull().default(0),
   maxCallsPerDay: integer("max_calls_per_day").notNull().default(50),
   callsMadeToday: integer("calls_made_today").notNull().default(0),
   callsMadeTodayResetAt: timestamp("calls_made_today_reset_at"),
@@ -260,12 +261,14 @@ export const callQueue = pgTable("call_queue", {
   priority: integer("priority").notNull().default(0),
   status: queueStatusEnum("status").notNull().default("pending"),
   maxAttempts: integer("max_attempts").notNull().default(2),
+  reservedCredits: integer("reserved_credits").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const calls = pgTable("calls", {
   id: uuid("id").primaryKey().defaultRandom(),
+  deliveryId: text("delivery_id").unique(),
   contactId: uuid("contact_id").notNull().references(() => contacts.id),
   clientId: uuid("client_id").notNull().references(() => clients.id),
   campaignId: uuid("campaign_id").references(() => campaigns.id),
@@ -304,7 +307,7 @@ export const calls = pgTable("calls", {
 
 export const followUps = pgTable("follow_ups", {
   id: uuid("id").primaryKey().defaultRandom(),
-  callId: uuid("call_id").notNull().references(() => calls.id),
+  callId: uuid("call_id").references(() => calls.id),
   contactId: uuid("contact_id").notNull().references(() => contacts.id),
   clientId: uuid("client_id").notNull().references(() => clients.id),
   type: text("type").notNull().default("call_back"), // 'call_back', 'demo_scheduled', 'information_sent', 'escalation'

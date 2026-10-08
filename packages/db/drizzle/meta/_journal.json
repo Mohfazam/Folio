@@ -71,6 +71,13 @@
       "when": 1791315245673,
       "tag": "0009_productive_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791436370151,
+      "tag": "0010_wise_piledriver",
+      "breakpoints": true
     }
   ]
 }

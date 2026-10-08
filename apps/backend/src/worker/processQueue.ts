@@ -1,4 +1,4 @@
-import { eq, lte, sql, and, asc } from "drizzle-orm";
+import { eq, lte, sql, and, asc, isNull, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
@@ -12,7 +12,7 @@ let isProcessingQueue = false;
 /**
  * Extracts current time ("HH:MM:SS") and calendar date ("YYYY-MM-DD") in the client's timezone.
  */
-function getClientLocalTimeAndDate(timezone: string): { time: string; date: string } {
+function getClientLocalTimeAndDate(timezone: string, instant = new Date()): { time: string; date: string } {
   try {
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
@@ -24,8 +24,8 @@ function getClientLocalTimeAndDate(timezone: string): { time: string; date: stri
       second: "2-digit",
       hour12: false,
     });
-    const parts = formatter.formatToParts(new Date());
-    const year = parts.find((p) => p.type === "year")?.value || "2026";
+    const parts = formatter.formatToParts(instant);
+    const year = parts.find((p) => p.type === "year")?.value || "1970";
     const month = parts.find((p) => p.type === "month")?.value || "01";
     const day = parts.find((p) => p.type === "day")?.value || "01";
     const hour = parts.find((p) => p.type === "hour")?.value || "00";
@@ -36,10 +36,9 @@ function getClientLocalTimeAndDate(timezone: string): { time: string; date: stri
       time: `${hour}:${minute}:${second}`,
     };
   } catch {
-    const now = new Date();
     return {
-      date: now.toISOString().slice(0, 10),
-      time: now.toISOString().slice(11, 19),
+      date: instant.toISOString().slice(0, 10),
+      time: instant.toISOString().slice(11, 19),
     };
   }
 }
@@ -63,6 +62,61 @@ function isWithinCallingHours(currentTime: string, start: string | null, end: st
   return currentTime >= s && currentTime <= e;
 }
 
+async function releaseDialReservation(queueEntryId: string, clientId: string) {
+  await db.transaction(async (tx) => {
+    const [released] = await tx
+      .update(callQueue)
+      .set({ status: "pending", reservedCredits: 0, updatedAt: new Date() })
+      .where(and(eq(callQueue.id, queueEntryId), eq(callQueue.status, "in_progress")))
+      .returning({ reservedCredits: callQueue.reservedCredits });
+
+    if (released) {
+      await tx
+        .update(clients)
+        .set({
+          callsMadeToday: sql`greatest(0, ${clients.callsMadeToday} - 1)`,
+          creditsReservedThisCycle: sql`greatest(0, ${clients.creditsReservedThisCycle} - ${released.reservedCredits})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(clients.id, clientId));
+    }
+  });
+}
+
+async function recoverExpiredQueueClaims() {
+  const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+  const staleEntries = await db
+    .select({ id: callQueue.id, clientId: callQueue.clientId })
+    .from(callQueue)
+    .where(and(eq(callQueue.status, "in_progress"), lte(callQueue.updatedAt, cutoff)))
+    .limit(100);
+
+  for (const entry of staleEntries) {
+    await db.transaction(async (tx) => {
+      const [released] = await tx
+        .update(callQueue)
+        .set({ status: "pending", reservedCredits: 0, updatedAt: new Date() })
+        .where(and(
+          eq(callQueue.id, entry.id),
+          eq(callQueue.status, "in_progress"),
+          lte(callQueue.updatedAt, cutoff),
+        ))
+        .returning({ reservedCredits: callQueue.reservedCredits });
+
+      if (released) {
+        await tx
+          .update(clients)
+          .set({
+            creditsReservedThisCycle: sql`greatest(0, ${clients.creditsReservedThisCycle} - ${released.reservedCredits})`,
+            updatedAt: new Date(),
+          })
+          .where(eq(clients.id, entry.clientId));
+        console.warn(`[worker] Recovered stale queue entry ${entry.id}`);
+      }
+    });
+  }
+}
+
 export interface ProcessQueueResult {
   action: "dialed" | "no_eligible_calls" | "dial_failed" | "already_running";
   contactId?: string;
@@ -82,9 +136,19 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
     return { action: "already_running" };
   }
 
+  const callingSecret = process.env.CALLING_SERVICE_SECRET?.trim();
+  const webhookSecret = process.env.WEBHOOK_SECRET?.trim();
+  if (!callingSecret || !webhookSecret) {
+    const error = "CALLING_SERVICE_SECRET and WEBHOOK_SECRET must be configured before dialing";
+    console.error(`[worker] ${error}`);
+    return { action: "dial_failed", error };
+  }
+
   isProcessingQueue = true;
 
   try {
+    await recoverExpiredQueueClaims();
+
     // Find distinct clients with pending queue entries scheduled <= now
     const pendingEntries = await db
       .select({
@@ -112,33 +176,39 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         .limit(1);
 
       if (!client) continue;
+      if (client.status === "paused" || client.status === "suspended") continue;
 
       const clientLocal = getClientLocalTimeAndDate(client.timezone);
 
       // ── Check 1: Reset callsMadeToday if calendar date changed ────
-      if (client.callsMadeTodayResetAt) {
-        const lastResetLocal = getClientLocalTimeAndDate(client.timezone);
-        const lastResetDateStr = new Date(client.callsMadeTodayResetAt).toISOString().slice(0, 10);
-        
-        if (clientLocal.date !== lastResetDateStr) {
-          await db
-            .update(clients)
-            .set({
-              callsMadeToday: 0,
-              callsMadeTodayResetAt: new Date(),
-              updatedAt: new Date(),
-            })
-            .where(eq(clients.id, client.id));
-          client.callsMadeToday = 0;
-        }
-      } else {
-        await db
+      const resetDate = client.callsMadeTodayResetAt
+        ? getClientLocalTimeAndDate(client.timezone, client.callsMadeTodayResetAt).date
+        : undefined;
+      if (resetDate !== clientLocal.date) {
+        const resetPredicate = client.callsMadeTodayResetAt
+          ? eq(clients.callsMadeTodayResetAt, client.callsMadeTodayResetAt)
+          : isNull(clients.callsMadeTodayResetAt);
+        const [resetClient] = await db
           .update(clients)
           .set({
+            callsMadeToday: 0,
             callsMadeTodayResetAt: new Date(),
             updatedAt: new Date(),
           })
-          .where(eq(clients.id, client.id));
+          .where(and(eq(clients.id, client.id), resetPredicate))
+          .returning({ id: clients.id });
+
+        if (resetClient) {
+          client.callsMadeToday = 0;
+        } else {
+          const [latestClient] = await db
+            .select()
+            .from(clients)
+            .where(eq(clients.id, client.id))
+            .limit(1);
+          if (!latestClient) continue;
+          Object.assign(client, latestClient);
+        }
       }
 
       // ── Check 2: Calling hours ─────────────────────────────────
@@ -156,8 +226,8 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       }
 
       // ── Check 4: Credit allowance ──────────────────────────────
-      if (client.creditsUsedThisCycle >= client.monthlyCreditsAllowance) {
-        console.log(`[worker] 💳 Client ${client.id.slice(0, 8)} exhausted credits (${client.creditsUsedThisCycle}/${client.monthlyCreditsAllowance})`);
+      if (client.creditsUsedThisCycle + client.creditsReservedThisCycle >= client.monthlyCreditsAllowance) {
+        console.log(`[worker] 💳 Client ${client.id.slice(0, 8)} exhausted credits (${client.creditsUsedThisCycle}+${client.creditsReservedThisCycle}/${client.monthlyCreditsAllowance})`);
         continue;
       }
 
@@ -181,7 +251,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       const [contact] = await db
         .select()
         .from(contacts)
-        .where(eq(contacts.id, queueEntry.contactId))
+        .where(and(eq(contacts.id, queueEntry.contactId), eq(contacts.clientId, client.id)))
         .limit(1);
 
       if (!contact) {
@@ -192,21 +262,66 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           .where(eq(callQueue.id, queueEntry.id));
         continue;
       }
+      if (contact.optOut || contact.status === "do_not_call" || contact.status === "invalid") {
+        await db
+          .update(callQueue)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")));
+        continue;
+      }
 
-      // Atomically mark the queue entry as in_progress
-      await db
+      let campaignMaxDurationSeconds = 300;
+      if (queueEntry.campaignId) {
+        const [campaign] = await db
+          .select({ status: campaigns.status, maxDurationSeconds: campaigns.maxDurationSeconds })
+          .from(campaigns)
+          .where(and(eq(campaigns.id, queueEntry.campaignId), eq(campaigns.clientId, client.id)))
+          .limit(1);
+        if (!campaign || campaign.status !== "active") {
+          await db
+            .update(callQueue)
+            .set({ status: "failed", updatedAt: new Date() })
+            .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")));
+          continue;
+        }
+        campaignMaxDurationSeconds = campaign.maxDurationSeconds ?? 300;
+      } else {
+        await db
+          .update(callQueue)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")));
+        continue;
+      }
+
+      const reservedCredits = Math.max(1, Math.ceil(campaignMaxDurationSeconds / 10));
+      const [claimedQueueEntry] = await db
         .update(callQueue)
-        .set({ status: "in_progress", updatedAt: new Date() })
-        .where(eq(callQueue.id, queueEntry.id));
+        .set({ status: "in_progress", reservedCredits, updatedAt: new Date() })
+        .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")))
+        .returning({ id: callQueue.id });
+      if (!claimedQueueEntry) continue;
 
-      // Increment callsMadeToday
-      await db
+      const [reservedClient] = await db
         .update(clients)
         .set({
           callsMadeToday: sql`${clients.callsMadeToday} + 1`,
+          creditsReservedThisCycle: sql`${clients.creditsReservedThisCycle} + ${reservedCredits}`,
           updatedAt: new Date(),
         })
-        .where(eq(clients.id, client.id));
+        .where(and(
+          eq(clients.id, client.id),
+          inArray(clients.status, ["trialing", "active"]),
+          sql`${clients.callsMadeToday} < ${clients.maxCallsPerDay}`,
+          sql`${clients.creditsUsedThisCycle} + ${clients.creditsReservedThisCycle} + ${reservedCredits} <= ${clients.monthlyCreditsAllowance}`,
+        ))
+        .returning({ id: clients.id });
+      if (!reservedClient) {
+        await db
+          .update(callQueue)
+          .set({ status: "pending", reservedCredits: 0, updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
+        continue;
+      }
 
       // ── Fetch business profile, campaign, and knowledge base ────
       let businessProfile: Record<string, unknown> | undefined;
@@ -317,11 +432,6 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         recordCall: true,
       };
 
-      const backendUrl = process.env.BACKEND_PUBLIC_URL?.trim();
-      if (backendUrl) {
-        dialBody.callbackUrl = `${backendUrl.replace(/\/$/, "")}/api/calls/complete`;
-      }
-
       if (queueEntry.campaignId) {
         dialBody.campaignId = queueEntry.campaignId;
       }
@@ -342,7 +452,10 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
 
         const dialResponse = await fetch(callingUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${callingSecret}`,
+          },
           body: JSON.stringify(dialBody),
           signal: AbortSignal.timeout(15000),
         });
@@ -351,10 +464,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           const errorText = await dialResponse.text().catch(() => "");
           console.error(`[worker] ❌ Dial request failed (${dialResponse.status}): ${errorText}`);
 
-          await db
-            .update(callQueue)
-            .set({ status: "pending", updatedAt: new Date() })
-            .where(eq(callQueue.id, queueEntry.id));
+          await releaseDialReservation(queueEntry.id, client.id);
 
           return {
             action: "dial_failed",
@@ -378,10 +488,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[worker] ❌ Failed to reach calling service at ${callingUrl}:`, message);
 
-        await db
-          .update(callQueue)
-          .set({ status: "pending", updatedAt: new Date() })
-          .where(eq(callQueue.id, queueEntry.id));
+        await releaseDialReservation(queueEntry.id, client.id);
 
         return {
           action: "dial_failed",

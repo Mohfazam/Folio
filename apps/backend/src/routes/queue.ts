@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { eq, and, desc, sql, asc } from "drizzle-orm";
+import { eq, and, desc, sql, asc, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { contacts, callQueue, campaigns } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
@@ -14,8 +14,7 @@ type QueueStatus = (typeof VALID_QUEUE_STATUSES)[number];
  */
 export async function getQueueRoute(req: Request, res: Response) {
   try {
-    const { clientId, campaignId, status, limit, offset } = req.query as {
-      clientId?: string;
+    const { campaignId, status, limit, offset } = req.query as {
       campaignId?: string;
       status?: string;
       limit?: string;
@@ -25,11 +24,7 @@ export async function getQueueRoute(req: Request, res: Response) {
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
 
-    const conditions = [];
-
-    if (clientId) {
-      conditions.push(eq(callQueue.clientId, clientId));
-    }
+    const conditions = [eq(callQueue.clientId, req.clientId!)];
 
     if (campaignId) {
       conditions.push(eq(callQueue.campaignId, campaignId));
@@ -101,7 +96,6 @@ export async function getQueueRoute(req: Request, res: Response) {
 export async function enqueueRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       uploadBatchId,
       contactIds,
       campaignId,
@@ -109,7 +103,6 @@ export async function enqueueRoute(req: Request, res: Response) {
       maxAttempts,
       priority,
     } = req.body as {
-      clientId?: string;
       uploadBatchId?: string;
       contactIds?: string[];
       campaignId?: string;
@@ -118,15 +111,28 @@ export async function enqueueRoute(req: Request, res: Response) {
       priority?: number;
     };
 
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId is required" });
-    }
+    const clientId = req.clientId!;
 
     if (!uploadBatchId && (!Array.isArray(contactIds) || contactIds.length === 0)) {
       return res.status(400).json({
         ok: false,
         error: "Either uploadBatchId or a non-empty contactIds array is required",
       });
+    }
+    if (!campaignId) {
+      return res.status(400).json({ ok: false, error: "campaignId is required" });
+    }
+    if (contactIds && contactIds.length > 500) {
+      return res.status(413).json({ ok: false, error: "A queue request may include at most 500 contacts" });
+    }
+
+    const [campaign] = await db
+      .select({ id: campaigns.id, status: campaigns.status })
+      .from(campaigns)
+      .where(and(eq(campaigns.id, campaignId), eq(campaigns.clientId, clientId)))
+      .limit(1);
+    if (!campaign || campaign.status !== "active") {
+      return res.status(400).json({ ok: false, error: "Only an active workspace campaign can be queued" });
     }
 
     // Resolve contacts to enqueue
@@ -136,7 +142,11 @@ export async function enqueueRoute(req: Request, res: Response) {
       const batchContacts = await db
         .select({ id: contacts.id })
         .from(contacts)
-        .where(eq(contacts.uploadBatchId, uploadBatchId));
+        .where(and(
+          eq(contacts.uploadBatchId, uploadBatchId),
+          eq(contacts.clientId, clientId),
+          eq(contacts.optOut, false),
+        ));
 
       if (batchContacts.length === 0) {
         return res.status(404).json({
@@ -151,8 +161,17 @@ export async function enqueueRoute(req: Request, res: Response) {
     }
 
     const scheduleDate = scheduledFor ? new Date(scheduledFor) : new Date();
+    if (Number.isNaN(scheduleDate.getTime())) {
+      return res.status(400).json({ ok: false, error: "scheduledFor must be a valid date" });
+    }
     const maxAtt = maxAttempts ?? 2;
     const prio = priority ?? 0;
+    if (!Number.isInteger(maxAtt) || maxAtt < 1 || maxAtt > 5) {
+      return res.status(400).json({ ok: false, error: "maxAttempts must be an integer between 1 and 5" });
+    }
+    if (!Number.isInteger(prio) || prio < -100 || prio > 100) {
+      return res.status(400).json({ ok: false, error: "priority must be an integer between -100 and 100" });
+    }
 
     const failedEntries: { contactId: string; error: string }[] = [];
     let enqueuedCount = 0;
@@ -160,15 +179,38 @@ export async function enqueueRoute(req: Request, res: Response) {
     for (const cId of targetContactIds) {
       try {
         const [contact] = await db
-          .select({ fullName: contacts.fullName, phoneNumber: contacts.phoneNumber })
+          .select({ id: contacts.id, fullName: contacts.fullName, phoneNumber: contacts.phoneNumber, optOut: contacts.optOut, status: contacts.status })
           .from(contacts)
-          .where(eq(contacts.id, cId))
+          .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)))
           .limit(1);
+
+        if (!contact) {
+          failedEntries.push({ contactId: cId, error: "Contact not found in this workspace" });
+          continue;
+        }
+        if (contact.optOut || contact.status === "do_not_call" || contact.status === "invalid") {
+          failedEntries.push({ contactId: cId, error: "Contact is opted out or cannot be called" });
+          continue;
+        }
+
+        const [existing] = await db
+          .select({ id: callQueue.id })
+          .from(callQueue)
+          .where(and(
+            eq(callQueue.contactId, cId),
+            eq(callQueue.clientId, clientId),
+            inArray(callQueue.status, ["pending", "in_progress"]),
+          ))
+          .limit(1);
+        if (existing) {
+          failedEntries.push({ contactId: cId, error: "Contact already has an active queue entry" });
+          continue;
+        }
 
         await db.insert(callQueue).values({
           contactId: cId,
           clientId,
-          campaignId: campaignId ?? null,
+          campaignId,
           contactName: contact?.fullName ?? null,
           phoneNumber: contact?.phoneNumber ?? null,
           scheduledFor: scheduleDate,
@@ -181,7 +223,7 @@ export async function enqueueRoute(req: Request, res: Response) {
         await db
           .update(contacts)
           .set({ status: "queued", updatedAt: new Date() })
-          .where(eq(contacts.id, cId));
+          .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)));
 
         enqueuedCount++;
       } catch (err: unknown) {
@@ -222,19 +264,11 @@ export async function updateQueueRoute(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Queue ID is required" });
     }
 
-    const { scheduledFor, priority, maxAttempts, status } = req.body as {
+    const { scheduledFor, priority, maxAttempts } = req.body as {
       scheduledFor?: string;
       priority?: number;
       maxAttempts?: number;
-      status?: string;
     };
-
-    if (status && !VALID_QUEUE_STATUSES.includes(status as QueueStatus)) {
-      return res.status(400).json({
-        ok: false,
-        error: `Invalid status '${status}'. Must be one of: ${VALID_QUEUE_STATUSES.join(", ")}`,
-      });
-    }
 
     const updateData: Partial<typeof callQueue.$inferInsert> = {
       updatedAt: new Date(),
@@ -242,7 +276,10 @@ export async function updateQueueRoute(req: Request, res: Response) {
 
     if (scheduledFor) {
       const parsed = new Date(scheduledFor);
-      if (!isNaN(parsed.getTime())) updateData.scheduledFor = parsed;
+      if (Number.isNaN(parsed.getTime())) {
+        return res.status(400).json({ ok: false, error: "scheduledFor must be a valid date" });
+      }
+      updateData.scheduledFor = parsed;
     }
 
     if (typeof priority === "number") {
@@ -252,15 +289,17 @@ export async function updateQueueRoute(req: Request, res: Response) {
     if (typeof maxAttempts === "number" && maxAttempts > 0) {
       updateData.maxAttempts = maxAttempts;
     }
-
-    if (status) {
-      updateData.status = status as QueueStatus;
+    if (maxAttempts !== undefined && (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5)) {
+      return res.status(400).json({ ok: false, error: "maxAttempts must be an integer between 1 and 5" });
+    }
+    if (priority !== undefined && (!Number.isInteger(priority) || priority < -100 || priority > 100)) {
+      return res.status(400).json({ ok: false, error: "priority must be an integer between -100 and 100" });
     }
 
     const [updated] = await db
       .update(callQueue)
       .set(updateData)
-      .where(eq(callQueue.id, id))
+      .where(and(eq(callQueue.id, id), eq(callQueue.clientId, req.clientId!), eq(callQueue.status, "pending")))
       .returning();
 
     if (!updated) {
@@ -289,7 +328,7 @@ export async function deleteQueueRoute(req: Request, res: Response) {
 
     const [deleted] = await db
       .delete(callQueue)
-      .where(eq(callQueue.id, id))
+      .where(and(eq(callQueue.id, id), eq(callQueue.clientId, req.clientId!), eq(callQueue.status, "pending")))
       .returning();
 
     if (!deleted) {

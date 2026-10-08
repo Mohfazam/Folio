@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { eq, and, desc, sql, or, like } from "drizzle-orm";
+import { eq, and, desc, sql, or, like, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { contacts, uploadBatches, callQueue, clients } from "@repo/db";
+import { contacts, uploadBatches, callQueue, campaigns } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 
 /**
@@ -28,7 +28,6 @@ function normalizePhoneNumber(raw: string): string {
 export async function getContactsRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       status,
       search,
       lifecycleStage,
@@ -37,7 +36,6 @@ export async function getContactsRoute(req: Request, res: Response) {
       limit,
       offset,
     } = req.query as {
-      clientId?: string;
       status?: string;
       search?: string;
       lifecycleStage?: string;
@@ -47,9 +45,7 @@ export async function getContactsRoute(req: Request, res: Response) {
       offset?: string;
     };
 
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId is required" });
-    }
+    const clientId = req.clientId!;
 
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
@@ -129,7 +125,7 @@ export async function getContactByIdRoute(req: Request, res: Response) {
     const [contact] = await db
       .select()
       .from(contacts)
-      .where(eq(contacts.id, id))
+      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
       .limit(1);
 
     if (!contact) {
@@ -152,37 +148,46 @@ export async function getContactByIdRoute(req: Request, res: Response) {
 export async function bulkContactsRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       label,
       autoEnqueue,
       campaignId,
-      maxCallsPerDay,
       scheduledFor,
       contacts: contactRows,
     } = req.body as {
-      clientId?: string;
       label?: string;
       autoEnqueue?: boolean;
       campaignId?: string;
-      maxCallsPerDay?: number;
       scheduledFor?: string;
       contacts?: Record<string, unknown>[];
     };
 
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId is required" });
-    }
+    const clientId = req.clientId!;
 
     if (!Array.isArray(contactRows) || contactRows.length === 0) {
       return res.status(400).json({ ok: false, error: "contacts array is required and must be non-empty" });
     }
 
-    // Update client maxCallsPerDay if specified
-    if (typeof maxCallsPerDay === "number" && maxCallsPerDay > 0) {
-      await db
-        .update(clients)
-        .set({ maxCallsPerDay, updatedAt: new Date() })
-        .where(eq(clients.id, clientId));
+    if (contactRows.length > 500) {
+      return res.status(413).json({ ok: false, error: "A bulk import may contain at most 500 contacts" });
+    }
+
+    if (autoEnqueue) {
+      if (!campaignId) {
+        return res.status(400).json({ ok: false, error: "An active campaignId is required to enqueue imported contacts" });
+      }
+      const [campaign] = await db
+        .select({ id: campaigns.id, status: campaigns.status })
+        .from(campaigns)
+        .where(and(eq(campaigns.id, campaignId), eq(campaigns.clientId, clientId)))
+        .limit(1);
+      if (!campaign || campaign.status !== "active") {
+        return res.status(400).json({ ok: false, error: "Contacts can only be auto-enqueued for an active workspace campaign" });
+      }
+    }
+
+    const scheduleDate = scheduledFor ? new Date(scheduledFor) : new Date();
+    if (autoEnqueue && Number.isNaN(scheduleDate.getTime())) {
+      return res.status(400).json({ ok: false, error: "scheduledFor must be a valid date" });
     }
 
     // 1. Create upload batch
@@ -202,17 +207,35 @@ export async function bulkContactsRoute(req: Request, res: Response) {
 
     // 2. Insert contacts
     const failedRows: { index: number; error: string }[] = [];
-    const insertedContacts: { id: string; fullName: string | null; phoneNumber: string }[] = [];
+    const insertedContacts: { id: string; fullName: string | null; phoneNumber: string; optOut: boolean; index: number }[] = [];
+    const normalizedPhones = contactRows.map((row) =>
+      normalizePhoneNumber(String(row.phoneNumber || row.phone || row.phoneNumberRaw || "")),
+    );
+    const phoneCandidates = [...new Set(normalizedPhones.filter((phone) => /^\+\d{7,15}$/.test(phone)))];
+    const existingPhones = phoneCandidates.length
+      ? await db
+          .select({ phoneNumber: contacts.phoneNumber })
+          .from(contacts)
+          .where(and(eq(contacts.clientId, clientId), inArray(contacts.phoneNumber, phoneCandidates)))
+      : [];
+    const seenPhones = new Set(existingPhones.map((contact) => contact.phoneNumber));
+    let duplicateRows = 0;
 
     for (let i = 0; i < contactRows.length; i++) {
       const row = contactRows[i]!;
       try {
         const rawPhone = String(row.phoneNumber || row.phone || row.phoneNumberRaw || "");
-        const normalizedPhone = normalizePhoneNumber(rawPhone);
+        const normalizedPhone = normalizedPhones[i]!;
 
-        if (!normalizedPhone) {
-          throw new Error("Phone number is required and cannot be empty");
+        if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+          throw new Error("A valid phone number is required (E.164 format, or a 10-digit Indian number)");
         }
+        if (seenPhones.has(normalizedPhone)) {
+          duplicateRows++;
+          failedRows.push({ index: i, error: "Duplicate phone number in this workspace" });
+          continue;
+        }
+        seenPhones.add(normalizedPhone);
 
         const [newContact] = await db
           .insert(contacts)
@@ -246,12 +269,13 @@ export async function bulkContactsRoute(req: Request, res: Response) {
 
             contextData: (row.contextData as Record<string, any>) ?? {},
             customFields: (row.customFields as Record<string, any>) ?? {},
-            status: autoEnqueue ? "queued" : "pending",
+            optOut: row.optOut === true,
+            status: row.optOut === true ? "do_not_call" : "pending",
           })
           .returning({ id: contacts.id, fullName: contacts.fullName, phoneNumber: contacts.phoneNumber });
 
         if (newContact) {
-          insertedContacts.push(newContact);
+          insertedContacts.push({ ...newContact, optOut: row.optOut === true, index: i });
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
@@ -266,32 +290,41 @@ export async function bulkContactsRoute(req: Request, res: Response) {
         status: failedRows.length === contactRows.length ? "failed" : "completed",
         validRows: insertedContacts.length,
         invalidRows: failedRows.length,
+        duplicateRows,
         totalRows: contactRows.length,
       })
       .where(eq(uploadBatches.id, batch.id));
 
     // 4. Auto-enqueue if requested
     let enqueuedCount = 0;
+    const enqueueFailures: { index: number; error: string }[] = [];
     if (autoEnqueue && insertedContacts.length > 0) {
-      const scheduleDate = scheduledFor ? new Date(scheduledFor) : new Date();
-
-      for (const c of insertedContacts) {
+      for (const c of insertedContacts.filter((contact) => !contact.optOut)) {
         try {
-          await db.insert(callQueue).values({
-            contactId: c.id,
-            clientId,
-            campaignId: campaignId ?? null,
-            contactName: c.fullName,
-            phoneNumber: c.phoneNumber,
-            scheduledFor: scheduleDate,
-            attemptNumber: 1,
-            status: "pending",
-            maxAttempts: 2,
-            priority: 0,
+          await db.transaction(async (tx) => {
+            await tx.insert(callQueue).values({
+              contactId: c.id,
+              clientId,
+              campaignId,
+              contactName: c.fullName,
+              phoneNumber: c.phoneNumber,
+              scheduledFor: scheduleDate,
+              attemptNumber: 1,
+              status: "pending",
+              maxAttempts: 2,
+              priority: 0,
+            });
+            await tx.update(contacts)
+              .set({ status: "queued", updatedAt: new Date() })
+              .where(and(eq(contacts.id, c.id), eq(contacts.clientId, clientId)));
           });
           enqueuedCount++;
-        } catch (enqueueErr) {
+        } catch (enqueueErr: unknown) {
           console.error("[contacts/bulk] Auto-enqueue error for contact:", c.id, enqueueErr);
+          enqueueFailures.push({
+            index: c.index,
+            error: enqueueErr instanceof Error ? enqueueErr.message : "Failed to enqueue contact",
+          });
         }
       }
 
@@ -309,7 +342,10 @@ export async function bulkContactsRoute(req: Request, res: Response) {
       inserted: insertedContacts.length,
       autoEnqueued: autoEnqueue ? enqueuedCount : undefined,
       failed: failedRows.length,
+      enqueueFailed: enqueueFailures.length,
+      duplicates: duplicateRows,
       failedRows: failedRows.length > 0 ? failedRows : undefined,
+      enqueueFailures: enqueueFailures.length > 0 ? enqueueFailures : undefined,
     });
   } catch (err: unknown) {
     console.error("[contacts/bulk] Unexpected error:", err);
@@ -349,7 +385,6 @@ export async function updateContactRoute(req: Request, res: Response) {
       tags,
       contextData,
       customFields,
-      status,
       optOut,
     } = req.body as Partial<{
       fullName: string;
@@ -370,7 +405,6 @@ export async function updateContactRoute(req: Request, res: Response) {
       tags: string[];
       contextData: Record<string, any>;
       customFields: Record<string, any>;
-      status: any;
       optOut: boolean;
     }>;
 
@@ -380,7 +414,13 @@ export async function updateContactRoute(req: Request, res: Response) {
 
     if (fullName !== undefined) updateData.fullName = fullName;
     if (secondaryName !== undefined) updateData.secondaryName = secondaryName;
-    if (phoneNumber !== undefined) updateData.phoneNumber = normalizePhoneNumber(phoneNumber);
+    if (phoneNumber !== undefined) {
+      const normalizedPhone = normalizePhoneNumber(phoneNumber);
+      if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+        return res.status(400).json({ ok: false, error: "A valid phone number is required" });
+      }
+      updateData.phoneNumber = normalizedPhone;
+    }
     if (email !== undefined) updateData.email = email;
     if (companyName !== undefined) updateData.companyName = companyName;
     if (jobTitle !== undefined) updateData.jobTitle = jobTitle;
@@ -396,17 +436,33 @@ export async function updateContactRoute(req: Request, res: Response) {
     if (tags !== undefined) updateData.tags = tags;
     if (contextData !== undefined) updateData.contextData = contextData;
     if (customFields !== undefined) updateData.customFields = customFields;
-    if (status !== undefined) updateData.status = status;
-    if (optOut !== undefined) updateData.optOut = optOut;
+    if (optOut === false) {
+      return res.status(400).json({ ok: false, error: "An opt-out cannot be reversed through contact editing" });
+    }
+    if (optOut === true) {
+      updateData.optOut = true;
+      updateData.status = "do_not_call";
+    }
 
     const [updated] = await db
       .update(contacts)
       .set(updateData)
-      .where(eq(contacts.id, id))
+      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
       .returning();
 
     if (!updated) {
       return res.status(404).json({ ok: false, error: `Contact ${id} not found` });
+    }
+
+    if (optOut === true) {
+      await db
+        .update(callQueue)
+        .set({ status: "failed", updatedAt: new Date() })
+        .where(and(
+          eq(callQueue.contactId, id),
+          eq(callQueue.clientId, req.clientId!),
+          eq(callQueue.status, "pending"),
+        ));
     }
 
     return res.json({ ok: true, contact: updated });
@@ -431,7 +487,7 @@ export async function deleteContactRoute(req: Request, res: Response) {
 
     const [deleted] = await db
       .delete(contacts)
-      .where(eq(contacts.id, id))
+      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
       .returning();
 
     if (!deleted) {

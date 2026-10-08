@@ -98,23 +98,74 @@ function mapStatusToOutcome(
  */
 export async function callCompleteRoute(req: Request, res: Response) {
   try {
-    // Optional Webhook Security Check
-    const expectedSecret = process.env.WEBHOOK_SECRET?.trim();
-    if (expectedSecret) {
-      const incomingSecret = (req.headers["x-webhook-secret"] as string | undefined)?.trim();
-      if (!incomingSecret || incomingSecret !== expectedSecret) {
-        console.warn("[calls/complete] ⚠️ Rejected webhook call: missing or invalid x-webhook-secret");
-        return res.status(401).json({ ok: false, error: "Unauthorized: Invalid webhook secret" });
-      }
-    }
-
     const payload = req.body as CallingServicePayload;
 
-    if (!payload.contactId || !payload.clientId || !payload.status) {
+    const validStatuses: CallingServicePayload["status"][] = [
+      "completed", "failed", "interrupted", "no_input", "no_answer", "delivery_pending",
+    ];
+    const isUuid = (value: unknown): value is string =>
+      typeof value === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    const startedAt = typeof payload?.startedAt === "string" ? new Date(payload.startedAt) : new Date(NaN);
+    const endedAt = typeof payload?.endedAt === "string" ? new Date(payload.endedAt) : new Date(NaN);
+
+    if (
+      payload?.schemaVersion !== "1.0" ||
+      typeof payload.deliveryId !== "string" ||
+      payload.deliveryId.length < 1 ||
+      payload.deliveryId.length > 200 ||
+      !isUuid(payload.contactId) ||
+      !isUuid(payload.clientId) ||
+      !validStatuses.includes(payload.status) ||
+      !Number.isInteger(payload.durationSeconds) ||
+      payload.durationSeconds < 0 ||
+      payload.durationSeconds > 24 * 60 * 60 ||
+      Number.isNaN(startedAt.getTime()) ||
+      Number.isNaN(endedAt.getTime()) ||
+      endedAt < startedAt ||
+      !Array.isArray(payload.transcript) ||
+      payload.transcript.length > 2000
+    ) {
       return res.status(400).json({
         ok: false,
-        error: "Missing required fields: contactId, clientId, and status are required",
+        error: "Invalid call completion payload",
       });
+    }
+
+    const invalidTranscriptItem = payload.transcript.some((item) =>
+      !item ||
+      (item.speaker !== "user" && item.speaker !== "assistant") ||
+      typeof item.text !== "string" ||
+      item.text.length > 10000 ||
+      typeof item.timestamp !== "string" ||
+      Number.isNaN(new Date(item.timestamp).getTime()) ||
+      typeof item.isComplete !== "boolean",
+    );
+    if (invalidTranscriptItem) {
+      return res.status(400).json({ ok: false, error: "Invalid call transcript payload" });
+    }
+    if (typeof payload.retryable !== "boolean") {
+      return res.status(400).json({ ok: false, error: "Invalid retryable value" });
+    }
+    if (payload.analysis) {
+      const analysis = payload.analysis;
+      if (
+        typeof analysis !== "object" ||
+        typeof analysis.summary !== "string" ||
+        analysis.summary.length > 10000 ||
+        !["high", "medium", "low", "unknown"].includes(analysis.interestLevel) ||
+        !["positive", "neutral", "negative"].includes(analysis.sentiment) ||
+        !Array.isArray(analysis.objectionsRaised) ||
+        analysis.objectionsRaised.length > 100 ||
+        analysis.objectionsRaised.some((item) => typeof item !== "string" || item.length > 1000) ||
+        typeof analysis.followUpRequested !== "boolean" ||
+        (analysis.notes !== undefined && (typeof analysis.notes !== "string" || analysis.notes.length > 5000)) ||
+        (analysis.requestedCallbackTime !== undefined &&
+          (typeof analysis.requestedCallbackTime !== "string" ||
+            Number.isNaN(new Date(analysis.requestedCallbackTime).getTime())))
+      ) {
+        return res.status(400).json({ ok: false, error: "Invalid call analysis payload" });
+      }
     }
 
     const outcome = mapStatusToOutcome(payload.status);
@@ -122,22 +173,36 @@ export async function callCompleteRoute(req: Request, res: Response) {
 
     // 1 credit per 10s connected unit
     const creditsCharged = isBillable
-      ? (payload.costEstimate?.credits ?? Math.ceil((payload.durationSeconds || 0) / 10))
+      ? Math.ceil(payload.durationSeconds / 10)
       : 0;
 
-    const costTelephony = payload.costEstimate?.costTelephony ?? (isBillable ? Number(((payload.durationSeconds / 60) * 0.015).toFixed(4)) : 0);
-    const costStt = payload.costEstimate?.costStt ?? (isBillable ? Number((payload.durationSeconds * 0.0006).toFixed(4)) : 0);
-    const costLlm = payload.costEstimate?.costLlm ?? 0;
-    const costTts = payload.costEstimate?.costTts ?? 0;
-    const costTotal = payload.costEstimate?.totalEstimatedCost ?? Number((costTelephony + costStt + costLlm + costTts).toFixed(4));
+    const safeCost = (value: number | undefined, fallback: number) =>
+      typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1_000_000
+        ? value
+        : fallback;
+    const costTelephony = safeCost(payload.costEstimate?.costTelephony, isBillable ? Number(((payload.durationSeconds / 60) * 0.015).toFixed(4)) : 0);
+    const costStt = safeCost(payload.costEstimate?.costStt, isBillable ? Number((payload.durationSeconds * 0.0006).toFixed(4)) : 0);
+    const costLlm = safeCost(payload.costEstimate?.costLlm, 0);
+    const costTts = safeCost(payload.costEstimate?.costTts, 0);
+    const costTotal = safeCost(payload.costEstimate?.totalEstimatedCost, Number((costTelephony + costStt + costLlm + costTts).toFixed(4)));
 
     const analysis = payload.analysis;
+
+    const completion = await db.transaction(async (tx) => {
+    const [existingCall] = await tx
+      .select({ id: calls.id, creditsCharged: calls.creditsCharged })
+      .from(calls)
+      .where(eq(calls.deliveryId, payload.deliveryId))
+      .limit(1);
+    if (existingCall) {
+      return { duplicate: true as const, callId: existingCall.id, creditsCharged: existingCall.creditsCharged };
+    }
 
     // Find the matching queue entry
     let queueEntryId: string | null = null;
     let attemptNumber = 1;
 
-    const [queueEntry] = await db
+    const [queueEntry] = await tx
       .select()
       .from(callQueue)
       .where(
@@ -156,28 +221,34 @@ export async function callCompleteRoute(req: Request, res: Response) {
     }
 
     // Look up client
-    const [client] = await db
+    const [client] = await tx
       .select()
       .from(clients)
       .where(eq(clients.id, payload.clientId))
       .limit(1);
 
     // Look up contact
-    const [contact] = await db
+    const [contact] = await tx
       .select({
         fullName: contacts.fullName,
         phoneNumber: contacts.phoneNumber,
         companyName: contacts.companyName,
         jobTitle: contacts.jobTitle,
+        optOut: contacts.optOut,
       })
       .from(contacts)
-      .where(eq(contacts.id, payload.contactId))
+      .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)))
       .limit(1);
 
+    if (!client || !contact) {
+      return { notFound: true as const };
+    }
+
     // 1. Insert call record
-    const [callRecord] = await db
+    const [callRecord] = await tx
       .insert(calls)
       .values({
+        deliveryId: payload.deliveryId,
         contactId: payload.contactId,
         clientId: payload.clientId,
         campaignId: queueEntry?.campaignId ?? null,
@@ -185,8 +256,8 @@ export async function callCompleteRoute(req: Request, res: Response) {
         contactName: contact?.fullName ?? null,
         phoneNumber: contact?.phoneNumber ?? null,
         attemptNumber,
-        startedAt: new Date(payload.startedAt),
-        endedAt: payload.endedAt ? new Date(payload.endedAt) : null,
+        startedAt,
+        endedAt,
         durationSeconds: payload.durationSeconds ?? 0,
         outcome,
         isBillable,
@@ -201,13 +272,22 @@ export async function callCompleteRoute(req: Request, res: Response) {
         costLlm,
         costTts,
         costTotal,
-        recordingUrl: payload.recording?.storageKey ?? null,
+        recordingUrl: payload.recording?.available ? payload.recording.storageKey ?? null : null,
         transcript: payload.transcript,
       })
+      .onConflictDoNothing({ target: calls.deliveryId })
       .returning();
 
     if (!callRecord) {
-      return res.status(500).json({ ok: false, error: "Failed to insert call record" });
+      const [duplicate] = await tx
+        .select({ id: calls.id, creditsCharged: calls.creditsCharged })
+        .from(calls)
+        .where(eq(calls.deliveryId, payload.deliveryId))
+        .limit(1);
+      if (duplicate) {
+        return { duplicate: true as const, callId: duplicate.id, creditsCharged: duplicate.creditsCharged };
+      }
+      throw new Error("Failed to insert call record");
     }
 
     // 2. Follow-up ingestion
@@ -226,7 +306,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         analysis?.summary?.trim() ||
         (callbackDate ? `Callback requested for ${callbackDate.toISOString()}` : "Follow-up requested during call");
 
-      const [createdFollowUp] = await db
+      const [createdFollowUp] = await tx
         .insert(followUps)
         .values({
           callId: callRecord.id,
@@ -259,16 +339,18 @@ export async function callCompleteRoute(req: Request, res: Response) {
 
       if (isConnected) {
         finalQueueStatus = "completed";
-        await db
+        await tx
           .update(callQueue)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(callQueue.id, queueEntry.id));
+          .set({ status: "completed", reservedCredits: 0, updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        await db
-          .update(contacts)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(contacts.id, payload.contactId));
-      } else if (isRetryable && currentAttempt < maxAttempts) {
+        if (!contact.optOut) {
+          await tx
+            .update(contacts)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
+        }
+      } else if (isRetryable && currentAttempt < maxAttempts && !contact.optOut) {
         finalQueueStatus = "pending";
         retryScheduledFor = calculateNextRetrySchedule(
           client?.timezone ?? "Asia/Kolkata",
@@ -277,35 +359,38 @@ export async function callCompleteRoute(req: Request, res: Response) {
           2
         );
 
-        await db
+        await tx
           .update(callQueue)
           .set({
             attemptNumber: currentAttempt + 1,
             scheduledFor: retryScheduledFor,
             status: "pending",
+            reservedCredits: 0,
             updatedAt: new Date(),
           })
-          .where(eq(callQueue.id, queueEntry.id));
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        await db
+        await tx
           .update(contacts)
           .set({ status: "queued", updatedAt: new Date() })
-          .where(eq(contacts.id, payload.contactId));
+          .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
 
         console.log(
           `[calls/complete] 🔄 Scheduled retry attempt ${currentAttempt + 1} of ${maxAttempts} for contact ${payload.contactId} at ${retryScheduledFor.toISOString()}`
         );
       } else {
         finalQueueStatus = "exhausted";
-        await db
+        await tx
           .update(callQueue)
-          .set({ status: "exhausted", updatedAt: new Date() })
-          .where(eq(callQueue.id, queueEntry.id));
+          .set({ status: "exhausted", reservedCredits: 0, updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        await db
-          .update(contacts)
-          .set({ status: "completed", updatedAt: new Date() })
-          .where(eq(contacts.id, payload.contactId));
+        if (!contact.optOut) {
+          await tx
+            .update(contacts)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
+        }
 
         console.log(
           `[calls/complete] 🛑 Call attempts exhausted (${currentAttempt}/${maxAttempts}) for contact ${payload.contactId}`
@@ -315,19 +400,26 @@ export async function callCompleteRoute(req: Request, res: Response) {
 
     // 4. Update client billing counters & detailed credit logging
     let updatedTotalCreditsUsed = client?.creditsUsedThisCycle ?? 0;
+    const reservationToRelease = queueEntry?.reservedCredits ?? 0;
+    const clientUpdate: Partial<typeof clients.$inferInsert> = {
+      creditsReservedThisCycle: sql`greatest(0, ${clients.creditsReservedThisCycle} - ${reservationToRelease})`,
+      updatedAt: new Date(),
+    };
     if (isBillable && creditsCharged > 0) {
-      const [updatedClient] = await db
-        .update(clients)
-        .set({
-          creditsUsedThisCycle: sql`${clients.creditsUsedThisCycle} + ${creditsCharged}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(clients.id, payload.clientId))
-        .returning({ creditsUsed: clients.creditsUsedThisCycle, allowance: clients.monthlyCreditsAllowance });
+      clientUpdate.creditsUsedThisCycle = sql`${clients.creditsUsedThisCycle} + ${creditsCharged}`;
+    }
+    const [updatedClient] = await tx
+      .update(clients)
+      .set(clientUpdate)
+      .where(eq(clients.id, payload.clientId))
+      .returning({
+        creditsUsed: clients.creditsUsedThisCycle,
+        creditsReserved: clients.creditsReservedThisCycle,
+        allowance: clients.monthlyCreditsAllowance,
+      });
 
-      if (updatedClient) {
-        updatedTotalCreditsUsed = updatedClient.creditsUsed;
-      }
+    if (updatedClient) {
+      updatedTotalCreditsUsed = updatedClient.creditsUsed;
     }
 
     console.log(`[calls/complete] 💳 Call Log & Cost Summary:`);
@@ -336,19 +428,19 @@ export async function callCompleteRoute(req: Request, res: Response) {
     console.log(`                 Credits Charged: ${creditsCharged} credits (Cycle total: ${updatedTotalCreditsUsed}/${client?.monthlyCreditsAllowance ?? "N/A"})`);
     console.log(`                 Provider Costs: Total=$${costTotal} (Telephony=$${costTelephony}, STT=$${costStt}, LLM=$${costLlm}, TTS=$${costTts})`);
 
-    // 5. Trigger the queue worker for the next eligible call
-    void processNextEligibleCall().catch((err) => {
-      console.error("[calls/complete] Worker trigger error:", err);
-    });
-
-    return res.status(201).json({
-      ok: true,
+    return {
+      duplicate: false as const,
       callId: callRecord.id,
       creditsCharged,
       creditsUsedThisCycle: updatedTotalCreditsUsed,
-      creditsRemaining: client ? Math.max(0, client.monthlyCreditsAllowance - updatedTotalCreditsUsed) : undefined,
+      creditsRemaining: Math.max(
+        0,
+        (updatedClient?.allowance ?? client.monthlyCreditsAllowance) -
+          updatedTotalCreditsUsed -
+          (updatedClient?.creditsReserved ?? 0),
+      ),
       queueStatus: finalQueueStatus,
-      retryScheduledFor: retryScheduledFor ? retryScheduledFor.toISOString() : undefined,
+      retryScheduledFor: retryScheduledFor?.toISOString(),
       followUpId: followUpId ?? undefined,
       costBreakdown: {
         costTelephony,
@@ -357,7 +449,26 @@ export async function callCompleteRoute(req: Request, res: Response) {
         costTts,
         totalCost: costTotal,
       },
+    };
     });
+
+    if ("notFound" in completion) {
+      return res.status(404).json({ ok: false, error: "Client or contact not found in the specified workspace" });
+    }
+    if (completion.duplicate) {
+      return res.status(200).json({
+        ok: true,
+        duplicate: true,
+        callId: completion.callId,
+        creditsCharged: completion.creditsCharged,
+      });
+    }
+
+    void processNextEligibleCall().catch((err) => {
+      console.error("[calls/complete] Worker trigger error:", err);
+    });
+
+    return res.status(201).json({ ok: true, ...completion });
   } catch (err: unknown) {
     console.error("[calls/complete] Unexpected error:", err);
     const message = err instanceof Error ? err.message : String(err);
@@ -373,7 +484,6 @@ export async function callCompleteRoute(req: Request, res: Response) {
 export async function getCallsRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       campaignId,
       outcome,
       sentiment,
@@ -384,7 +494,6 @@ export async function getCallsRoute(req: Request, res: Response) {
       limit,
       offset,
     } = req.query as {
-      clientId?: string;
       campaignId?: string;
       outcome?: string;
       sentiment?: string;
@@ -399,11 +508,7 @@ export async function getCallsRoute(req: Request, res: Response) {
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
 
-    const conditions = [];
-
-    if (clientId) {
-      conditions.push(eq(calls.clientId, clientId));
-    }
+    const conditions = [eq(calls.clientId, req.clientId!)];
 
     if (campaignId) {
       conditions.push(eq(calls.campaignId, campaignId));
@@ -561,7 +666,7 @@ export async function getCallByIdRoute(req: Request, res: Response) {
       .from(calls)
       .leftJoin(contacts, eq(calls.contactId, contacts.id))
       .leftJoin(campaigns, eq(calls.campaignId, campaigns.id))
-      .where(eq(calls.id, id))
+      .where(and(eq(calls.id, id), eq(calls.clientId, req.clientId!)))
       .limit(1);
 
     if (!callItem) {

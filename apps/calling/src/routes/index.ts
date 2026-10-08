@@ -4,6 +4,7 @@ import { plivoVoiceRoute } from "./plivo-voice.js";
 import { plivoHangupRoute } from "./plivo-hangup.js";
 import { metricsRoute } from "./metrics.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+import { requireCallingServiceAuth } from "../middleware/serviceAuth.js";
 
 export function registerRoutes(app: Express) {
   // Voice call webhook (Plivo calls this when recipient answers)
@@ -15,14 +16,13 @@ export function registerRoutes(app: Express) {
   app.get("/plivo-hangup", plivoHangupRoute);
 
   // Dial routes (initiate outbound calls)
-  app.get("/dial", dialRoute);
-  app.post("/dial", dialRoute);
+  app.post("/dial", requireCallingServiceAuth, dialRoute);
 
   // Active call monitoring & diagnostics
-  app.get("/active-calls", activeCallsRoute);
+  app.get("/active-calls", requireCallingServiceAuth, activeCallsRoute);
 
   // Comprehensive metrics & monitoring
-  app.get("/metrics", metricsRoute);
+  app.get("/metrics", requireCallingServiceAuth, metricsRoute);
 
   // Health check endpoint
   app.get("/health", (_req, res) => {

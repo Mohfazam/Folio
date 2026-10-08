@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { eq, and, sql, gte, desc } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { calls, clients, followUps, callQueue } from "@repo/db";
+import { getUtcDateForTimezone } from "../utils/retrySchedule.js";
 
 /**
  * GET /api/analytics/overview
@@ -23,6 +24,9 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
     if (!targetClientId) {
       return res.status(400).json({ ok: false, error: "clientId is required" });
     }
+    if (!["today", "7d", "30d", "all"].includes(timeframe)) {
+      return res.status(400).json({ ok: false, error: "timeframe must be today, 7d, 30d, or all" });
+    }
 
     // 1. Fetch Client Profile & Quota info
     const [client] = await db
@@ -40,7 +44,22 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
     const now = new Date();
 
     if (timeframe === "today") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: client.timezone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      }).formatToParts(now);
+      const getPart = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+      startDate = getUtcDateForTimezone(
+        getPart("year"),
+        getPart("month"),
+        getPart("day"),
+        0,
+        0,
+        0,
+        client.timezone,
+      );
     } else if (timeframe === "7d") {
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     } else if (timeframe === "30d") {
@@ -128,7 +147,10 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
       .orderBy(desc(calls.startedAt))
       .limit(5);
 
-    const creditsRemaining = Math.max(0, client.monthlyCreditsAllowance - client.creditsUsedThisCycle);
+    const creditsRemaining = Math.max(
+      0,
+      client.monthlyCreditsAllowance - client.creditsUsedThisCycle - client.creditsReservedThisCycle,
+    );
     const callsRemainingToday = Math.max(0, client.maxCallsPerDay - client.callsMadeToday);
 
     return res.json({
@@ -143,6 +165,7 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
       quota: {
         monthlyCreditsAllowance: client.monthlyCreditsAllowance,
         creditsUsedThisCycle: client.creditsUsedThisCycle,
+        creditsReservedThisCycle: client.creditsReservedThisCycle,
         creditsRemaining,
         maxCallsPerDay: client.maxCallsPerDay,
         callsMadeToday: client.callsMadeToday,

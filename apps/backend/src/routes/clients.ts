@@ -29,16 +29,22 @@ function isValidTimeFormat(t: string): boolean {
  */
 export async function getClientsRoute(req: Request, res: Response) {
   try {
-    const items = await db
+    const [client] = await db
       .select()
       .from(clients)
+      .where(eq(clients.id, req.clientId!))
       .orderBy(desc(clients.createdAt));
 
-    const enriched = items.map((c) => ({
-      ...c,
-      creditsRemaining: Math.max(0, c.monthlyCreditsAllowance - c.creditsUsedThisCycle),
-      callsRemainingToday: Math.max(0, c.maxCallsPerDay - c.callsMadeToday),
-    }));
+    const enriched = client
+      ? [{
+          ...client,
+          creditsRemaining: Math.max(
+            0,
+            client.monthlyCreditsAllowance - client.creditsUsedThisCycle - client.creditsReservedThisCycle,
+          ),
+          callsRemainingToday: Math.max(0, client.maxCallsPerDay - client.callsMadeToday),
+        }]
+      : [];
 
     return res.json({ ok: true, clients: enriched, total: enriched.length });
   } catch (err: unknown) {
@@ -63,14 +69,17 @@ export async function getClientByIdRoute(req: Request, res: Response) {
     const [client] = await db
       .select()
       .from(clients)
-      .where(eq(clients.id, id))
+      .where(eq(clients.id, req.clientId!))
       .limit(1);
 
     if (!client) {
       return res.status(404).json({ ok: false, error: `Client with ID ${id} not found` });
     }
 
-    const creditsRemaining = Math.max(0, client.monthlyCreditsAllowance - client.creditsUsedThisCycle);
+    const creditsRemaining = Math.max(
+      0,
+      client.monthlyCreditsAllowance - client.creditsUsedThisCycle - client.creditsReservedThisCycle,
+    );
     const callsRemainingToday = Math.max(0, client.maxCallsPerDay - client.callsMadeToday);
 
     return res.json({
@@ -109,9 +118,6 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursStart,
       callingHoursEnd,
       timezone,
-      maxCallsPerDay,
-      monthlyCreditsAllowance,
-      status,
       metadata,
     } = req.body as Partial<{
       name: string;
@@ -122,9 +128,6 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursStart: string;
       callingHoursEnd: string;
       timezone: string;
-      maxCallsPerDay: number;
-      monthlyCreditsAllowance: number;
-      status: any;
       metadata: Record<string, any>;
     }>;
 
@@ -149,6 +152,20 @@ export async function updateClientRoute(req: Request, res: Response) {
       });
     }
 
+    if (callerIdNumber !== undefined && callerIdNumber !== null) {
+      const [client] = await db
+        .select({ contactPhone: clients.contactPhone, isPhoneVerified: clients.isPhoneVerified })
+        .from(clients)
+        .where(eq(clients.id, req.clientId!))
+        .limit(1);
+      if (!client?.isPhoneVerified || callerIdNumber !== client.contactPhone) {
+        return res.status(400).json({
+          ok: false,
+          error: "Caller ID must match the workspace's verified phone number",
+        });
+      }
+    }
+
     const updateData: Partial<typeof clients.$inferInsert> = {
       updatedAt: new Date(),
     };
@@ -161,17 +178,12 @@ export async function updateClientRoute(req: Request, res: Response) {
     if (callingHoursStart !== undefined) updateData.callingHoursStart = callingHoursStart;
     if (callingHoursEnd !== undefined) updateData.callingHoursEnd = callingHoursEnd;
     if (timezone) updateData.timezone = timezone;
-    if (typeof maxCallsPerDay === "number" && maxCallsPerDay > 0) updateData.maxCallsPerDay = maxCallsPerDay;
-    if (typeof monthlyCreditsAllowance === "number" && monthlyCreditsAllowance >= 0) {
-      updateData.monthlyCreditsAllowance = monthlyCreditsAllowance;
-    }
-    if (status) updateData.status = status;
     if (metadata !== undefined) updateData.metadata = metadata;
 
     const [updated] = await db
       .update(clients)
       .set(updateData)
-      .where(eq(clients.id, id))
+      .where(eq(clients.id, req.clientId!))
       .returning();
 
     if (!updated) {

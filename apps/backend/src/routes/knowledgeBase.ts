@@ -29,8 +29,7 @@ type KbEntryType = (typeof VALID_KB_TYPES)[number];
  */
 export async function getKnowledgeBaseRoute(req: Request, res: Response) {
   try {
-    const { clientId, type, category, isActive, search, limit, offset } = req.query as {
-      clientId?: string;
+    const { type, category, isActive, search, limit, offset } = req.query as {
       type?: string;
       category?: string;
       isActive?: string;
@@ -39,9 +38,7 @@ export async function getKnowledgeBaseRoute(req: Request, res: Response) {
       offset?: string;
     };
 
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId is required" });
-    }
+    const clientId = req.clientId!;
 
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
@@ -133,7 +130,7 @@ export async function getKnowledgeBaseEntryByIdRoute(req: Request, res: Response
     const [entry] = await db
       .select()
       .from(knowledgeBaseEntries)
-      .where(eq(knowledgeBaseEntries.id, id))
+      .where(and(eq(knowledgeBaseEntries.id, id), eq(knowledgeBaseEntries.clientId, req.clientId!)))
       .limit(1);
 
     if (!entry) {
@@ -159,7 +156,6 @@ export async function getKnowledgeBaseEntryByIdRoute(req: Request, res: Response
 export async function createKnowledgeBaseEntryRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       type = "product_feature",
       title,
       category,
@@ -171,7 +167,6 @@ export async function createKnowledgeBaseEntryRoute(req: Request, res: Response)
       targetPersonas = [],
       isActive = true,
     } = req.body as {
-      clientId?: string;
       type?: string;
       title?: string;
       category?: string;
@@ -184,10 +179,10 @@ export async function createKnowledgeBaseEntryRoute(req: Request, res: Response)
       isActive?: boolean;
     };
 
-    if (!clientId || !content) {
+    if (!content) {
       return res.status(400).json({
         ok: false,
-        error: "clientId and content are required",
+        error: "content is required",
       });
     }
 
@@ -198,7 +193,7 @@ export async function createKnowledgeBaseEntryRoute(req: Request, res: Response)
     const [newEntry] = await db
       .insert(knowledgeBaseEntries)
       .values({
-        clientId,
+        clientId: req.clientId!,
         type: validatedType,
         title: title ?? null,
         category: category ?? null,
@@ -285,7 +280,7 @@ export async function updateKnowledgeBaseEntryRoute(req: Request, res: Response)
     const [updated] = await db
       .update(knowledgeBaseEntries)
       .set(updateData)
-      .where(eq(knowledgeBaseEntries.id, id))
+      .where(and(eq(knowledgeBaseEntries.id, id), eq(knowledgeBaseEntries.clientId, req.clientId!)))
       .returning();
 
     if (!updated) {
@@ -314,7 +309,7 @@ export async function deleteKnowledgeBaseEntryRoute(req: Request, res: Response)
 
     const [deleted] = await db
       .delete(knowledgeBaseEntries)
-      .where(eq(knowledgeBaseEntries.id, id))
+      .where(and(eq(knowledgeBaseEntries.id, id), eq(knowledgeBaseEntries.clientId, req.clientId!)))
       .returning();
 
     if (!deleted) {

@@ -15,7 +15,7 @@ export async function dialRoute(req: Request, res: Response) {
   const campaignId = (params.campaignId as string) || undefined;
   const instructions = (params.instructions as string) || undefined;
   const greetingText = (params.greetingText as string) || (params.greeting as string) || undefined;
-  const callbackUrl = (params.callbackUrl as string) || (params.webhookUrl as string) || undefined;
+  const callbackUrl = process.env.CALLBACK_URL?.trim();
   const recordCall = params.recordCall !== undefined ? Boolean(params.recordCall) : false;
   const language = (params.language as string) || undefined;
 
@@ -32,6 +32,28 @@ export async function dialRoute(req: Request, res: Response) {
       : undefined);
 
   const now = Date.now();
+
+  if (!callbackUrl || !process.env.WEBHOOK_SECRET?.trim()) {
+    return res.status(503).json({
+      ok: false,
+      error: "CALLBACK_URL and WEBHOOK_SECRET must be configured before outbound calling",
+    });
+  }
+
+  try {
+    const callback = new URL(callbackUrl);
+    const production = process.env.NODE_ENV === "production" || Boolean(process.env.RAILWAY_ENVIRONMENT);
+    if (
+      !["http:", "https:"].includes(callback.protocol) ||
+      callback.username ||
+      callback.password ||
+      (production && callback.protocol !== "https:")
+    ) {
+      return res.status(503).json({ ok: false, error: "CALLBACK_URL must be a valid HTTPS URL in production" });
+    }
+  } catch {
+    return res.status(503).json({ ok: false, error: "CALLBACK_URL must be a valid HTTP(S) URL" });
+  }
 
   // ── Input validation ────────────────────────────────────────────
   // In production, phoneNumber must be explicitly provided. Silently falling

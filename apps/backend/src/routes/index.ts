@@ -1,94 +1,88 @@
-import type { Express } from "express";
+import { Router, type Express } from "express";
 import {
-  getContactsRoute,
-  getContactByIdRoute,
-  bulkContactsRoute,
-  updateContactRoute,
-  deleteContactRoute,
-} from "./contacts.js";
-import { getQueueRoute, enqueueRoute, updateQueueRoute, deleteQueueRoute } from "./queue.js";
-import { processQueueRoute } from "./process.js";
-import { callCompleteRoute, getCallsRoute, getCallByIdRoute } from "./calls.js";
-import {
-  getFollowUpsRoute,
-  createFollowUpRoute,
-  updateFollowUpRoute,
-  deleteFollowUpRoute,
-} from "./followUps.js";
-import {
-  getCampaignsRoute,
-  getCampaignByIdRoute,
-  createCampaignRoute,
-  updateCampaignRoute,
-  deleteCampaignRoute,
-} from "./campaigns.js";
-import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
-import {
-  getKnowledgeBaseRoute,
-  getKnowledgeBaseEntryByIdRoute,
-  createKnowledgeBaseEntryRoute,
-  updateKnowledgeBaseEntryRoute,
-  deleteKnowledgeBaseEntryRoute,
-} from "./knowledgeBase.js";
-import { getClientsRoute, getClientByIdRoute, updateClientRoute } from "./clients.js";
+  requireAuth,
+  requireClientAdmin,
+  requireWebhookSecret,
+  requireWorkerSecret,
+  requireWorkspace,
+} from "../middleware/auth.js";
+import { requireOwnedResource } from "../middleware/tenant.js";
+import { getAnalyticsOverviewRoute } from "./analytics.js";
 import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
+import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
+import { getCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
+import { getCampaignsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
+import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
+import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
+import { contactImportUpload, importContactsFileRoute } from "./contactImport.js";
+import { createFollowUpRoute, deleteFollowUpRoute, getFollowUpsRoute, updateFollowUpRoute } from "./followUps.js";
+import {
+  createKnowledgeBaseEntryRoute,
+  deleteKnowledgeBaseEntryRoute,
+  getKnowledgeBaseEntryByIdRoute,
+  getKnowledgeBaseRoute,
+  updateKnowledgeBaseEntryRoute,
+} from "./knowledgeBase.js";
+import { deleteQueueRoute, enqueueRoute, getQueueRoute, updateQueueRoute } from "./queue.js";
+import { processQueueRoute } from "./process.js";
 
 export function registerRoutes(app: Express) {
-  // ── Contacts ────────────────────────────────────────────────────────
-  app.get("/api/contacts", getContactsRoute);
-  app.get("/api/contacts/:id", getContactByIdRoute);
-  app.post("/api/contacts/bulk", bulkContactsRoute);
-  app.patch("/api/contacts/:id", updateContactRoute);
-  app.delete("/api/contacts/:id", deleteContactRoute);
+  const api = Router();
 
-  // ── Call Queue ──────────────────────────────────────────────────────
-  app.get("/api/queue", getQueueRoute);
-  app.post("/api/queue/enqueue", enqueueRoute);
-  app.patch("/api/queue/:id", updateQueueRoute);
-  app.delete("/api/queue/:id", deleteQueueRoute);
-  app.post("/api/queue/process", processQueueRoute);
+  // These service-to-service routes do not use end-user Firebase sessions.
+  api.post("/auth/sync", requireAuth, syncAuthUserRoute);
+  api.get("/auth/me", requireAuth, getAuthMeRoute);
+  api.patch("/auth/phone", requireAuth, updateAuthPhoneRoute);
+  api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
+  api.post("/queue/process", requireWorkerSecret, processQueueRoute);
 
-  // ── Calls & Logs ────────────────────────────────────────────────────
-  app.get("/api/calls", getCallsRoute);
-  app.get("/api/calls/:id", getCallByIdRoute);
-  app.post("/api/calls/complete", callCompleteRoute);
+  // All other API routes require a provisioned user and are scoped to that user's workspace.
+  api.use(requireAuth, requireWorkspace);
 
-  // ── Follow-Ups ──────────────────────────────────────────────────────
-  app.get("/api/follow-ups", getFollowUpsRoute);
-  app.post("/api/follow-ups", createFollowUpRoute);
-  app.patch("/api/follow-ups/:id", updateFollowUpRoute);
-  app.delete("/api/follow-ups/:id", deleteFollowUpRoute);
+  api.get("/analytics/overview", getAnalyticsOverviewRoute);
 
-  // ── Campaigns ───────────────────────────────────────────────────────
-  app.get("/api/campaigns", getCampaignsRoute);
-  app.get("/api/campaigns/:id", getCampaignByIdRoute);
-  app.post("/api/campaigns", createCampaignRoute);
-  app.patch("/api/campaigns/:id", updateCampaignRoute);
-  app.delete("/api/campaigns/:id", deleteCampaignRoute);
+  api.get("/contacts", getContactsRoute);
+  api.get("/contacts/:id", requireOwnedResource("contacts"), getContactByIdRoute);
+  api.post("/contacts/bulk", requireClientAdmin, bulkContactsRoute);
+  api.post("/contacts/import", requireClientAdmin, contactImportUpload, importContactsFileRoute);
+  api.patch("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), updateContactRoute);
+  api.delete("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), deleteContactRoute);
 
-  // ── Business Profile ────────────────────────────────────────────────
-  app.get("/api/business-profile", getBusinessProfileRoute);
-  app.post("/api/business-profile", upsertBusinessProfileRoute);
-  app.put("/api/business-profile", upsertBusinessProfileRoute);
+  api.get("/queue", getQueueRoute);
+  api.post("/queue/enqueue", requireClientAdmin, enqueueRoute);
+  api.patch("/queue/:id", requireClientAdmin, requireOwnedResource("callQueue"), updateQueueRoute);
+  api.delete("/queue/:id", requireClientAdmin, requireOwnedResource("callQueue"), deleteQueueRoute);
 
-  // ── Knowledge Base ──────────────────────────────────────────────────
-  app.get("/api/knowledge-base", getKnowledgeBaseRoute);
-  app.get("/api/knowledge-base/:id", getKnowledgeBaseEntryByIdRoute);
-  app.post("/api/knowledge-base", createKnowledgeBaseEntryRoute);
-  app.patch("/api/knowledge-base/:id", updateKnowledgeBaseEntryRoute);
-  app.delete("/api/knowledge-base/:id", deleteKnowledgeBaseEntryRoute);
+  api.get("/calls", getCallsRoute);
+  api.get("/calls/:id", requireOwnedResource("calls"), getCallByIdRoute);
 
-  // ── Authentication & User Onboarding ──────────────────────────────
-  app.post("/api/auth/sync", syncAuthUserRoute);
-  app.get("/api/auth/me", getAuthMeRoute);
-  app.patch("/api/auth/phone", updateAuthPhoneRoute);
+  api.get("/follow-ups", getFollowUpsRoute);
+  api.post("/follow-ups", requireClientAdmin, createFollowUpRoute);
+  api.patch("/follow-ups/:id", requireClientAdmin, requireOwnedResource("followUps"), updateFollowUpRoute);
+  api.delete("/follow-ups/:id", requireClientAdmin, requireOwnedResource("followUps"), deleteFollowUpRoute);
 
-  // ── Clients ─────────────────────────────────────────────────────────
-  app.get("/api/clients", getClientsRoute);
-  app.get("/api/clients/:id", getClientByIdRoute);
-  app.patch("/api/clients/:id", updateClientRoute);
+  api.get("/campaigns", getCampaignsRoute);
+  api.get("/campaigns/:id", requireOwnedResource("campaigns"), getCampaignByIdRoute);
+  api.post("/campaigns", requireClientAdmin, createCampaignRoute);
+  api.patch("/campaigns/:id", requireClientAdmin, requireOwnedResource("campaigns"), updateCampaignRoute);
+  api.delete("/campaigns/:id", requireClientAdmin, requireOwnedResource("campaigns"), deleteCampaignRoute);
 
-  // ── Health Check ────────────────────────────────────────────────────
+  api.get("/business-profile", getBusinessProfileRoute);
+  api.post("/business-profile", requireClientAdmin, upsertBusinessProfileRoute);
+  api.put("/business-profile", requireClientAdmin, upsertBusinessProfileRoute);
+
+  api.get("/knowledge-base", getKnowledgeBaseRoute);
+  api.get("/knowledge-base/:id", requireOwnedResource("knowledgeBaseEntries"), getKnowledgeBaseEntryByIdRoute);
+  api.post("/knowledge-base", requireClientAdmin, createKnowledgeBaseEntryRoute);
+  api.patch("/knowledge-base/:id", requireClientAdmin, requireOwnedResource("knowledgeBaseEntries"), updateKnowledgeBaseEntryRoute);
+  api.delete("/knowledge-base/:id", requireClientAdmin, requireOwnedResource("knowledgeBaseEntries"), deleteKnowledgeBaseEntryRoute);
+
+  api.get("/clients", getClientsRoute);
+  api.get("/clients/:id", requireOwnedResource("clients"), getClientByIdRoute);
+  api.patch("/clients/:id", requireClientAdmin, requireOwnedResource("clients"), updateClientRoute);
+
+  app.use("/api", api);
+
   app.get("/health", (_req, res) => {
     res.json({
       status: "healthy",

@@ -30,20 +30,14 @@ type IndustryType = (typeof VALID_INDUSTRIES)[number];
  */
 export async function getBusinessProfileRoute(req: Request, res: Response) {
   try {
-    const { clientId } = req.query as { clientId?: string };
-
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId query parameter is required" });
-    }
-
     const [profile] = await db
       .select()
       .from(businessProfiles)
-      .where(eq(businessProfiles.clientId, clientId))
+      .where(eq(businessProfiles.clientId, req.clientId!))
       .limit(1);
 
     if (!profile) {
-      return res.status(404).json({ ok: false, error: `No business profile found for clientId: ${clientId}` });
+      return res.status(404).json({ ok: false, error: "No business profile found for this workspace" });
     }
 
     return res.json({
@@ -65,7 +59,6 @@ export async function getBusinessProfileRoute(req: Request, res: Response) {
 export async function upsertBusinessProfileRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       industry = "general",
       displayName,
       tagline,
@@ -82,7 +75,6 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
       complianceNotes,
       metadata = {},
     } = req.body as {
-      clientId?: string;
       industry?: string;
       displayName?: string;
       tagline?: string;
@@ -100,10 +92,11 @@ export async function upsertBusinessProfileRoute(req: Request, res: Response) {
       metadata?: Record<string, any>;
     };
 
-    if (!clientId || !displayName || !description) {
+    const clientId = req.clientId!;
+    if (!displayName || !description) {
       return res.status(400).json({
         ok: false,
-        error: "clientId, displayName, and description are required",
+        error: "displayName and description are required",
       });
     }
 

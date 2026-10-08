@@ -23,15 +23,11 @@ type CampaignStatus = (typeof VALID_STATUSES)[number];
  */
 export async function getCampaignsRoute(req: Request, res: Response) {
   try {
-    const { clientId, status, type } = req.query as {
-      clientId?: string;
+    const { status, type } = req.query as {
       status?: string;
       type?: string;
     };
-
-    if (!clientId) {
-      return res.status(400).json({ ok: false, error: "clientId is required" });
-    }
+    const clientId = req.clientId!;
 
     const conditions = [eq(campaigns.clientId, clientId)];
 
@@ -77,7 +73,7 @@ export async function getCampaignsRoute(req: Request, res: Response) {
             highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
           })
           .from(calls)
-          .where(eq(calls.campaignId, c.id));
+          .where(and(eq(calls.campaignId, c.id), eq(calls.clientId, clientId)));
 
         return {
           ...c,
@@ -117,7 +113,7 @@ export async function getCampaignByIdRoute(req: Request, res: Response) {
     const [campaign] = await db
       .select()
       .from(campaigns)
-      .where(eq(campaigns.id, id))
+      .where(and(eq(campaigns.id, id), eq(campaigns.clientId, req.clientId!)))
       .limit(1);
 
     if (!campaign) {
@@ -132,7 +128,7 @@ export async function getCampaignByIdRoute(req: Request, res: Response) {
         followUpsRequested: sql<number>`count(case when ${calls.followUpRequested} = true then 1 end)::int`,
       })
       .from(calls)
-      .where(eq(calls.campaignId, id));
+      .where(and(eq(calls.campaignId, id), eq(calls.clientId, req.clientId!)));
 
     return res.json({
       ok: true,
@@ -161,10 +157,8 @@ export async function getCampaignByIdRoute(req: Request, res: Response) {
 export async function createCampaignRoute(req: Request, res: Response) {
   try {
     const {
-      clientId,
       name,
       type = "outreach_sales",
-      status = "draft",
       primaryObjective,
       callOpeningHook,
       keyTalkingPoints = [],
@@ -176,10 +170,8 @@ export async function createCampaignRoute(req: Request, res: Response) {
       maxDurationSeconds = 300,
       metadata = {},
     } = req.body as {
-      clientId?: string;
       name?: string;
       type?: string;
-      status?: string;
       primaryObjective?: string;
       callOpeningHook?: string;
       keyTalkingPoints?: string[];
@@ -192,20 +184,27 @@ export async function createCampaignRoute(req: Request, res: Response) {
       metadata?: Record<string, any>;
     };
 
-    if (!clientId || !name || !primaryObjective || !callOpeningHook || !callToAction) {
+    if (!name || !primaryObjective || !callOpeningHook || !callToAction) {
       return res.status(400).json({
         ok: false,
-        error: "Missing required fields: clientId, name, primaryObjective, callOpeningHook, and callToAction are required",
+        error: "Missing required fields: name, primaryObjective, callOpeningHook, and callToAction are required",
       });
+    }
+
+    if (!VALID_TYPES.includes(type as CampaignType)) {
+      return res.status(400).json({ ok: false, error: `Invalid campaign type '${type}'` });
+    }
+    if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 1800) {
+      return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 1800" });
     }
 
     const [newCampaign] = await db
       .insert(campaigns)
       .values({
-        clientId,
+        clientId: req.clientId!,
         name,
         type: type as CampaignType,
-        status: status as CampaignStatus,
+        status: "draft",
         primaryObjective,
         callOpeningHook,
         keyTalkingPoints,
@@ -276,9 +275,33 @@ export async function updateCampaignRoute(req: Request, res: Response) {
       updatedAt: new Date(),
     };
 
+    const [existing] = await db
+      .select({ status: campaigns.status })
+      .from(campaigns)
+      .where(and(eq(campaigns.id, id), eq(campaigns.clientId, req.clientId!)))
+      .limit(1);
+    if (!existing) {
+      return res.status(404).json({ ok: false, error: `Campaign ${id} not found` });
+    }
+
+    const allowedTransitions: Record<CampaignStatus, CampaignStatus[]> = {
+      draft: ["active", "paused"],
+      active: ["paused", "completed"],
+      paused: ["active", "completed"],
+      completed: [],
+    };
+    if (status && status !== existing.status && !allowedTransitions[existing.status].includes(status)) {
+      return res.status(409).json({
+        ok: false,
+        error: `Campaign cannot transition from ${existing.status} to ${status}`,
+      });
+    }
     if (name) updateData.name = name;
     if (type && VALID_TYPES.includes(type)) updateData.type = type;
-    if (status && VALID_STATUSES.includes(status)) updateData.status = status;
+    if (status && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ ok: false, error: `Invalid campaign status '${status}'` });
+    }
+    if (status) updateData.status = status;
     if (primaryObjective) updateData.primaryObjective = primaryObjective;
     if (callOpeningHook) updateData.callOpeningHook = callOpeningHook;
     if (keyTalkingPoints) updateData.keyTalkingPoints = keyTalkingPoints;
@@ -287,13 +310,22 @@ export async function updateCampaignRoute(req: Request, res: Response) {
     if (fallbackOffer !== undefined) updateData.fallbackOffer = fallbackOffer;
     if (targetAudience !== undefined) updateData.targetAudience = targetAudience;
     if (language) updateData.language = language;
-    if (typeof maxDurationSeconds === "number") updateData.maxDurationSeconds = maxDurationSeconds;
+    if (maxDurationSeconds !== undefined) {
+      if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 1800) {
+        return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 1800" });
+      }
+      updateData.maxDurationSeconds = maxDurationSeconds;
+    }
     if (metadata !== undefined) updateData.metadata = metadata;
 
     const [updated] = await db
       .update(campaigns)
       .set(updateData)
-      .where(eq(campaigns.id, id))
+      .where(and(
+        eq(campaigns.id, id),
+        eq(campaigns.clientId, req.clientId!),
+        eq(campaigns.status, existing.status),
+      ))
       .returning();
 
     if (!updated) {
@@ -322,7 +354,11 @@ export async function deleteCampaignRoute(req: Request, res: Response) {
 
     const [deleted] = await db
       .delete(campaigns)
-      .where(eq(campaigns.id, id))
+      .where(and(
+        eq(campaigns.id, id),
+        eq(campaigns.clientId, req.clientId!),
+        eq(campaigns.status, "draft"),
+      ))
       .returning();
 
     if (!deleted) {
