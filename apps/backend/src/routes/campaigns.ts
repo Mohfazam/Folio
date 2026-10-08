@@ -284,6 +284,12 @@ export async function updateCampaignRoute(req: Request, res: Response) {
       return res.status(404).json({ ok: false, error: `Campaign ${id} not found` });
     }
 
+    if (status && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ ok: false, error: `Invalid campaign status '${status}'` });
+    }
+    if (type && !VALID_TYPES.includes(type)) {
+      return res.status(400).json({ ok: false, error: `Invalid campaign type '${type}'` });
+    }
     const allowedTransitions: Record<CampaignStatus, CampaignStatus[]> = {
       draft: ["active", "paused"],
       active: ["paused", "completed"],
@@ -297,10 +303,7 @@ export async function updateCampaignRoute(req: Request, res: Response) {
       });
     }
     if (name) updateData.name = name;
-    if (type && VALID_TYPES.includes(type)) updateData.type = type;
-    if (status && !VALID_STATUSES.includes(status)) {
-      return res.status(400).json({ ok: false, error: `Invalid campaign status '${status}'` });
-    }
+    if (type) updateData.type = type;
     if (status) updateData.status = status;
     if (primaryObjective) updateData.primaryObjective = primaryObjective;
     if (callOpeningHook) updateData.callOpeningHook = callOpeningHook;
