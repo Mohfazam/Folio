@@ -194,8 +194,8 @@ export async function createCampaignRoute(req: Request, res: Response) {
     if (!VALID_TYPES.includes(type as CampaignType)) {
       return res.status(400).json({ ok: false, error: `Invalid campaign type '${type}'` });
     }
-    if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 1800) {
-      return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 1800" });
+    if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 900) {
+      return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 900" });
     }
 
     const [newCampaign] = await db
@@ -314,8 +314,8 @@ export async function updateCampaignRoute(req: Request, res: Response) {
     if (targetAudience !== undefined) updateData.targetAudience = targetAudience;
     if (language) updateData.language = language;
     if (maxDurationSeconds !== undefined) {
-      if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 1800) {
-        return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 1800" });
+      if (!Number.isInteger(maxDurationSeconds) || maxDurationSeconds < 30 || maxDurationSeconds > 900) {
+        return res.status(400).json({ ok: false, error: "maxDurationSeconds must be between 30 and 900" });
       }
       updateData.maxDurationSeconds = maxDurationSeconds;
     }

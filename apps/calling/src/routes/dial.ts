@@ -13,6 +13,8 @@ export async function dialRoute(req: Request, res: Response) {
   const clientId = (params.clientId as string) || undefined;
   const contactId = (params.contactId as string) || undefined;
   const campaignId = (params.campaignId as string) || undefined;
+  const queueEntryId = (params.queueEntryId as string) || undefined;
+  const maxDurationSeconds = params.maxDurationSeconds;
   const instructions = (params.instructions as string) || undefined;
   const greetingText = (params.greetingText as string) || (params.greeting as string) || undefined;
   const callbackUrl = process.env.CALLBACK_URL?.trim();
@@ -76,6 +78,21 @@ export async function dialRoute(req: Request, res: Response) {
       code: "INVALID_PHONE_NUMBER",
     });
   }
+  if (
+    queueEntryId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(queueEntryId)
+  ) {
+    return res.status(400).json({ ok: false, error: "Invalid queueEntryId" });
+  }
+  if (
+    maxDurationSeconds !== undefined &&
+    (!Number.isInteger(maxDurationSeconds) ||
+      typeof maxDurationSeconds !== "number" ||
+      maxDurationSeconds < 30 ||
+      maxDurationSeconds > 900)
+  ) {
+    return res.status(400).json({ ok: false, error: "maxDurationSeconds must be an integer between 30 and 900" });
+  }
 
   if (phoneNumber && phoneNumber === lastDialPhone && now - lastDialTimestamp < 3000) {
     return res.status(429).json({
@@ -95,6 +112,8 @@ export async function dialRoute(req: Request, res: Response) {
       clientId,
       contactId,
       campaignId,
+      queueEntryId,
+      maxDurationSeconds: typeof maxDurationSeconds === "number" ? maxDurationSeconds : undefined,
       instructions,
       context,
       greetingText,

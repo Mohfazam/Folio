@@ -32,6 +32,7 @@ export class CallSessionState {
   readonly requestId: string;
   readonly contactId: string;
   readonly clientId: string;
+  readonly queueEntryId?: string;
   readonly phoneNumber: string;
   readonly language: string;
   readonly campaignId?: string;
@@ -77,6 +78,7 @@ export class CallSessionState {
     this.requestId = request.requestId;
     this.contactId = request.contactId;
     this.clientId = request.clientId;
+    this.queueEntryId = request.queueEntryId;
     this.campaignId = request.campaignId;
     this.phoneNumber = request.phoneNumber;
     this.language = request.language ?? "en-IN";
@@ -246,6 +248,7 @@ export class CallSessionState {
       plivoCallId: this.plivoCallId,
       contactId: this.contactId,
       clientId: this.clientId,
+      queueEntryId: this.queueEntryId,
       status: this._status,
       failureCategory: this._failureCategory,
       failureReason: this._failureReason,

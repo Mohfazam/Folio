@@ -443,6 +443,8 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         phoneNumber: contact.phoneNumber,
         clientId: client.id,
         contactId: contact.id,
+        queueEntryId: queueEntry.id,
+        maxDurationSeconds: campaignMaxDurationSeconds,
         recordCall: true,
       };
 

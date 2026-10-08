@@ -10,6 +10,8 @@ export interface InitiateCallParams {
   clientId?: string;
   contactId?: string;
   campaignId?: string;
+  queueEntryId?: string;
+  maxDurationSeconds?: number;
   instructions?: string;
   context?: PromptContext;
   greetingText?: string;
@@ -23,6 +25,8 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   const clientId = params?.clientId || "default-client";
   const contactId = params?.contactId || "test-contact";
   const campaignId = params?.campaignId;
+  const queueEntryId = params?.queueEntryId;
+  const maxDurationSeconds = params?.maxDurationSeconds;
   const instructions = params?.instructions;
   const context = params?.context;
   const greetingText = params?.greetingText;
@@ -45,6 +49,7 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     contactId,
     clientId,
     campaignId,
+    queueEntryId,
     phoneNumber: targetPhone,
     instructions,
     context,
@@ -67,7 +72,7 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
       answer_method: "POST",
       hangup_url: hangupUrl,
       hangup_method: "POST",
-      time_limit: 900, // 15 minutes max
+      time_limit: Math.min(Math.max(Math.floor(maxDurationSeconds ?? 900), 30), 900),
     };
 
     if (recordCall) {

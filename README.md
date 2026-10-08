@@ -15,7 +15,7 @@ Folio is a TypeScript monorepo for an AI-powered outbound calling product. The c
 
 ## Requirements
 
-- Node.js 22 for the calling service
+- Node.js 22 for the calling service (the backend database driver supports Node.js 18+)
 - pnpm 9
 - Provider credentials for local calling-service development
 
@@ -53,7 +53,41 @@ Build it:
 pnpm --filter @repo/calling build
 ```
 
-The HTTP service exposes `/health`, `/dial`, `/active-calls`, and `/metrics`; Plivo uses `/plivo-voice`, `/plivo-hangup`, and `/media-stream`.
+The HTTP service exposes `/health`, `/dial`, `/active-calls`, and `/metrics`; Plivo uses `/plivo-voice`, `/plivo-hangup`, and `/media-stream`. `/dial`, `/active-calls`, and `/metrics` require `CALLING_SERVICE_SECRET`.
+
+### Backend development
+
+Create `apps/backend/.env` locally; never commit it:
+
+```text
+DATABASE_URL=
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+CALLING_SERVICE_URL=http://localhost:3000
+CALLING_SERVICE_SECRET=
+WEBHOOK_SECRET=
+BACKEND_WORKER_SECRET=
+```
+
+`CALLING_SERVICE_SECRET` must match the calling service's value. `WEBHOOK_SECRET` must match the calling service's value and protects `POST /api/calls/complete`. `BACKEND_WORKER_SECRET` protects `POST /api/queue/process` and should be configured only for the trusted scheduler. Authentication-dependent backend APIs fail closed until Firebase Admin credentials are configured.
+
+Run the backend:
+
+```sh
+pnpm --filter @repo/backend dev
+```
+
+Run focused import tests and build the backend:
+
+```sh
+pnpm --filter @repo/backend test
+pnpm --filter @repo/backend build
+```
+
+The calling service also requires `CALLING_SERVICE_SECRET`, `WEBHOOK_SECRET`, and `CALLBACK_URL`. Set `CALLBACK_URL` to the publicly reachable backend completion endpoint, for example `https://<backend-host>/api/calls/complete`; production callback URLs must use HTTPS. The shared secrets must be provisioned in both services through their deployment secret stores.
+
+The backend uses Neon’s WebSocket pool driver because worker, provisioning, queue, phone-verification, and call-completion operations require database transactions. Apply reviewed Drizzle migrations to a non-production database first; do not use schema push or destructive resets as a production migration strategy.
 
 ## Deployment and validation
 

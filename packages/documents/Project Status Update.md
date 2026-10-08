@@ -6,7 +6,7 @@ Last updated: 2026-10-08
 
 The project has moved beyond starter scaffolding: the calling service is deployed on Railway, and the project owner reports more than 10 live calls with positive feedback on call quality and the overall experience. A separate TypeScript/Express backend now contains database-backed APIs and a call queue worker, but its authenticated, end-to-end production behavior has not yet been verified.
 
-**Backend estimate:** roughly 65% of the planned backend feature scope is implemented in code. This is a repository-based estimate, not a production-readiness score: the backend TypeScript build passes, while authentication/tenant authorization, automated tests, and a verified live database-to-calling workflow remain incomplete.
+**Backend estimate:** roughly 85% of the planned core backend feature scope is implemented in code. This is a repository-based estimate, not a production-readiness score: backend and calling TypeScript builds pass, and focused CSV/XLSX parser tests pass. Database migrations, Firebase identity flows, tenant isolation, queue/call transactions, and the deployed backend-to-calling workflow still need staging integration validation.
 
 This is meaningful user validation of a live calling prototype. It does not by itself establish load capacity, failure recovery, security posture, automated regression coverage, or a complete business workflow. The backend now contains call persistence and queue automation paths, but production-safe access control, end-to-end verification, and a complete business-facing dashboard remain key gaps.
 
@@ -35,32 +35,35 @@ Done:
 - Core enums and table definitions are present in [packages/db/src/schema.ts](../db/src/schema.ts)
 - Migration history exists and tracks schema evolution in the database package
 - The schema appears designed to support a real admissions/outreach workflow rather than a generic demo
-- Backend database access is configured through Neon and Drizzle
+- Backend database access uses Drizzle with Neon’s WebSocket pool driver so multi-statement transactions used by provisioning, queue claims, and call completion are supported
+- Migrations `0010` and `0011` contain the Firebase/call-delivery/follow-up changes and queue/client credit-reservation columns
 
 Remaining:
 - Verify migrations and representative CRUD/workflow queries against the intended Postgres environment
 - Add automated data-flow, integrity, and migration checks; seed scripts exist but do not replace these checks
 
 ### Backend API and workflow
-Status: Core feature paths implemented in code; not yet verified as a secure, production-ready service
+Status: Core feature paths and access-control hardening implemented in code; staging and production behavior remain unverified
 
 Done:
 - TypeScript/Express backend with a Docker build, `/health`, environment configuration, and Neon/Drizzle database access
 - Firebase Admin initialization and user synchronization/profile endpoints, including initial client workspace provisioning
-- API handlers for clients, business profiles, campaigns, contacts, knowledge-base entries, calls, queue items, and follow-ups
-- JSON bulk contact import with per-row results; queue enqueueing and scheduled processing are implemented
-- Queue worker checks calling hours, per-client daily limits and monthly credits, supplies campaign/business/contact/knowledge-base context to the calling service, and retries eligible failures
-- Call completion handler stores call summaries, transcripts, cost estimates, and outcomes; updates queue/contact status and credit usage; and creates requested follow-ups
-- Analytics overview handler exists in source
+- API handlers for clients, business profiles, campaigns, contacts, knowledge-base entries, calls, queue items, and follow-ups; analytics is registered
+- Firebase ID-token verification fails closed when unconfigured; workspace ownership and admin-write checks are applied to user-facing routes
+- Webhook, worker, and calling-service endpoints require separate shared secrets, compared in constant time
+- JSON bulk import and CSV/XLSX upload accept capped input, reject formula cells and malformed opt-out data, normalize headers, detect duplicates within a batch/workspace query, and preserve opt-outs
+- Queueing checks active campaigns and contact eligibility; queue claims and credit reservations are transactional; the worker honors client timezones and quotas
+- Call completion validates payload shape, uses a unique delivery ID for idempotency, and transactionally writes call/follow-up/queue/billing updates
+- Campaign lifecycle and workspace-scoped resource operations are validated in handlers and route middleware
+- Focused CSV/XLSX tests cover normalization, malformed data, file types, formulas, and contact-count caps
 
 Remaining / not yet verified:
-- **Authentication and tenant authorization:** `requireAuth` exists but is not attached to registered API routes; client/workspace ownership is therefore not enforced by the backend route layer. Do not treat these APIs as production-safe until this is fixed and tested.
-- **Analytics routing:** the analytics handler is not registered in the route table, so `/api/analytics/overview` is not currently exposed by this service.
-- **Automated coverage:** no backend test files were found; only the TypeScript build was verified for this update.
-- **Database and integration validation:** migrations have not been verified against a live database here, and the complete backend → calling service → completion webhook → persisted record flow has not been demonstrated.
-- **Contact ingestion:** the backend accepts JSON rows; file upload plus CSV/XLSX parsing, duplicate handling, and robust batch/large-import processing remain.
-- **Media and operations:** recording storage/playback, webhook delivery/replay, queue recovery, multi-instance coordination, monitoring, rate limits, and operational alerting need validation or implementation.
-- **Production deployment:** a Dockerfile exists, but the backend deployment and runtime configuration were not independently checked.
+- **Identity/authorization tests:** middleware and per-route tenant protections are implemented but do not yet have a dedicated automated API test suite; browser/dashboard auth integration is incomplete.
+- **Database and integration validation:** migrations have not been applied or verified against a staging database here; the backend → calling service → completion webhook → persisted record flow has not been demonstrated in this environment.
+- **Queue delivery ambiguity:** an uncertain calling-service response retains a claim to avoid an immediate duplicate; stale claims are failed and released for operator review rather than automatically redialed. Durable reconciliation/replay is still needed.
+- **Import scale and archive safety:** CSV/XLSX uploads are capped at 5 MB and 500 contacts; high-volume background processing and XLSX decompression/resource limits need additional hardening.
+- **Media and operations:** durable recording storage/playback, result-delivery replay, multi-instance coordination, monitoring, rate limits, and operational alerting remain.
+- **Production deployment:** backend deployment, secret provisioning, database migrations, and runtime behavior were not independently checked.
 
 ### Calling service
 Status: Railway-deployed live MVP; call quality validated by user feedback
@@ -94,7 +97,7 @@ Remaining:
 - Wire and verify the dashboard against authenticated backend endpoints
 
 ### Automation and business logic
-Status: Core queue and retry paths implemented; broader automation and production hardening remain
+Status: Core queue, retry, reservation, and file-import paths implemented; reconciliation and production hardening remain
 
 Implemented in backend code:
 - JSON bulk contact import and queue scheduling/processing
@@ -103,9 +106,9 @@ Implemented in backend code:
 - CRUD APIs for business profiles, campaigns, and knowledge-base entries; active knowledge entries are passed into the calling flow
 
 Pending:
-- CSV/XLSX file parsing, duplicate detection, and stronger batch validation
-- Verify calling-hours, quota, retry, and follow-up behavior with automated and end-to-end tests
-- Add durable queue locking/recovery and webhook idempotency/replay for restart and multi-instance safety
+- Expand automated tests from the import parser to auth, tenant isolation, queue limits/retries, and webhook idempotency
+- Verify calling-hours, quota, retry, and follow-up behavior against a staging database and live test services
+- Add durable dispatch reconciliation and webhook delivery replay for restart and multi-instance safety
 - Knowledge-base document ingestion/search beyond manually managed entries
 - Complete outcome analysis generation and business-specific workflow rules
 
@@ -114,33 +117,33 @@ Pending:
 | Phase | Status |
 |---|---|
 | Phase 0 — Project setup | Complete |
-| Phase 1 — Database & schema | Schema, migrations, and runtime access layer implemented; live DB verification remains |
+| Phase 1 — Database & schema | Schema, reviewed migration files, and transaction-capable runtime access implemented; staging DB verification remains |
 | Phase 2 — Core calling pipeline | Live MVP deployed; more than 10 positively reviewed calls reported by the project owner |
-| Phase 3 — Data flow into the schema | Persistence and webhook handler implemented in code; complete deployed flow not yet verified |
-| Phase 4 — Automation layer | Queue, scheduling, and retries implemented in code; CSV/XLSX import and reliability hardening remain |
+| Phase 3 — Data flow into the schema | Authenticated APIs and transactional, idempotent persistence implemented; deployed flow not yet verified |
+| Phase 4 — Automation layer | Queue, scheduling, retries, and capped CSV/XLSX import implemented; automated workflow coverage and reconciliation remain |
 | Phase 5 — Outcome intelligence | Call-analysis ingestion and follow-up creation implemented; analysis generation and validation remain |
-| Phase 6 — Dashboard | Backend APIs and early web work exist; authentication, analytics route wiring, and product UI remain |
+| Phase 6 — Dashboard | Authenticated analytics/API surfaces exist; frontend session wiring and customer UI remain |
 
 ## Recommended next milestones
 
-1. Apply Firebase authentication and per-client authorization to all user-facing backend routes; make webhook authentication mandatory in deployment and limit/authorize queue processing triggers.
-2. Verify database migrations and the full backend → calling → webhook → database path in a non-production environment.
-3. Add automated backend tests for authorization/tenant isolation, CRUD, bulk-import failures, queue limits/scheduling/retries, webhook validation, and duplicate delivery.
-4. Register the analytics endpoint and wire it into the authenticated dashboard.
-5. Add CSV/XLSX import, duplicate handling, and resilient batch processing.
-6. Add durable queue coordination/recovery and webhook idempotency/replay; verify recording storage and playback.
-7. Address calling-service risks already documented below, including dial authorization, trusted request targets, webhook protection, delivery replay, STT recovery, and partial-stream fallback.
+1. Apply migrations `0010`/`0011` and verify the schema plus representative transactional flows against a non-production database.
+2. Configure Firebase Admin and matching `CALLING_SERVICE_SECRET`, `WEBHOOK_SECRET`, `BACKEND_WORKER_SECRET`, and `CALLBACK_URL` values in the respective deployment secret stores.
+3. Run staging checks for signup/provisioning, tenant isolation, contact import/opt-out, queue limits/retries, authenticated service dispatch, webhook idempotency, and persisted call records.
+4. Add automated backend tests for auth/tenant middleware, queue lifecycle and quota accounting, webhook validation/idempotency, and API-level import behavior.
+5. Wire Firebase sessions and authenticated API calls through the web dashboard; address the remaining unauthenticated web proxy/data routes.
+6. Add durable dispatch reconciliation/result replay and verify recording storage/playback.
+7. Continue calling-service failure-path work, including STT recovery and partial-stream fallback.
 8. Measure production reliability and concurrency before making capacity or readiness claims.
 
-## Repository review findings (2026-10-04)
+## Remaining repository review findings (2026-10-08)
 
-A read-only static review identified the following issues in tracked code. These are code-level findings; whether an endpoint is reachable publicly depends on the corresponding deployment configuration.
+A follow-up static review found the following unresolved issues in tracked code. These are code-level findings; whether an endpoint is reachable publicly depends on deployment configuration.
 
 ### High priority
 
-- **Outbound calls are not authenticated:** `/dial` forwards requests to Plivo without an authentication check; the short duplicate debounce is not an access-control or cost-control boundary. See `apps/calling/src/routes/index.ts` and `apps/calling/src/routes/dial.ts`.
-- **User-controlled URLs can trigger server-side requests:** web API routes accept `callingServiceUrl` and `engineUrl`, and call-result delivery accepts a caller-provided `callbackUrl`. These can target internal or attacker-controlled destinations; callback delivery includes call results and transcripts. See `apps/web/app/api/dial/route.ts`, `apps/web/app/api/engine-status/route.ts`, and `apps/calling/src/delivery/callDelivery.ts`.
-- **Call records lack access controls and webhook authentication:** the calls API allows listing and deleting stored records, while the call webhook accepts payloads without validating a signature or equivalent authentication. Public exposure would allow transcript disclosure, deletion, or forged records. See `apps/web/app/api/calls/route.ts` and `apps/web/app/api/webhooks/calls/route.ts`.
+- **The web dial proxy is not integrated with the new service boundary:** it accepts a caller-supplied calling-service URL and does not attach `CALLING_SERVICE_SECRET`; the calling service now rejects unauthenticated `/dial` requests. The proxy also has no user authentication/rate limit, so merely attaching the secret would not make it safe. See `apps/web/app/api/dial/route.ts`.
+- **Web API routes still need authorization and trusted targets:** `engine-status` accepts a client-controlled target URL, and web call-data routes need auth/tenant checks before exposure. See `apps/web/app/api/engine-status/route.ts` and `apps/web/app/api/calls/route.ts`.
+- **The web call webhook lacks backend-grade authentication:** verify its signature/secret and payload before persisting results. See `apps/web/app/api/webhooks/calls/route.ts`.
 - **Failed result delivery has no replay path:** after retries, results are spooled to local JSON files, but tracked code does not replay them. Without a separately configured persistent Railway volume, restart or redeployment may also remove these files. See `apps/calling/src/delivery/callDelivery.ts` and `railway.toml`.
 
 ### Medium priority
@@ -148,7 +151,7 @@ A read-only static review identified the following issues in tracked code. These
 - **STT disconnect recovery is incomplete:** after a session has opened, socket errors do not reconnect; audio sending can stop while the call remains active. See `apps/calling/src/providers/sarvam/stt.ts` and `apps/calling/src/pipeline/conversationSession.ts`.
 - **Streaming fallback can duplicate speech:** if Gemini emits part of a reply before failing, the fallback shares the existing buffer and callback, potentially speaking partial primary output followed by fallback output. See `apps/calling/src/providers/claude/generateReply.ts`.
 
-This review was static and read-only. No provider credentials, Railway environment settings, live endpoints, or external provider APIs were tested. Fixing access control, request-target restrictions, and webhook authentication should precede broader production rollout.
+This review was static. Backend source protections are implemented, but frontend routes and deployment configuration still need validation. No provider credentials, Railway environment settings, live endpoints, or external provider APIs were tested. Fixing the web proxy/data-route authorization and confirming secrets/migrations should precede broader production rollout.
 
 ## Final assessment
 

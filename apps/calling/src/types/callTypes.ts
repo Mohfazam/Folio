@@ -18,6 +18,8 @@ export interface CallRequest {
   contactId: string;
   /** Client/business identifier */
   clientId: string;
+  /** Queue entry that dispatched this call, when called by the backend worker */
+  queueEntryId?: string;
   /** Optional campaign identifier */
   campaignId?: string;
   /** Destination phone number in E.164 format (e.g. +91XXXXXXXXXX) */
@@ -131,6 +133,8 @@ export interface CallResult {
   contactId: string;
   /** Client ID */
   clientId: string;
+  /** Queue entry that dispatched this call, when applicable */
+  queueEntryId?: string;
 
   /** Terminal call status */
   status: CallStatus;

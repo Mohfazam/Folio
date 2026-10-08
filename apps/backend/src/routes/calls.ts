@@ -15,6 +15,7 @@ interface CallingServicePayload {
   plivoCallId: string;
   contactId: string;
   clientId: string;
+  queueEntryId?: string;
   status: "completed" | "failed" | "interrupted" | "no_input" | "no_answer" | "delivery_pending";
   failureCategory?: string;
   failureReason?: string;
@@ -116,6 +117,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
       payload.deliveryId.length > 200 ||
       !isUuid(payload.contactId) ||
       !isUuid(payload.clientId) ||
+      (payload.queueEntryId !== undefined && !isUuid(payload.queueEntryId)) ||
       !validStatuses.includes(payload.status) ||
       !Number.isInteger(payload.durationSeconds) ||
       payload.durationSeconds < 0 ||
@@ -202,16 +204,17 @@ export async function callCompleteRoute(req: Request, res: Response) {
     let queueEntryId: string | null = null;
     let attemptNumber = 1;
 
+    const queueConditions = [
+      eq(callQueue.contactId, payload.contactId),
+      eq(callQueue.clientId, payload.clientId),
+      eq(callQueue.status, "in_progress"),
+    ];
+    if (payload.queueEntryId) queueConditions.push(eq(callQueue.id, payload.queueEntryId));
+
     const [queueEntry] = await tx
       .select()
       .from(callQueue)
-      .where(
-        and(
-          eq(callQueue.contactId, payload.contactId),
-          eq(callQueue.clientId, payload.clientId),
-          eq(callQueue.status, "in_progress")
-        )
-      )
+      .where(and(...queueConditions))
       .orderBy(sql`${callQueue.updatedAt} DESC`)
       .limit(1);
 

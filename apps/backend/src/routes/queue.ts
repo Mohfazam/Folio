@@ -112,18 +112,39 @@ export async function enqueueRoute(req: Request, res: Response) {
     };
 
     const clientId = req.clientId!;
+    const isUuid = (value: unknown): value is string =>
+      typeof value === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+    if (uploadBatchId !== undefined && !isUuid(uploadBatchId)) {
+      return res.status(400).json({ ok: false, error: "uploadBatchId must be a valid ID" });
+    }
     if (!uploadBatchId && (!Array.isArray(contactIds) || contactIds.length === 0)) {
       return res.status(400).json({
         ok: false,
         error: "Either uploadBatchId or a non-empty contactIds array is required",
       });
     }
+    if (uploadBatchId && contactIds) {
+      return res.status(400).json({ ok: false, error: "Provide uploadBatchId or contactIds, not both" });
+    }
+    if (contactIds !== undefined && !Array.isArray(contactIds)) {
+      return res.status(400).json({ ok: false, error: "contactIds must be an array" });
+    }
     if (!campaignId) {
       return res.status(400).json({ ok: false, error: "campaignId is required" });
     }
+    if (!isUuid(campaignId)) {
+      return res.status(400).json({ ok: false, error: "campaignId must be a valid ID" });
+    }
     if (contactIds && contactIds.length > 500) {
       return res.status(413).json({ ok: false, error: "A queue request may include at most 500 contacts" });
+    }
+    if (contactIds && contactIds.some((contactId) => !isUuid(contactId))) {
+      return res.status(400).json({ ok: false, error: "contactIds must contain valid contact IDs" });
+    }
+    if (scheduledFor !== undefined && typeof scheduledFor !== "string") {
+      return res.status(400).json({ ok: false, error: "scheduledFor must be a date string" });
     }
 
     const [campaign] = await db
@@ -178,54 +199,62 @@ export async function enqueueRoute(req: Request, res: Response) {
 
     for (const cId of targetContactIds) {
       try {
-        const [contact] = await db
-          .select({ id: contacts.id, fullName: contacts.fullName, phoneNumber: contacts.phoneNumber, optOut: contacts.optOut, status: contacts.status })
-          .from(contacts)
-          .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)))
-          .limit(1);
+        const result = await db.transaction(async (tx) => {
+          const [contact] = await tx
+            .select({
+              id: contacts.id,
+              fullName: contacts.fullName,
+              phoneNumber: contacts.phoneNumber,
+              optOut: contacts.optOut,
+              status: contacts.status,
+            })
+            .from(contacts)
+            .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)))
+            .for("update")
+            .limit(1);
 
-        if (!contact) {
-          failedEntries.push({ contactId: cId, error: "Contact not found in this workspace" });
-          continue;
-        }
-        if (contact.optOut || contact.status === "do_not_call" || contact.status === "invalid") {
-          failedEntries.push({ contactId: cId, error: "Contact is opted out or cannot be called" });
-          continue;
-        }
+          if (!contact) return "Contact not found in this workspace";
+          if (contact.optOut || contact.status === "do_not_call" || contact.status === "invalid") {
+            return "Contact is opted out or cannot be called";
+          }
 
-        const [existing] = await db
-          .select({ id: callQueue.id })
-          .from(callQueue)
-          .where(and(
-            eq(callQueue.contactId, cId),
-            eq(callQueue.clientId, clientId),
-            inArray(callQueue.status, ["pending", "in_progress"]),
-          ))
-          .limit(1);
-        if (existing) {
-          failedEntries.push({ contactId: cId, error: "Contact already has an active queue entry" });
-          continue;
-        }
+          const [existing] = await tx
+            .select({ id: callQueue.id })
+            .from(callQueue)
+            .where(and(
+              eq(callQueue.contactId, cId),
+              eq(callQueue.clientId, clientId),
+              inArray(callQueue.status, ["pending", "in_progress"]),
+            ))
+            .limit(1);
+          if (existing) return "Contact already has an active queue entry";
 
-        await db.insert(callQueue).values({
-          contactId: cId,
-          clientId,
-          campaignId,
-          contactName: contact?.fullName ?? null,
-          phoneNumber: contact?.phoneNumber ?? null,
-          scheduledFor: scheduleDate,
-          attemptNumber: 1,
-          status: "pending",
-          maxAttempts: maxAtt,
-          priority: prio,
+          await tx.insert(callQueue).values({
+            contactId: cId,
+            clientId,
+            campaignId,
+            contactName: contact.fullName,
+            phoneNumber: contact.phoneNumber,
+            scheduledFor: scheduleDate,
+            attemptNumber: 1,
+            status: "pending",
+            maxAttempts: maxAtt,
+            priority: prio,
+          });
+
+          await tx
+            .update(contacts)
+            .set({ status: "queued", updatedAt: new Date() })
+            .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)));
+
+          return null;
         });
 
-        await db
-          .update(contacts)
-          .set({ status: "queued", updatedAt: new Date() })
-          .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)));
-
-        enqueuedCount++;
+        if (result) {
+          failedEntries.push({ contactId: cId, error: result });
+        } else {
+          enqueuedCount++;
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         failedEntries.push({ contactId: cId, error: message });
