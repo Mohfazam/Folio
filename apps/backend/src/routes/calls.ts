@@ -401,13 +401,13 @@ export async function callCompleteRoute(req: Request, res: Response) {
     // 4. Update client billing counters & detailed credit logging
     let updatedTotalCreditsUsed = client?.creditsUsedThisCycle ?? 0;
     const reservationToRelease = queueEntry?.reservedCredits ?? 0;
-    const clientUpdate: Partial<typeof clients.$inferInsert> = {
+    const clientUpdate = {
       creditsReservedThisCycle: sql`greatest(0, ${clients.creditsReservedThisCycle} - ${reservationToRelease})`,
       updatedAt: new Date(),
+      ...(isBillable && creditsCharged > 0
+        ? { creditsUsedThisCycle: sql`${clients.creditsUsedThisCycle} + ${creditsCharged}` }
+        : {}),
     };
-    if (isBillable && creditsCharged > 0) {
-      clientUpdate.creditsUsedThisCycle = sql`${clients.creditsUsedThisCycle} + ${creditsCharged}`;
-    }
     const [updatedClient] = await tx
       .update(clients)
       .set(clientUpdate)

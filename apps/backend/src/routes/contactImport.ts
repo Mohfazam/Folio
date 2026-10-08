@@ -1,4 +1,5 @@
 import { extname } from "node:path";
+import { Readable } from "node:stream";
 import type { NextFunction, Request, Response } from "express";
 import multer, { MulterError } from "multer";
 import ExcelJS from "exceljs";
@@ -125,7 +126,7 @@ export async function parseContactUpload(
 
     const workbook = new ExcelJS.Workbook();
     try {
-      await workbook.xlsx.load(buffer);
+      await workbook.xlsx.read(Readable.from([buffer]));
     } catch (err: unknown) {
       throw new ContactImportError(err instanceof Error ? `Invalid XLSX: ${err.message}` : "Invalid XLSX file");
     }
