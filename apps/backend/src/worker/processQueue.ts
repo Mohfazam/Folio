@@ -12,7 +12,7 @@ let isProcessingQueue = false;
 /**
  * Extracts current time ("HH:MM:SS") and calendar date ("YYYY-MM-DD") in the client's timezone.
  */
-function getClientLocalTimeAndDate(timezone: string, instant = new Date()): { time: string; date: string } {
+export function getClientLocalTimeAndDate(timezone: string, instant = new Date()): { time: string; date: string } {
   try {
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: timezone,
@@ -46,7 +46,7 @@ function getClientLocalTimeAndDate(timezone: string, instant = new Date()): { ti
 /**
  * Normalizes time string to "HH:MM:SS".
  */
-function normalizeTime(t: string | null | undefined, fallback: string): string {
+export function normalizeTime(t: string | null | undefined, fallback: string): string {
   if (!t) return fallback;
   const trimmed = t.trim();
   if (trimmed.length === 5) return `${trimmed}:00`;
@@ -56,7 +56,7 @@ function normalizeTime(t: string | null | undefined, fallback: string): string {
 /**
  * Checks if a normalized time string "HH:MM:SS" falls within a start–end window.
  */
-function isWithinCallingHours(currentTime: string, start: string | null, end: string | null): boolean {
+export function isWithinCallingHours(currentTime: string, start: string | null, end: string | null): boolean {
   const s = normalizeTime(start, "09:00:00");
   const e = normalizeTime(end, "16:00:00");
   return currentTime >= s && currentTime <= e;

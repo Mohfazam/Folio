@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -b",
-    "test": "tsx --test test/contactImport.test.ts",
+    "test": "tsx --test \"test/**/*.test.ts\"",
+    "db:push": "pnpm --filter @repo/db db:push",
     "start": "node dist/index.js"
   },
   "type": "module",
@@ -19,7 +20,9 @@
     "drizzle-orm": "^0.45.2",
     "exceljs": "^4.4.0",
     "express": "^4.22.3",
+    "express-rate-limit": "^8.7.1",
     "firebase-admin": "^14.5.0",
+    "helmet": "^8.3.0",
     "multer": "^2.4.0",
     "ws": "^8.21.3"
   },

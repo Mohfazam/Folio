@@ -1,12 +1,12 @@
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
+import { env } from "./env.js";
 
 let firebaseApp: App | null = null;
 let adminAuth: Auth | null = null;
 
-const projectId = process.env.FIREBASE_PROJECT_ID;
-const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+const { projectId, clientEmail } = env.firebase;
+let privateKey = env.firebase.privateKey;
 
 if (!getApps().length) {
   if (projectId && clientEmail && privateKey) {
@@ -35,6 +35,13 @@ if (!getApps().length) {
 }
 
 export { firebaseApp, adminAuth };
+
+/**
+ * Returns whether Firebase Admin SDK is ready to verify authentication tokens.
+ */
+export function isFirebaseConfigured(): boolean {
+  return adminAuth !== null;
+}
 
 /**
  * Verifies a Firebase ID token from an incoming Authorization header (Bearer <token>).

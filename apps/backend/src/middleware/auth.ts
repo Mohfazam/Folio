@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import type { DecodedIdToken } from "firebase-admin/auth";
 import { verifyFirebaseToken, adminAuth } from "../config/firebase.js";
 import { db } from "../config/db.js";
+import { env } from "../config/env.js";
 import { users } from "@repo/db";
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-function getBearerToken(req: Request): string | undefined {
+export function getBearerToken(req: Request): string | undefined {
   const authorization = req.get("authorization");
   const match = authorization?.match(/^Bearer ([^\s]+)$/i);
   return match?.[1];
@@ -91,7 +92,7 @@ export function requireClientAdmin(req: Request, res: Response, next: NextFuncti
   return next();
 }
 
-function matchesSecret(expected: string | undefined, actual: string | undefined): boolean {
+export function matchesSecret(expected: string | undefined, actual: string | undefined): boolean {
   if (!expected || !actual) return false;
 
   const expectedBuffer = Buffer.from(expected);
@@ -100,7 +101,7 @@ function matchesSecret(expected: string | undefined, actual: string | undefined)
 }
 
 export function requireWebhookSecret(req: Request, res: Response, next: NextFunction) {
-  const expected = process.env.WEBHOOK_SECRET?.trim();
+  const expected = env.webhookSecret || process.env.WEBHOOK_SECRET?.trim() || process.env.CALLING_WEBHOOK_SECRET?.trim();
   if (!expected) {
     return res.status(503).json({ ok: false, error: "Webhook authentication is not configured" });
   }
@@ -113,7 +114,7 @@ export function requireWebhookSecret(req: Request, res: Response, next: NextFunc
 }
 
 export function requireWorkerSecret(req: Request, res: Response, next: NextFunction) {
-  const expected = process.env.BACKEND_WORKER_SECRET?.trim();
+  const expected = env.workerSecret || process.env.BACKEND_WORKER_SECRET?.trim();
   if (!expected) {
     return res.status(503).json({ ok: false, error: "Worker authentication is not configured" });
   }

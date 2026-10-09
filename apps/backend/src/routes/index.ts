@@ -7,6 +7,8 @@ import {
   requireWorkspace,
 } from "../middleware/auth.js";
 import { requireOwnedResource } from "../middleware/tenant.js";
+import { authRateLimiter, uploadRateLimiter } from "../middleware/rateLimiters.js";
+import { getLivenessRoute, getReadinessRoute } from "./health.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
 import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
@@ -27,12 +29,19 @@ import { deleteQueueRoute, enqueueRoute, getQueueRoute, updateQueueRoute } from 
 import { processQueueRoute } from "./process.js";
 
 export function registerRoutes(app: Express) {
+  // Liveness & Readiness endpoints (unauthenticated, probe-friendly)
+  app.get("/health", getLivenessRoute);
+  app.get("/health/live", getLivenessRoute);
+  app.get("/health/ready", getReadinessRoute);
+
   const api = Router();
 
-  // These service-to-service routes do not use end-user Firebase sessions.
-  api.post("/auth/sync", requireAuth, syncAuthUserRoute);
-  api.get("/auth/me", requireAuth, getAuthMeRoute);
-  api.patch("/auth/phone", requireAuth, updateAuthPhoneRoute);
+  // Rate-limited Auth endpoints (Firebase session validation)
+  api.post("/auth/sync", authRateLimiter, requireAuth, syncAuthUserRoute);
+  api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
+  api.patch("/auth/phone", authRateLimiter, requireAuth, updateAuthPhoneRoute);
+
+  // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
 
@@ -43,8 +52,8 @@ export function registerRoutes(app: Express) {
 
   api.get("/contacts", getContactsRoute);
   api.get("/contacts/:id", requireOwnedResource("contacts"), getContactByIdRoute);
-  api.post("/contacts/bulk", requireClientAdmin, bulkContactsRoute);
-  api.post("/contacts/import", requireClientAdmin, contactImportUpload, importContactsFileRoute);
+  api.post("/contacts/bulk", requireClientAdmin, uploadRateLimiter, bulkContactsRoute);
+  api.post("/contacts/import", requireClientAdmin, uploadRateLimiter, contactImportUpload, importContactsFileRoute);
   api.patch("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), updateContactRoute);
   api.delete("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), deleteContactRoute);
 
@@ -82,12 +91,4 @@ export function registerRoutes(app: Express) {
   api.patch("/clients/:id", requireClientAdmin, requireOwnedResource("clients"), updateClientRoute);
 
   app.use("/api", api);
-
-  app.get("/health", (_req, res) => {
-    res.json({
-      status: "healthy",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-    });
-  });
 }
