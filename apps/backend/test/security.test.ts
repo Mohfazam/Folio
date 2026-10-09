@@ -86,7 +86,7 @@ test("Express handles malformed JSON body with 400", async () => {
 });
 
 test("Unmapped routes return structured 404 JSON", async () => {
-  const res = await fetch(`${baseUrl}/api/nonexistent-endpoint`);
+  const res = await fetch(`${baseUrl}/nonexistent-endpoint`);
   assert.equal(res.status, 404);
 
   const data = await res.json() as { ok: boolean; error: string };
