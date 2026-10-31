@@ -104,6 +104,15 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
       const existingUser = existingByUid ?? emailMatchedUser;
       let clientId = existingUser?.clientId ?? null;
 
+      if (clientId) {
+        const [existingClient] = await tx
+          .select({ id: clients.id })
+          .from(clients)
+          .where(eq(clients.id, clientId))
+          .limit(1);
+        if (!existingClient) clientId = null;
+      }
+
       if (!clientId) {
         const [client] = await tx
           .insert(clients)
@@ -169,6 +178,9 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
       }
 
       const [client] = await tx.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+      if (!client) {
+        throw new Error("Failed to load the provisioned workspace");
+      }
       return { user, client };
     });
 
