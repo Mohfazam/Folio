@@ -90,7 +90,7 @@ export const Hero = () => {
                                 // LOGGED IN STATE
                                 <Link 
                                     href="/dashboard" 
-                                    className="flex h-11 w-full items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-medium text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37] sm:w-auto"
+                                    className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-medium text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37]"
                                 >
                                     Go to Dashboard
                                     <span>→</span>

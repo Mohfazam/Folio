@@ -1,6 +1,7 @@
 
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -255,101 +256,47 @@ function SessionPreview() {
   );
 }
 
-function MobileMotionPreview() {
-  const heights = [5, 10, 7, 14, 9, 16, 8, 12, 6, 15, 9, 13, 5, 11, 7, 14, 8, 12, 6, 10];
-
-  return (
-    <div className="mt-5 flex items-center gap-3 rounded-2xl border border-[#E7E3D9] bg-white/75 p-3.5 shadow-[0_10px_28px_rgba(38,34,24,0.06)] backdrop-blur-sm">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F1ECF8] text-[#705AA8]">
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-          <path
-            d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#34362E]">
-            Rule-guided voice agent
-          </p>
-          <span className="auth-status-pulse h-1.5 w-1.5 shrink-0 rounded-full bg-[#4F9A6B]" />
-        </div>
-        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
-          Sample workflow · Not live data
-        </p>
-
-        <div className="mt-2 flex h-4 items-center gap-[3px] overflow-hidden" aria-hidden="true">
-          {heights.map((height, index) => (
-            <span
-              key={index}
-              className="auth-wave-bar w-[3px] rounded-full bg-[#8B75CE]"
-              style={{
-                height: `${height}px`,
-                animationDelay: `${index * 55}ms`,
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="auth-mini-orbit relative h-9 w-9 shrink-0 rounded-full border border-[#E7E0F3]">
-        <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#7852D6]" />
-      </div>
-    </div>
-  );
-}
-
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isSignUp =
     pathname?.includes("sign-up") || pathname?.includes("signup") || false;
 
   return (
-    <main className="min-h-screen bg-[#FBF9F2] text-[#1B1C18] lg:grid lg:min-h-screen lg:grid-cols-2">
+    <main className="grid h-dvh grid-cols-1 overflow-hidden bg-[#FBF9F2] text-[#1B1C18] lg:grid-cols-2">
 
       {/* Authentication form */}
-      <section className="relative flex min-h-screen flex-col bg-[#FCFBF7] px-6 py-7 sm:px-10 sm:py-9 lg:min-h-screen lg:px-[clamp(3rem,7vw,7rem)] lg:py-10">
-        <header className="flex items-center justify-between">
+      <section className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-[#FCFBF7] px-6 py-5 sm:px-10 sm:py-6 lg:px-[clamp(3rem,7vw,7rem)] lg:py-8">
+        <header className="relative z-20 flex h-14 shrink-0 items-center">
           <Link
             href="/"
             aria-label="Foolioo home"
-            className="font-['Space_Grotesk'] text-[17px] font-semibold lowercase tracking-[-0.7px] text-[#1B1C18] transition-opacity hover:opacity-70"
+            className="group inline-flex items-center gap-2.5 rounded-sm transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4"
           >
-            foolioo<span className="text-[#7852D6]">.</span>
+            <Image
+              src="/Foolioo.svg"
+              alt=""
+              aria-hidden="true"
+              width={30}
+              height={34}
+              priority
+              className="h-[34px] w-[30px] object-contain transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-[1.04]"
+            />
+            <span className="inline-flex items-baseline font-['Newsreader'] text-[32px] font-medium italic leading-none tracking-[-1.6px] text-[#24231F]">
+              foolioo<span className="ml-[1px] not-italic text-[#FD7032]">.</span>
+            </span>
           </Link>
-
-          <span className="hidden items-center gap-1.5 font-['Space_Grotesk'] text-[10px] font-medium tracking-[0.08em] text-[#92938C] sm:inline-flex lg:hidden xl:inline-flex">
-            <LockIcon /> SECURE WORKSPACE ACCESS
-          </span>
         </header>
 
-        <div className="flex flex-1 items-center justify-center py-12 lg:py-16">
-          <div className="w-full max-w-[400px]">
-            <div className="mb-7">
-              <p className="mb-3 font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7852D6]">
-                {isSignUp ? "START YOUR FOOLIOO WORKSPACE" : "WORKSPACE ACCESS"}
-              </p>
-              {children}
-            </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex lg:items-center lg:justify-center lg:overflow-visible">
+          <div className="w-full max-w-[400px] py-6 lg:py-8">
+            {children}
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EAE8E0] pt-5">
-          <p className="font-['Space_Grotesk'] text-[10px] text-[#96968F]">
-            © Foolioo. All rights reserved.
-          </p>
-          <span className="flex items-center gap-1.5 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
-            <LockIcon /> Secure workspace access
-          </span>
-        </footer>
       </section>
 
       {/* Shared product showcase. Same animated preview on both routes. */}
-      <aside className="relative hidden min-h-screen flex-col justify-between overflow-hidden border-l border-[#EAE7DE] bg-[#F8F6EF] px-8 py-9 lg:flex xl:px-14 xl:py-11">
+      <aside className="relative hidden h-dvh min-h-0 flex-col justify-center overflow-hidden border-l border-[#EAE7DE] bg-[#F8F6EF] px-8 py-7 lg:flex xl:px-14 xl:py-8">
         <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
           <div className="absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(133,105,190,0.10),transparent_68%)]" />
           <div className="absolute -bottom-52 -left-40 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(190,176,139,0.13),transparent_68%)]" />
@@ -366,8 +313,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-[690px] py-14 xl:py-16">
-          <div className="mb-9 max-w-[560px]">
+        <div className="relative z-10 mx-auto w-full max-w-[690px]">
+          <div className="mb-6 max-w-[560px]">
             <h2 className="font-['Newsreader'] text-[38px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] xl:text-[48px]">
               {isSignUp ? (
                 <>Build conversations with <span className="italic text-[#7852D6]">clear intent.</span></>
@@ -386,7 +333,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           {/* This is deliberately outside the isSignUp condition. */}
           <SessionPreview />
 
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.09em] text-[#85877F]">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.09em] text-[#85877F]">
             <span className="flex items-center gap-2"><CheckIcon /> EXPLICIT RULES</span>
             <span className="hidden h-3 w-px bg-[#DDD9CE] sm:block" />
             <span className="flex items-center gap-2"><CheckIcon /> TRACEABLE DECISIONS</span>
@@ -399,36 +346,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between border-t border-[#E7E3D9] pt-5">
-          <p className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">
-            Deterministic voice operations. From day one.
-          </p>
-          <p className="font-['Space_Grotesk'] text-[10px] font-medium tracking-[0.12em] text-[#92938C]">
-            FOOLIOO / 01
-          </p>
-        </div>
       </aside>
 
-      {/* Mobile preview */}
-      <section className="border-t border-[#EAE7DE] bg-[#F8F6EF] px-6 py-8 lg:hidden">
-        <p className="font-['Space_Grotesk'] text-[9px] font-semibold tracking-[0.14em] text-[#7852D6]">
-          {isSignUp ? "BUILT AROUND YOUR RULES" : "YOUR WORKSPACE, CONNECTED"}
-        </p>
-
-        <h2 className="mt-2 max-w-[420px] font-['Newsreader'] text-[29px] leading-[1.1] tracking-[-0.5px] text-[#1B1C18]">
-          {isSignUp ? (
-            <>Build conversations with <span className="italic text-[#7852D6]">clear intent.</span></>
-          ) : (
-            <>Your voice operations, <span className="italic text-[#7852D6]">under control.</span></>
-          )}
-        </h2>
-
-        <p className="mt-2 max-w-[460px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#777970]">
-          Structured conversations. Traceable decisions. Human control when it matters.
-        </p>
-
-        <MobileMotionPreview />
-      </section>
 
       {/* Global animation styles. Child components are covered too. */}
       <style jsx global>{`

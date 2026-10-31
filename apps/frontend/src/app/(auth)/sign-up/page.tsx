@@ -45,30 +45,34 @@ export default function SignUpPage() {
 
   return (
     <main className="mx-auto w-full max-w-[384px]">
-      <div className="mb-7">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#E7DEFF] bg-[#F4F0FF] px-3 py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#7852D6]" aria-hidden="true" />
-          <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.25px] text-[#644ABB]">
-            Create your workspace
+      <div className="mb-8">
+        <div className="mb-3 flex items-center gap-2.5">
+          <span className="h-px w-7 bg-[#FD7032]" aria-hidden="true" />
+          <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A36A4D]">
+            Get started
           </span>
         </div>
 
-        <h1 className="font-['Newsreader'] text-[40px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] sm:text-[44px]">
-          Start your trial.
+        <h1 className="max-w-[390px] font-['Newsreader'] text-[42px] font-normal leading-[0.98] tracking-[-1.35px] text-[#1B1C18] sm:text-[48px]">
+          Your workspace starts here<span className="text-[#FD7032]">.</span>
         </h1>
-        <p className="mt-3 max-w-[330px] font-['Space_Grotesk'] text-[13px] leading-[21px] text-[#747878] sm:text-[14px]">
-          Set up your Foolioo account and bring your voice operations into one workspace.
+        <p className="mt-4 max-w-[350px] font-['Space_Grotesk'] text-[13px] leading-[22px] text-[#747878] sm:text-[14px]">
+          Bring your voice operations together. Create your Foolioo account and get your team moving.
         </p>
-        <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
-          <span className="inline-flex items-center gap-1.5">
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-[#7852D6]" fill="none" aria-hidden="true">
-              <path d="M8 1.8 13 4v3.7c0 3.1-2 5.3-5 6.5-3-1.2-5-3.4-5-6.5V4l5-2.2Z" stroke="currentColor" strokeWidth="1.25" />
-              <path d="m5.7 7.8 1.5 1.5 3.1-3.2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-[#EAE7DE] py-3.5">
+          <span className="inline-flex items-center gap-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#55574F]">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#FFF0E8] text-[#E66A36]">
+              <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden="true">
+                <path d="m3.5 8.2 2.8 2.7 6.2-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
             7-day free trial
           </span>
-          <span className="text-[#C7C5BC]" aria-hidden="true">/</span>
-          <span>No credit card required</span>
+          <span className="hidden h-4 w-px bg-[#E2DED4] sm:block" aria-hidden="true" />
+          <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#85877F]">
+            No credit card required
+          </span>
         </div>
       </div>
 
