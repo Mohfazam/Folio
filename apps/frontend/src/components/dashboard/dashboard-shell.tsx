@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -44,7 +45,15 @@ type DashboardShellProps = {
   children: ReactNode;
 };
 
+export type DashboardSetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
+
+type DashboardNavigationContextValue = {
+  requestedSetupAction: DashboardSetupAction | null;
+  clearRequestedSetupAction: () => void;
+};
+
 const DashboardProfileContext = createContext<DashboardProfile | null>(null);
+const DashboardNavigationContext = createContext<DashboardNavigationContextValue | null>(null);
 
 export function useDashboardProfile() {
   const value = useContext(DashboardProfileContext);
@@ -54,18 +63,27 @@ export function useDashboardProfile() {
   return value;
 }
 
+export function useDashboardNavigation() {
+  const value = useContext(DashboardNavigationContext);
+  if (!value) {
+    throw new Error("useDashboardNavigation must be used inside DashboardShell");
+  }
+  return value;
+}
+
 const NAV_ITEMS: Array<{
   label: string;
   href: string;
   icon: IconName;
   enabled: boolean;
+  setupAction?: DashboardSetupAction;
 }> = [
   { label: "Overview", href: "/dashboard", icon: "overview", enabled: true },
-  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: false },
-  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: false },
+  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: false, setupAction: "campaign" },
+  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: false, setupAction: "contacts" },
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: false },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: false },
-  { label: "Knowledge & Voice", href: "/dashboard/knowledge-voice", icon: "knowledge", enabled: false },
+  { label: "Knowledge & Voice", href: "/dashboard/knowledge-voice", icon: "knowledge", enabled: false, setupAction: "voice" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: false },
 ];
 
@@ -134,7 +152,7 @@ function BrandMark() {
         className="h-[26px] w-[26px] shrink-0"
       />
       <span className="font-['Newsreader'] text-[25px] font-semibold italic leading-none tracking-[-0.7px] text-[#1B1C18]">
-        folioo<span className="text-[#F27B65]">.</span>
+        Foolioo
       </span>
     </span>
   );
@@ -153,10 +171,12 @@ function NavEntry({
   item,
   active,
   variant = "sidebar",
+  onSetupAction,
 }: {
   item: (typeof NAV_ITEMS)[number];
   active: boolean;
   variant?: "sidebar" | "mobile";
+  onSetupAction?: (action: DashboardSetupAction) => void;
 }) {
   const isMobile = variant === "mobile";
   const className = [
@@ -165,7 +185,7 @@ function NavEntry({
       ? "min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[10px]"
       : "items-center gap-3 px-3 py-2 text-left text-[14px] md:justify-center md:px-0 lg:justify-start lg:px-3",
     active ? "bg-[#E9E8E1] font-semibold text-[#1B1C18]" : "text-[#444748]",
-    item.enabled ? "hover:bg-[#ECEBE4]" : "cursor-default text-[#747878]",
+    item.enabled || item.setupAction ? "hover:bg-[#ECEBE4]" : "cursor-default text-[#747878]",
   ].join(" ");
 
   const content = (
@@ -183,8 +203,21 @@ function NavEntry({
     );
   }
 
+  if (item.setupAction) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSetupAction?.(item.setupAction!)}
+        className={className}
+        title={`Open ${item.label.toLowerCase()} setup`}
+      >
+        {content}
+      </button>
+    );
+  }
+
   return (
-    <div aria-disabled="true" title={`${item.label} is not part of this dashboard pass`} className={className}>
+    <div aria-disabled="true" title={`${item.label} is not available yet`} className={className}>
       {content}
     </div>
   );
@@ -196,6 +229,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<"workspace" | "plan">("workspace");
+  const [copiedWorkspaceId, setCopiedWorkspaceId] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const [requestedSetupAction, setRequestedSetupAction] = useState<DashboardSetupAction | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
@@ -214,6 +252,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setProfileOpen(false);
+        setSettingsOpen(false);
       }
     };
     window.addEventListener("keydown", handleShortcut);
@@ -239,39 +278,49 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     ? `${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"} left in your trial`
     : profile.isTrial
       ? "Your trial workspace"
-      : "Workspace plan";
+      : profile.planName ?? "Workspace plan";
+
+  const openSetupAction = (action: DashboardSetupAction) => {
+    setRequestedSetupAction(action);
+    setSearchOpen(false);
+  };
+
+  const clearRequestedSetupAction = useCallback(() => setRequestedSetupAction(null), []);
+
+  const copyWorkspaceId = async () => {
+    if (!profile.workspaceId) return;
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(profile.workspaceId);
+      setCopiedWorkspaceId(true);
+    } catch {
+      setCopiedWorkspaceId(false);
+      setCopyError("Clipboard access is unavailable in this browser.");
+    }
+  };
 
   return (
     <DashboardProfileContext.Provider value={profile}>
+      <DashboardNavigationContext.Provider value={{ requestedSetupAction, clearRequestedSetupAction }}>
       <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
         <header className="fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.84)] px-2 pt-[7px] backdrop-blur-xl">
           <div className="flex h-[50px] items-center justify-between gap-3 rounded-[8px] border border-[rgba(100,74,187,0.2)] bg-[#E7DEFF] px-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-[17px]">
             <div className="flex min-w-0 items-center gap-3">
               <div className="hidden min-w-0 items-center gap-2 text-[13px] leading-[18px] sm:flex">
                 <span className="font-semibold text-[#1B1C18]">{trialCopy}</span>
-                {profile.planName ? (
-                  <span className="hidden text-[#4C30A2] md:inline">· {profile.planName} plan</span>
-                ) : null}
               </div>
               <span className="truncate font-['Space_Grotesk'] text-[12px] text-[#4C30A2] sm:hidden">
-                {profile.planName ?? "Workspace"}
+                {trialCopy}
               </span>
             </div>
 
-            <div className="flex shrink-0 items-center gap-3">
-              {profile.planName ? (
-                <span className="hidden rounded-[12px] bg-white/70 px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#4C30A2] sm:inline-flex">
-                  {profile.planName} plan
-                </span>
-              ) : null}
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => setProfileOpen((open) => !open)}
-                aria-label="Open account menu"
-                aria-expanded={profileOpen}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-[#644ABB]/20 bg-white font-['Space_Grotesk'] text-[11px] font-semibold text-[#4C30A2] transition-colors hover:bg-[#F8F5FF]"
+                onClick={() => { setSettingsSection("plan"); setSettingsOpen(true); }}
+                className="inline-flex h-8 items-center justify-center rounded-[4px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#644ABB] focus-visible:ring-offset-2"
               >
-                {initials(profile.displayName)}
+                Upgrade
               </button>
             </div>
           </div>
@@ -294,7 +343,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           ) : null}
         </header>
 
-        <aside className="fixed bottom-6 left-0 top-14 z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3">
+        <aside className="fixed bottom-4 left-0 top-14 z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3">
           <div className="flex flex-col gap-6">
             <Link href="/dashboard" className="flex min-h-7 items-center gap-2.5 px-2" aria-label="Foolioo overview">
               <BrandMark />
@@ -307,12 +356,13 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   item={item}
                   active={pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`))}
                   variant="sidebar"
+                  onSetupAction={openSetupAction}
                 />
               ))}
             </nav>
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pb-2 pl-1">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
@@ -323,14 +373,19 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <span className="hidden lg:inline">Search</span>
               <kbd className="ml-auto hidden rounded border border-[#D8D8D1] px-1 py-0.5 text-[9px] text-[#747878] lg:inline">⌘K</kbd>
             </button>
-            <div aria-disabled="true" title="Settings is not part of this dashboard pass" className="flex cursor-default items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#747878] md:justify-center lg:justify-start">
+            <button
+              type="button"
+              onClick={() => { setSettingsSection("workspace"); setSettingsOpen(true); }}
+              className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start"
+              title="Workspace settings"
+            >
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
-            </div>
+            </button>
             <button
               type="button"
               onClick={() => setProfileOpen((open) => !open)}
-              className="flex w-full items-center gap-3 rounded-[8px] bg-[#ECEBE4] px-2 py-2 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start"
+              className="mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] bg-[#ECEBE4] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start"
               aria-label="Open account menu"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
@@ -345,7 +400,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
         </aside>
 
         <main className="min-h-screen pb-24 pt-14 md:pb-8 md:pl-[72px] lg:pl-[208px]">
-          <div className="mx-auto w-full max-w-[1088px] px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-6 lg:pt-14">
+          <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-14">
             <div className="rounded-[12px] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:p-7 lg:p-8">
               {children}
             </div>
@@ -359,6 +414,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               item={item}
               active={pathname === item.href}
               variant="mobile"
+              onSetupAction={openSetupAction}
             />
           ))}
         </nav>
@@ -390,8 +446,10 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     </span>
                     {item.enabled ? (
                       <Link href={item.href} onClick={() => setSearchOpen(false)} className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open</Link>
+                    ) : item.setupAction ? (
+                      <button type="button" onClick={() => openSetupAction(item.setupAction!)} className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open setup</button>
                     ) : (
-                      <span className="font-['Space_Grotesk'] text-[10px] text-[#929493]">Coming soon</span>
+                      <span className="font-['Space_Grotesk'] text-[10px] text-[#929493]">Not available yet</span>
                     )}
                   </div>
                 ))}
@@ -401,7 +459,58 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
             </div>
           </div>
         ) : null}
+
+        {settingsOpen ? (
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-[#1B1C18]/30 px-4 py-8"
+            onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}
+          >
+            <section role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" className="w-full max-w-[480px] rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">ACCOUNT</p>
+                  <h2 id="workspace-settings-title" className="mt-1 font-['Newsreader'] text-[26px] text-[#1B1C18]">{settingsSection === "plan" ? "Upgrade your workspace" : "Workspace settings"}</h2>
+                  <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">{profile.workspaceName}</p>
+                </div>
+                <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" className="rounded-[4px] p-2 text-[#747878] hover:bg-[#F5F4ED]">×</button>
+              </div>
+
+              <div className="mt-5 rounded-[7px] border border-[#E9E8E1] bg-[#FBFAF6] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.07em] text-[#747878]">WORKSPACE ID</p>
+                    <p className="mt-1 truncate font-mono text-[12px] text-[#1B1C18]" title={profile.workspaceId ?? undefined}>{profile.workspaceId ?? "Unavailable"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyWorkspaceId}
+                    disabled={!profile.workspaceId}
+                    className="shrink-0 rounded-[4px] border border-[#D8D8D1] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {copiedWorkspaceId ? "Copied" : "Copy ID"}
+                  </button>
+                </div>
+                {copyError ? <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#A33A32]">{copyError}</p> : null}
+              </div>
+
+              <div className="mt-3 rounded-[7px] border border-[#E9E8E1] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.07em] text-[#747878]">CURRENT PLAN</p>
+                    <p className="mt-1 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{profile.planName ?? (profile.isTrial ? "Trial" : "Workspace plan")}</p>
+                  </div>
+                  {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
+                </div>
+                <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Plan changes are not connected to self-serve billing in this workspace yet. Contact your workspace administrator for upgrade options.</p>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>
+              </div>
+            </section>
+          </div>
+        ) : null}
       </div>
+      </DashboardNavigationContext.Provider>
     </DashboardProfileContext.Provider>
   );
 }

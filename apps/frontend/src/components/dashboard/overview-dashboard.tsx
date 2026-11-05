@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useDashboardProfile } from "@/components/dashboard/dashboard-shell";
+import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
 
 export type JsonRecord = Record<string, unknown>;
@@ -110,17 +110,7 @@ function formatDate(value: unknown, timezone: string): string {
   }
 }
 
-function getCampaignStatusCounts(snapshot: CollectionSnapshot | null) {
-  const rows = snapshot?.items ?? [];
-  return {
-    active: rows.filter((item) => recordText(item, "status") === "active").length,
-    draft: rows.filter((item) => recordText(item, "status") === "draft").length,
-    paused: rows.filter((item) => recordText(item, "status") === "paused").length,
-    completed: rows.filter((item) => recordText(item, "status") === "completed").length,
-  };
-}
-
-type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
+type SetupAction = DashboardSetupAction;
 
 type SetupStep = {
   id: number;
@@ -131,6 +121,8 @@ type SetupStep = {
   complete: boolean;
   detail: string;
   recommended?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 function isJsonRecord(value: unknown): value is JsonRecord {
@@ -149,7 +141,7 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const testCallOutcome = recordText(summary, "testCallOutcome");
   const agentName = recordText(profile, "aiPersonaName") ?? "your AI agent";
 
-  return [
+  const steps: SetupStep[] = [
     {
       id: 1,
       title: "Set up your AI agent",
@@ -206,6 +198,20 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
       detail: summary?.campaignLaunched === true ? "Your first campaign has been approved and added to the outbound queue." : activeCampaignCount !== null ? `${formatNumber(activeCampaignCount)} active campaigns in this workspace.` : "Review the audience and explicitly approve your first launch.",
     },
   ];
+
+  const agentConfigured = steps[0]?.complete === true;
+  const contactsImported = steps[1]?.complete === true;
+  const firstFiveComplete = steps.slice(0, 5).every((step) => step.complete);
+
+  return steps.map((step) => {
+    if (step.actionKey === "test-call" && !(agentConfigured && contactsImported)) {
+      return { ...step, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
+    }
+    if (step.actionKey === "launch" && !firstFiveComplete) {
+      return { ...step, disabled: true, disabledReason: "Complete the setup steps above before launching." };
+    }
+    return step;
+  });
 }
 
 function ProgressRing({ complete, total }: { complete: number; total: number }) {
@@ -222,22 +228,20 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
   );
 }
 
-function SetupChecklist({ data }: { data: DashboardOverviewData }) {
-  const router = useRouter();
+function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAction: (action: SetupAction) => void }) {
   const steps = useMemo(() => buildSetupSteps(data), [data]);
   const [expanded, setExpanded] = useState<number[]>([1]);
-  const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
   const complete = steps.filter((step) => step.complete).length;
-  const allExpanded = expanded.length === steps.length;
-  const toggleAll = () => setExpanded(allExpanded ? [] : steps.map((step) => step.id));
+  const anyExpanded = expanded.length > 0;
+  const toggleAll = () => setExpanded(anyExpanded ? [] : steps.map((step) => step.id));
   const toggleStep = (id: number) => {
-    setExpanded((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+    setExpanded((current) => current.includes(id) ? current.filter((item) => item !== id) : [id]);
   };
 
   return (
     <>
       {data.setup.state === "error" ? <SectionError title="Workspace setup status" error={data.setup.error} /> : null}
-      <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
+      <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
         <div className="flex flex-col gap-4 bg-[rgba(245,244,237,0.4)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-center gap-4">
             <ProgressRing complete={complete} total={steps.length} />
@@ -247,42 +251,48 @@ function SetupChecklist({ data }: { data: DashboardOverviewData }) {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:justify-end">
-            <button type="button" onClick={toggleAll} className="rounded-[2px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-white">{allExpanded ? "Collapse all steps" : "Expand all steps"}</button>
+            <button type="button" onClick={toggleAll} className="rounded-[2px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-white">{anyExpanded ? "Collapse steps" : "Expand steps"}</button>
             <span className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#E7DEFF] px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#644ABB]"><Icon kind="clock" className="h-3 w-3" /> Est. 8 mins</span>
           </div>
         </div>
 
-        <div className="flex flex-col px-4 pt-2 sm:px-6">
+        <div className="flex flex-col px-4 pt-1 sm:px-6">
           {steps.map((step) => {
             const isExpanded = expanded.includes(step.id);
             return (
               <article key={step.id} className={`border-b border-[#ECEBE5] last:border-b-0 ${step.recommended && isExpanded ? "my-1 rounded-[4px] border-0 bg-[#F5F4ED] px-3" : "px-3"}`}>
-                <div className="flex items-start gap-3 py-4 sm:items-center sm:gap-4">
-                  <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${step.complete ? "border-[#6BA77A] bg-[#E8F3EA] text-[#25633A]" : "border-[#D5D5CE] bg-white text-transparent"}`} aria-hidden="true">
+                <div className={`flex items-center gap-3 sm:gap-4 ${isExpanded ? "py-4" : "py-3"}`}>
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${step.complete ? "border-[#6BA77A] bg-[#E8F3EA] text-[#25633A]" : "border-[#D5D5CE] bg-white text-transparent"}`} aria-hidden="true">
                     {step.complete ? <Icon kind="check" className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-transparent" />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <button type="button" onClick={() => toggleStep(step.id)} aria-expanded={isExpanded} className="block min-w-0 text-left">
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                         <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
                         {!step.recommended ? <span className="hidden h-1 w-1 rounded-full bg-[#C4C7C7] sm:inline-block" /> : null}
                         <span className="font-['Space_Grotesk'] text-[14px] font-semibold leading-5 text-[#1B1C18] sm:text-[15px]">{step.title}</span>
                       </span>
                     </button>
-                    <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-[20px] text-[#565B5B]">{step.description}</p>
                     {isExpanded ? (
-                      <div className="mt-3 flex max-w-[470px] items-center gap-3 rounded-[3px] bg-white px-3 py-2.5 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] bg-[#E7DEFF] text-[#644ABB]"><Icon kind="voice" className="h-4 w-4" /></span>
-                        <span className="min-w-0 flex-1 font-['Space_Grotesk'] text-[11px] leading-4 text-[#444748]">{step.detail}</span>
-                      </div>
+                      <>
+                        <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-[20px] text-[#565B5B]">{step.description}</p>
+                        {step.id === 1 && !step.complete ? (
+                          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Add your business context, agent identity, greeting and guardrails in one setup flow.</p>
+                        ) : step.detail ? (
+                          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{step.detail}</p>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveAction(step.actionKey)}
-                    className={`mt-1 inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
+                    onClick={() => onAction(step.actionKey)}
+                    disabled={step.disabled}
+                    title={step.disabled ? step.disabledReason : undefined}
+                    aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
+                    className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
                   >
-                    {step.action}<Icon kind="arrow" className="h-3 w-3" />
+                    {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
                   </button>
                 </div>
               </article>
@@ -290,14 +300,6 @@ function SetupChecklist({ data }: { data: DashboardOverviewData }) {
           })}
         </div>
       </section>
-      {activeAction ? (
-        <SetupWizardModal
-          action={activeAction}
-          data={data}
-          onClose={() => setActiveAction(null)}
-          onComplete={() => router.refresh()}
-        />
-      ) : null}
     </>
   );
 }
@@ -311,7 +313,7 @@ function MetricCard({
   label: string;
   value: number | null;
   helper: string;
-  icon: "calls" | "conversation" | "followup" | "queue";
+  icon: "calls" | "conversation" | "followup" | "queue" | "contacts";
 }) {
   return (
     <article className="flex min-h-[128px] flex-col justify-between rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] sm:p-5">
@@ -341,7 +343,7 @@ function QuotaPanel({ analytics }: { analytics: AnalyticsOverview }) {
   const used = recordNumber(analytics.quota, "creditsUsedThisCycle");
   const reserved = recordNumber(analytics.quota, "creditsReservedThisCycle");
   const remaining = recordNumber(analytics.quota, "creditsRemaining");
-  const percentUsed = allowance && used !== null ? Math.min(100, Math.max(0, (used / allowance) * 100)) : 0;
+  const percentRemaining = allowance && remaining !== null ? Math.min(100, Math.max(0, (remaining / allowance) * 100)) : 0;
 
   return (
     <section className="rounded-[8px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6" aria-labelledby="quota-heading">
@@ -359,11 +361,11 @@ function QuotaPanel({ analytics }: { analytics: AnalyticsOverview }) {
         </div>
         <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#444748]">{formatNumber(allowance)} allowance</p>
       </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EFEEE7]" role="progressbar" aria-label="Monthly voice credits used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percentUsed)}>
-        <div className="h-full rounded-full bg-[#7852D6] transition-[width]" style={{ width: `${percentUsed}%` }} />
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EFEEE7]" role="progressbar" aria-label="Monthly voice credits remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percentRemaining)}>
+        <div className="h-full rounded-full bg-[#7852D6] transition-[width]" style={{ width: `${percentRemaining}%` }} />
       </div>
       <div className="mt-3 flex flex-wrap justify-between gap-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-        <span>{formatNumber(used)} used</span>
+        <span>{formatNumber(used)} / {formatNumber(allowance)} used</span>
         <span>{formatNumber(reserved)} reserved</span>
         <span>{formatNumber(recordNumber(analytics.quota, "callsRemainingToday"))} calls left today</span>
       </div>
@@ -371,7 +373,7 @@ function QuotaPanel({ analytics }: { analytics: AnalyticsOverview }) {
   );
 }
 
-function RecentCalls({ analytics, timezone }: { analytics: AnalyticsOverview; timezone: string }) {
+function RecentCalls({ analytics, timezone, onPlaceTestCall, canPlaceTestCall }: { analytics: AnalyticsOverview; timezone: string; onPlaceTestCall: () => void; canPlaceTestCall: boolean }) {
   const recentCalls = analytics.recentCalls;
   return (
     <section className="rounded-[8px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" aria-labelledby="recent-calls-heading">
@@ -380,12 +382,17 @@ function RecentCalls({ analytics, timezone }: { analytics: AnalyticsOverview; ti
           <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">LATEST ACTIVITY</p>
           <h2 id="recent-calls-heading" className="mt-1 font-['Newsreader'] text-[21px] font-semibold text-[#1B1C18]">Recent calls</h2>
         </div>
-        <span className="rounded-[12px] bg-[#F1F0EB] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B]">Last 5 records</span>
+        {recentCalls.length > 0 ? <span className="rounded-[12px] bg-[#F1F0EB] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B]">Last 5 records</span> : null}
       </div>
       {recentCalls.length === 0 ? (
-        <div className="px-6 py-9 text-center">
-          <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#444748]">No calls recorded yet</p>
-          <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">New call activity from your workspace will appear here.</p>
+        <div className="flex flex-col items-center px-6 py-9 text-center">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E7DEFF] text-[#644ABB]"><Icon kind="calls" className="h-5 w-5" /></span>
+          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-medium text-[#444748]">No calls recorded yet</p>
+          <p className="mt-1 max-w-[300px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Place a test call to hear your AI agent before starting an outbound campaign.</p>
+          <button type="button" onClick={onPlaceTestCall} disabled={!canPlaceTestCall} title={!canPlaceTestCall ? "Set up your AI agent and import contacts first." : undefined} className="mt-4 inline-flex h-9 items-center gap-2 rounded-[4px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:bg-[#E9E8E1] disabled:text-[#929493]">
+            Place a test call<Icon kind="arrow" className="h-3 w-3" />
+          </button>
+          {!canPlaceTestCall ? <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#929493]">Complete agent setup and contact import first.</p> : null}
         </div>
       ) : (
         <div className="divide-y divide-[#ECEBE5]">
@@ -416,58 +423,65 @@ function RecentCalls({ analytics, timezone }: { analytics: AnalyticsOverview; ti
 
 function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
   const contactTotal = data.contacts.state === "ready" ? data.contacts.data.total : null;
-  const campaigns = data.campaigns.state === "ready" ? data.campaigns.data : null;
-  const campaignCounts = getCampaignStatusCounts(campaigns);
-  const followUpTotal = data.followUps.state === "ready" ? data.followUps.data.total : null;
+  const campaignTotal = data.campaigns.state === "ready" ? data.campaigns.data.total : null;
   const knowledgeTotal = data.knowledgeBase.state === "ready" ? data.knowledgeBase.data.total : null;
 
+  const readinessLabel = (value: number | null, ready: boolean, singular: string) => {
+    if (!ready) return "Unavailable";
+    return value !== null && value > 0 ? `${singular} added` : "Not set up yet";
+  };
+
   const rows = [
-    { label: "Contacts in workspace", value: contactTotal, error: data.contacts.state === "error" ? data.contacts.error : null },
-    { label: "Saved campaigns", value: campaigns?.total ?? null, error: data.campaigns.state === "error" ? data.campaigns.error : null },
-    { label: "Active campaigns", value: campaigns?.itemsKnown ? campaignCounts.active : null, error: data.campaigns.state === "error" ? data.campaigns.error : null },
-    { label: "Follow-up records", value: followUpTotal, error: data.followUps.state === "error" ? data.followUps.error : null },
-    { label: "Knowledge entries", value: knowledgeTotal, error: data.knowledgeBase.state === "error" ? data.knowledgeBase.error : null },
+    { label: "Contacts", value: readinessLabel(contactTotal, data.contacts.state === "ready", "Contacts"), error: data.contacts.state === "error" },
+    { label: "Campaigns", value: readinessLabel(campaignTotal, data.campaigns.state === "ready", "Campaigns"), error: data.campaigns.state === "error" },
+    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, data.knowledgeBase.state === "ready", "Knowledge base"), error: data.knowledgeBase.state === "error" },
   ];
 
   return (
     <section className="rounded-[8px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6" aria-labelledby="workspace-snapshot-heading">
       <div className="pb-3">
-        <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">LIVE WORKSPACE RECORDS</p>
+        <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE STATUS</p>
         <h2 id="workspace-snapshot-heading" className="mt-1 font-['Newsreader'] text-[21px] font-semibold text-[#1B1C18]">Workspace snapshot</h2>
       </div>
       <div className="divide-y divide-[#ECEBE5]">
         {rows.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-3 py-3">
             <span className="font-['Space_Grotesk'] text-[12px] text-[#444748]">{row.label}</span>
-            <div className="flex items-center gap-3">
-              {row.error ? <span className="max-w-[150px] truncate font-['Space_Grotesk'] text-[10px] text-[#A33A32]" title={row.error}>Unavailable</span> : <span className="font-['Newsreader'] text-[22px] text-[#1B1C18]">{formatNumber(row.value)}</span>}
-              <span className="hidden text-[#B8B9B5] sm:inline-flex"><Icon kind="arrow" className="h-3 w-3" /></span>
-            </div>
+            <span className={`font-['Space_Grotesk'] text-[10px] font-semibold ${row.error ? "text-[#A33A32]" : row.value === "Not set up yet" ? "text-[#929493]" : "text-[#44734D]"}`}>{row.value}</span>
           </div>
         ))}
       </div>
-      <p className="mt-3 font-['Space_Grotesk'] text-[10px] leading-4 text-[#929493]">Counts come from workspace endpoints. Section pages will be built in the next dashboard pass.</p>
     </section>
   );
 }
 
 export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const profile = useDashboardProfile();
+  const router = useRouter();
+  const { requestedSetupAction, clearRequestedSetupAction } = useDashboardNavigation();
   const firstName = profile.displayName.trim().split(/\s+/)[0] || "there";
-  const workspaceCode = profile.workspaceId ? profile.workspaceId.slice(-6).toUpperCase() : null;
   const analytics = data.analytics.state === "ready" ? data.analytics.data : null;
   const callMetrics = analytics?.callMetrics;
   const pipeline = analytics?.pipeline;
-  const campaignCount = data.campaigns.state === "ready" ? data.campaigns.data.total : null;
+  const leadIntelligence = analytics?.leadIntelligence;
   const timezone = profile.timezone || "Asia/Kolkata";
   const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : "ANALYTICS UNAVAILABLE";
+  const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup) ? data.setup.data.setup : null;
+  const canPlaceTestCall = setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
+  const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
+
+  useEffect(() => {
+    if (requestedSetupAction) {
+      setActiveAction(requestedSetupAction);
+      clearRequestedSetupAction();
+    }
+  }, [requestedSetupAction, clearRequestedSetupAction]);
 
   return (
     <div className="flex flex-col">
-      <header className="pb-8">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+      <header className="pb-6">
+        <div className="mb-3">
           <span className="rounded-[2px] bg-[rgba(231,222,255,0.65)] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.1em] text-[#644ABB]">WORKSPACE OVERVIEW</span>
-          {workspaceCode ? <span className="font-['Space_Grotesk'] text-[10px] font-medium tracking-[0.05em] text-[#747878]">Workspace ID: {workspaceCode}</span> : null}
         </div>
         <h1 className="font-['Newsreader'] text-[34px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[40px]">{profile.greeting}, {firstName}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-[12px] leading-[22px] text-[#444748] sm:text-[13px]">
@@ -475,9 +489,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         </div>
       </header>
 
-      <SetupChecklist data={data} />
-
-      <section className="pt-8" aria-labelledby="metrics-heading">
+      <section className="pb-6" aria-labelledby="metrics-heading">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
           <h2 id="metrics-heading" className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE METRICS</h2>
           <span className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#747878]">{telemetryLabel}</span>
@@ -487,37 +499,36 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Calls placed" value={recordNumber(callMetrics, "totalCalls")} helper="Calls in the selected period" icon="calls" />
-            <MetricCard label="Connected calls" value={recordNumber(callMetrics, "connectedCalls")} helper={`${recordNumber(callMetrics, "connectionRatePercent") ?? 0}% connection rate`} icon="conversation" />
-            <MetricCard label="Open follow-ups" value={recordNumber(pipeline, "openFollowUps")} helper="Follow-up records with open status" icon="followup" />
-            <MetricCard label="Pending queue" value={recordNumber(pipeline, "pendingInQueue")} helper={`${formatNumber(recordNumber(pipeline, "inProgress"))} currently in progress`} icon="queue" />
+            <MetricCard label="Connected calls" value={recordNumber(callMetrics, "connectedCalls")} helper={recordNumber(callMetrics, "totalCalls") ? `${recordNumber(callMetrics, "connectionRatePercent") ?? 0}% connection rate` : "No calls yet"} icon="conversation" />
+            <MetricCard label="High-intent leads" value={recordNumber(leadIntelligence, "highInterestCount")} helper="Contacts showing strong interest" icon="contacts" />
+            <MetricCard label="Open follow-ups" value={recordNumber(pipeline, "openFollowUps")} helper="Follow-up records awaiting action" icon="followup" />
           </div>
         )}
       </section>
 
-      <section className="grid grid-cols-1 gap-4 pt-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-        {analytics ? <RecentCalls analytics={analytics} timezone={timezone} /> : <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable until analytics loads.</p></div>}
-        {analytics ? <QuotaPanel analytics={analytics} /> : null}
-      </section>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-span-8">
+          <SetupChecklist data={data} onAction={setActiveAction} />
+          {analytics ? (
+            <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
+          ) : (
+            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable until analytics loads.</p></div>
+          )}
+        </div>
 
-      <section className="pt-6">
-        <WorkspaceSnapshot data={data} />
-      </section>
+        <aside className="flex min-w-0 flex-col gap-5 lg:col-span-4" aria-label="Workspace resources">
+          {analytics ? <QuotaPanel analytics={analytics} /> : null}
+          <WorkspaceSnapshot data={data} />
+        </aside>
+      </div>
 
-      {data.analytics.state === "ready" ? (
-        <section className="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-3" aria-label="Additional analytics">
-          <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
-            <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">HIGH-INTENT LEADS</p>
-            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics?.leadIntelligence, "highInterestCount"))}</p>
-          </div>
-          <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
-            <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">FOLLOW-UPS REQUESTED ON CALLS</p>
-            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics?.leadIntelligence, "followUpsRequestedCount"))}</p>
-          </div>
-          <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
-            <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">ACTIVE CAMPAIGNS</p>
-            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(campaignCount)}</p>
-          </div>
-        </section>
+      {activeAction ? (
+        <SetupWizardModal
+          action={activeAction}
+          data={data}
+          onClose={() => setActiveAction(null)}
+          onComplete={() => { setActiveAction(null); router.refresh(); }}
+        />
       ) : null}
     </div>
   );
