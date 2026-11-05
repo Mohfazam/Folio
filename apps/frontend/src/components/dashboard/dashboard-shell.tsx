@@ -124,14 +124,19 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
 
 function BrandMark() {
   return (
-    <Image
-      src="/Foolioo.svg"
-      alt="Foolioo"
-      width={118}
-      height={28}
-      priority
-      className="hidden h-7 w-auto shrink-0 lg:block"
-    />
+    <span className="flex h-8 items-center gap-2.5 whitespace-nowrap" aria-label="Foolioo">
+      <Image
+        src="/Foolioo.svg"
+        alt=""
+        width={26}
+        height={26}
+        priority
+        className="h-[26px] w-[26px] shrink-0"
+      />
+      <span className="hidden font-['Newsreader'] text-[25px] font-semibold italic leading-none tracking-[-0.7px] text-[#1B1C18] lg:inline">
+        folioo<span className="text-[#F27B65]">.</span>
+      </span>
+    </span>
   );
 }
 
@@ -160,18 +165,13 @@ function NavEntry({
       ? "min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center text-[10px]"
       : "items-center gap-3 px-3 py-2 text-left text-[14px] md:justify-center md:px-0 lg:justify-start lg:px-3",
     active ? "bg-[#E9E8E1] font-semibold text-[#1B1C18]" : "text-[#444748]",
-    item.enabled ? "hover:bg-[#ECEBE4]" : "cursor-not-allowed opacity-55",
+    item.enabled ? "hover:bg-[#ECEBE4]" : "cursor-default text-[#747878]",
   ].join(" ");
 
   const content = (
     <>
       <Icon name={item.icon} className="h-[15px] w-[15px] shrink-0" />
       <span className={isMobile ? "max-w-full truncate" : "hidden min-w-0 truncate lg:inline"}>{item.label}</span>
-      {!item.enabled && !isMobile ? (
-        <span className="ml-auto hidden text-[9px] font-semibold uppercase tracking-[0.06em] text-[#929493] lg:inline">
-          Soon
-        </span>
-      ) : null}
     </>
   );
 
@@ -184,7 +184,7 @@ function NavEntry({
   }
 
   return (
-    <div aria-disabled="true" title={`${item.label} will be built in the next dashboard pass`} className={className}>
+    <div aria-disabled="true" title={`${item.label} is not part of this dashboard pass`} className={className}>
       {content}
     </div>
   );
@@ -323,7 +323,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <span className="hidden lg:inline">Search</span>
               <kbd className="ml-auto hidden rounded border border-[#D8D8D1] px-1 py-0.5 text-[9px] text-[#747878] lg:inline">⌘K</kbd>
             </button>
-            <div aria-disabled="true" title="Settings will be built in a later pass" className="flex cursor-not-allowed items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] opacity-55 md:justify-center lg:justify-start">
+            <div aria-disabled="true" title="Settings is not part of this dashboard pass" className="flex cursor-default items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#747878] md:justify-center lg:justify-start">
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
             </div>
