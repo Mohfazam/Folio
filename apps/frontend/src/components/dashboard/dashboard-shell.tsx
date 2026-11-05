@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -123,11 +124,14 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
 
 function BrandMark() {
   return (
-    <svg viewBox="0 0 32 32" className="h-7 w-7 shrink-0" aria-hidden="true">
-      <rect width="32" height="32" rx="7" fill="#1B1C18" />
-      <path d="M9 7h14v4H13v4h8v4h-8v6H9z" fill="#FFFFFF" />
-      <path d="M19 7h4v4h-4z" fill="#B9A5FF" />
-    </svg>
+    <Image
+      src="/Foolioo.svg"
+      alt="Foolioo"
+      width={118}
+      height={28}
+      priority
+      className="hidden h-7 w-auto shrink-0 lg:block"
+    />
   );
 }
 
@@ -254,24 +258,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               </span>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-              <button
-                type="button"
-                disabled
-                title="Specialist support will be connected in a later pass"
-                className="hidden rounded-[4px] px-2 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] opacity-60 sm:inline-flex md:px-3 md:text-[13px]"
-              >
-                Talk to a specialist
-              </button>
-              <button
-                type="button"
-                disabled
-                title="Plan and billing actions will be connected in a later pass"
-                className="rounded-[8px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white opacity-70 sm:px-4 sm:text-[13px]"
-              >
-                <span className="hidden sm:inline">Explore plans</span>
-                <span className="sm:hidden">Plans</span>
-              </button>
+            <div className="flex shrink-0 items-center gap-3">
+              {profile.planName ? (
+                <span className="hidden rounded-[12px] bg-white/70 px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#4C30A2] sm:inline-flex">
+                  {profile.planName} plan
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setProfileOpen((open) => !open)}
@@ -304,11 +296,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
         <aside className="fixed bottom-6 left-0 top-14 z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 py-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3">
           <div className="flex flex-col gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2.5 px-2" aria-label="Foolioo overview">
+            <Link href="/dashboard" className="flex min-h-7 items-center gap-2.5 px-2" aria-label="Foolioo overview">
               <BrandMark />
-              <span className="hidden font-['Newsreader'] text-[22px] font-semibold tracking-[-0.66px] text-[#1B1C18] lg:inline">
-                foolioo
-              </span>
             </Link>
 
             <nav aria-label="Main navigation" className="flex flex-col gap-1">
