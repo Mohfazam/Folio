@@ -1,19 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { OnboardingSnapshot } from "../../lib/auth/backend";
 
 type Answers = OnboardingSnapshot["answers"];
 type Screen = "welcome" | "questions" | "customizing";
-type SavePayload = {
-  currentStep: number;
-  hasSeenWelcome?: boolean;
-  answers: Answers;
-  skippedSteps: number[];
-  completed?: boolean;
-};
-
 type Choice = { value: string; label: string; description?: string };
 type Question = {
   key: keyof Answers;
@@ -146,39 +138,11 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
   const [skippedSteps, setSkippedSteps] = useState<number[]>(initialOnboarding.skippedSteps ?? []);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const saveQueue = useRef<Promise<void>>(Promise.resolve());
-  const answersRef = useRef<Answers>(initialOnboarding.answers ?? {});
-  const skippedStepsRef = useRef<number[]>(initialOnboarding.skippedSteps ?? []);
   const completionStarted = useRef(false);
 
   const question = QUESTIONS[currentStep];
   const canContinue = question ? hasAnswer(question, answers) : false;
   const progress = currentStep + 1;
-
-  useEffect(() => {
-    answersRef.current = answers;
-  }, [answers]);
-
-  useEffect(() => {
-    skippedStepsRef.current = skippedSteps;
-  }, [skippedSteps]);
-
-  const persist = useCallback((payload: SavePayload) => {
-    const task = saveQueue.current.then(async () => {
-      const response = await fetch("/api/onboarding", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || result.ok !== true) {
-        throw new Error(result.error || "We couldn't save your progress. Please try again.");
-      }
-    });
-    saveQueue.current = task.catch(() => undefined);
-    return task;
-  }, []);
 
   useEffect(() => {
     const url = window.location.href;
@@ -204,7 +168,6 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
         setScreen("questions");
         setCurrentStep(nextStep);
         setError(null);
-        void persist({ currentStep: nextStep, hasSeenWelcome: true, answers: answersRef.current, skippedSteps: skippedStepsRef.current });
       }
     };
 
@@ -220,10 +183,9 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
     return isMultiValue(value) ? value.includes(choice) : value === choice;
   }, [answers, question]);
 
-  const updateSelection = async (choice: string) => {
+  const updateSelection = (choice: string) => {
     if (!question) return;
     setError(null);
-    setSaved(false);
 
     const current = answers[question.key];
     let nextValue: string | string[];
@@ -236,32 +198,14 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
 
     const nextAnswers = { ...answers, [question.key]: nextValue } as Answers;
     setAnswers(nextAnswers);
-    setIsSaving(true);
-    try {
-      await persist({ currentStep, hasSeenWelcome: true, answers: nextAnswers, skippedSteps });
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save your selection.");
-    } finally {
-      setIsSaving(false);
-    }
   };
 
-  const beginQuestions = async () => {
+  const beginQuestions = () => {
     setError(null);
-    setIsSaving(true);
-    try {
-      await persist({ currentStep: 0, hasSeenWelcome: true, answers, skippedSteps });
-      window.history.replaceState({ onboardingScreen: "welcome" }, "", window.location.href);
-      window.history.pushState({ onboardingScreen: "questions", onboardingStep: 0 }, "", window.location.href);
-      setScreen("questions");
-      setCurrentStep(0);
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start onboarding.");
-    } finally {
-      setIsSaving(false);
-    }
+    window.history.replaceState({ onboardingScreen: "welcome" }, "", window.location.href);
+    window.history.pushState({ onboardingScreen: "questions", onboardingStep: 0 }, "", window.location.href);
+    setScreen("questions");
+    setCurrentStep(0);
   };
 
   const finishOnboarding = async (nextAnswers: Answers, nextSkipped: number[]) => {
@@ -271,13 +215,21 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
     setIsSaving(true);
 
     try {
-      await persist({
-        currentStep: 6,
-        hasSeenWelcome: true,
-        answers: nextAnswers,
-        skippedSteps: nextSkipped,
-        completed: true,
+      const response = await fetch("/api/onboarding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentStep: 6,
+          hasSeenWelcome: true,
+          answers: nextAnswers,
+          skippedSteps: nextSkipped,
+          completed: true,
+        }),
       });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok !== true) {
+        throw new Error(result.error || "We couldn't save your answers. Please try again.");
+      }
       setScreen("customizing");
       // This is a short transition after a confirmed save, not a fake progress metric.
       await new Promise((resolve) => window.setTimeout(resolve, 1100));
@@ -299,41 +251,24 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
     }
 
     setError(null);
-    setIsSaving(true);
-    try {
-      await persist({ currentStep: nextStep, hasSeenWelcome: true, answers, skippedSteps });
-      window.history.pushState({ onboardingScreen: "questions", onboardingStep: nextStep }, "", window.location.href);
-      setCurrentStep(nextStep);
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save your progress.");
-    } finally {
-      setIsSaving(false);
-    }
+    window.history.pushState({ onboardingScreen: "questions", onboardingStep: nextStep }, "", window.location.href);
+    setCurrentStep(nextStep);
   };
 
   const skipQuestion = async () => {
     if (isSaving) return;
     const nextSkipped = [...new Set([...skippedSteps, currentStep])];
     const nextStep = currentStep + 1;
+    setError(null);
+    setSkippedSteps(nextSkipped);
+
     if (nextStep >= QUESTIONS.length) {
       await finishOnboarding(answers, nextSkipped);
       return;
     }
 
-    setError(null);
-    setIsSaving(true);
-    try {
-      await persist({ currentStep: nextStep, hasSeenWelcome: true, answers, skippedSteps: nextSkipped });
-      setSkippedSteps(nextSkipped);
-      window.history.pushState({ onboardingScreen: "questions", onboardingStep: nextStep }, "", window.location.href);
-      setCurrentStep(nextStep);
-      setSaved(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to skip this question.");
-    } finally {
-      setIsSaving(false);
-    }
+    window.history.pushState({ onboardingScreen: "questions", onboardingStep: nextStep }, "", window.location.href);
+    setCurrentStep(nextStep);
   };
 
   const goBack = () => {
@@ -345,12 +280,6 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
     }
     window.history.back();
   };
-
-  const screenTitle = useMemo(() => {
-    if (screen === "welcome") return "Welcome to Foolioo";
-    if (screen === "customizing") return "Customizing your setup";
-    return question?.title ?? "Set up your workspace";
-  }, [question, screen]);
 
   return (
     <main className="foolioo-onboarding relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F4F1E9] px-4 py-8 sm:px-6">
@@ -497,7 +426,7 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
                   type="button"
                   aria-pressed={active}
                   disabled={isSaving}
-                  onClick={() => void updateSelection(choice.value)}
+                  onClick={() => updateSelection(choice.value)}
                   className={`group flex min-h-[49px] items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A995D7] ${
                     active
                       ? "border-[#B8A8D8] bg-[#F5F1FA] shadow-[0_0_0_1px_rgba(120,82,214,0.04)]"
@@ -520,7 +449,7 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
 
           <div className="mt-4 flex min-h-[18px] items-center justify-between gap-3">
             <p aria-live="polite" className="font-['Space_Grotesk'] text-[10px] text-[#96968F]">
-              {isSaving ? "Saving your answer…" : saved ? "Progress saved" : question.multi ? "Select all that apply." : "Select one option to continue."}
+              {question.multi ? "Select all that apply." : "Select one option to continue."}
             </p>
             {error && <span role="alert" className="text-right font-['Space_Grotesk'] text-[10px] text-[#A34E42]">{error}</span>}
           </div>
@@ -550,7 +479,7 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
                 disabled={!canContinue || isSaving}
                 className="inline-flex h-10 min-w-[116px] items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-all hover:-translate-y-0.5 hover:bg-[#373831] disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-[#E8E6DF] disabled:text-[#A8A89F]"
               >
-                {isSaving ? "Saving…" : currentStep === 5 ? "Finish setup" : "Continue"}
+                {isSaving ? "Saving setup…" : currentStep === 5 ? "Finish setup" : "Continue"}
                 {!isSaving && <ArrowIcon />}
               </button>
             </div>
@@ -569,7 +498,7 @@ export function OnboardingFlow({ initialOnboarding }: { initialOnboarding: Onboa
             Customizing your setup…
           </h1>
           <p className="mx-auto mt-3 max-w-[330px] font-['Space_Grotesk'] text-[13px] leading-[21px] text-[#777970]">
-            Your answers are saved. We're preparing your Foolioo workspace.
+            Your answers are being submitted. We're preparing your Foolioo workspace.
           </p>
           <div className="mx-auto mt-7 flex w-36 items-center justify-center gap-1.5" aria-hidden="true">
             {[0, 1, 2, 3, 4].map((dot) => <span key={dot} className="customize-dot h-1.5 w-1.5 rounded-full bg-[#927BC4]" style={{ animationDelay: `${dot * 120}ms` }} />)}
