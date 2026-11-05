@@ -507,11 +507,11 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         <section className="grid grid-cols-1 gap-3 pt-6 sm:grid-cols-3" aria-label="Additional analytics">
           <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
             <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">HIGH-INTENT LEADS</p>
-            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics.leadIntelligence, "highInterestCount"))}</p>
+            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics?.leadIntelligence, "highInterestCount"))}</p>
           </div>
           <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
             <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">FOLLOW-UPS REQUESTED ON CALLS</p>
-            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics.leadIntelligence, "followUpsRequestedCount"))}</p>
+            <p className="mt-2 font-['Newsreader'] text-[26px] text-[#1B1C18]">{formatNumber(recordNumber(analytics?.leadIntelligence, "followUpsRequestedCount"))}</p>
           </div>
           <div className="rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4">
             <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.07em] text-[#747878]">ACTIVE CAMPAIGNS</p>
