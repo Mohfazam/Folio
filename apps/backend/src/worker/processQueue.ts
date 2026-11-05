@@ -496,6 +496,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         // The calling service can apply these settings to its voice/LLM runtime.
         // Existing business fields remain for backward compatibility.
         agentSettings: agentRuntimeSettings,
+        workspaceTimezone: client.timezone || "Asia/Kolkata",
         isTestCall,
       };
 

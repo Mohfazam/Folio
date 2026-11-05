@@ -203,7 +203,11 @@ export interface CallAnalysisResult {
   objectionsRaised: string[];
   /** Whether the caller requested a callback or follow-up */
   followUpRequested: boolean;
-  /** Explicit callback time requested, if any */
+  /** True only when the caller explicitly asks to speak with a person. */
+  humanRequested?: boolean;
+  /** True only when the caller explicitly asks not to be contacted again. */
+  optOutRequested?: boolean;
+  /** Explicit callback time as an ISO-8601 timestamp with a timezone, if known. */
   requestedCallbackTime?: string;
   /** Additional notes or next steps for human sales / support reps */
   notes?: string;

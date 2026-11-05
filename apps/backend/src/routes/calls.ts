@@ -59,6 +59,7 @@ interface CallingServicePayload {
     followUpRequested: boolean;
     requestedCallbackTime?: string;
     humanRequested?: boolean;
+    optOutRequested?: boolean;
     notes?: string;
   };
   costEstimate?: {
@@ -163,6 +164,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         analysis.objectionsRaised.some((item) => typeof item !== "string" || item.length > 1000) ||
         typeof analysis.followUpRequested !== "boolean" ||
         (analysis.humanRequested !== undefined && typeof analysis.humanRequested !== "boolean") ||
+        (analysis.optOutRequested !== undefined && typeof analysis.optOutRequested !== "boolean") ||
         (analysis.notes !== undefined && (typeof analysis.notes !== "string" || analysis.notes.length > 5000)) ||
         (analysis.requestedCallbackTime !== undefined &&
           (typeof analysis.requestedCallbackTime !== "string" ||
@@ -300,10 +302,28 @@ export async function callCompleteRoute(req: Request, res: Response) {
     // never create CRM follow-ups or trigger business routing automations.
     const isTestCall = Boolean(queueEntry && queueEntry.campaignId === null && isFooliooSystemContact(contact.customFields));
     const routingPolicy = getWorkspaceRoutingPolicyFromClient(client);
+    const optOutRequested = !isTestCall && analysis?.optOutRequested === true;
+    const contactOptedOut = contact.optOut || optOutRequested;
+
+    // A caller's explicit opt-out is authoritative. Suppress every pending queue
+    // item for this contact before any retry or follow-up routing can run.
+    if (optOutRequested) {
+      await tx.update(contacts)
+        .set({ optOut: true, status: "do_not_call", updatedAt: new Date() })
+        .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
+      await tx.update(callQueue)
+        .set({ status: "failed", reservedCredits: 0, updatedAt: new Date() })
+        .where(and(
+          eq(callQueue.contactId, payload.contactId),
+          eq(callQueue.clientId, payload.clientId),
+          eq(callQueue.status, "pending"),
+        ));
+    }
+
     let followUpId: string | null = null;
     const followUpIds: string[] = [];
 
-    if (!isTestCall && analysis) {
+    if (!isTestCall && analysis && !optOutRequested) {
       const callbackTriggered = routingPolicy.callback.enabled &&
         (analysis.followUpRequested || Boolean(analysis.requestedCallbackTime));
       const highInterestTriggered = routingPolicy.highInterest.enabled && analysis.interestLevel === "high";
@@ -391,13 +411,13 @@ export async function callCompleteRoute(req: Request, res: Response) {
           .set({ status: "completed", reservedCredits: 0, updatedAt: new Date() })
           .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        if (!contact.optOut) {
+        if (!contactOptedOut) {
           await tx
             .update(contacts)
             .set({ status: "completed", updatedAt: new Date() })
             .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
         }
-      } else if (isRetryable && currentAttempt < maxAttempts && !contact.optOut) {
+      } else if (isRetryable && currentAttempt < maxAttempts && !contactOptedOut) {
         finalQueueStatus = "pending";
         const retryNotBefore = new Date(Date.now() + routingPolicy.noAnswer.retryAfterMinutes * 60_000);
         retryScheduledFor = nextWorkspaceCallingTime(retryNotBefore, routingPolicy.callingHours);
@@ -428,7 +448,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
           .set({ status: "exhausted", reservedCredits: 0, updatedAt: new Date() })
           .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        if (!contact.optOut) {
+        if (!contactOptedOut) {
           await tx
             .update(contacts)
             .set({ status: "completed", updatedAt: new Date() })

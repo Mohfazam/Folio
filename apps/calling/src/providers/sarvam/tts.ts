@@ -8,8 +8,16 @@ import { env } from "../../config/env.js";
 const sarvam = new SarvamAIClient({ apiSubscriptionKey: env.sarvamApiKey });
 
 export interface TextToSpeechOptions {
-  speaker?: "priya" | "shubh" | "aditya" | "ritu" | "kavya" | string;
+  /** Sarvam Bulbul v3 speaker ID. */
+  speaker?: string;
   languageCode?: string;
+  /** Sarvam's `pace` parameter. Bulbul v3 supports 0.5–2.0. */
+  pace?: number;
+}
+
+function normalizePace(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+  return Math.max(0.5, Math.min(2, value));
 }
 
 /**
@@ -21,6 +29,7 @@ export async function convertTextToSpeech(
 ): Promise<Buffer> {
   const speaker = options?.speaker ?? "priya";
   const languageCode = options?.languageCode ?? "en-IN";
+  const pace = normalizePace(options?.pace);
 
   const response = await sarvam.textToSpeech.convert({
     text,
@@ -29,6 +38,7 @@ export async function convertTextToSpeech(
     speaker: speaker as any,
     output_audio_codec: "mulaw",
     speech_sample_rate: 8000,
+    pace,
   });
 
   const audioBase64 = response.audios[0];
@@ -110,6 +120,7 @@ export async function openSarvamTtsStream(
 
   const speaker = options?.speaker ?? "priya";
   const languageCode = options?.languageCode ?? "en-IN";
+  const pace = normalizePace(options?.pace);
 
   // Avoid socket.configureConnection() because the sarvamai SDK automatically
   // injects `min_buffer_size: 50`, which causes Sarvam's bulbul:v3 API to reject
@@ -121,6 +132,7 @@ export async function openSarvamTtsStream(
       speaker,
       speech_sample_rate: 8000,
       output_audio_codec: "mulaw",
+      pace,
     },
   });
 
@@ -147,6 +159,7 @@ export async function openSarvamTtsStream(
             speaker,
             speech_sample_rate: 8000,
             output_audio_codec: "mulaw",
+            pace,
           },
         });
       } catch (e) {

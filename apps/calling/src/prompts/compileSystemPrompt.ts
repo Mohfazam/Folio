@@ -45,6 +45,20 @@ export interface KnowledgeBaseItem {
   targetPersonas?: string[];
 }
 
+export interface AgentRuntimeSettings {
+  agentName?: string;
+  tone?: string;
+  language?: string;
+  speechRate?: number;
+  voiceId?: string | null;
+  greeting?: string;
+  primaryObjective?: string;
+  handoffInstructions?: string;
+  pronunciationNotes?: string;
+  guardrails?: string[];
+  complianceNotes?: string;
+}
+
 export interface BusinessContext {
   displayName: string;
   industry?: string;
@@ -57,6 +71,7 @@ export interface BusinessContext {
   aiPersonaName?: string;
   catalogOfferings?: CatalogOffering[];
   guardrails?: string[];
+  complianceNotes?: string;
 }
 
 export interface CampaignContext {
@@ -79,6 +94,11 @@ export interface ContactContext {
 
 export interface PromptContext {
   business?: BusinessContext;
+  /** Saved workspace agent configuration, supplied by the authenticated backend worker. */
+  agentSettings?: AgentRuntimeSettings;
+  /** Workspace timezone used to resolve explicit callback dates during post-call analysis. */
+  workspaceTimezone?: string;
+  /** Campaign/contact context remains separate from the agent's stable persona configuration. */
   campaign?: CampaignContext;
   contact?: ContactContext;
   knowledgeBase?: KnowledgeBaseItem[];
@@ -90,9 +110,10 @@ export function compileSystemPrompt(ctx: PromptContext): string {
 
   // 1. Role, Persona & Business Identity
   const b = ctx.business;
-  const persona = b?.aiPersonaName || "Assistant";
+  const agent = ctx.agentSettings;
+  const persona = agent?.agentName || b?.aiPersonaName || "Assistant";
   const businessName = b?.displayName || "our company";
-  const tone = b?.toneOfVoice || "Warm, professional, knowledgeable, conversational, and concise";
+  const tone = agent?.tone || b?.toneOfVoice || "Warm, professional, knowledgeable, conversational, and concise";
 
   sections.push(
     `### Role & Identity
@@ -104,6 +125,17 @@ ${b?.address ? `Location/Headquarters: ${b.address}` : ""}
 ${b?.operatingHours ? `Operating Hours / Availability: ${b.operatingHours}` : ""}
 ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`.trim()
   );
+
+  // 1b. Stable agent configuration. Campaign objectives remain in their own section.
+  if (agent) {
+    const agentLines: string[] = ["### Saved AI Agent Configuration"];
+    if (agent.primaryObjective) agentLines.push(`- Primary agent objective: ${agent.primaryObjective}`);
+    if (agent.language) agentLines.push(`- Preferred starting language: ${agent.language}. Follow the caller's language when the conversation changes language.`);
+    if (agent.pronunciationNotes) agentLines.push(`- Pronunciation guidance: ${agent.pronunciationNotes}`);
+    if (agent.handoffInstructions) agentLines.push(`- Human handoff procedure: ${agent.handoffInstructions}`);
+    if (agent.complianceNotes) agentLines.push(`- Compliance requirements: ${agent.complianceNotes}`);
+    sections.push(agentLines.join("\n"));
+  }
 
   // 2. Contact Information
   const c = ctx.contact;
@@ -235,10 +267,12 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     "Never invent prices, specs, discounts, or policies not listed in this knowledge base or prompt.",
     "Do not sound robotic or read bullet points like a script; adapt to the caller's responses.",
     "When the conversation is completed (e.g. the caller says goodbye, confirms no more questions, says they are not interested, or you finish your final farewell), deliver a warm closing and append [HANGUP] at the end of your response.",
-    "If the caller asks for human escalation or questions outside your scope, offer to have a representative call them back or share the support number.",
+    "If the caller explicitly asks for a human, representative, manager, or support person, acknowledge the request and follow the configured handoff procedure. This system creates a follow-up for a human representative; do not claim that a live transfer has happened unless a live-transfer feature is actually connected.",
+    "If the caller says not to call or contact them again, acknowledge the opt-out briefly, do not persuade them to continue, and end the call politely. The system records explicit opt-out requests for suppression from future campaigns.",
     "MULTILINGUAL: Always respond in the same language the caller is speaking. If they switch languages mid-call, switch with them seamlessly. Never offer to transfer to a human or end the call because of a language change. You are fully fluent in all supported Indian languages.",
     "When responding in an Indian language, use its native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Never use romanized transliteration for Indian language responses.",
     ...(b?.guardrails || []),
+    ...(agent?.guardrails || []),
   ];
 
   sections.push(`### Guardrails & Safety\n${guardrails.map((g) => `- ${g}`).join("\n")}`);
