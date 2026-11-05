@@ -2,6 +2,7 @@ import { eq, lte, sql, and, asc, isNull, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
+import { getWorkspaceAgentRuntimeSettings, isFooliooSystemContact } from "../services/workspaceConfiguration.js";
 
 /**
  * Concurrency Mutex: prevents duplicate simultaneous worker runs from
@@ -62,11 +63,15 @@ export function isWithinCallingHours(currentTime: string, start: string | null, 
   return currentTime >= s && currentTime <= e;
 }
 
-async function releaseDialReservation(queueEntryId: string, clientId: string) {
+async function releaseDialReservation(
+  queueEntryId: string,
+  clientId: string,
+  nextStatus: "pending" | "failed" = "pending",
+) {
   await db.transaction(async (tx) => {
     const [released] = await tx
       .update(callQueue)
-      .set({ status: "pending", reservedCredits: 0, updatedAt: new Date() })
+      .set({ status: nextStatus, reservedCredits: 0, updatedAt: new Date() })
       .where(and(eq(callQueue.id, queueEntryId), eq(callQueue.status, "in_progress")))
       .returning({ reservedCredits: callQueue.reservedCredits });
 
@@ -278,7 +283,27 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         continue;
       }
 
-      let campaignMaxDurationSeconds = 300;
+      const isTestCall = queueEntry.campaignId === null && isFooliooSystemContact(contact.customFields);
+      // campaign_id=NULL is reserved for the explicit system test-call workflow.
+      // Never let arbitrary unlinked queue rows become live outbound calls.
+      if ((queueEntry.campaignId === null && !isTestCall) || (queueEntry.campaignId !== null && isFooliooSystemContact(contact.customFields))) {
+        console.error(`[worker] Rejecting unsupported queue/contact combination for ${queueEntry.id}`);
+        await db.update(callQueue)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")));
+        continue;
+      }
+
+      const agentRuntimeSettings = await getWorkspaceAgentRuntimeSettings(client.id);
+      if (isTestCall && !agentRuntimeSettings) {
+        console.error(`[worker] Test call ${queueEntry.id} has no saved agent runtime settings; rejecting it.`);
+        await db.update(callQueue)
+          .set({ status: "failed", updatedAt: new Date() })
+          .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "pending")));
+        continue;
+      }
+
+      let campaignMaxDurationSeconds = isTestCall ? 120 : 300;
       if (queueEntry.campaignId) {
         const [campaign] = await db
           .select({ status: campaigns.status, maxDurationSeconds: campaigns.maxDurationSeconds })
@@ -293,7 +318,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           continue;
         }
         campaignMaxDurationSeconds = campaign.maxDurationSeconds ?? 300;
-      } else {
+      } else if (!isTestCall) {
         await db
           .update(callQueue)
           .set({ status: "failed", updatedAt: new Date() })
@@ -301,6 +326,8 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         continue;
       }
 
+      // Test calls use a bounded two-minute cap and reserve quota exactly like
+      // campaign calls. The completion webhook charges actual connected time.
       const reservedCredits = Math.max(1, Math.ceil(campaignMaxDurationSeconds / 10));
       const claimed = await db.transaction(async (tx) => {
         const [claimedQueueEntry] = await tx
@@ -358,11 +385,20 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           operatingHours: bp.operatingHours,
           supportPhone: bp.supportPhone,
           catalogOfferings: bp.catalogOfferings,
-          toneOfVoice: bp.toneOfVoice,
-          aiPersonaName: bp.aiPersonaName,
-          guardrails: bp.guardrails,
+          toneOfVoice: agentRuntimeSettings?.tone ?? bp.toneOfVoice,
+          aiPersonaName: agentRuntimeSettings?.agentName ?? bp.aiPersonaName,
+          guardrails: agentRuntimeSettings?.guardrails ?? bp.guardrails,
           keyDifferentiators: bp.keyDifferentiators,
-          complianceNotes: bp.complianceNotes,
+          complianceNotes: agentRuntimeSettings?.complianceNotes ?? bp.complianceNotes,
+          // Provider-independent voice instructions are included for calling
+          // runtimes that build their prompt from the business context.
+          voiceId: agentRuntimeSettings?.voiceId ?? undefined,
+          language: agentRuntimeSettings?.language,
+          speechRate: agentRuntimeSettings?.speechRate,
+          greeting: agentRuntimeSettings?.greeting,
+          primaryObjective: agentRuntimeSettings?.primaryObjective,
+          handoffInstructions: agentRuntimeSettings?.handoffInstructions,
+          pronunciationNotes: agentRuntimeSettings?.pronunciationNotes,
         };
       }
 
@@ -457,6 +493,11 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         campaign,
         contact: contactContext,
         knowledgeBase: kbEntries.length > 0 ? kbEntries : undefined,
+        // The calling service can apply these settings to its voice/LLM runtime.
+        // Existing business fields remain for backward compatibility.
+        agentSettings: agentRuntimeSettings,
+        workspaceTimezone: client.timezone || "Asia/Kolkata",
+        isTestCall,
       };
 
       const callingUrl = `${env.callingServiceUrl.replace(/\/$/, "")}/dial`;
@@ -485,7 +526,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
             dialResponse.status === 409 ||
             dialResponse.status === 429;
           if (!outcomeIsAmbiguous) {
-            await releaseDialReservation(queueEntry.id, client.id);
+            await releaseDialReservation(queueEntry.id, client.id, isTestCall ? "failed" : "pending");
           } else {
             console.error(
               `[worker] Dial outcome for queue entry ${queueEntry.id} is ambiguous; retaining its claim to avoid an immediate duplicate call`,

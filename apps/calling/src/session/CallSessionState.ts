@@ -14,6 +14,7 @@ import {
   buildPersonalizedGreeting,
   type PromptContext,
 } from "../prompts/compileSystemPrompt.js";
+import { isSarvamBulbulV3Speaker } from "../providers/sarvam/voices.js";
 
 /**
  * Per-call session state manager.
@@ -35,6 +36,8 @@ export class CallSessionState {
   readonly queueEntryId?: string;
   readonly phoneNumber: string;
   readonly language: string;
+  readonly voiceId: string;
+  readonly speechRate: number;
   readonly campaignId?: string;
   readonly instructions?: string;
   readonly context?: PromptContext;
@@ -81,8 +84,19 @@ export class CallSessionState {
     this.queueEntryId = request.queueEntryId;
     this.campaignId = request.campaignId;
     this.phoneNumber = request.phoneNumber;
-    this.language = request.language ?? "en-IN";
     this.context = request.context;
+
+    const agentSettings = request.context?.agentSettings;
+    this.language = request.language ?? agentSettings?.language ?? "en-IN";
+    const configuredVoice = agentSettings?.voiceId;
+    this.voiceId = isSarvamBulbulV3Speaker(configuredVoice) ? configuredVoice : "priya";
+    if (configuredVoice && !isSarvamBulbulV3Speaker(configuredVoice)) {
+      console.warn(`[call ${request.requestId.slice(0, 8)}] Unsupported Sarvam Bulbul v3 voice '${configuredVoice}'. Falling back to 'priya'.`);
+    }
+    const configuredRate = agentSettings?.speechRate;
+    this.speechRate = typeof configuredRate === "number" && Number.isFinite(configuredRate)
+      ? Math.max(0.8, Math.min(1.2, configuredRate))
+      : 1;
 
     if (request.context) {
       const mergedContext = request.instructions
@@ -95,6 +109,7 @@ export class CallSessionState {
 
     this.greetingText =
       request.greetingText ||
+      agentSettings?.greeting ||
       buildPersonalizedGreeting(request.context);
 
     this.callbackUrl = request.callbackUrl;

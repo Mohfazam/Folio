@@ -1,9 +1,9 @@
 import type { Request, Response } from "express";
 import { eq, and, sql, desc, gte, lte, or, like } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { calls, callQueue, clients, contacts, followUps, campaigns } from "@repo/db";
+import { calls, callQueue, clients, contacts, followUps, campaigns, users } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
-import { calculateNextRetrySchedule } from "../utils/retrySchedule.js";
+import { getWorkspaceRoutingPolicyFromClient, isFooliooSystemContact, nextWorkspaceCallingTime } from "../services/workspaceConfiguration.js";
 
 /**
  * The shape posted by /apps/calling's dispatchCallCompleted.
@@ -58,6 +58,8 @@ interface CallingServicePayload {
     objectionsRaised: string[];
     followUpRequested: boolean;
     requestedCallbackTime?: string;
+    humanRequested?: boolean;
+    optOutRequested?: boolean;
     notes?: string;
   };
   costEstimate?: {
@@ -161,6 +163,8 @@ export async function callCompleteRoute(req: Request, res: Response) {
         analysis.objectionsRaised.length > 100 ||
         analysis.objectionsRaised.some((item) => typeof item !== "string" || item.length > 1000) ||
         typeof analysis.followUpRequested !== "boolean" ||
+        (analysis.humanRequested !== undefined && typeof analysis.humanRequested !== "boolean") ||
+        (analysis.optOutRequested !== undefined && typeof analysis.optOutRequested !== "boolean") ||
         (analysis.notes !== undefined && (typeof analysis.notes !== "string" || analysis.notes.length > 5000)) ||
         (analysis.requestedCallbackTime !== undefined &&
           (typeof analysis.requestedCallbackTime !== "string" ||
@@ -238,6 +242,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         companyName: contacts.companyName,
         jobTitle: contacts.jobTitle,
         optOut: contacts.optOut,
+        customFields: contacts.customFields,
       })
       .from(contacts)
       .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)))
@@ -269,7 +274,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         interestLevel: analysis?.interestLevel ?? null,
         sentiment: analysis?.sentiment ?? null,
         objectionsRaised: analysis?.objectionsRaised ?? null,
-        followUpRequested: analysis?.followUpRequested ?? false,
+        followUpRequested: Boolean(analysis?.followUpRequested || analysis?.requestedCallbackTime || analysis?.humanRequested),
         costTelephony,
         costStt,
         costLlm,
@@ -293,40 +298,99 @@ export async function callCompleteRoute(req: Request, res: Response) {
       throw new Error("Failed to insert call record");
     }
 
-    // 2. Follow-up ingestion
+    // 2. Follow-up routing. Test calls are for the workspace owner and must
+    // never create CRM follow-ups or trigger business routing automations.
+    const isTestCall = Boolean(queueEntry && queueEntry.campaignId === null && isFooliooSystemContact(contact.customFields));
+    const routingPolicy = getWorkspaceRoutingPolicyFromClient(client);
+    const optOutRequested = !isTestCall && analysis?.optOutRequested === true;
+    const contactOptedOut = contact.optOut || optOutRequested;
+
+    // A caller's explicit opt-out is authoritative. Suppress every pending queue
+    // item for this contact before any retry or follow-up routing can run.
+    if (optOutRequested) {
+      await tx.update(contacts)
+        .set({ optOut: true, status: "do_not_call", updatedAt: new Date() })
+        .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
+      await tx.update(callQueue)
+        .set({ status: "failed", reservedCredits: 0, updatedAt: new Date() })
+        .where(and(
+          eq(callQueue.contactId, payload.contactId),
+          eq(callQueue.clientId, payload.clientId),
+          eq(callQueue.status, "pending"),
+        ));
+    }
+
     let followUpId: string | null = null;
-    if (analysis?.followUpRequested || analysis?.requestedCallbackTime) {
-      let callbackDate: Date | null = null;
-      if (analysis?.requestedCallbackTime) {
-        const parsed = new Date(analysis.requestedCallbackTime);
-        if (!isNaN(parsed.getTime())) {
-          callbackDate = parsed;
+    const followUpIds: string[] = [];
+
+    if (!isTestCall && analysis && !optOutRequested) {
+      const callbackTriggered = routingPolicy.callback.enabled &&
+        (analysis.followUpRequested || Boolean(analysis.requestedCallbackTime));
+      const highInterestTriggered = routingPolicy.highInterest.enabled && analysis.interestLevel === "high";
+      const humanRequestedTriggered = routingPolicy.humanRequested.enabled && analysis.humanRequested === true;
+
+      // One actionable item per call avoids duplicate tasks when a caller asks
+      // for a callback while also expressing strong interest. Human handoff is
+      // the most urgent action, followed by an explicit callback, then interest.
+      const selectedFollowUp = humanRequestedTriggered
+        ? {
+            type: "escalation",
+            priority: "urgent",
+            assignedTo: routingPolicy.humanRequested.assignToUserId,
+            dueDate: new Date(Date.now() + 5 * 60_000),
+            triggerNote: "The caller requested a human representative.",
+          }
+        : callbackTriggered
+          ? {
+              type: "call_back",
+              priority: analysis.interestLevel === "high" ? "high" : "medium",
+              assignedTo: routingPolicy.callback.assignToUserId,
+              dueDate: analysis.requestedCallbackTime
+                ? new Date(analysis.requestedCallbackTime)
+                : new Date(Date.now() + routingPolicy.callback.dueInMinutes * 60_000),
+              triggerNote: "A callback was requested during the call.",
+            }
+          : highInterestTriggered
+            ? {
+                type: "lead_follow_up",
+                priority: "high",
+                assignedTo: routingPolicy.highInterest.assignToUserId,
+                dueDate: new Date(Date.now() + routingPolicy.callback.dueInMinutes * 60_000),
+                triggerNote: "The call was classified as a high-interest lead.",
+              }
+            : null;
+
+      if (selectedFollowUp) {
+        let assignedTo: string | null = null;
+        if (selectedFollowUp.assignedTo) {
+          const [validOwner] = await tx.select({ id: users.id }).from(users)
+            .where(and(eq(users.id, selectedFollowUp.assignedTo), eq(users.clientId, payload.clientId)))
+            .limit(1);
+          assignedTo = validOwner?.id ?? null;
         }
-      }
 
-      const notes =
-        analysis?.notes?.trim() ||
-        analysis?.summary?.trim() ||
-        (callbackDate ? `Callback requested for ${callbackDate.toISOString()}` : "Follow-up requested during call");
-
-      const [createdFollowUp] = await tx
-        .insert(followUps)
-        .values({
+        const notes = [analysis.notes?.trim() || analysis.summary?.trim() || "Follow-up created from a completed call.", selectedFollowUp.triggerNote]
+          .filter(Boolean).join("\n\n").slice(0, 5000);
+        const [createdFollowUp] = await tx.insert(followUps).values({
           callId: callRecord.id,
           contactId: payload.contactId,
           clientId: payload.clientId,
-          type: "call_back",
-          priority: analysis?.interestLevel === "high" ? "high" : "medium",
-          requestedCallbackTime: callbackDate,
-          dueDate: callbackDate,
+          type: selectedFollowUp.type,
+          priority: selectedFollowUp.priority,
+          assignedTo,
+          requestedCallbackTime: selectedFollowUp.type === "call_back" && analysis.requestedCallbackTime
+            ? new Date(analysis.requestedCallbackTime)
+            : null,
+          dueDate: selectedFollowUp.dueDate,
           status: "open",
           notes,
-        })
-        .returning();
+        }).returning({ id: followUps.id });
 
-      if (createdFollowUp) {
-        followUpId = createdFollowUp.id;
-        console.log(`[calls/complete] 📋 Created follow-up ${followUpId} for contact ${payload.contactId}`);
+        if (createdFollowUp) {
+          followUpId = createdFollowUp.id;
+          followUpIds.push(createdFollowUp.id);
+          console.log(`[calls/complete] Created ${selectedFollowUp.type} follow-up ${createdFollowUp.id} for contact ${payload.contactId}`);
+        }
       }
     }
 
@@ -336,9 +400,9 @@ export async function callCompleteRoute(req: Request, res: Response) {
 
     if (queueEntry) {
       const isConnected = outcome === "connected";
-      const isRetryable = payload.retryable !== false && !isConnected;
-      const maxAttempts = queueEntry.maxAttempts ?? 2;
+      const maxAttempts = Math.max(1, Math.min(queueEntry.maxAttempts ?? routingPolicy.noAnswer.maxAttempts, routingPolicy.noAnswer.maxAttempts));
       const currentAttempt = queueEntry.attemptNumber ?? 1;
+      const isRetryable = !isTestCall && routingPolicy.noAnswer.enabled && payload.retryable !== false && !isConnected;
 
       if (isConnected) {
         finalQueueStatus = "completed";
@@ -347,20 +411,16 @@ export async function callCompleteRoute(req: Request, res: Response) {
           .set({ status: "completed", reservedCredits: 0, updatedAt: new Date() })
           .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        if (!contact.optOut) {
+        if (!contactOptedOut) {
           await tx
             .update(contacts)
             .set({ status: "completed", updatedAt: new Date() })
             .where(and(eq(contacts.id, payload.contactId), eq(contacts.clientId, payload.clientId)));
         }
-      } else if (isRetryable && currentAttempt < maxAttempts && !contact.optOut) {
+      } else if (isRetryable && currentAttempt < maxAttempts && !contactOptedOut) {
         finalQueueStatus = "pending";
-        retryScheduledFor = calculateNextRetrySchedule(
-          client?.timezone ?? "Asia/Kolkata",
-          client?.callingHoursStart,
-          client?.callingHoursEnd,
-          2
-        );
+        const retryNotBefore = new Date(Date.now() + routingPolicy.noAnswer.retryAfterMinutes * 60_000);
+        retryScheduledFor = nextWorkspaceCallingTime(retryNotBefore, routingPolicy.callingHours);
 
         await tx
           .update(callQueue)
@@ -388,7 +448,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
           .set({ status: "exhausted", reservedCredits: 0, updatedAt: new Date() })
           .where(and(eq(callQueue.id, queueEntry.id), eq(callQueue.status, "in_progress")));
 
-        if (!contact.optOut) {
+        if (!contactOptedOut) {
           await tx
             .update(contacts)
             .set({ status: "completed", updatedAt: new Date() })
@@ -445,6 +505,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
       queueStatus: finalQueueStatus,
       retryScheduledFor: retryScheduledFor?.toISOString(),
       followUpId: followUpId ?? undefined,
+      followUpIds,
       costBreakdown: {
         costTelephony,
         costStt,

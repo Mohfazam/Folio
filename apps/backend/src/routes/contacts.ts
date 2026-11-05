@@ -50,7 +50,11 @@ export async function getContactsRoute(req: Request, res: Response) {
     const take = Math.min(Math.max(parseInt(limit || "50", 10) || 50, 1), 100);
     const skip = Math.max(parseInt(offset || "0", 10) || 0, 0);
 
-    const conditions = [eq(contacts.clientId, clientId)];
+    const conditions = [
+      eq(contacts.clientId, clientId),
+      // Hide internal test-call contacts from the customer-facing CRM directory.
+      sql`${contacts.customFields}->>'_fooliooSystem' IS DISTINCT FROM 'test_call'`,
+    ];
 
     if (status) {
       conditions.push(eq(contacts.status, status as any));
@@ -125,7 +129,11 @@ export async function getContactByIdRoute(req: Request, res: Response) {
     const [contact] = await db
       .select()
       .from(contacts)
-      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.clientId, req.clientId!),
+        sql`${contacts.customFields}->>'_fooliooSystem' IS DISTINCT FROM 'test_call'`,
+      ))
       .limit(1);
 
     if (!contact) {
@@ -447,7 +455,11 @@ export async function updateContactRoute(req: Request, res: Response) {
     const [updated] = await db
       .update(contacts)
       .set(updateData)
-      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.clientId, req.clientId!),
+        sql`${contacts.customFields}->>'_fooliooSystem' IS DISTINCT FROM 'test_call'`,
+      ))
       .returning();
 
     if (!updated) {
@@ -487,7 +499,11 @@ export async function deleteContactRoute(req: Request, res: Response) {
 
     const [deleted] = await db
       .delete(contacts)
-      .where(and(eq(contacts.id, id), eq(contacts.clientId, req.clientId!)))
+      .where(and(
+        eq(contacts.id, id),
+        eq(contacts.clientId, req.clientId!),
+        sql`${contacts.customFields}->>'_fooliooSystem' IS DISTINCT FROM 'test_call'`,
+      ))
       .returning();
 
     if (!deleted) {

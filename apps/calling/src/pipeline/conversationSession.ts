@@ -22,6 +22,8 @@ export interface ConversationSessionOptions {
   instructions?: string;
   language?: string;
   greetingText?: string;
+  speaker?: string;
+  speechRate?: number;
   sessionState?: CallSessionState;
 }
 
@@ -65,7 +67,11 @@ export function createConversationSession(
   // ── Dynamic language tracking ──────────────────────────────────
   // Tracks the active language detected from caller speech across turns.
   // Starts with the configured language and updates per-turn from STT detection.
-  let currentLanguage = normalizeLanguageCode(options?.language);
+  let currentLanguage = normalizeLanguageCode(options?.language ?? options?.sessionState?.language);
+  const speaker = options?.speaker ?? options?.sessionState?.voiceId ?? "priya";
+  const speechRate = typeof options?.speechRate === "number"
+    ? Math.max(0.8, Math.min(1.2, options.speechRate))
+    : options?.sessionState?.speechRate ?? 1;
 
   const sessionStartTime = performance.now();
 
@@ -93,8 +99,9 @@ export function createConversationSession(
     try {
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
       const audio = await convertTextToSpeech(greetingText, {
-        speaker: "priya",
+        speaker,
         languageCode: currentLanguage,
+        pace: speechRate,
       });
 
       if (closed || generationId !== currentGen) return;
@@ -162,8 +169,9 @@ export function createConversationSession(
         turnAudioBytes += audioChunk.length;
         if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
       }, {
-        speaker: "priya",
+        speaker,
         languageCode: activeLanguage,
+        pace: speechRate,
         signal: controller.signal,
       });
 
@@ -202,8 +210,9 @@ export function createConversationSession(
         metricsCollector.recordEmptyReplyFallback();
         options?.sessionState?.recordError("model", "model_empty", "Gemini returned empty response");
         const fallbackAudio = await convertTextToSpeech(EMPTY_REPLY_FALLBACK, {
-          speaker: "priya",
+          speaker,
           languageCode: activeLanguage,
+          pace: speechRate,
         });
         if (!closed && generationId === currentGen) {
           callbacks.playAudio(fallbackAudio);
@@ -218,7 +227,7 @@ export function createConversationSession(
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
       // IMPORTANT: Do NOT treat language-switch turns as exit phrases
-      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect|not interested|dont call|don't call)\b/i.test(trimmed);
+      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect|not interested|dont call|don't call|do not call|stop calling|remove me from (your )?(list|database)|unsubscribe)\b/i.test(trimmed);
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
       const shouldHangup = (hasHangupToken || isExitPhrase) && !isLanguageSwitch;
 

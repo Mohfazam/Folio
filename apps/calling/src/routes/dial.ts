@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { initiateOutboundCall } from "../providers/plivo/dial.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
+import { isSarvamBulbulV3Speaker } from "../providers/sarvam/voices.js";
 
 // Timestamp tracking to prevent rapid duplicate double-triggers (< 3 seconds)
 let lastDialTimestamp = 0;
@@ -19,7 +20,32 @@ export async function dialRoute(req: Request, res: Response) {
   const greetingText = (params.greetingText as string) || (params.greeting as string) || undefined;
   const callbackUrl = process.env.CALLBACK_URL?.trim();
   const recordCall = params.recordCall !== undefined ? Boolean(params.recordCall) : false;
-  const language = (params.language as string) || undefined;
+  const rawContext = params.context;
+  const agentSettings = rawContext && typeof rawContext === "object" && !Array.isArray(rawContext)
+    ? (rawContext as Record<string, any>).agentSettings
+    : undefined;
+  const language =
+    (typeof params.language === "string" ? params.language : undefined) ||
+    (agentSettings && typeof agentSettings.language === "string" ? agentSettings.language : undefined) ||
+    undefined;
+
+  if (agentSettings && typeof agentSettings === "object" && !Array.isArray(agentSettings)) {
+    if (agentSettings.voiceId && !isSarvamBulbulV3Speaker(agentSettings.voiceId)) {
+      return res.status(400).json({
+        ok: false,
+        error: `Unsupported voiceId for the configured Sarvam Bulbul v3 model: ${String(agentSettings.voiceId)}`,
+        code: "UNSUPPORTED_VOICE_ID",
+      });
+    }
+    if (agentSettings.speechRate !== undefined &&
+      (typeof agentSettings.speechRate !== "number" || !Number.isFinite(agentSettings.speechRate) || agentSettings.speechRate < 0.8 || agentSettings.speechRate > 1.2)) {
+      return res.status(400).json({
+        ok: false,
+        error: "Agent speechRate must be a number between 0.8 and 1.2.",
+        code: "INVALID_SPEECH_RATE",
+      });
+    }
+  }
 
   // Support structured context passed directly or via business/campaign/contact keys
   const context =

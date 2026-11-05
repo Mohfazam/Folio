@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { eq, desc } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { clients } from "@repo/db";
+import { clients, users } from "@repo/db";
 
 /**
  * Validates timezone identifier.
@@ -100,7 +100,7 @@ export async function getClientByIdRoute(req: Request, res: Response) {
 /**
  * PATCH /api/clients/:id
  *
- * Update client settings (callingHoursStart, callingHoursEnd, timezone, maxCallsPerDay, callerIdNumber, metadata, etc.).
+ * Update client settings, including workspace calling hours and the workspace-scoped routingRules configuration.
  */
 export async function updateClientRoute(req: Request, res: Response) {
   try {
@@ -119,6 +119,7 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursEnd,
       timezone,
       metadata,
+      routingRules,
     } = req.body as Partial<{
       name: string;
       contactPersonName: string;
@@ -129,6 +130,7 @@ export async function updateClientRoute(req: Request, res: Response) {
       callingHoursEnd: string;
       timezone: string;
       metadata: Record<string, any>;
+      routingRules: Record<string, any>;
     }>;
 
     if (timezone && !isValidTimezone(timezone)) {
@@ -150,6 +152,11 @@ export async function updateClientRoute(req: Request, res: Response) {
         ok: false,
         error: `Invalid callingHoursEnd format '${callingHoursEnd}'. Expected 'HH:MM' or 'HH:MM:SS'`,
       });
+    }
+
+    if (callingHoursStart !== undefined && callingHoursEnd !== undefined &&
+        callingHoursStart.slice(0, 5) >= callingHoursEnd.slice(0, 5)) {
+      return res.status(400).json({ ok: false, error: "Calling-hour end must be later than its start." });
     }
 
     if (callerIdNumber !== undefined && callerIdNumber !== null) {
@@ -178,7 +185,48 @@ export async function updateClientRoute(req: Request, res: Response) {
     if (callingHoursStart !== undefined) updateData.callingHoursStart = callingHoursStart;
     if (callingHoursEnd !== undefined) updateData.callingHoursEnd = callingHoursEnd;
     if (timezone) updateData.timezone = timezone;
-    if (metadata !== undefined) updateData.metadata = metadata;
+
+    if (routingRules !== undefined) {
+      if (!routingRules || typeof routingRules !== "object" || Array.isArray(routingRules)) {
+        return res.status(400).json({ ok: false, error: "routingRules must be an object." });
+      }
+      const callback = routingRules.callback && typeof routingRules.callback === "object" ? routingRules.callback : {};
+      const highInterest = routingRules.highInterest && typeof routingRules.highInterest === "object" ? routingRules.highInterest : {};
+      const humanRequested = routingRules.humanRequested && typeof routingRules.humanRequested === "object" ? routingRules.humanRequested : {};
+      const noAnswer = routingRules.noAnswer && typeof routingRules.noAnswer === "object" ? routingRules.noAnswer : {};
+      const memberIds = [callback.assignToUserId, highInterest.assignToUserId, humanRequested.assignToUserId]
+        .filter((value): value is string => typeof value === "string" && value.length > 0);
+      if (memberIds.length) {
+        const found = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.clientId, req.clientId!), inArray(users.id, [...new Set(memberIds)])));
+        if (found.length !== new Set(memberIds).size) {
+          return res.status(400).json({ ok: false, error: "Choose team members from this workspace only." });
+        }
+      }
+      const dueInMinutes = Number(callback.dueInMinutes ?? 30);
+      const retryAfterMinutes = Number(noAnswer.retryAfterMinutes ?? 1440);
+      const maxRetries = Number(noAnswer.maxRetries ?? 2);
+      if (!Number.isInteger(dueInMinutes) || dueInMinutes < 5 || dueInMinutes > 10080) {
+        return res.status(400).json({ ok: false, error: "Callback delay must be between 5 minutes and 7 days." });
+      }
+      if (!Number.isInteger(retryAfterMinutes) || retryAfterMinutes < 15 || retryAfterMinutes > 10080) {
+        return res.status(400).json({ ok: false, error: "Retry delay must be between 15 minutes and 7 days." });
+      }
+      if (!Number.isInteger(maxRetries) || maxRetries < 0 || maxRetries > 5) {
+        return res.status(400).json({ ok: false, error: "Maximum retries must be between 0 and 5." });
+      }
+      const normalizedRules = {
+        configured: true,
+        callback: { enabled: callback.enabled !== false, assignToUserId: typeof callback.assignToUserId === "string" && callback.assignToUserId ? callback.assignToUserId : req.user?.id ?? null, dueInMinutes },
+        highInterest: { enabled: highInterest.enabled !== false, assignToUserId: typeof highInterest.assignToUserId === "string" && highInterest.assignToUserId ? highInterest.assignToUserId : req.user?.id ?? null },
+        humanRequested: { enabled: humanRequested.enabled !== false, assignToUserId: typeof humanRequested.assignToUserId === "string" && humanRequested.assignToUserId ? humanRequested.assignToUserId : req.user?.id ?? null },
+        noAnswer: { enabled: noAnswer.enabled !== false, retryAfterMinutes, maxRetries },
+        updatedAt: new Date().toISOString(),
+      };
+      updateData.metadata = sql`jsonb_set(COALESCE(${clients.metadata}, '{}'::jsonb) || ${JSON.stringify(metadata ?? {})}::jsonb, '{routingRules}', ${JSON.stringify(normalizedRules)}::jsonb, true)` as any;
+    } else if (metadata !== undefined) {
+      updateData.metadata = sql`COALESCE(${clients.metadata}, '{}'::jsonb) || ${JSON.stringify(metadata)}::jsonb` as any;
+    }
 
     const [updated] = await db
       .update(clients)
