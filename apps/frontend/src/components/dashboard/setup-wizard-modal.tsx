@@ -352,7 +352,7 @@ export function SetupWizardModal({
 
           {action === "test-call" ? (
             <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Call your own phone to hear how your configured agent opens a conversation. This places a real phone call. It is not a browser simulation.</p>
+              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Call your own verified phone to hear how your configured agent opens a conversation. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
               <form className="flex flex-col gap-4" onSubmit={async (event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -374,7 +374,7 @@ export function SetupWizardModal({
                 </label>
                 <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
                   <input name="confirmRealCall" type="checkbox" required className="mt-1 accent-[#7852D6]" />
-                  <span>I understand that Foolioo will place a real call to this number and that normal telephony or voice usage may apply.</span>
+                  <span>I understand that Foolioo will place a real call to my verified number, for up to two minutes, and that voice credits and my daily call allowance will be used.</span>
                 </label>
                 <div className="flex justify-end">
                   <button type="submit" disabled={busy || !hasVerifiedPhone || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call my phone"}</button>

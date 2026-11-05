@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { getUtcDateForTimezone } from "../utils/retrySchedule.js";
+import { processNextEligibleCall } from "../worker/processQueue.js";
 import {
   auditLog,
   businessProfiles,
@@ -206,6 +207,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Use a verified phone number that is eligible for calling." });
     }
 
+    const launchNow = new Date();
     const created = await db.transaction(async (tx) => {
       // Serialize test-call requests per workspace so parallel clicks cannot bypass cooldowns.
       const [client] = await tx.select().from(clients)
@@ -226,8 +228,11 @@ export async function createTestCallRoute(req: Request, res: Response) {
 
       const creditsRemaining = Math.max(0, client.monthlyCreditsAllowance - client.creditsUsedThisCycle - client.creditsReservedThisCycle);
       const callsRemainingToday = Math.max(0, client.maxCallsPerDay - client.callsMadeToday);
-      if (creditsRemaining <= 0 || callsRemainingToday <= 0) {
-        return { error: "Your workspace has reached its current calling limit. Review your available credits and daily allowance.", status: 409 as const };
+      // The queue worker caps a test call at 120 seconds and reserves one credit
+      // per ten-second unit before contacting the telephony provider.
+      const testCallCreditReservation = 12;
+      if (creditsRemaining < testCallCreditReservation || callsRemainingToday <= 0) {
+        return { error: "Your workspace needs at least 12 available voice credits and one remaining daily call to place a two-minute test call.", status: 409 as const };
       }
 
       let scheduledFor: Date;
@@ -239,32 +244,38 @@ export async function createTestCallRoute(req: Request, res: Response) {
         return { error: "Your workspace timezone or calling hours are invalid. Update them before placing a test call.", status: 409 as const };
       }
 
-      const [contact] = await tx.select().from(contacts)
+      const [existingContact] = await tx.select({
+        id: contacts.id,
+        optOut: contacts.optOut,
+        status: contacts.status,
+        isDuplicateOf: contacts.isDuplicateOf,
+      }).from(contacts)
         .where(and(eq(contacts.clientId, req.clientId!), eq(contacts.phoneNumber, phoneNumber))).limit(1);
-      if (contact && (contact.optOut || contact.status === "do_not_call" || contact.status === "invalid" || contact.status === "queued" || contact.status === "in_progress" || contact.isDuplicateOf)) {
+      if (existingContact && (existingContact.optOut || existingContact.status === "do_not_call" || existingContact.status === "invalid" || existingContact.status === "queued" || existingContact.status === "in_progress" || existingContact.isDuplicateOf)) {
         return { error: "This phone number is not eligible for a test call.", status: 409 as const };
       }
-      let contactId = contact?.id;
-      if (!contactId) {
-        const [insertedContact] = await tx.insert(contacts).values({
-          clientId: req.clientId!,
-          fullName: "Foolioo test call",
-          phoneNumber,
-          phoneNumberRaw: phoneNumber,
-          lifecycleStage: "system_test",
-          tags: ["__foolioo_test_call__"],
-          customFields: { _fooliooSystem: "test_call", createdByUserId: req.user?.id ?? null },
-          status: "pending",
-          optOut: false,
-        }).returning({ id: contacts.id });
-        contactId = insertedContact.id;
-      }
+
+      // Always create an isolated system contact. Reusing a real CRM contact for a
+      // test call would mutate its lifecycle state and could leak the test into
+      // normal contact/campaign workflows.
+      const [insertedContact] = await tx.insert(contacts).values({
+        clientId: req.clientId!,
+        fullName: "Foolioo test call",
+        phoneNumber,
+        phoneNumberRaw: phoneNumber,
+        lifecycleStage: "system_test",
+        tags: ["__foolioo_test_call__"],
+        customFields: { _fooliooSystem: "test_call", createdByUserId: req.user?.id ?? null },
+        status: "pending",
+        optOut: false,
+      }).returning({ id: contacts.id });
+      const contactId = insertedContact.id;
 
       const [queueEntry] = await tx.insert(callQueue).values({
         contactId,
         clientId: req.clientId!,
         campaignId: null,
-        contactName: contact?.fullName ?? "Foolioo test call",
+        contactName: "Foolioo test call",
         phoneNumber,
         scheduledFor,
         attemptNumber: 1,
@@ -290,6 +301,10 @@ export async function createTestCallRoute(req: Request, res: Response) {
     });
 
     if ("error" in created) return res.status(created.status).json({ ok: false, error: created.error });
+
+    void processNextEligibleCall().catch((error) => {
+      console.error("[test-calls/create] Queue worker trigger failed:", error);
+    });
 
     return res.status(202).json({
       ok: true,
@@ -601,6 +616,11 @@ export async function launchCampaignRoute(req: Request, res: Response) {
     });
 
     if ("error" in result) return res.status(result.status).json({ ok: false, error: result.error });
+
+    void processNextEligibleCall().catch((error) => {
+      console.error("[campaigns/launch] Queue worker trigger failed:", error);
+    });
+
     return res.status(202).json({
       ok: true,
       ...result,

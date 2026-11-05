@@ -72,10 +72,12 @@ export async function getWorkspaceAgentRuntimeSettings(clientId: string): Promis
  * Load persisted follow-up routing, retries and calling-hour policy.
  * maxAttempts includes the first attempt, so maxRetries=2 becomes 3 attempts.
  */
-export async function getWorkspaceRoutingPolicy(clientId: string): Promise<WorkspaceRoutingPolicy> {
-  const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
-  if (!client) throw new Error("Workspace not found while loading routing policy.");
-
+export function getWorkspaceRoutingPolicyFromClient(client: {
+  metadata: unknown;
+  callingHoursStart: string | null;
+  callingHoursEnd: string | null;
+  timezone: string;
+}): WorkspaceRoutingPolicy {
   const metadata = asRecord(client.metadata);
   const saved = asRecord(metadata.routingRules);
   const callback = asRecord(saved.callback);
@@ -111,6 +113,12 @@ export async function getWorkspaceRoutingPolicy(clientId: string): Promise<Works
       timezone: client.timezone || "Asia/Kolkata",
     },
   };
+}
+
+export async function getWorkspaceRoutingPolicy(clientId: string): Promise<WorkspaceRoutingPolicy> {
+  const [client] = await db.select().from(clients).where(eq(clients.id, clientId)).limit(1);
+  if (!client) throw new Error("Workspace not found while loading routing policy.");
+  return getWorkspaceRoutingPolicyFromClient(client);
 }
 
 /** Returns true only when the local workspace clock is inside its calling window. */
