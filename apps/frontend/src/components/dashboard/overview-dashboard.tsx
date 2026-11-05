@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useDashboardProfile } from "@/components/dashboard/dashboard-shell";
-import { activateCampaignAction, createCampaignAction, importContactsAction, saveVoiceProfileAction } from "@/app/(dashboard)/dashboard/actions";
+import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -35,6 +35,13 @@ export type DashboardOverviewData = {
   followUps: LoadResult<CollectionSnapshot>;
   knowledgeBase: LoadResult<CollectionSnapshot>;
   businessProfile: LoadResult<JsonRecord | null>;
+  agentSettings: LoadResult<JsonRecord>;
+  routingRules: LoadResult<JsonRecord>;
+  teamMembers: LoadResult<CollectionSnapshot>;
+  clients: LoadResult<CollectionSnapshot>;
+  authProfile: LoadResult<JsonRecord>;
+  launchContacts: LoadResult<CollectionSnapshot>;
+  setup: LoadResult<JsonRecord>;
 };
 
 
@@ -126,84 +133,77 @@ type SetupStep = {
   recommended?: boolean;
 };
 
-function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
-  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
-  const contacts = data.contacts.state === "ready" ? data.contacts.data : null;
-  const campaigns = data.campaigns.state === "ready" ? data.campaigns.data : null;
-  const campaignCounts = getCampaignStatusCounts(campaigns);
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-  const voiceConfigured = Boolean(
-    profile &&
-    recordText(profile, "aiPersonaName") &&
-    recordText(profile, "toneOfVoice") &&
-    Array.isArray(profile.guardrails) &&
-    profile.guardrails.length > 0,
-  );
-  const contactsImported = contacts?.total !== null && contacts?.total !== undefined && contacts.total > 0;
-  const campaignCreated = campaigns?.total !== null && campaigns?.total !== undefined && campaigns.total > 0;
-  const campaignLaunched = campaigns?.itemsKnown === true && campaignCounts.active > 0;
+function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
+  const summary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+    ? data.setup.data.setup
+    : null;
+  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
+  const contactCount = recordNumber(summary, "contactCount");
+  const campaignCount = recordNumber(summary, "campaignCount");
+  const activeCampaignCount = recordNumber(summary, "activeCampaignCount");
+  const testCallStatus = recordText(summary, "testCallStatus");
+  const testCallOutcome = recordText(summary, "testCallOutcome");
+  const agentName = recordText(profile, "aiPersonaName") ?? "your AI agent";
 
   return [
     {
       id: 1,
-      title: "Configure voice persona & guardrails",
-      description: "Define agent speech tone, pronunciation rules, cadence latencies, and critical compliance boundaries.",
+      title: "Set up your AI agent",
+      description: "Give your agent the context, speaking style and safety rules to represent your business.",
       action: "Set up voice",
       actionKey: "voice",
-      complete: voiceConfigured,
-      detail: profile
-        ? `Default Agent: ${recordText(profile, "aiPersonaName") ?? "Unnamed agent"}. ${recordText(profile, "toneOfVoice") ?? "Tone of voice is not configured yet."}`
-        : "Create your business profile and define your default voice persona.",
+      complete: summary?.agentConfigured === true,
+      detail: summary?.agentConfigured === true ? `${agentName} is configured.` : "Add your business context, agent identity, greeting and guardrails.",
       recommended: true,
     },
     {
       id: 2,
-      title: "Connect CRM or import contacts",
-      description: "Upload a CSV spreadsheet or sync lead records with automated national opt-out and DNC enforcement.",
+      title: "Add your contacts",
+      description: "Import a contact list. Invalid, duplicate and opted-out records are excluded from campaign audiences.",
       action: "Import contacts",
       actionKey: "contacts",
-      complete: contactsImported,
-      detail: contacts?.total !== null && contacts?.total !== undefined
-        ? `${formatNumber(contacts.total)} contacts currently exist in this workspace.`
-        : "Import a CSV or XLSX file to add contacts to this workspace.",
+      complete: summary?.contactsImported === true,
+      detail: contactCount !== null ? `${formatNumber(contactCount)} eligible contacts in this workspace.` : "Upload a CSV or Excel contact list.",
     },
     {
       id: 3,
-      title: "Place a simulated test call",
-      description: "Verify speech cadence, latency, and knowledge retrieval live on your direct personal phone.",
+      title: "Place a test call",
+      description: "Call your own phone and hear how your configured agent handles a real conversation.",
       action: "Test call",
       actionKey: "test-call",
-      complete: false,
-      detail: "The currently registered backend routes expose call history, but no test-call creation endpoint.",
+      complete: summary?.testCallComplete === true,
+      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to your verified phone before contacting your audience.",
     },
     {
       id: 4,
-      title: "Create your first outbound campaign",
-      description: "Select a target contact list segment, assign a script framework, and configure allowable calling windows.",
+      title: "Create your first campaign",
+      description: "Choose the outcome, shape the conversation and save a campaign draft.",
       action: "Create campaign",
       actionKey: "campaign",
-      complete: campaignCreated,
-      detail: campaigns?.total !== null && campaigns?.total !== undefined
-        ? `${formatNumber(campaigns.total)} campaigns are saved in this workspace.`
-        : "Create a campaign with an objective, opening hook, talking points, and call to action.",
+      complete: summary?.campaignCreated === true,
+      detail: campaignCount !== null ? `${formatNumber(campaignCount)} saved campaigns in this workspace.` : "Create and save your first campaign draft.",
     },
     {
       id: 5,
-      title: "Set up team routing & follow-up rules",
-      description: "Assign who receives live warm transfers, calendar webhook notifications, and triage escalations.",
+      title: "Set up follow-ups and team handling",
+      description: "Choose who receives callbacks, interested leads and requests for a human.",
       action: "Configure routing",
       actionKey: "routing",
-      complete: false,
-      detail: "The available backend routes support follow-up records, but do not expose routing-rule configuration.",
+      complete: summary?.routingConfigured === true,
+      detail: summary?.routingConfigured === true ? "Follow-up ownership and calling hours are saved." : "Set callback ownership, no-answer retries and calling hours.",
     },
     {
       id: 6,
-      title: "Launch your first campaign",
-      description: "Start conversational outreach queues and inspect real-time call activity and transcripts.",
+      title: "Review and launch",
+      description: "Select eligible contacts, review your campaign and approve outbound activity.",
       action: "Launch campaign",
       actionKey: "launch",
-      complete: campaignLaunched,
-      detail: `${formatNumber(campaignCounts.active)} campaigns are currently active. Launching changes a selected campaign's status to active.`,
+      complete: summary?.campaignLaunched === true,
+      detail: summary?.campaignLaunched === true ? "Your first campaign has been approved and added to the outbound queue." : activeCampaignCount !== null ? `${formatNumber(activeCampaignCount)} active campaigns in this workspace.` : "Review the audience and explicitly approve your first launch.",
     },
   ];
 }
@@ -222,234 +222,6 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
   );
 }
 
-function SetupActionModal({
-  action,
-  data,
-  onClose,
-  onComplete,
-}: {
-  action: SetupAction;
-  data: DashboardOverviewData;
-  onClose: () => void;
-  onComplete: () => void;
-}) {
-  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
-  const campaigns = data.campaigns.state === "ready" ? data.campaigns.data.items : [];
-  const draftCampaigns = campaigns.filter((campaign) => recordText(campaign, "status") === "draft");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [selectedCampaignId, setSelectedCampaignId] = useState(recordText(draftCampaigns[0], "id") ?? "");
-
-  const runAction = async (callback: () => Promise<{ ok: boolean; error?: string }>, successMessage: string) => {
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      const result = await callback();
-      if (!result.ok) {
-        setError(result.error ?? "The request could not be completed.");
-        return;
-      }
-      setSuccess(successMessage);
-      onComplete();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The request could not be completed.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const modalTitle: Record<SetupAction, string> = {
-    voice: "Configure voice persona",
-    contacts: "Import contacts",
-    "test-call": "Place a test call",
-    campaign: "Create an outbound campaign",
-    routing: "Configure team routing",
-    launch: "Launch a campaign",
-  };
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-[#1B1C18]/35 p-4" role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !busy) onClose();
-    }}>
-      <section className="my-8 w-full max-w-[560px] overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white shadow-[0_20px_64px_rgba(27,28,24,0.2)]" role="dialog" aria-modal="true" aria-labelledby="setup-action-title">
-        <div className="flex items-start justify-between border-b border-[#ECEBE5] px-5 py-4 sm:px-6">
-          <div>
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE SETUP</p>
-            <h3 id="setup-action-title" className="mt-1 font-['Newsreader'] text-[25px] text-[#1B1C18]">{modalTitle[action]}</h3>
-          </div>
-          <button type="button" onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-full text-[#747878] hover:bg-[#F5F4ED] disabled:opacity-50" aria-label="Close dialog">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="m6 6 12 12M18 6 6 18" /></svg>
-          </button>
-        </div>
-
-        <div className="max-h-[70vh] overflow-y-auto px-5 py-5 sm:px-6">
-          {action === "voice" ? (
-            <form className="flex flex-col gap-4" onSubmit={async (event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const guardrails = String(form.get("guardrails") ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
-              await runAction(
-                () => saveVoiceProfileAction({
-                  industry: recordText(profile, "industry") ?? "general",
-                  displayName: String(form.get("displayName") ?? "").trim(),
-                  description: String(form.get("description") ?? "").trim(),
-                  aiPersonaName: String(form.get("aiPersonaName") ?? "").trim(),
-                  toneOfVoice: String(form.get("toneOfVoice") ?? "").trim(),
-                  guardrails,
-                  tagline: recordText(profile, "tagline") ?? undefined,
-                  website: recordText(profile, "website") ?? undefined,
-                  address: recordText(profile, "address") ?? undefined,
-                  operatingHours: recordText(profile, "operatingHours") ?? undefined,
-                  supportPhone: recordText(profile, "supportPhone") ?? undefined,
-                  catalogOfferings: Array.isArray(profile?.catalogOfferings) ? profile.catalogOfferings : [],
-                  keyDifferentiators: Array.isArray(profile?.keyDifferentiators) ? profile.keyDifferentiators : [],
-                  complianceNotes: recordText(profile, "complianceNotes") ?? undefined,
-                  metadata: profile && typeof profile.metadata === "object" ? profile.metadata : {},
-                }),
-                "Voice profile saved to your workspace.",
-              );
-            }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">These values are saved to your business profile and used as the starting point for your voice agent.</p>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Business name
-                <input name="displayName" required defaultValue={recordText(profile, "displayName") ?? ""} className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Business description
-                <textarea name="description" required rows={3} defaultValue={recordText(profile, "description") ?? ""} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Agent name
-                  <input name="aiPersonaName" required defaultValue={recordText(profile, "aiPersonaName") ?? "Assistant"} className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-                </label>
-                <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Tone of voice
-                  <input name="toneOfVoice" required defaultValue={recordText(profile, "toneOfVoice") ?? "Warm, professional, knowledgeable, and concise"} className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-                </label>
-              </div>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Guardrails, one per line
-                <textarea name="guardrails" required rows={4} defaultValue={Array.isArray(profile?.guardrails) ? profile.guardrails.join("\n") : ""} placeholder="Never invent pricing or policy details\nOffer a human handoff when unsure" className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Cancel</button>
-                <button type="submit" disabled={busy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F] disabled:cursor-wait disabled:opacity-60">{busy ? "Saving..." : "Save voice setup"}</button>
-              </div>
-            </form>
-          ) : null}
-
-          {action === "contacts" ? (
-            <form className="flex flex-col gap-4" onSubmit={async (event) => {
-              event.preventDefault();
-              const file = (new FormData(event.currentTarget).get("file"));
-              if (!(file instanceof File) || file.size === 0) {
-                setError("Choose a CSV or XLSX file first.");
-                return;
-              }
-              await runAction(() => importContactsAction(file), "Contact import submitted. The workspace list will refresh when processing completes.");
-            }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Upload a CSV or Excel spreadsheet. The import is processed by your contacts endpoint, which applies the backend's validation and opt-out rules.</p>
-              <label className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-[#CFCFC7] bg-[#FAF9F5] px-4 py-5 text-center hover:border-[#7852D6]">
-                <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Choose a contact file</span>
-                <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">CSV, XLSX or XLS</span>
-                <input name="file" type="file" required accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[11px] text-[#565B5B]" />
-              </label>
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Cancel</button>
-                <button type="submit" disabled={busy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F] disabled:cursor-wait disabled:opacity-60">{busy ? "Uploading..." : "Import contacts"}</button>
-              </div>
-            </form>
-          ) : null}
-
-          {action === "campaign" ? (
-            <form className="flex flex-col gap-4" onSubmit={async (event) => {
-              event.preventDefault();
-              const form = new FormData(event.currentTarget);
-              const keyTalkingPoints = String(form.get("keyTalkingPoints") ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
-              await runAction(
-                () => createCampaignAction({
-                  name: String(form.get("name") ?? "").trim(),
-                  type: "outreach_sales",
-                  status: "draft",
-                  primaryObjective: String(form.get("primaryObjective") ?? "").trim(),
-                  callOpeningHook: String(form.get("callOpeningHook") ?? "").trim(),
-                  keyTalkingPoints,
-                  callToAction: String(form.get("callToAction") ?? "").trim(),
-                }),
-                "Campaign draft created in your workspace.",
-              );
-            }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Create a draft using the fields required by your campaign model. Creating a draft does not activate outbound calling.</p>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Campaign name
-                <input name="name" required maxLength={120} className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Primary objective
-                <input name="primaryObjective" required className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Call opening hook
-                <textarea name="callOpeningHook" required rows={2} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Key talking points, one per line
-                <textarea name="keyTalkingPoints" required rows={3} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Call to action
-                <input name="callToAction" required className="h-10 rounded-[4px] border border-[#DCDDD6] px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
-              </label>
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Cancel</button>
-                <button type="submit" disabled={busy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F] disabled:cursor-wait disabled:opacity-60">{busy ? "Creating..." : "Save campaign draft"}</button>
-              </div>
-            </form>
-          ) : null}
-
-          {action === "launch" ? (
-            <form className="flex flex-col gap-4" onSubmit={async (event) => {
-              event.preventDefault();
-              if (!selectedCampaignId) {
-                setError("Choose a saved draft campaign first.");
-                return;
-              }
-              await runAction(() => activateCampaignAction(selectedCampaignId), "Campaign status updated to active.");
-            }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Choose a saved draft campaign. This updates its status to active through your campaign endpoint. Confirm your audience and calling settings before activating it.</p>
-              {draftCampaigns.length > 0 ? (
-                <label className="flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]">Draft campaign
-                  <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)} className="h-10 rounded-[4px] border border-[#DCDDD6] bg-white px-3 text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
-                    {draftCampaigns.map((campaign) => <option key={recordText(campaign, "id")} value={recordText(campaign, "id") ?? ""}>{recordText(campaign, "name") ?? "Untitled campaign"}</option>)}
-                  </select>
-                </label>
-              ) : (
-                <div className="rounded-[4px] bg-[#F5F4ED] p-4 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">There are no draft campaigns to activate. Create a campaign first.</div>
-              )}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Cancel</button>
-                {draftCampaigns.length > 0 ? <button type="submit" disabled={busy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F] disabled:cursor-wait disabled:opacity-60">{busy ? "Activating..." : "Activate campaign"}</button> : <button type="button" onClick={() => onClose()} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F]">Close</button>}
-              </div>
-            </form>
-          ) : null}
-
-          {action === "test-call" ? (
-            <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[13px] leading-6 text-[#444748]">Your registered backend routes include call history retrieval, but they do not include a test-call creation endpoint. The queue endpoint can enqueue campaign calls, which is not the same as a simulated test call.</p>
-              <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">No call has been placed. I will not send a campaign call and label it a test call.</p>
-              <div className="flex justify-end"><button type="button" onClick={onClose} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F]">Close</button></div>
-            </div>
-          ) : null}
-
-          {action === "routing" ? (
-            <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[13px] leading-6 text-[#444748]">Your backend supports creating and managing follow-up records. The registered API does not expose a read or write operation for routing-rule configuration, live transfers, or escalation destinations.</p>
-              <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">No routing settings have been changed. Saving follow-up records as routing rules would be incorrect.</p>
-              <div className="flex justify-end"><button type="button" onClick={onClose} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white hover:bg-[#34352F]">Close</button></div>
-            </div>
-          ) : null}
-
-          {error ? <p className="mt-4 rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#8D3028]" role="alert">{error}</p> : null}
-          {success ? <p className="mt-4 rounded-[4px] border border-[#CDE4D2] bg-[#F5FBF6] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#25633A]" role="status">{success}</p> : null}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function SetupChecklist({ data }: { data: DashboardOverviewData }) {
   const router = useRouter();
   const steps = useMemo(() => buildSetupSteps(data), [data]);
@@ -464,6 +236,7 @@ function SetupChecklist({ data }: { data: DashboardOverviewData }) {
 
   return (
     <>
+      {data.setup.state === "error" ? <SectionError title="Workspace setup status" error={data.setup.error} /> : null}
       <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
         <div className="flex flex-col gap-4 bg-[rgba(245,244,237,0.4)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-center gap-4">
@@ -518,7 +291,7 @@ function SetupChecklist({ data }: { data: DashboardOverviewData }) {
         </div>
       </section>
       {activeAction ? (
-        <SetupActionModal
+        <SetupWizardModal
           action={activeAction}
           data={data}
           onClose={() => setActiveAction(null)}

@@ -25,9 +25,7 @@ async function backendRequest(
       return { ok: false, error: "BACKEND_API_URL is not configured on the server." };
     }
 
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${session.access_token}`,
-    };
+    const headers: Record<string, string> = { Authorization: `Bearer ${session.access_token}` };
     if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
 
     const response = await fetch(`${baseUrl}${path}`, {
@@ -58,8 +56,12 @@ async function backendRequest(
   }
 }
 
-export async function saveVoiceProfileAction(input: Record<string, unknown>): Promise<ActionResult> {
-  return backendRequest("/api/business-profile", "PUT", input);
+export async function saveAgentSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  const { industry, displayName, description, agentName, tone, language, speechRate, voiceId, greeting, primaryObjective, handoffInstructions, pronunciationNotes, complianceNotes, guardrails } = input;
+  return backendRequest("/api/business-profile", "PUT", {
+    industry, displayName, description, aiPersonaName: agentName, toneOfVoice: tone, guardrails, complianceNotes,
+    agentSettings: { agentName, tone, language, speechRate, voiceId, greeting, primaryObjective, handoffInstructions, pronunciationNotes },
+  });
 }
 
 export async function importContactsAction(file: File): Promise<ActionResult> {
@@ -72,6 +74,25 @@ export async function createCampaignAction(input: Record<string, unknown>): Prom
   return backendRequest("/api/campaigns", "POST", input);
 }
 
-export async function activateCampaignAction(campaignId: string): Promise<ActionResult> {
-  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", { status: "active" });
+export async function createTestCallAction(phoneNumber: string, confirmRealCall: boolean): Promise<ActionResult> {
+  return backendRequest("/api/test-calls", "POST", { phoneNumber, confirmRealCall });
+}
+
+export async function getTestCallStatusAction(testCallId: string): Promise<ActionResult> {
+  return backendRequest(`/api/test-calls/${encodeURIComponent(testCallId)}`, "GET");
+}
+
+export async function saveRoutingRulesAction(clientId: string, input: Record<string, unknown>): Promise<ActionResult> {
+  if (!clientId) return { ok: false, status: 400, error: "Workspace ID is missing. Refresh and try again." };
+  return backendRequest(`/api/clients/${encodeURIComponent(clientId)}`, "PATCH", input);
+}
+
+export async function launchCampaignAction(
+  campaignId: string,
+  contactIds: string[],
+): Promise<ActionResult> {
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}/launch`, "POST", {
+    contactIds,
+    confirm: true,
+  });
 }

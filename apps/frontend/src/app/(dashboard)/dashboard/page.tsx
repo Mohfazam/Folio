@@ -145,6 +145,27 @@ async function loadCollection(
   }
 }
 
+async function loadObject(
+  path: string,
+  accessToken: string,
+  _key?: string,
+): Promise<LoadResult<JsonRecord>> {
+  try {
+    const { status, payload } = await getBackendPayload(path, accessToken);
+    if (status < 200 || status >= 300 || payload.ok !== true) {
+      return {
+        state: "error",
+        status,
+        error: typeof payload.error === "string" ? payload.error : `Request failed (${status}).`,
+      };
+    }
+    return { state: "ready", data: payload };
+  } catch (error) {
+    console.error(`[dashboard/overview] ${path} request failed:`, error);
+    return { state: "error", error: error instanceof Error ? error.message : "Unable to load workspace settings." };
+  }
+}
+
 async function loadBusinessProfile(accessToken: string): Promise<LoadResult<JsonRecord | null>> {
   try {
     const { status, payload } = await getBackendPayload("/api/business-profile", accessToken);
@@ -180,14 +201,32 @@ async function DashboardPageContent() {
   if (!session?.access_token) redirect("/sign-in");
 
   const accessToken = session.access_token;
-  const [analytics, contacts, campaigns, followUps, knowledgeBase, businessProfile] = await Promise.all([
+  const [analytics, contacts, campaigns, followUps, knowledgeBase, businessProfile, agentSettings, teamMembers, clients, authProfile, launchContacts, setup] = await Promise.all([
     loadAnalytics(accessToken),
     loadCollection("/api/contacts", accessToken, ["contacts"]),
     loadCollection("/api/campaigns", accessToken, ["campaigns"]),
     loadCollection("/api/follow-ups", accessToken, ["followUps", "followups"]),
     loadCollection("/api/knowledge-base", accessToken, ["entries", "knowledgeBase", "knowledgeBaseEntries"]),
     loadBusinessProfile(accessToken),
+    loadObject("/api/agent-settings", accessToken, "agentSettings"),
+    loadCollection("/api/team-members", accessToken, ["members"]),
+    loadCollection("/api/clients", accessToken, ["clients"]),
+    loadObject("/api/auth/me", accessToken),
+    loadCollection("/api/workspace-setup/eligible-contacts?limit=5000", accessToken, ["contacts"]),
+    loadObject("/api/workspace-setup", accessToken, "setup"),
   ]);
+
+  const clientRows = clients.state === "ready" ? clients.data.items : [];
+  const workspaceMetadata = clientRows[0] && isRecord(clientRows[0].metadata) ? clientRows[0].metadata : {};
+  const savedRoutingRules = isRecord(workspaceMetadata.routingRules) ? workspaceMetadata.routingRules : null;
+  const routingRules: LoadResult<JsonRecord> = clients.state === "error"
+    ? { state: "error", error: clients.error, status: clients.status }
+    : { state: "ready", data: { ok: true, configured: savedRoutingRules?.configured === true, routingRules: savedRoutingRules ?? {
+        callback: { enabled: true, assignToUserId: user.id, dueInMinutes: 30 },
+        highInterest: { enabled: true, assignToUserId: user.id },
+        humanRequested: { enabled: true, assignToUserId: user.id },
+        noAnswer: { enabled: true, retryAfterMinutes: 1440, maxRetries: 2 },
+      } } };
 
   const overview: DashboardOverviewData = {
     analytics,
@@ -196,6 +235,13 @@ async function DashboardPageContent() {
     followUps,
     knowledgeBase,
     businessProfile,
+    agentSettings,
+    routingRules,
+    teamMembers,
+    clients,
+    authProfile,
+    launchContacts,
+    setup,
   };
 
   return <OverviewDashboard data={overview} />;

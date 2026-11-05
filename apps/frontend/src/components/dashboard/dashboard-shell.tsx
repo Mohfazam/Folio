@@ -133,7 +133,7 @@ function BrandMark() {
         priority
         className="h-[26px] w-[26px] shrink-0"
       />
-      <span className="hidden font-['Newsreader'] text-[25px] font-semibold italic leading-none tracking-[-0.7px] text-[#1B1C18] lg:inline">
+      <span className="font-['Newsreader'] text-[25px] font-semibold italic leading-none tracking-[-0.7px] text-[#1B1C18]">
         folioo<span className="text-[#F27B65]">.</span>
       </span>
     </span>

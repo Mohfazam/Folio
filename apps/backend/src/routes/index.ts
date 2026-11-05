@@ -28,6 +28,15 @@ import {
 } from "./knowledgeBase.js";
 import { deleteQueueRoute, enqueueRoute, getQueueRoute, updateQueueRoute } from "./queue.js";
 import { processQueueRoute } from "./process.js";
+import {
+  createTestCallRoute,
+  getAgentSettingsRoute,
+  getLaunchEligibleContactsRoute,
+  getTeamMembersRoute,
+  getTestCallRoute,
+  getWorkspaceSetupRoute,
+  launchCampaignRoute,
+} from "./workspaceSetup.js";
 
 export function registerRoutes(app: Express) {
   // Liveness & Readiness endpoints (unauthenticated, probe-friendly)
@@ -53,6 +62,14 @@ export function registerRoutes(app: Express) {
   api.get("/onboarding", getOnboardingRoute);
   api.put("/onboarding", requireClientAdmin, saveOnboardingRoute);
 
+  // Production workspace setup configuration.
+  api.get("/workspace-setup", getWorkspaceSetupRoute);
+  api.get("/workspace-setup/eligible-contacts", getLaunchEligibleContactsRoute);
+  api.get("/agent-settings", getAgentSettingsRoute);
+  api.get("/team-members", getTeamMembersRoute);
+  api.post("/test-calls", requireClientAdmin, uploadRateLimiter, createTestCallRoute);
+  api.get("/test-calls/:id", getTestCallRoute);
+
   api.get("/analytics/overview", getAnalyticsOverviewRoute);
 
   api.get("/contacts", getContactsRoute);
@@ -76,6 +93,7 @@ export function registerRoutes(app: Express) {
   api.delete("/follow-ups/:id", requireClientAdmin, requireOwnedResource("followUps"), deleteFollowUpRoute);
 
   api.get("/campaigns", getCampaignsRoute);
+  api.post("/campaigns/:id/launch", requireClientAdmin, uploadRateLimiter, launchCampaignRoute);
   api.get("/campaigns/:id", requireOwnedResource("campaigns"), getCampaignByIdRoute);
   api.post("/campaigns", requireClientAdmin, createCampaignRoute);
   api.patch("/campaigns/:id", requireClientAdmin, requireOwnedResource("campaigns"), updateCampaignRoute);
