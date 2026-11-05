@@ -1,37 +1,112 @@
-"use client";
+import { redirect } from "next/navigation";
+import { connection } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { OverviewDashboard } from "@/components/dashboard/overview-dashboard";
 
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+type JsonRecord = Record<string, unknown>;
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const supabase = createClient();
-  const [loading, setLoading] = useState(false);
+type OverviewMetrics = {
+  contactsReached: string | null;
+  successfulConversations: string | null;
+  followUpsScheduled: string | null;
+  campaignCompletion: string | null;
+  telemetryAvailable: boolean;
+};
 
-  const handleSignOut = async () => {
-    setLoading(true);
-    await supabase.auth.signOut();
-    router.push("/sign-in");
-    router.refresh();
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getDisplayValue(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value.toLocaleString("en-US");
+  }
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (isRecord(value)) {
+    const nested = value.value ?? value.count ?? value.total;
+    return getDisplayValue(nested);
+  }
+  return null;
+}
+
+function pickMetric(sources: JsonRecord[], keys: string[]): string | null {
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = getDisplayValue(source[key]);
+      if (value !== null) return value;
+    }
+  }
+  return null;
+}
+
+function normalizeOverview(payload: unknown): OverviewMetrics {
+  if (!isRecord(payload)) {
+    return {
+      contactsReached: null,
+      successfulConversations: null,
+      followUpsScheduled: null,
+      campaignCompletion: null,
+      telemetryAvailable: false,
+    };
+  }
+
+  const data = isRecord(payload.data) ? payload.data : {};
+  const sources = [
+    isRecord(payload.metrics) ? payload.metrics : {},
+    isRecord(data.metrics) ? data.metrics : {},
+    isRecord(payload.overview) ? payload.overview : {},
+    isRecord(payload.summary) ? payload.summary : {},
+    data,
+    payload,
+  ];
+
+  const contactsReached = pickMetric(sources, ["contactsReached", "contacts_reached"]);
+  const successfulConversations = pickMetric(sources, ["successfulConversations", "successful_conversations"]);
+  const followUpsScheduled = pickMetric(sources, ["followUpsScheduled", "follow_ups_scheduled"]);
+  const campaignCompletion = pickMetric(sources, ["campaignCompletion", "campaign_completion"]);
+
+  return {
+    contactsReached,
+    successfulConversations,
+    followUpsScheduled,
+    campaignCompletion,
+    telemetryAvailable: [contactsReached, successfulConversations, followUpsScheduled, campaignCompletion].some((value) => value !== null),
   };
+}
 
-  return (
-    <div className="flex h-[70vh] flex-col items-center justify-center text-center">
-      <h1 className="font-['Newsreader'] text-[36px] font-normal text-[#1B1C18]">
-        Dashboard is coming soon.
-      </h1>
-      <p className="mt-2 font-['Space_Grotesk'] text-[14px] text-[#747878]">
-        We are currently building your voice operations command center.
-      </p>
+async function loadOverview(accessToken: string): Promise<OverviewMetrics> {
+  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
+  if (!baseUrl) return normalizeOverview(null);
 
-      <button
-        onClick={handleSignOut}
-        disabled={loading}
-        className="mt-8 rounded-md border border-[#E9E8E1] bg-white px-6 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-xs transition-colors hover:bg-[#F5F3EC] disabled:opacity-50"
-      >
-        {loading ? "Signing out..." : "Sign out"}
-      </button>
-    </div>
-  );
+  try {
+    const response = await fetch(`${baseUrl}/api/analytics/overview`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("[dashboard/overview] Analytics request failed:", response.status);
+      return normalizeOverview(null);
+    }
+
+    const payload: unknown = await response.json();
+    return normalizeOverview(payload);
+  } catch (error) {
+    console.error("[dashboard/overview] Unable to load analytics:", error);
+    return normalizeOverview(null);
+  }
+}
+
+export default async function DashboardPage() {
+  await connection();
+
+  const supabase = await createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.access_token) redirect("/sign-in");
+
+  const metrics = await loadOverview(session.access_token);
+  return <OverviewDashboard metrics={metrics} />;
 }
