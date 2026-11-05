@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { getUtcDateForTimezone } from "../utils/retrySchedule.js";
+import { getUtcDateForTimezone, parseClockTime } from "../utils/retrySchedule.js";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 import {
   auditLog,
@@ -87,11 +87,6 @@ function isValidLanguageTag(value: string): boolean {
   }
 }
 
-function parseClock(value: string): number {
-  const [hours, minutes] = value.slice(0, 5).split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
 function nextAllowedCallingTime(
   now: Date,
   timezone: string,
@@ -108,21 +103,21 @@ function nextAllowedCallingTime(
   const month = part("month");
   const day = part("day");
   const localMinutes = part("hour") * 60 + part("minute");
-  const startMinutes = parseClock(startClock);
-  const endMinutes = parseClock(endClock);
+  const start = parseClockTime(startClock);
+  const end = parseClockTime(endClock);
+  const startMinutes = start.hour * 60 + start.minute;
+  const endMinutes = end.hour * 60 + end.minute;
 
   if (localMinutes >= startMinutes && localMinutes < endMinutes) return now;
 
   if (localMinutes < startMinutes) {
-    const [hour, minute] = startClock.slice(0, 5).split(":").map(Number);
-    return getUtcDateForTimezone(year, month, day, hour, minute, 0, timezone);
+    return getUtcDateForTimezone(year, month, day, start.hour, start.minute, 0, timezone);
   }
 
   const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
-  const [hour, minute] = startClock.slice(0, 5).split(":").map(Number);
   return getUtcDateForTimezone(
     tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(),
-    hour, minute, 0, timezone,
+    start.hour, start.minute, 0, timezone,
   );
 }
 
@@ -269,6 +264,9 @@ export async function createTestCallRoute(req: Request, res: Response) {
         status: "pending",
         optOut: false,
       }).returning({ id: contacts.id });
+      if (!insertedContact) {
+        throw new Error("Failed to create a contact for the test call.");
+      }
       const contactId = insertedContact.id;
 
       const [queueEntry] = await tx.insert(callQueue).values({
@@ -284,6 +282,9 @@ export async function createTestCallRoute(req: Request, res: Response) {
         maxAttempts: 1,
         reservedCredits: 0,
       }).returning();
+      if (!queueEntry) {
+        throw new Error("Failed to queue the test call.");
+      }
 
       const requestedAtIso = new Date().toISOString();
       await tx.update(clients).set({
@@ -300,7 +301,13 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return { queueEntry, contactId, scheduledFor };
     });
 
-    if ("error" in created) return res.status(created.status).json({ ok: false, error: created.error });
+    if ("error" in created && typeof created.error === "string") {
+      if (typeof created.status !== "number") throw new Error("Test call returned an invalid error status.");
+      return res.status(created.status).json({ ok: false, error: created.error });
+    }
+    if (!created.queueEntry || !created.scheduledFor) {
+      throw new Error("Test call was not queued correctly.");
+    }
 
     void processNextEligibleCall().catch((error) => {
       console.error("[test-calls/create] Queue worker trigger failed:", error);
@@ -615,7 +622,9 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       };
     });
 
-    if ("error" in result) return res.status(result.status).json({ ok: false, error: result.error });
+    if (!("campaignId" in result)) {
+      return res.status(result.status).json({ ok: false, error: result.error });
+    }
 
     void processNextEligibleCall().catch((error) => {
       console.error("[campaigns/launch] Queue worker trigger failed:", error);

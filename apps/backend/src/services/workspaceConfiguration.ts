@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { businessProfiles, clients } from "@repo/db";
-import { getUtcDateForTimezone } from "../utils/retrySchedule.js";
+import { getUtcDateForTimezone, parseClockTime } from "../utils/retrySchedule.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -134,9 +134,9 @@ export function isWithinWorkspaceCallingHours(
   }).formatToParts(date);
   const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
   const localMinutes = get("hour") * 60 + get("minute");
-  const [startHour, startMinute] = callingHours.start.slice(0, 5).split(":").map(Number);
-  const [endHour, endMinute] = callingHours.end.slice(0, 5).split(":").map(Number);
-  return localMinutes >= startHour * 60 + startMinute && localMinutes < endHour * 60 + endMinute;
+  const start = parseClockTime(callingHours.start);
+  const end = parseClockTime(callingHours.end);
+  return localMinutes >= start.hour * 60 + start.minute && localMinutes < end.hour * 60 + end.minute;
 }
 
 /** Returns the next valid workspace-local time at which a queued call may start. */
@@ -155,17 +155,17 @@ export function nextWorkspaceCallingTime(
   const month = get("month");
   const day = get("day");
   const localMinutes = get("hour") * 60 + get("minute");
-  const [startHour, startMinute] = callingHours.start.slice(0, 5).split(":").map(Number);
-  const startMinutes = startHour * 60 + startMinute;
+  const start = parseClockTime(callingHours.start);
+  const startMinutes = start.hour * 60 + start.minute;
 
   if (localMinutes < startMinutes) {
-    return getUtcDateForTimezone(year, month, day, startHour, startMinute, 0, callingHours.timezone);
+    return getUtcDateForTimezone(year, month, day, start.hour, start.minute, 0, callingHours.timezone);
   }
 
   const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
   return getUtcDateForTimezone(
     tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(),
-    startHour, startMinute, 0, callingHours.timezone,
+    start.hour, start.minute, 0, callingHours.timezone,
   );
 }
 

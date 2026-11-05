@@ -47,6 +47,17 @@ export function getUtcDateForTimezone(
   }
 }
 
+export function parseClockTime(value: string): { hour: number; minute: number } {
+  if (!/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?$/.test(value)) {
+    throw new RangeError(`Invalid clock time: ${value}`);
+  }
+
+  return {
+    hour: Number(value.slice(0, 2)),
+    minute: Number(value.slice(3, 5)),
+  };
+}
+
 /**
  * Calculates the next retry schedule for an unanswered/failed call.
  * - Adds delayHours (default: 2h) to current time.
