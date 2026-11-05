@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -97,7 +98,8 @@ async function loadOverview(accessToken: string): Promise<OverviewMetrics> {
   }
 }
 
-export default async function DashboardPage() {
+async function DashboardPageContent() {
+  // Request-time work must run beneath the Suspense boundary below.
   await connection();
 
   const supabase = await createClient();
@@ -109,4 +111,20 @@ export default async function DashboardPage() {
 
   const metrics = await loadOverview(session.access_token);
   return <OverviewDashboard metrics={metrics} />;
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center bg-[#FBF9F2]">
+          <p className="font-['Space_Grotesk'] text-sm text-[#747878]">
+            Loading your overview...
+          </p>
+        </div>
+      }
+    >
+      <DashboardPageContent />
+    </Suspense>
+  );
 }
