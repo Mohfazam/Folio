@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { AuthRedirectButton } from "@/components/ui/AuthRedirectButton";
 
-export const Pricing = () => {
+interface PricingProps {
+    currentPlan?: string | null; 
+}
+
+export const Pricing = ({ currentPlan = null }: PricingProps) => {
     const plans = [
         {
             name: "Trial",
@@ -111,26 +115,21 @@ export const Pricing = () => {
     return (
         <section id="pricing" className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28">
             <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
-
-                {/* Header */}
                 <div className="flex flex-col items-center text-center">
                     <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#747878]">
                         TRANSPARENT PRICING
                     </span>
-
                     <h2 className="mt-4 max-w-[620px]">
                         <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[52px]">
                             Pay only for the calls{" "}
                             <span className="italic">you run.</span>
                         </span>
                     </h2>
-
                     <p className="mt-4 max-w-[540px] font-['Space_Grotesk'] text-[14px] font-normal leading-[22px] tracking-[0.1px] text-[#747878] md:text-[15px]">
                         Fair and transparent pricing that scales with your team. You pay in credits — not fixed minutes — so talk time flexes with real usage. No hidden platform surcharges or surprise overages.
                     </p>
                 </div>
 
-                {/* Pricing Cards Container */}
                 <div className="mt-14 flex flex-wrap justify-center gap-6">
                     {plans.map((plan) => (
                         <div
@@ -141,7 +140,6 @@ export const Pricing = () => {
                                     : "border border-[#E9E8E1] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.03)]"
                             }`}
                         >
-                            {/* Recommended Badge */}
                             {plan.badge && (
                                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                                     <span className="whitespace-nowrap rounded-full bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[9px] font-bold tracking-[1.5px] text-white uppercase shadow-sm">
@@ -151,7 +149,6 @@ export const Pricing = () => {
                             )}
 
                             <div>
-                                {/* Plan Name & Description */}
                                 <h3 className="font-['Space_Grotesk'] text-[20px] font-bold text-[#1B1C18]">
                                     {plan.name}
                                 </h3>
@@ -159,7 +156,6 @@ export const Pricing = () => {
                                     {plan.description}
                                 </p>
 
-                                {/* Pricing Block */}
                                 <div className="my-6 border-t border-[#E9E8E1] pt-6">
                                     <div className="flex items-baseline gap-1">
                                         <span className="font-['Space_Grotesk'] text-[38px] font-bold text-[#1B1C18] tracking-[-1px]">
@@ -178,7 +174,6 @@ export const Pricing = () => {
                                             {plan.estimate}
                                         </span>
                                         
-                                        {/* Rate & Vol Pills */}
                                         <div className="mt-2 flex items-center gap-2">
                                             <div className="flex flex-1 items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-2.5 py-1.5">
                                                 <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Rate</span>
@@ -192,7 +187,6 @@ export const Pricing = () => {
                                     </div>
                                 </div>
 
-                                {/* Features List */}
                                 <ul className="flex flex-col gap-3">
                                     {plan.features.map((feature, i) => (
                                         <li key={i} className="flex items-start gap-2.5">
@@ -207,7 +201,6 @@ export const Pricing = () => {
                                 </ul>
                             </div>
 
-                            {/* CTA Button */}
                             <div className="mt-8 pt-4">
                                 {plan.name === "Scale" ? (
                                     <a
@@ -216,8 +209,26 @@ export const Pricing = () => {
                                     >
                                         Contact sales
                                     </a>
+                                ) : currentPlan?.toLowerCase() === plan.name.toLowerCase() ? (
+                                    <button
+                                        disabled
+                                        className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#A0A09E]"
+                                    >
+                                        Current Plan
+                                    </button>
+                                ) : currentPlan ? (
+                                    <Link href={`/dashboard/billing?plan=${plan.name.toLowerCase()}`} className="block w-full">
+                                        <button
+                                            className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
+                                                plan.highlighted
+                                                    ? "bg-[#1B1C18] text-white hover:bg-[#3A3B37]"
+                                                    : "border border-[#E9E8E1] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
+                                            }`}
+                                        >
+                                            Upgrade to {plan.name}
+                                        </button>
+                                    </Link>
                                 ) : (
-                                    // Wrapped in Next.js Link to ensure it routes to signup
                                     <Link href="/sign-up" className="block w-full">
                                         <AuthRedirectButton
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
