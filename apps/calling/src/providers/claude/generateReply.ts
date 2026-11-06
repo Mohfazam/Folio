@@ -77,7 +77,8 @@ export async function generateReplyStream(
   onSentence: (sentence: string) => void,
   signal?: AbortSignal,
   searchWeb = false,
-  customInstructions?: string
+  customInstructions?: string,
+  modelProfile?: "showcase"
 ): Promise<string> {
   const contents = formatContents(conversationHistory);
   const sysInst = [
@@ -132,6 +133,14 @@ export async function generateReplyStream(
     }
   };
 
+  // Public showcase calls use a higher-capability server-selected Gemini model.
+  // The visitor cannot choose or override this profile. Fall back to the existing
+  // production model if the configured showcase model is unavailable.
+  const primaryModel = modelProfile === "showcase"
+    ? process.env.PUBLIC_DEMO_GEMINI_MODEL?.trim() || "gemini-2.5-flash"
+    : PRIMARY_MODEL;
+  const fallbackModel = modelProfile === "showcase" ? PRIMARY_MODEL : FALLBACK_MODEL;
+
   // Helper to run stream with a given model
   const runStream = async (model: string) => {
     const responseStream = await genAI.models.generateContentStream({
@@ -152,12 +161,12 @@ export async function generateReplyStream(
   };
 
   try {
-    await runStream(PRIMARY_MODEL);
+    await runStream(primaryModel);
   } catch (err: any) {
     if (signal?.aborted) return fullReply.trim();
-    console.warn(`[generateReplyStream] Primary model failed, trying fallback:`, err?.message ?? err);
+    console.warn(`[generateReplyStream] Primary model ${primaryModel} failed, trying fallback:`, err?.message ?? err);
     try {
-      await runStream(FALLBACK_MODEL);
+      await runStream(fallbackModel);
     } catch (retryErr: any) {
       console.error(`[generateReplyStream] Fallback model also failed:`, retryErr?.message ?? retryErr);
     }

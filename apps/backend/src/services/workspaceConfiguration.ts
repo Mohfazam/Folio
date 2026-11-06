@@ -169,7 +169,8 @@ export function nextWorkspaceCallingTime(
   );
 }
 
-/** Identifies synthetic records used only to satisfy the call_queue contact FK. */
+/** Identifies isolated system contacts used for dashboard tests or the public demo. */
 export function isFooliooSystemContact(customFields: unknown): boolean {
-  return asRecord(customFields)._fooliooSystem === "test_call";
+  const marker = asRecord(customFields)._fooliooSystem;
+  return marker === "test_call" || marker === "public_demo";
 }

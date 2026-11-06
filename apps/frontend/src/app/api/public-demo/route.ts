@@ -40,22 +40,13 @@ export async function POST(request: NextRequest) {
   if (body.consent !== true) return jsonError("Explicit consent is required before requesting a demo call.", 400);
   if (!captchaToken || captchaToken.length > 4096) return jsonError("Complete the security check and try again.", 400);
 
-  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+  const proxySecret = process.env.PUBLIC_DEMO_PROXY_SECRET;
   const upstreamUrl = process.env.PUBLIC_DEMO_API_URL;
-  if (!turnstileSecret || !upstreamUrl) {
+  if (!proxySecret || !upstreamUrl) {
     return jsonError("The public demo service is not configured yet. Please try again later.", 503);
   }
 
   try {
-    const verification = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret: turnstileSecret, response: captchaToken, remoteip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "" }),
-      cache: "no-store",
-    });
-    const verificationResult = await verification.json() as { success?: boolean };
-    if (!verification.ok || verificationResult.success !== true) return jsonError("Security verification failed. Please try again.", 403);
-
     const upstream = new URL(upstreamUrl);
     if (upstream.protocol !== "https:" && process.env.NODE_ENV === "production") {
       return jsonError("The public demo service must use HTTPS.", 500);
@@ -63,8 +54,13 @@ export async function POST(request: NextRequest) {
 
     const upstreamResponse = await fetch(upstream, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ phoneNumber, scenario, language, consent: true, source: "foolioo-website" }),
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-Public-Demo-Proxy-Secret": proxySecret,
+        "X-Public-Demo-IP": request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "",
+      },
+      body: JSON.stringify({ phoneNumber, scenario, language, consent: true, captchaToken }),
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     });

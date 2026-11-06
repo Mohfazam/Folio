@@ -7,8 +7,9 @@ import {
   requireWorkspace,
 } from "../middleware/auth.js";
 import { requireOwnedResource } from "../middleware/tenant.js";
-import { authRateLimiter, uploadRateLimiter } from "../middleware/rateLimiters.js";
+import { authRateLimiter, publicDemoRateLimiter, uploadRateLimiter } from "../middleware/rateLimiters.js";
 import { getLivenessRoute, getReadinessRoute } from "./health.js";
+import { createPublicDemoRoute } from "./publicDemo.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
 import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
@@ -54,6 +55,9 @@ export function registerRoutes(app: Express) {
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
+
+  // Anonymous public demo is isolated behind the trusted frontend proxy secret.
+  api.post("/public-demo", publicDemoRateLimiter, createPublicDemoRoute);
 
   // All other API routes require a provisioned user and are scoped to that user's workspace.
   api.use(requireAuth, requireWorkspace);

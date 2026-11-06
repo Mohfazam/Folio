@@ -26,6 +26,13 @@ class ActiveCallRegistry {
   private readonly callsByPlivoId = new Map<string, ActiveCallRecord>();
   private readonly callsByRequestId = new Map<string, ActiveCallRecord>();
 
+  private displayPhone(record: ActiveCallRecord): string {
+    if (process.env.PUBLIC_DEMO_CLIENT_ID && record.clientId === process.env.PUBLIC_DEMO_CLIENT_ID) {
+      return `+91******${record.phoneNumber.slice(-4)}`;
+    }
+    return record.phoneNumber;
+  }
+
   // Normalizes phone numbers (removes spaces, dashes, parentheses)
   private normalizePhone(phone: string): string {
     const cleaned = phone.replace(/[\s\-()]/g, "");
@@ -45,7 +52,7 @@ class ActiveCallRegistry {
     if (existing && existing.phase !== "ended") {
       return {
         allowed: false,
-        reason: `A call is already ${existing.phase} for phone number ${normalized} (plivoId: ${existing.plivoCallId ?? existing.requestUuid ?? "pending"})`,
+        reason: `A call is already ${existing.phase} for this destination (plivoId: ${existing.plivoCallId ?? existing.requestUuid ?? "pending"})`,
         existingCall: existing,
       };
     }
@@ -78,7 +85,7 @@ class ActiveCallRegistry {
       this.callsByPlivoId.set(requestUuid, record);
     }
 
-    console.log(`[registry] 🔒 Locked phone ${normalized} for call ${request.requestId} (phase: initiating)`);
+    console.log(`[registry] 🔒 Locked phone ${this.displayPhone(record)} for call ${request.requestId} (phase: initiating)`);
     return record;
   }
 
@@ -134,7 +141,7 @@ class ActiveCallRegistry {
       record.phase = "in-progress";
       record.lastActivityAt = new Date();
       record.sessionState.streamConnected = true;
-      console.log(`[registry] 🟢 Call ${record.plivoCallId ?? record.requestId} to ${record.phoneNumber} is now IN-PROGRESS`);
+      console.log(`[registry] 🟢 Call ${record.plivoCallId ?? record.requestId} to ${this.displayPhone(record)} is now IN-PROGRESS`);
     }
     return record;
   }
@@ -156,7 +163,7 @@ class ActiveCallRegistry {
     const currentForPhone = this.callsByPhone.get(record.phoneNumber);
     if (currentForPhone?.requestId === record.requestId) {
       this.callsByPhone.delete(record.phoneNumber);
-      console.log(`[registry] 🔓 Unlocked phone ${record.phoneNumber} (call ended: ${status ?? "completed"})`);
+      console.log(`[registry] 🔓 Unlocked phone ${this.displayPhone(record)} (call ended: ${status ?? "completed"})`);
     }
 
     // Keep Plivo mapping temporarily for query, but clear after 5 minutes
@@ -194,12 +201,12 @@ class ActiveCallRegistry {
       const elapsed = now - record.startedAt.getTime();
       // If initiating for more than 90 seconds without progress, assume call failed to connect
       if (record.phase === "initiating" && elapsed > 90_000) {
-        console.warn(`[registry] ⚠️ Expiring stale initiating call ${record.requestId} for ${phone}`);
+        console.warn(`[registry] ⚠️ Expiring stale initiating call ${record.requestId} for ${this.displayPhone(record)}`);
         this.markEnded(record.requestId, "no_answer", "Initiation timed out before answer");
       }
       // If in-progress for more than 15 minutes (Plivo time_limit), assume hangup webhook was lost
       if (record.phase === "in-progress" && elapsed > 15 * 60 * 1000) {
-        console.warn(`[registry] ⚠️ Expiring stale in-progress call ${record.requestId} for ${phone} (${Math.round(elapsed / 60000)}min)`);
+        console.warn(`[registry] ⚠️ Expiring stale in-progress call ${record.requestId} for ${this.displayPhone(record)} (${Math.round(elapsed / 60000)}min)`);
         this.markEnded(record.requestId, "interrupted", "Call exceeded 15-minute in-progress limit (hangup webhook likely lost)");
       }
       // If call is older than 2 hours, clean it up regardless of phase

@@ -33,11 +33,13 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   const callbackUrl = params?.callbackUrl;
   const recordCall = params?.recordCall;
   const language = params?.language || "en-IN";
+  const isPublicDemo = Boolean(process.env.PUBLIC_DEMO_CLIENT_ID && clientId === process.env.PUBLIC_DEMO_CLIENT_ID);
+  const displayTarget = isPublicDemo ? `+91******${targetPhone.slice(-4)}` : targetPhone;
 
   // Check concurrency lock: is there an active call ongoing or initiating to this phone?
   const check = activeCallRegistry.canInitiate(targetPhone);
   if (!check.allowed) {
-    console.warn(`[plivo/dial] ⚠️ Blocked duplicate call to ${targetPhone}: ${check.reason}`);
+    console.warn(`[plivo/dial] ⚠️ Blocked duplicate call to ${displayTarget}: ${check.reason}`);
     const err = new Error(check.reason ?? "A call is already in progress for this number");
     (err as any).code = "CALL_ALREADY_ACTIVE";
     (err as any).existingCall = check.existingCall;
@@ -66,7 +68,7 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     const answerUrl = `${env.publicUrl}/plivo-voice`;
     const hangupUrl = `${env.publicUrl}/plivo-hangup`;
 
-    console.log(`[plivo/dial] 📞 Initiating call from ${env.plivoPhoneNumber} to ${targetPhone}...`);
+    console.log(`[plivo/dial] 📞 Initiating call from ${env.plivoPhoneNumber} to ${displayTarget}...`);
 
     const callCreateOptions: Record<string, any> = {
       answer_method: "POST",
