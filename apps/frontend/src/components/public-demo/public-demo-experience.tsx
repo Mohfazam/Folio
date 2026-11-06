@@ -82,7 +82,7 @@ export default function PublicDemoExperience() {
   }
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-12 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20 lg:py-20">
+    <section className="mx-auto grid h-full max-w-6xl grid-cols-1 gap-8 overflow-hidden px-5 py-6 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
       <div className="flex flex-col justify-center">
         <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048]"><span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" /> Meet your AI receptionist</div>
         <h1 className="max-w-xl font-[var(--font-newsreader)] text-[48px] font-medium leading-[0.99] tracking-[-1.9px] sm:text-[62px]">A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span></h1>

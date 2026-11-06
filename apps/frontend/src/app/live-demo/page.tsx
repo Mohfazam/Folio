@@ -10,10 +10,12 @@ export const metadata: Metadata = {
 
 export default function LiveDemoPage() {
   return (
-    <main className="min-h-screen bg-[#F7F5EF] text-[#1B1C18]">
-      <header className="flex h-[76px] items-center justify-between border-b border-[#E8E3D8] px-5 sm:px-8 lg:px-14">
-        
-        {/* Brand + Live Demo Badge */}
+    // On mobile: standard flex column with natural height (allows scrolling).
+    // On desktop (lg): locked to screen height with no page scrolling.
+    <main className="flex min-h-screen flex-col bg-[#F7F5EF] text-[#1B1C18] lg:h-screen lg:overflow-hidden">
+      
+      {/* HEADER */}
+      <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-[#E8E3D8] px-5 sm:px-8 lg:px-14">
         <div className="flex items-center gap-4">
           <Link 
             href="/" 
@@ -35,7 +37,6 @@ export default function LiveDemoPage() {
             </span>
           </Link>
 
-          {/* Optional: Vertical divider from your screenshot */}
           <div className="hidden h-6 w-px bg-[#E8E3D8] sm:block" />
 
           <span className="hidden rounded-full border border-[#E6DCCB] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[1.3px] text-[#77736A] sm:inline-block">
@@ -43,18 +44,19 @@ export default function LiveDemoPage() {
           </span>
         </div>
 
-        {/* Right side action */}
-        <Link 
-          href="/sign-up" 
-          className="text-[13px] font-semibold text-[#55534F] transition hover:text-[#FD7032]"
-        >
+        <Link href="/sign-up" className="text-[13px] font-semibold text-[#55534F] transition hover:text-[#FD7032]">
           Create an account <span aria-hidden="true">↗</span>
         </Link>
       </header>
 
-      <PublicDemoExperience />
+      {/* MAIN CONTENT AREA */}
+      {/* flex-1 fills available space. lg:min-h-0 is the crucial fix that allows flex children to scroll internally on desktop. */}
+      <div className="flex-1 lg:min-h-0 lg:overflow-hidden">
+        <PublicDemoExperience />
+      </div>
 
-      <footer className="mx-auto flex max-w-6xl flex-col gap-3 border-t border-[#E8E3D8] px-5 py-6 text-[11px] leading-5 text-[#77736A] sm:flex-row sm:items-center sm:justify-between sm:px-8">
+      {/* FOOTER */}
+      <footer className="flex w-full shrink-0 flex-col gap-3 border-t border-[#E8E3D8] px-5 py-6 text-[11px] leading-5 text-[#77736A] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:py-4">
         <p>Foolioo AI receptionist showcase. Calls are initiated only after your explicit confirmation.</p>
         <div className="flex gap-4">
           <Link href="/privacy" className="hover:text-[#1B1C18]">Privacy</Link>
