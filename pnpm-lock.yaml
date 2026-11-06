@@ -11,9 +11,6 @@ importers:
       prettier:
         specifier: ^3.7.4
         version: 3.7.4
-      railway:
-        specifier: ^3.16.0
-        version: 3.16.0
       turbo:
         specifier: ^2.10.11
         version: 2.10.11
@@ -965,11 +962,6 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
-
-  '@graphql-typed-document-node/core@3.2.0':
-    resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
-    peerDependencies:
-      graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
 
   '@hapi/hoek@9.3.0':
     resolution: {integrity: sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ==}
@@ -3060,10 +3052,6 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  graphql@16.15.0:
-    resolution: {integrity: sha512-32kz9FecohDiC/tgcViwnRXM7HFBVTPiW7pHO+DikKOI5KjhU/jNULOReXsrFqt2WAYbE9xFXsTffJw6iTO8qw==}
-    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
-
   har-schema@2.0.0:
     resolution: {integrity: sha512-Oqluz6zhGX8cyRaTQlFMPw80bSJVG2x/cFb8ZPhUILGgHka9SsokCCOQgpveePerqidZOrT14ipqfJb7ILcW5Q==}
     engines: {node: '>=4'}
@@ -3906,11 +3894,6 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
-
-  railway@3.16.0:
-    resolution: {integrity: sha512-//vKXubZpO07iJgNyoS+9Ee3pKk+3wE+0KAJPI28GuSKqXG30UeWT4xBkkd6TYuZ4HNh7QPvkVR72Swbmq5kXw==}
-    engines: {node: '>=22'}
-    hasBin: true
 
   range-parser@1.2.1:
     resolution: {integrity: sha512-Hrgsx+orqoygnmhFbKaHE6c296J+HTAQXoxEF6gNupROmmGJRoyzfG3ccAveqCBrwr/2yxQ5BVd/GTl5agOwSg==}
@@ -4929,10 +4912,6 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-
-  '@graphql-typed-document-node/core@3.2.0(graphql@16.15.0)':
-    dependencies:
-      graphql: 16.15.0
 
   '@hapi/hoek@9.3.0': {}
 
@@ -7118,8 +7097,6 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  graphql@16.15.0: {}
-
   har-schema@2.0.0: {}
 
   har-validator@5.1.5:
@@ -7953,11 +7930,6 @@ snapshots:
   querystring@0.2.1: {}
 
   queue-microtask@1.2.3: {}
-
-  railway@3.16.0:
-    dependencies:
-      '@graphql-typed-document-node/core': 3.2.0(graphql@16.15.0)
-      graphql: 16.15.0
 
   range-parser@1.2.1: {}
 
