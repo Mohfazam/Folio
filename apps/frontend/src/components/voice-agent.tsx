@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ComingSoonButton } from "@/components/ui/ComingSoon";
 import { AuthRedirectButton } from "@/components/ui/AuthRedirectButton";
 
@@ -82,9 +83,13 @@ export const VoiceAgent = () => {
                             <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
                                 12 Test cases passed • 0 Hallucinations detected
                             </span>
-                            <ComingSoonButton className="rounded bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-medium text-white hover:bg-[#3A3B37]">
-                                Simulate Agent
-                            </ComingSoonButton>
+                            
+                            {/* Wrapped in Link to route to /live-demo */}
+                            <Link href="/live-demo">
+                                <ComingSoonButton className="rounded bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-medium text-white transition-colors hover:bg-[#3A3B37]">
+                                    Simulate Agent
+                                </ComingSoonButton>
+                            </Link>
                         </div>
                     </div>
 
