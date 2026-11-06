@@ -74,6 +74,11 @@ export async function createCampaignAction(input: Record<string, unknown>): Prom
   return backendRequest("/api/campaigns", "POST", input);
 }
 
+
+export async function syncVerifiedPhoneAction(): Promise<ActionResult> {
+  return backendRequest("/api/auth/phone", "PATCH");
+}
+
 export async function createTestCallAction(phoneNumber: string, confirmRealCall: boolean): Promise<ActionResult> {
   return backendRequest("/api/test-calls", "POST", { phoneNumber, confirmRealCall });
 }
