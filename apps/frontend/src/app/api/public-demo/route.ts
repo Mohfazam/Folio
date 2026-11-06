@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
 const allowedScenarios = new Set(["admissions", "student-support", "general-enquiry"]);
 const allowedLanguages = new Set(["en-IN", "hi-IN", "te-IN", "ta-IN", "kn-IN", "ml-IN"]);
 
