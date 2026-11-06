@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { ComingSoonButton } from "@/components/ui/ComingSoon";
 
-export const OutboundCalls = () => {
+// Accept the isLoggedIn prop
+export const OutboundCalls = ({ isLoggedIn = false }: { isLoggedIn?: boolean }) => {
     return (
         <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28">
             <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
@@ -46,10 +48,16 @@ export const OutboundCalls = () => {
                         </div>
 
                         <div className="mt-8">
-                            <ComingSoonButton className="inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition hover:gap-2.5">
-                                <span>Explore Campaigns feature</span>
-                                <span>→</span>
-                            </ComingSoonButton>
+                            {/* Wrap the button in a Next.js Link */}
+                            <Link 
+                                href={isLoggedIn ? "/dashboard/campaigns" : "/sign-up"} 
+                                className="inline-block"
+                            >
+                                <ComingSoonButton className="inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition hover:gap-2.5">
+                                    <span>Explore Campaigns feature</span>
+                                    <span>→</span>
+                                </ComingSoonButton>
+                            </Link>
                         </div>
                     </div>
 

@@ -12,11 +12,9 @@ import { Pricing } from "@/components/pricing";
 import { CtaFooter } from "@/components/cta-footer";
 import { createClient } from "@/lib/supabase/server";
 
-// 1. The dynamic data fetching component
-async function DynamicPricingSection() {
-  // ✅ Forces Next.js to render this at request time, fixing the Date.now() error
-  await connection(); 
-
+// 1. We refactor this to pass down both currentPlan AND isLoggedIn
+async function DynamicContent() {
+  await connection();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -28,14 +26,24 @@ async function DynamicPricingSection() {
       .select("subscription_tier")
       .eq("id", user.id)
       .single();
-
     currentPlan = profile?.subscription_tier ?? null;
   }
 
-  return <Pricing currentPlan={currentPlan} />;
+  return (
+    <>
+      {/* Pass isLoggedIn to OutboundCalls */}
+      <OutboundCalls isLoggedIn={Boolean(user)} />
+      
+      <VoiceAgent />
+      <CallsIntoAnswers />
+      <Integrations />
+      
+      {/* Pass currentPlan to Pricing */}
+      <Pricing currentPlan={currentPlan} />
+    </>
+  );
 }
 
-// 2. The main static page
 export default function Home() {
   return (
     <main className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
@@ -43,20 +51,16 @@ export default function Home() {
       <Hero />
       <TwoProducts />
       <TrustBar />
-      <OutboundCalls />
-      <VoiceAgent />
-      <CallsIntoAnswers />
-      <Integrations />
       
-      {/* 3. Suspense allows the page to load instantly while pricing fetches */}
+      {/* Wrap BOTH components in the Suspense boundary */}
       <Suspense 
         fallback={
-          <div className="flex w-full min-h-[600px] items-center justify-center bg-[#FBF9F2] text-[#747878]">
-            Loading pricing...
+          <div className="flex w-full min-h-[800px] items-center justify-center bg-[#FBF9F2] text-[#747878]">
+            Loading...
           </div>
         }
       >
-        <DynamicPricingSection />
+        <DynamicContent />
       </Suspense>
 
       <CtaFooter />
