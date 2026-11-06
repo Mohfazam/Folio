@@ -24,7 +24,8 @@ const Navbar = () => {
     "whitespace-nowrap font-['Space_Grotesk'] text-[13px] font-medium leading-[18px] tracking-[0.1px] text-[#55534F] transition-colors duration-200 hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4";
 
   const primaryButton =
-  "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2";
+    "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2";
+
   const handleNavClick = () => {
     setMenuOpen(false);
   };
@@ -122,18 +123,14 @@ const Navbar = () => {
             Contact Sales
           </a>
 
-          <a href="/live-demo" target="_blank" rel="noopener noreferrer" className={navItem}>
-            Experience Live Demo ↗
-          </a>
-
           {!isLoading && (
             user ? (
               <Link href="/dashboard" className={primaryButton}>
                 Dashboard
               </Link>
             ) : (
-              <Link href="/sign-up" className={primaryButton}>
-                Start free trial
+              <Link href="/live-demo" className={primaryButton}>
+                Experience Live Demo
                 <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
                   ↗
                 </span>
@@ -224,16 +221,6 @@ const Navbar = () => {
               Contact Sales
             </a>
 
-            <a
-              href="/live-demo"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleNavClick}
-              className={`${navItem} text-left text-[14px]`}
-            >
-              Experience Live Demo ↗
-            </a>
-
             {!isLoading && (
               user ? (
                 <Link
@@ -245,11 +232,11 @@ const Navbar = () => {
                 </Link>
               ) : (
                 <Link
-                  href="/sign-up"
+                  href="/live-demo"
                   onClick={handleNavClick}
                   className={`${primaryButton} w-full`}
                 >
-                  Start free trial
+                  Experience Live Demo
                   <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
                     ↗
                   </span>
