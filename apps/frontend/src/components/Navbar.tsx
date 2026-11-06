@@ -122,8 +122,8 @@ const Navbar = () => {
             Contact Sales
           </a>
 
-          <a href="#demo" className={navItem}>
-            View Demo
+          <a href="/live-demo" target="_blank" rel="noopener noreferrer" className={navItem}>
+            Experience Live Demo ↗
           </a>
 
           {!isLoading && (
@@ -225,11 +225,13 @@ const Navbar = () => {
             </a>
 
             <a
-              href="#demo"
+              href="/live-demo"
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={handleNavClick}
               className={`${navItem} text-left text-[14px]`}
             >
-              View Demo
+              Experience Live Demo ↗
             </a>
 
             {!isLoading && (

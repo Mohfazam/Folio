@@ -163,11 +163,11 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     {
       id: 3,
       title: "Place a test call",
-      description: "Call your saved test-call destination and hear how your configured agent handles a real conversation.",
+      description: "Call your own phone and hear how your configured agent handles a real conversation.",
       action: "Test call",
       actionKey: "test-call",
       complete: summary?.testCallComplete === true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Save a test-call destination and place a real test call before contacting your audience.",
+      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to your verified phone before contacting your audience.",
     },
     {
       id: 4,
