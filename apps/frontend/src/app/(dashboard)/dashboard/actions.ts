@@ -75,12 +75,21 @@ export async function createCampaignAction(input: Record<string, unknown>): Prom
 }
 
 
-export async function syncVerifiedPhoneAction(): Promise<ActionResult> {
-  return backendRequest("/api/auth/phone", "PATCH");
+export async function saveTestCallDestinationAction(phoneNumber: string): Promise<ActionResult> {
+  const normalizedPhone = phoneNumber.trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+    return { ok: false, status: 400, error: "Enter a valid phone number in international format, including the country code." };
+  }
+
+  // Reuse the existing business-profile metadata endpoint. It merges metadata
+  // into the current profile, so agent settings and other profile data survive.
+  return backendRequest("/api/business-profile", "PUT", {
+    metadata: { testCallDestination: normalizedPhone },
+  });
 }
 
-export async function createTestCallAction(phoneNumber: string, confirmRealCall: boolean): Promise<ActionResult> {
-  return backendRequest("/api/test-calls", "POST", { phoneNumber, confirmRealCall });
+export async function createTestCallAction(confirmRealCall: boolean): Promise<ActionResult> {
+  return backendRequest("/api/test-calls", "POST", { confirmRealCall });
 }
 
 export async function getTestCallStatusAction(testCallId: string): Promise<ActionResult> {
