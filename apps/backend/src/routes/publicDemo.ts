@@ -29,7 +29,10 @@ const ALLOWED_LANGUAGES = new Set([
 const MAX_CALL_SECONDS = 120;
 const RESERVED_CREDITS = Math.ceil(MAX_CALL_SECONDS / 10);
 
-const PHONE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// before Enforce one request per phone number every 24 hours.
+// const PHONE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// after Enforce one request per phone number every hour.
+const PHONE_COOLDOWN_MS = 60 * 60 * 1000;
 const DAILY_REQUEST_LIMIT = 20;
 const MAX_CONCURRENT_DEMOS = 2;
 
@@ -313,7 +316,7 @@ export async function createPublicDemoRoute(
           ok: false as const,
           status: 429,
           error:
-            "This number has already received a demo call recently. You can request another demo after 24 hours.",
+            "This number has already received a demo call recently. You can request another demo after an hour.",
         };
       }
 

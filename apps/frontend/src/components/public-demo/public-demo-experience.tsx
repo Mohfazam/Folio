@@ -114,7 +114,7 @@ export default function PublicDemoExperience() {
               {!configured ? <p className="rounded-lg border border-[#EAD5C8] bg-[#FFF8F3] px-3.5 py-3 text-[11px] leading-5 text-[#8A543B]">Public demo calling is being prepared. The call request will become available once the secure public-demo service and security verification are configured.</p> : null}
               {message && status === "error" ? <p role="alert" className="text-[11px] leading-5 text-[#B34E35]">{message}</p> : null}
               <button type="submit" disabled={!configured || status === "submitting" || !consent || !captchaToken} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40">{status === "submitting" ? "Requesting your call…" : "Request my live demo call"}<span aria-hidden="true">↗</span></button>
-              <p className="text-center text-[9px] leading-4 text-[#969084]">One demo call per phone number every 24 hours. Calls are available from 9 AM to 8 PM IST and last up to two minutes.</p>
+              <p className="text-center text-[9px] leading-4 text-[#969084]"> One demo call per phone number per hour, lasting up to 2 minutes.</p>
             </form>
           </>
         )}
