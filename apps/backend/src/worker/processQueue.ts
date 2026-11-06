@@ -283,9 +283,15 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         continue;
       }
 
-      const isTestCall = queueEntry.campaignId === null && isFooliooSystemContact(contact.customFields);
-      // campaign_id=NULL is reserved for the explicit system test-call workflow.
-      // Never let arbitrary unlinked queue rows become live outbound calls.
+      const systemContact = isFooliooSystemContact(contact.customFields);
+      const contactCustomFields = contact.customFields && typeof contact.customFields === "object"
+        ? contact.customFields as Record<string, unknown>
+        : {};
+      const isPublicDemo = contactCustomFields._fooliooSystem === "public_demo";
+      const isTestCall = queueEntry.campaignId === null && systemContact;
+      // campaign_id=NULL is reserved for isolated Foolioo system calls: dashboard
+      // test calls and the fixed public showcase demo. Never let arbitrary unlinked
+      // queue rows become live outbound calls.
       if ((queueEntry.campaignId === null && !isTestCall) || (queueEntry.campaignId !== null && isFooliooSystemContact(contact.customFields))) {
         console.error(`[worker] Rejecting unsupported queue/contact combination for ${queueEntry.id}`);
         await db.update(callQueue)
@@ -294,7 +300,13 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         continue;
       }
 
-      const agentRuntimeSettings = await getWorkspaceAgentRuntimeSettings(client.id);
+      let agentRuntimeSettings = await getWorkspaceAgentRuntimeSettings(client.id);
+      if (isPublicDemo && agentRuntimeSettings) {
+        const requestedLanguage = typeof contactCustomFields.publicDemoLanguage === "string"
+          ? contactCustomFields.publicDemoLanguage
+          : agentRuntimeSettings.language;
+        agentRuntimeSettings = { ...agentRuntimeSettings, language: requestedLanguage };
+      }
       if (isTestCall && !agentRuntimeSettings) {
         console.error(`[worker] Test call ${queueEntry.id} has no saved agent runtime settings; rejecting it.`);
         await db.update(callQueue)
@@ -481,12 +493,30 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         contactId: contact.id,
         queueEntryId: queueEntry.id,
         maxDurationSeconds: campaignMaxDurationSeconds,
-        recordCall: true,
+        recordCall: !isPublicDemo,
       };
 
       if (queueEntry.campaignId) {
         dialBody.campaignId = queueEntry.campaignId;
       }
+
+      const publicDemoScenario = typeof contactCustomFields.publicDemoScenario === "string"
+        ? contactCustomFields.publicDemoScenario
+        : "general-enquiry";
+      const scenarioGuidance: Record<string, string> = {
+        admissions: "Admissions scenario: act as an admissions front desk. Ask which programme or area of study the caller is interested in, explain how a real institute can answer eligibility, application and fee questions, and never invent actual admissions facts.",
+        "student-support": "Student support scenario: act as a student-services receptionist. Clarify whether the caller needs help with timetables, campus services or a student query. Explain that a real institute can connect verified student information; do not invent schedules, policies or records.",
+        "general-enquiry": "General enquiry scenario: act as the institute's main reception desk. Welcome the caller, understand why they are calling and guide them toward the right department without claiming access to real institute staff or records.",
+      };
+      const publicDemoInstructions = isPublicDemo
+        ? [
+            "This is a public Foolioo product demonstration requested by the person receiving this call.",
+            "Identify yourself clearly as an AI receptionist in a Foolioo live demo. Do not impersonate a real institute or claim to represent a real school or college.",
+            "Demonstrate a realistic, warm, capable educational-institute receptionist conversation. Do not invent course names, fees, eligibility rules, deadlines, locations, or institutional facts. If asked for specifics that are not in the supplied context, say this is a showcase environment and explain that a real institution can connect its own verified information.",
+            "Keep the conversation focused, concise, helpful and natural. Invite the recipient to ask a question, handle interruptions politely, and end courteously when they are done.",
+            scenarioGuidance[publicDemoScenario] ?? scenarioGuidance["general-enquiry"],
+          ].join("\n")
+        : undefined;
 
       dialBody.context = {
         business: businessProfile,
@@ -498,13 +528,17 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         agentSettings: agentRuntimeSettings,
         workspaceTimezone: client.timezone || "Asia/Kolkata",
         isTestCall,
+        isPublicDemo,
+        additionalInstructions: publicDemoInstructions,
       };
 
       const callingUrl = `${env.callingServiceUrl.replace(/\/$/, "")}/dial`;
 
       try {
         console.log(
-          `[worker] 📞 Dialing ${contact.fullName || "contact"} (${contact.phoneNumber}) for client ${client.id.slice(0, 8)}...`
+          isPublicDemo
+            ? `[worker] 📞 Dialing public demo visitor for showcase client ${client.id.slice(0, 8)}...`
+            : `[worker] 📞 Dialing ${contact.fullName || "contact"} (${contact.phoneNumber}) for client ${client.id.slice(0, 8)}...`
         );
 
         const dialResponse = await fetch(callingUrl, {

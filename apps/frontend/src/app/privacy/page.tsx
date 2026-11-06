@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Learn how Foolioo processes and protects information.",
 };
 
-const EFFECTIVE_DATE = "October 30, 2026";
+const EFFECTIVE_DATE = "November 6, 2026";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -75,7 +75,22 @@ export default function PrivacyPolicyPage() {
         recording, transcription, retention and processing controls.
       </p>
 
-      <h2>5. How information may be shared</h2>
+      <h2>5. Public live demo calls</h2>
+      <p>
+        If you request a public Foolioo live demo call, we process the phone number you provide,
+        your selected conversation scenario and language, your consent timestamp and policy version,
+        and limited request and security information such as your IP address. We use this information
+        to place the call you requested, prevent repeated or abusive requests, and operate the demo.
+      </p>
+      <p>
+        Public demo calls are limited to two minutes and are not recorded. We do not retain the demo
+        call transcript, summary or conversational analysis. The destination phone number is retained
+        for approximately 24 hours to enforce the one-call-per-number cooldown, then redacted during the
+        next 15-minute cleanup pass from the demo contact, queue and call records. Limited call metadata, such as whether the call connected,
+        duration and service cost, may remain for operational, security and accounting purposes.
+      </p>
+
+      <h2>6. How information may be shared</h2>
       <p>Information may be disclosed in the following circumstances:</p>
       <ul>
         <li><strong>Service providers:</strong> hosting, infrastructure, authentication, AI, telephony, analytics, payment and support providers that help deliver the Service.</li>
@@ -90,7 +105,7 @@ export default function PrivacyPolicyPage() {
         configuration and applicable customer agreement for provider-specific information.
       </p>
 
-      <h2>6. Retention and deletion</h2>
+      <h2>7. Retention and deletion</h2>
       <p>
         We retain information for as long as reasonably necessary to provide the Service, maintain
         security, meet contractual commitments, resolve disputes and comply with law. Retention can
@@ -101,7 +116,7 @@ export default function PrivacyPolicyPage() {
         retention requirements.
       </p>
 
-      <h2>7. Security</h2>
+      <h2>8. Security</h2>
       <p>
         We use reasonable technical and organizational measures designed to protect information
         against unauthorized access, loss, misuse or alteration. No online service or storage system
@@ -109,7 +124,7 @@ export default function PrivacyPolicyPage() {
         credentials, limiting workspace access and promptly reporting suspected compromise.
       </p>
 
-      <h2>8. International processing</h2>
+      <h2>9. International processing</h2>
       <p>
         Foolioo and its service providers may process information in countries other than the country
         where you or your contacts are located. Where required, appropriate contractual or other
@@ -117,7 +132,7 @@ export default function PrivacyPolicyPage() {
         may also involve transfers governed by that provider’s terms and privacy policy.
       </p>
 
-      <h2>9. Your choices and privacy rights</h2>
+      <h2>10. Your choices and privacy rights</h2>
       <p>
         Depending on your location and the role you have in the workspace, you may have rights to
         request access to, correction of, deletion of or a copy of personal information, or to object
@@ -132,7 +147,7 @@ export default function PrivacyPolicyPage() {
         or legal obligation applies.
       </p>
 
-      <h2>10. Cookies and similar technologies</h2>
+      <h2>11. Cookies and similar technologies</h2>
       <p>
         The website or Service may use essential cookies or similar technologies to support sign-in,
         security, preferences and core functionality. If optional analytics or advertising
@@ -141,21 +156,21 @@ export default function PrivacyPolicyPage() {
         affect sign-in or other features.
       </p>
 
-      <h2>11. Children</h2>
+      <h2>12. Children</h2>
       <p>
         The Service is intended for business use and is not designed for children. Do not create an
         account for a child or submit children’s personal information unless the feature and the
         applicable law expressly permit it and all required permissions have been obtained.
       </p>
 
-      <h2>12. Changes to this policy</h2>
+      <h2>13. Changes to this policy</h2>
       <p>
         We may update this Privacy Policy to reflect changes to the Service, our processing practices
         or legal requirements. We will update the effective date above and provide notice of material
         changes through the Service or another reasonable channel where required.
       </p>
 
-      <h2>13. Contact</h2>
+      <h2>14. Contact</h2>
       <p>
         For questions or requests about this policy, use the support contact provided in your
         Foolioo workspace or customer agreement. The business operating Foolioo should make its

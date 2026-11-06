@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type { Request, Response } from "express";
 import { env } from "../config/env.js";
 
@@ -50,5 +50,22 @@ export const uploadRateLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   handler: limitHandler,
+  skip: () => env.isTest,
+});
+
+/** Public demo abuse control. The frontend proxy forwards the visitor IP after
+ * validating same-origin traffic; the shared proxy secret prevents direct spoofing.
+ * Use a shared Redis store when running multiple backend replicas.
+ */
+export const publicDemoRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.get("x-public-demo-ip") || req.ip || "unknown"),
+  handler: (_req, res) => res.status(429).json({
+    ok: false,
+    error: "Too many demo requests from this network. Please try again later.",
+  }),
   skip: () => env.isTest,
 });

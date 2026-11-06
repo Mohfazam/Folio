@@ -103,6 +103,8 @@ export interface PromptContext {
   contact?: ContactContext;
   knowledgeBase?: KnowledgeBaseItem[];
   additionalInstructions?: string;
+  /** Server-owned flag for the public showcase model profile. */
+  isPublicDemo?: boolean;
 }
 
 export function compileSystemPrompt(ctx: PromptContext): string {

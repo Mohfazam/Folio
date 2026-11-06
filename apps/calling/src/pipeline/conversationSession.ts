@@ -193,7 +193,8 @@ export function createConversationSession(
         },
         controller.signal,
         false,
-        options?.instructions
+        options?.instructions,
+        options?.sessionState?.isPublicDemo ? "showcase" : undefined
       );
       void replyPromise.catch(() => {});
 

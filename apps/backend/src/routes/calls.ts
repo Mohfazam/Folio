@@ -252,6 +252,14 @@ export async function callCompleteRoute(req: Request, res: Response) {
       return { notFound: true as const };
     }
 
+    const isPublicDemoContact = Boolean(
+      contact.customFields && typeof contact.customFields === "object" && !Array.isArray(contact.customFields) &&
+      (contact.customFields as Record<string, unknown>)._fooliooSystem === "public_demo"
+    );
+
+    // Public demos are not recorded. Do not retain the visitor's number in the call log,
+    // transcript, summary or analysis fields. The contact row keeps the number only for
+    // the 24-hour anti-abuse cooldown and is redacted by the periodic cleanup task.
     // 1. Insert call record
     const [callRecord] = await tx
       .insert(calls)
@@ -262,7 +270,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
         campaignId: queueEntry?.campaignId ?? null,
         queueEntryId,
         contactName: contact?.fullName ?? null,
-        phoneNumber: contact?.phoneNumber ?? null,
+        phoneNumber: isPublicDemoContact ? null : contact?.phoneNumber ?? null,
         attemptNumber,
         startedAt,
         endedAt,
@@ -270,18 +278,18 @@ export async function callCompleteRoute(req: Request, res: Response) {
         outcome,
         isBillable,
         creditsCharged,
-        summary: analysis?.summary ?? null,
-        interestLevel: analysis?.interestLevel ?? null,
-        sentiment: analysis?.sentiment ?? null,
-        objectionsRaised: analysis?.objectionsRaised ?? null,
-        followUpRequested: Boolean(analysis?.followUpRequested || analysis?.requestedCallbackTime || analysis?.humanRequested),
+        summary: isPublicDemoContact ? null : analysis?.summary ?? null,
+        interestLevel: isPublicDemoContact ? null : analysis?.interestLevel ?? null,
+        sentiment: isPublicDemoContact ? null : analysis?.sentiment ?? null,
+        objectionsRaised: isPublicDemoContact ? null : analysis?.objectionsRaised ?? null,
+        followUpRequested: isPublicDemoContact ? false : Boolean(analysis?.followUpRequested || analysis?.requestedCallbackTime || analysis?.humanRequested),
         costTelephony,
         costStt,
         costLlm,
         costTts,
         costTotal,
-        recordingUrl: payload.recording?.available ? payload.recording.storageKey ?? null : null,
-        transcript: payload.transcript,
+        recordingUrl: isPublicDemoContact ? null : payload.recording?.available ? payload.recording.storageKey ?? null : null,
+        transcript: isPublicDemoContact ? null : payload.transcript,
       })
       .onConflictDoNothing({ target: calls.deliveryId })
       .returning();
@@ -486,7 +494,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
     }
 
     console.log(`[calls/complete] 💳 Call Log & Cost Summary:`);
-    console.log(`                 Contact: ${contact?.fullName || payload.contactId} (${contact?.phoneNumber || "N/A"}) ${contact?.companyName ? `[${contact.companyName}]` : ""}`);
+    console.log(`                 Contact: ${isPublicDemoContact ? "Public demo visitor" : `${contact?.fullName || payload.contactId} (${contact?.phoneNumber || "N/A"})`}`);
     console.log(`                 Outcome: ${outcome} | Duration: ${payload.durationSeconds}s | Billable: ${isBillable}`);
     console.log(`                 Credits Charged: ${creditsCharged} credits (Cycle total: ${updatedTotalCreditsUsed}/${client?.monthlyCreditsAllowance ?? "N/A"})`);
     console.log(`                 Provider Costs: Total=$${costTotal} (Telephony=$${costTelephony}, STT=$${costStt}, LLM=$${costLlm}, TTS=$${costTts})`);

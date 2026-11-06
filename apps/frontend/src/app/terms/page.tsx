@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: "Terms governing access to and use of the Foolioo platform.",
 };
 
-const EFFECTIVE_DATE = "October 30, 2026";
+const EFFECTIVE_DATE = "November 6, 2026";
 
 export default function TermsOfServicePage() {
   return (
@@ -90,7 +90,23 @@ export default function TermsOfServicePage() {
         other regulated advice.
       </p>
 
-      <h2>6. Your content and data</h2>
+      <h2>6. Public live demo calls</h2>
+      <p>
+        The public live demo is an optional, one-time product demonstration. When you request a call,
+        you confirm that you own the destination phone number or have permission to use it, and that
+        you agree to receive one automated AI-generated demo call from Foolioo. The demo is currently
+        limited to eligible Indian mobile numbers, is available during the hours shown on the demo page,
+        and may be limited by capacity or abuse-prevention controls.
+      </p>
+      <p>
+        The showcase agent is an AI assistant and does not represent a real school, college or
+        university. Do not provide sensitive personal, financial, identity or education information
+        during the demo. Public demo calls last no longer than two minutes and are not recorded. You
+        may end the call at any time. You may request another demo to the same number after the
+        24-hour cooldown.
+      </p>
+
+      <h2>7. Your content and data</h2>
       <p>
         As between you and Foolioo, you retain your rights to the data, contact records, recordings,
         transcripts, prompts, scripts and other materials that you or your users submit to the Service
@@ -104,7 +120,7 @@ export default function TermsOfServicePage() {
         Service and your agreement with us expressly support that use.
       </p>
 
-      <h2>7. Integrations and third-party services</h2>
+      <h2>8. Integrations and third-party services</h2>
       <p>
         The Service may connect to telephony providers, CRM systems, AI services, analytics tools or
         other third-party products. Those services are governed by their own terms and privacy
@@ -113,7 +129,7 @@ export default function TermsOfServicePage() {
         accounts.
       </p>
 
-      <h2>8. Foolioo intellectual property</h2>
+      <h2>9. Foolioo intellectual property</h2>
       <p>
         We and our licensors retain all rights in the Service, including its software, design,
         features, branding and documentation. These Terms grant you a limited, non-exclusive,
@@ -126,7 +142,7 @@ export default function TermsOfServicePage() {
         without permission.
       </p>
 
-      <h2>9. Confidentiality</h2>
+      <h2>10. Confidentiality</h2>
       <p>
         Each party must take reasonable steps to protect the other party’s non-public information
         received through use of the Service and use it only for the purposes of the relationship.
@@ -134,7 +150,7 @@ export default function TermsOfServicePage() {
         already lawfully known, independently developed, or required to be disclosed by law.
       </p>
 
-      <h2>10. Availability and changes</h2>
+      <h2>11. Availability and changes</h2>
       <p>
         We may update, improve or discontinue parts of the Service. We will use reasonable efforts to
         communicate material changes that affect active customers. The Service may be unavailable
@@ -142,7 +158,7 @@ export default function TermsOfServicePage() {
         our control. These Terms do not promise uninterrupted or error-free operation.
       </p>
 
-      <h2>11. Suspension and termination</h2>
+      <h2>12. Suspension and termination</h2>
       <p>
         You may stop using the Service and cancel your plan through the available account controls or
         the process stated in your order form. We may suspend or restrict access if reasonably needed
@@ -155,7 +171,7 @@ export default function TermsOfServicePage() {
         according to the applicable plan terms, our retention practices and legal requirements.
       </p>
 
-      <h2>12. Disclaimers</h2>
+      <h2>13. Disclaimers</h2>
       <p>
         To the maximum extent permitted by law, the Service is provided on an “as available” basis.
         We do not warrant that it will meet every requirement, achieve a particular business result,
@@ -163,7 +179,7 @@ export default function TermsOfServicePage() {
         or right that cannot lawfully be excluded.
       </p>
 
-      <h2>13. Limitation of liability</h2>
+      <h2>14. Limitation of liability</h2>
       <p>
         To the maximum extent permitted by law, neither party is liable to the other for indirect,
         incidental, special, exemplary or consequential loss, or for loss of profits, revenue, goodwill
@@ -173,7 +189,7 @@ export default function TermsOfServicePage() {
         rise to the claim. This section does not limit liability that cannot legally be limited.
       </p>
 
-      <h2>14. Indemnity</h2>
+      <h2>15. Indemnity</h2>
       <p>
         To the extent permitted by law, you are responsible for claims arising from your Customer
         Content, campaigns, contact practices, breach of these Terms or violation of another
@@ -182,7 +198,7 @@ export default function TermsOfServicePage() {
         Terms or unlawful conduct.
       </p>
 
-      <h2>15. Changes to these Terms</h2>
+      <h2>16. Changes to these Terms</h2>
       <p>
         We may update these Terms as the Service or applicable requirements change. We will update
         the effective date above and provide notice of material changes through the Service or
@@ -190,7 +206,7 @@ export default function TermsOfServicePage() {
         accept the changes, where that form of acceptance is permitted by law.
       </p>
 
-      <h2>16. Governing law and contact</h2>
+      <h2>17. Governing law and contact</h2>
       <p>
         These Terms are subject to the mandatory laws that apply to the contracting entity providing
         your Foolioo subscription. Any governing-law and dispute-resolution terms in a signed order
