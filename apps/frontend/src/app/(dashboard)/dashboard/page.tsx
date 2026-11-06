@@ -217,14 +217,18 @@ async function DashboardPageContent() {
   ]);
 
   const clientRows = clients.state === "ready" ? clients.data.items : [];
+  const authUser = authProfile.state === "ready" && isRecord(authProfile.data.user)
+    ? authProfile.data.user
+    : null;
+  const neonUserId = authUser && typeof authUser.id === "string" ? authUser.id : null;
   const workspaceMetadata = clientRows[0] && isRecord(clientRows[0].metadata) ? clientRows[0].metadata : {};
   const savedRoutingRules = isRecord(workspaceMetadata.routingRules) ? workspaceMetadata.routingRules : null;
   const routingRules: LoadResult<JsonRecord> = clients.state === "error"
     ? { state: "error", error: clients.error, status: clients.status }
     : { state: "ready", data: { ok: true, configured: savedRoutingRules?.configured === true, routingRules: savedRoutingRules ?? {
-        callback: { enabled: true, assignToUserId: user.id, dueInMinutes: 30 },
-        highInterest: { enabled: true, assignToUserId: user.id },
-        humanRequested: { enabled: true, assignToUserId: user.id },
+        callback: { enabled: true, assignToUserId: neonUserId, dueInMinutes: 30 },
+        highInterest: { enabled: true, assignToUserId: neonUserId },
+        humanRequested: { enabled: true, assignToUserId: neonUserId },
         noAnswer: { enabled: true, retryAfterMinutes: 1440, maxRetries: 2 },
       } } };
 
