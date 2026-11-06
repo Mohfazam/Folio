@@ -24,15 +24,7 @@ function istDayStart(now = new Date()): Date {
   return new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00+05:30`);
 }
 
-function isWithinPublicDemoHours(now = new Date()): boolean {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).formatToParts(now);
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
-  const currentMinutes = hour * 60 + minute;
-  return currentMinutes >= 9 * 60 && currentMinutes < 20 * 60;
-}
+
 
 async function verifyTurnstile(token: string, remoteIp: string): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
@@ -84,9 +76,6 @@ export async function createPublicDemoRoute(req: Request, res: Response) {
   if (body.consent !== true) return res.status(400).json({ ok: false, error: "Explicit consent is required before requesting a demo call." });
   if (!captchaToken || captchaToken.length > 4096) return res.status(400).json({ ok: false, error: "Complete the security check before requesting a call." });
 
-  if (!isWithinPublicDemoHours()) {
-    return res.status(409).json({ ok: false, error: "Live demo calls are available daily between 9:00 AM and 8:00 PM IST. Please try again during those hours." });
-  }
 
   if (!(await verifyTurnstile(captchaToken, remoteIp))) {
     return res.status(403).json({ ok: false, error: "Security verification failed. Refresh the check and try again." });
