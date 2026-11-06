@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AuthRedirectButton } from "@/components/ui/AuthRedirectButton";
 
 export const Pricing = () => {
@@ -129,7 +130,7 @@ export const Pricing = () => {
                     </p>
                 </div>
 
-                {/* Pricing Cards Container - Flex Wrap to center bottom 2 cards */}
+                {/* Pricing Cards Container */}
                 <div className="mt-14 flex flex-wrap justify-center gap-6">
                     {plans.map((plan) => (
                         <div
@@ -177,7 +178,7 @@ export const Pricing = () => {
                                             {plan.estimate}
                                         </span>
                                         
-                                        {/* Rate & Vol Pills - Redesigned */}
+                                        {/* Rate & Vol Pills */}
                                         <div className="mt-2 flex items-center gap-2">
                                             <div className="flex flex-1 items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-2.5 py-1.5">
                                                 <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Rate</span>
@@ -216,15 +217,18 @@ export const Pricing = () => {
                                         Contact sales
                                     </a>
                                 ) : (
-                                    <AuthRedirectButton
-                                        className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
-                                            plan.highlighted
-                                                ? "bg-[#1B1C18] text-white hover:bg-[#3A3B37]"
-                                                : "border border-[#E9E8E1] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
-                                        }`}
-                                    >
-                                        {plan.cta}
-                                    </AuthRedirectButton>
+                                    // Wrapped in Next.js Link to ensure it routes to signup
+                                    <Link href="/sign-up" className="block w-full">
+                                        <AuthRedirectButton
+                                            className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
+                                                plan.highlighted
+                                                    ? "bg-[#1B1C18] text-white hover:bg-[#3A3B37]"
+                                                    : "border border-[#E9E8E1] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
+                                            }`}
+                                        >
+                                            {plan.cta}
+                                        </AuthRedirectButton>
+                                    </Link>
                                 )}
                             </div>
                         </div>
