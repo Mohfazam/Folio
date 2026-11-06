@@ -9,6 +9,7 @@ import {
   launchCampaignAction,
   saveAgentSettingsAction,
   saveRoutingRulesAction,
+  saveTestCallDestinationAction,
 } from "@/app/(dashboard)/dashboard/actions";
 
 type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
@@ -85,8 +86,16 @@ export function SetupWizardModal({
   const client = items(data.clients)[0] ?? {};
   const authPayload = data.authProfile.state === "ready" ? data.authProfile.data : {};
   const authUser = recordValue(authPayload, "user");
-  const hasVerifiedPhone = authPayload.hasVerifiedPhone === true && textValue(authUser, "phoneNumber") !== "";
-  const verifiedPhone = hasVerifiedPhone ? textValue(authUser, "phoneNumber") : "";
+  const accountPhone = textValue(authUser, "phoneNumber");
+  const profileMetadata = recordValue(profile, "metadata");
+  const savedDestinationFromProfile = textValue(profileMetadata, "testCallDestination");
+  const profileGuardrails = Array.isArray(profile?.guardrails) ? profile.guardrails : [];
+  const agentConfigured = Boolean(
+    textValue(profile, "displayName") && textValue(profile, "description") &&
+    textValue(profile, "aiPersonaName") && textValue(profile, "toneOfVoice") &&
+    isRecord(agent) && textValue(agent, "greeting") && textValue(agent, "primaryObjective") &&
+    profileGuardrails.length > 0
+  );
   const launchContactRows = items(data.launchContacts);
   const campaignRows = items(data.campaigns);
   const voices = Array.isArray(agentPayload.availableVoices)
@@ -101,6 +110,11 @@ export function SetupWizardModal({
   const [success, setSuccess] = useState<string | null>(null);
   const [testCallId, setTestCallId] = useState("");
   const [testCallStatus, setTestCallStatus] = useState<RecordValue | null>(null);
+  const [testCallDestinationInput, setTestCallDestinationInput] = useState(savedDestinationFromProfile || accountPhone);
+  const [savedTestCallDestination, setSavedTestCallDestination] = useState(savedDestinationFromProfile);
+  const [destinationBusy, setDestinationBusy] = useState(false);
+  const [destinationError, setDestinationError] = useState<string | null>(null);
+  const [destinationMessage, setDestinationMessage] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState(() => {
     const first = campaignRows.find((item) => item.status === "draft" || item.status === "paused");
     return textValue(first, "id");
@@ -161,6 +175,42 @@ export function SetupWizardModal({
     campaign: "Create your first campaign",
     routing: "Set up follow-ups and team handling",
     launch: "Review and launch",
+  };
+
+  const validTestCallDestination = /^\+[1-9]\d{7,14}$/.test(testCallDestinationInput.trim());
+  const destinationIsSaved = Boolean(
+    savedTestCallDestination && savedTestCallDestination === testCallDestinationInput.trim()
+  );
+
+  const saveTestCallDestination = async () => {
+    const normalizedPhone = testCallDestinationInput.trim();
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      setDestinationError("Enter a valid phone number in international format, including the country code.");
+      return;
+    }
+    if (!profile) {
+      setDestinationError("Complete your business profile before saving a test-call destination.");
+      return;
+    }
+
+    setDestinationBusy(true);
+    setError(null);
+    setDestinationError(null);
+    setDestinationMessage(null);
+    try {
+      const result = await saveTestCallDestinationAction(normalizedPhone);
+      if (!result.ok) {
+        setDestinationError(result.error || "Unable to save the test-call destination.");
+        return;
+      }
+      setSavedTestCallDestination(normalizedPhone);
+      setTestCallDestinationInput(normalizedPhone);
+      setDestinationMessage("Test-call destination saved to this workspace.");
+    } catch (cause) {
+      setDestinationError(cause instanceof Error ? cause.message : "Unable to save the test-call destination.");
+    } finally {
+      setDestinationBusy(false);
+    }
   };
 
   const renderFooter = (submitLabel: string, disabled = false) => (
@@ -316,7 +366,7 @@ export function SetupWizardModal({
                     <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[11px] text-[#565B5B]" onChange={(event) => { setContactFile(event.target.files?.[0] ?? null); setContactImportConfirmed(false); setError(null); }} />
                   </label>
                   {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="font-['Space_Grotesk'] text-[11px] text-[#644ABB]">Remove</button></div> : null}
-                  <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">At minimum, include a phone number column. Names and other business fields can be included to personalise conversations. The backend remains responsible for validation and eligibility checks.</div>
+                  <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">The downloadable template contains column headers only. Add at least one contact row before uploading it. A phoneNumber column is required; names and other business fields are optional. The backend validates every row before it becomes eligible for calling.</div>
                   <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" disabled={!contactFile} onClick={() => setContactImportStage("review")} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">Review import →</button></div>
                 </>
               ) : (
@@ -336,6 +386,12 @@ export function SetupWizardModal({
                     <button type="button" disabled={busy || Boolean(success) || !contactFile || !contactImportConfirmed} onClick={async () => {
                       if (!contactFile) return;
                       const result = await submit(() => importContactsAction(contactFile), "Your contact import has been submitted. Check the import result before using this audience in a campaign.");
+                      if (!result) {
+                        setContactFile(null);
+                        setContactImportConfirmed(false);
+                        setContactImportStage("select");
+                        return;
+                      }
                       if (result) {
                         const payload = isRecord(result.import) ? result.import : result;
                         const total = payload.totalRows ?? payload.total ?? payload.processed;
@@ -352,7 +408,45 @@ export function SetupWizardModal({
 
           {action === "test-call" ? (
             <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Call your own verified phone to hear how your configured agent opens a conversation. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
+              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Call the number saved for this workspace to hear how your configured agent opens a conversation. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
+
+              <section className="flex flex-col gap-3 rounded-[6px] border border-[#E9E8E1] bg-[#FAF9F5] p-4" aria-labelledby="test-call-destination-heading">
+                <div>
+                  <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]" id="test-call-destination-heading">Test-call destination</p>
+                  <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Save the phone number Foolioo should call. Use a number you own or have permission to call. Phone ownership verification is not enabled in this MVP.</p>
+                </div>
+                <label className={LABEL}>Phone number
+                  <input
+                    type="tel"
+                    value={testCallDestinationInput}
+                    onChange={(event) => {
+                      setTestCallDestinationInput(event.target.value);
+                      setDestinationError(null);
+                      setDestinationMessage(null);
+                    }}
+                    className={INPUT}
+                    placeholder="+919876543210"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    pattern="\+[1-9][0-9]{7,14}"
+                  />
+                  <FieldHint>Use international format, including the country code. Example: +91 followed by your mobile number.</FieldHint>
+                </label>
+                {!profile ? <FieldHint>Complete your business profile before saving a test-call destination.</FieldHint> : null}
+                {destinationError ? <p role="alert" className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{destinationError}</p> : null}
+                {destinationMessage ? <p role="status" className="font-['Space_Grotesk'] text-[11px] leading-5 text-[#44734D]">{destinationMessage}</p> : null}
+                {savedTestCallDestination ? (
+                  <p className="font-['Space_Grotesk'] text-[11px] text-[#565B5B]">Saved destination: <span className="font-semibold text-[#1B1C18]">{savedTestCallDestination}</span></p>
+                ) : null}
+                <div className="flex justify-end">
+                  <button type="button" onClick={saveTestCallDestination} disabled={destinationBusy || busy || !profile || !validTestCallDestination || destinationIsSaved} className="rounded-[4px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50">{destinationBusy ? "Saving..." : destinationIsSaved ? "Destination saved" : "Save destination"}</button>
+                </div>
+              </section>
+
+              {!agentConfigured ? (
+                <p className="rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Finish and save your AI agent setup before placing a test call.</p>
+              ) : null}
+
               <form className="flex flex-col gap-4" onSubmit={async (event) => {
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
@@ -361,25 +455,40 @@ export function SetupWizardModal({
                   setError("Confirm that you are ready to receive a real test call.");
                   return;
                 }
-                const phone = String(form.get("phoneNumber") ?? "").trim();
-                const result = await submit(() => createTestCallAction(phone, confirmed), "Test call added to the outbound queue. Foolioo will call your verified phone when the worker picks it up.");
-                if (result && isRecord(result.testCall)) {
-                  setTestCallId(textValue(result.testCall, "id"));
-                  setTestCallStatus(result.testCall);
+                if (!agentConfigured || !destinationIsSaved) {
+                  setError("Save a valid test-call destination and finish your agent setup before calling.");
+                  return;
+                }
+                setBusy(true);
+                setError(null);
+                setSuccess(null);
+                try {
+                  const result = await createTestCallAction(confirmed);
+                  if (!result.ok) {
+                    setError(result.error || "Unable to queue the test call.");
+                    return;
+                  }
+                  const testCall = isRecord(result.data?.testCall) ? result.data.testCall : null;
+                  if (testCall) {
+                    setTestCallId(textValue(testCall, "id"));
+                    setTestCallStatus(testCall);
+                  }
+                  setSuccess("Test call added to the outbound queue. Foolioo will call the saved destination during your workspace calling hours.");
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "Unable to queue the test call.");
+                } finally {
+                  setBusy(false);
                 }
               }}>
-                <label className={LABEL}>Your phone number
-                  <input name="phoneNumber" required type="tel" defaultValue={verifiedPhone} readOnly={hasVerifiedPhone} className={`${INPUT} ${hasVerifiedPhone ? "bg-[#F5F4ED] text-[#565B5B]" : ""}`} placeholder="Verify your phone number first" pattern="\+[1-9][0-9]{7,14}" />
-                  <FieldHint>{hasVerifiedPhone ? "This is the verified phone number on your account. Test calls can only be sent here." : "Your account does not have a verified phone number. Verify it in account settings before placing a test call."}</FieldHint>
-                </label>
                 <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
                   <input name="confirmRealCall" type="checkbox" required className="mt-1 accent-[#7852D6]" />
-                  <span>I understand that Foolioo will place a real call to my verified number, for up to two minutes, and that voice credits and my daily call allowance will be used.</span>
+                  <span>I understand that Foolioo will place a real call to {savedTestCallDestination || "the saved destination"}, for up to two minutes, and that voice credits and my daily call allowance will be used. I confirm that I own this number or have permission to call it.</span>
                 </label>
                 <div className="flex justify-end">
-                  <button type="submit" disabled={busy || !hasVerifiedPhone || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call my phone"}</button>
+                  <button type="submit" disabled={busy || Boolean(testCallId) || !agentConfigured || !destinationIsSaved || destinationBusy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call my phone"}</button>
                 </div>
               </form>
+
               {testCallId ? (
                 <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FAF9F5] p-3">
                   <div className="flex items-center justify-between gap-3">

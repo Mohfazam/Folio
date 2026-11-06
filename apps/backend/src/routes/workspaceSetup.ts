@@ -164,33 +164,38 @@ export async function getTeamMembersRoute(req: Request, res: Response) {
 
 /**
  * POST /api/test-calls
- * Queues a single, explicit test call to the authenticated user's verified phone.
- * The queue worker must support campaignId=null and apply agent settings from
- * business_profiles.metadata.aiAgentSettings.
+ * Queues a single, explicit test call to the destination saved in the workspace
+ * business profile. The route is protected by requireClientAdmin. The queue worker
+ * continues to enforce the test-call duration cap, credit reservation, daily limit,
+ * workspace status and calling hours.
  */
 export async function createTestCallRoute(req: Request, res: Response) {
   try {
     const body = isRecord(req.body) ? req.body : {};
-    const phoneNumber = cleanText(body.phoneNumber, 24);
     if (body.confirmRealCall !== true) {
       return res.status(400).json({ ok: false, error: "Confirm that you want Foolioo to place a real test call." });
-    }
-    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
-      return res.status(400).json({ ok: false, error: "Enter a valid phone number in international format, for example +919876543210." });
-    }
-    if (!req.user?.phoneVerified || !req.user.phoneNumber || req.user.phoneNumber !== phoneNumber) {
-      return res.status(403).json({ ok: false, error: "Test calls can only be placed to the signed-in user's verified phone number. Verify your phone before continuing." });
     }
 
     const [profile] = await db.select().from(businessProfiles)
       .where(eq(businessProfiles.clientId, req.clientId!)).limit(1);
     if (!profile) return res.status(409).json({ ok: false, error: "Configure your AI agent before placing a test call." });
     const profileMetadata = metadataRecord(profile.metadata);
-    if (!isRecord(profileMetadata.aiAgentSettings)) {
-      return res.status(409).json({ ok: false, error: "Save your AI agent settings before placing a test call." });
+    const agentSettings = profileMetadata.aiAgentSettings;
+    const agentConfigured = Boolean(
+      profile.displayName && profile.description && profile.aiPersonaName && profile.toneOfVoice &&
+      isRecord(agentSettings) && cleanText(agentSettings.greeting) && cleanText(agentSettings.primaryObjective) &&
+      Array.isArray(profile.guardrails) && profile.guardrails.length > 0
+    );
+    if (!agentConfigured) {
+      return res.status(409).json({ ok: false, error: "Finish and save your AI agent setup before placing a test call." });
     }
-    const agentSettingsUpdatedAt = typeof profileMetadata.aiAgentSettings.updatedAt === "string"
-      ? profileMetadata.aiAgentSettings.updatedAt
+
+    const phoneNumber = cleanText(profileMetadata.testCallDestination, 24);
+    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+      return res.status(409).json({ ok: false, error: "Save a valid test-call destination in your workspace profile before calling." });
+    }
+    const agentSettingsUpdatedAt = isRecord(agentSettings) && typeof agentSettings.updatedAt === "string"
+      ? agentSettings.updatedAt
       : null;
 
     const [existingContact] = await db.select().from(contacts)
@@ -199,7 +204,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "This phone number is marked as do not call. Foolioo will not place a test call to it." });
     }
     if (existingContact && (existingContact.status === "invalid" || existingContact.isDuplicateOf)) {
-      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Use a verified phone number that is eligible for calling." });
+      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Save another eligible test-call destination." });
     }
 
     const launchNow = new Date();

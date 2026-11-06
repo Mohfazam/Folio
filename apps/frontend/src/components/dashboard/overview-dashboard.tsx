@@ -146,11 +146,10 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
       id: 1,
       title: "Set up your AI agent",
       description: "Give your agent the context, speaking style and safety rules to represent your business.",
-      action: "Set up voice",
+      action: summary?.agentConfigured === true ? "Edit details" : "Set up voice",
       actionKey: "voice",
       complete: summary?.agentConfigured === true,
       detail: summary?.agentConfigured === true ? `${agentName} is configured.` : "Add your business context, agent identity, greeting and guardrails.",
-      recommended: true,
     },
     {
       id: 2,
@@ -164,11 +163,11 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     {
       id: 3,
       title: "Place a test call",
-      description: "Call your own phone and hear how your configured agent handles a real conversation.",
+      description: "Call your saved test-call destination and hear how your configured agent handles a real conversation.",
       action: "Test call",
       actionKey: "test-call",
       complete: summary?.testCallComplete === true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to your verified phone before contacting your audience.",
+      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Save a test-call destination and place a real test call before contacting your audience.",
     },
     {
       id: 4,
@@ -203,14 +202,20 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const contactsImported = steps[1]?.complete === true;
   const firstFiveComplete = steps.slice(0, 5).every((step) => step.complete);
 
+  const firstIncompleteStepId = steps.find((step) => !step.complete)?.id ?? null;
+
   return steps.map((step) => {
+    const nextStep = {
+      ...step,
+      recommended: !step.complete && step.id === firstIncompleteStepId,
+    };
     if (step.actionKey === "test-call" && !(agentConfigured && contactsImported)) {
-      return { ...step, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
+      return { ...nextStep, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
     }
     if (step.actionKey === "launch" && !firstFiveComplete) {
-      return { ...step, disabled: true, disabledReason: "Complete the setup steps above before launching." };
+      return { ...nextStep, disabled: true, disabledReason: "Complete the setup steps above before launching." };
     }
-    return step;
+    return nextStep;
   });
 }
 
@@ -231,10 +236,22 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
 function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAction: (action: SetupAction) => void }) {
   const steps = useMemo(() => buildSetupSteps(data), [data]);
   const [expanded, setExpanded] = useState<number[]>([1]);
+  const [hasManuallyChangedExpansion, setHasManuallyChangedExpansion] = useState(false);
   const complete = steps.filter((step) => step.complete).length;
   const anyExpanded = expanded.length > 0;
-  const toggleAll = () => setExpanded(anyExpanded ? [] : steps.map((step) => step.id));
+
+  useEffect(() => {
+    if (hasManuallyChangedExpansion) return;
+    const nextStep = steps.find((step) => !step.complete)?.id ?? null;
+    setExpanded(nextStep ? [nextStep] : []);
+  }, [steps, hasManuallyChangedExpansion]);
+
+  const toggleAll = () => {
+    setHasManuallyChangedExpansion(true);
+    setExpanded(anyExpanded ? [] : steps.map((step) => step.id));
+  };
   const toggleStep = (id: number) => {
+    setHasManuallyChangedExpansion(true);
     setExpanded((current) => current.includes(id) ? current.filter((item) => item !== id) : [id]);
   };
 
