@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
 
 const Navbar = () => {
@@ -34,18 +35,15 @@ const Navbar = () => {
     let mounted = true;
 
     const getInitialUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (mounted) {
-        if (error) {
-          console.error("Failed to fetch user:", error);
+      try {
+        const user = await getCurrentUser(supabase);
+        if (mounted) setUser(user);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
         }
-
-        setUser(user);
-        setIsLoading(false);
       }
     };
 

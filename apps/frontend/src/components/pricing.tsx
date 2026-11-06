@@ -202,6 +202,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                             </div>
 
                             <div className="mt-8 pt-4">
+                                {/* 1. Scale Plan */}
                                 {plan.name === "Scale" ? (
                                     <a
                                         href="mailto:sales@foolioo.app?subject=Scale%20Plan%20Inquiry"
@@ -209,14 +210,29 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                     >
                                         Contact sales
                                     </a>
-                                ) : currentPlan?.toLowerCase() === plan.name.toLowerCase() ? (
+                                ) : 
+                                
+                                /* 2. Expired Trial State */
+                                currentPlan === "Expired" && plan.name === "Trial" ? (
+                                    <Link href={`/sign-up`} className="block w-full">
+                                        <button className="flex h-11 w-full items-center justify-center rounded-xl bg-[#FEE2E2] font-['Space_Grotesk'] text-[13px] font-semibold text-[#991B1B] transition-colors hover:bg-[#FECACA]">
+                                            Trial Expired — Restart
+                                        </button>
+                                    </Link>
+                                ) :
+
+                                /* 3. User is on this plan */
+                                currentPlan?.toLowerCase() === plan.name.toLowerCase() ? (
                                     <button
                                         disabled
                                         className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#A0A09E]"
                                     >
                                         Current Plan
                                     </button>
-                                ) : currentPlan ? (
+                                ) : 
+                                
+                                /* 4. User is logged in, wants a different plan */
+                                currentPlan ? (
                                     <Link href={`/dashboard/billing?plan=${plan.name.toLowerCase()}`} className="block w-full">
                                         <button
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
@@ -228,7 +244,10 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                             Upgrade to {plan.name}
                                         </button>
                                     </Link>
-                                ) : (
+                                ) : 
+                                
+                                /* 5. Fallback: Not logged in */
+                                (
                                     <Link href="/sign-up" className="block w-full">
                                         <AuthRedirectButton
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
