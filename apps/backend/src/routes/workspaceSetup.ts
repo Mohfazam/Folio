@@ -164,16 +164,20 @@ export async function getTeamMembersRoute(req: Request, res: Response) {
 
 /**
  * POST /api/test-calls
- * Queues a single, explicit test call to the destination saved in the workspace
- * business profile. The route is protected by requireClientAdmin. The queue worker
- * continues to enforce the test-call duration cap, credit reservation, daily limit,
- * workspace status and calling hours.
+ * Queues a single, explicitly confirmed test call to the supplied phone number.
+ * The route is protected by requireClientAdmin. The queue worker continues to
+ * enforce the test-call duration cap, credit reservation, daily limit, workspace
+ * status and calling hours.
  */
 export async function createTestCallRoute(req: Request, res: Response) {
   try {
     const body = isRecord(req.body) ? req.body : {};
     if (body.confirmRealCall !== true) {
       return res.status(400).json({ ok: false, error: "Confirm that you want Foolioo to place a real test call." });
+    }
+    const phoneNumber = cleanText(body.phoneNumber, 24);
+    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+      return res.status(400).json({ ok: false, error: "Enter a valid phone number in international format, including the country code." });
     }
 
     const [profile] = await db.select().from(businessProfiles)
@@ -190,10 +194,6 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "Finish and save your AI agent setup before placing a test call." });
     }
 
-    const phoneNumber = cleanText(profileMetadata.testCallDestination, 24);
-    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
-      return res.status(409).json({ ok: false, error: "Save a valid test-call destination in your workspace profile before calling." });
-    }
     const agentSettingsUpdatedAt = isRecord(agentSettings) && typeof agentSettings.updatedAt === "string"
       ? agentSettings.updatedAt
       : null;
@@ -204,7 +204,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "This phone number is marked as do not call. Foolioo will not place a test call to it." });
     }
     if (existingContact && (existingContact.status === "invalid" || existingContact.isDuplicateOf)) {
-      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Save another eligible test-call destination." });
+      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Enter another test-call number." });
     }
 
     const launchNow = new Date();
@@ -235,14 +235,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
         return { error: "Your workspace needs at least 12 available voice credits and one remaining daily call to place a two-minute test call.", status: 409 as const };
       }
 
-      let scheduledFor: Date;
-      try {
-        scheduledFor = nextAllowedCallingTime(
-          launchNow, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
-        );
-      } catch {
-        return { error: "Your workspace timezone or calling hours are invalid. Update them before placing a test call.", status: 409 as const };
-      }
+      const scheduledFor = launchNow;
 
       const [existingContact] = await tx.select({
         id: contacts.id,
@@ -321,7 +314,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
     return res.status(202).json({
       ok: true,
       testCall: { id: created.queueEntry.id, status: created.queueEntry.status, phoneNumber, contactId: created.contactId, scheduledFor: created.scheduledFor.toISOString() },
-      message: "Your test call has been added to the outbound queue and will be attempted within your workspace calling hours.",
+      message: "Your test call has been added to the outbound queue and will be attempted as soon as the calling service is available.",
     });
   } catch (error) {
     console.error("[test-calls/create]", error);
@@ -358,6 +351,7 @@ export async function getTestCallRoute(req: Request, res: Response) {
       testCall: {
         id: queueEntry.id,
         status: queueEntry.status,
+        scheduledFor: queueEntry.scheduledFor.toISOString(),
         phoneLast4: typeof queueEntry.phoneNumber === "string" ? queueEntry.phoneNumber.slice(-4) : null,
         call: call ?? null,
       },

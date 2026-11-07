@@ -3,7 +3,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/auth";
 
 interface AuthRedirectButtonProps {
     children: ReactNode;
@@ -23,15 +23,7 @@ export function AuthRedirectButton({
         setLoading(true);
 
         try {
-            const supabase = createClient();
-            const { data: { user }, error } = await supabase.auth.getUser();
-
-            if (error) {
-                console.error("Auth check failed:", error);
-                router.push("/sign-up");
-                return;
-            }
-
+            const user = await getCurrentUser();
             router.push(user ? "/dashboard" : "/sign-up");
         } catch (error) {
             console.error("Unexpected authentication error:", error);

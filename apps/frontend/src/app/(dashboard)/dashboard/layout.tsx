@@ -9,7 +9,7 @@ import {
 } from "@/components/dashboard/dashboard-shell";
 
 type AuthMePayload = {
-  ok?: boolean;
+  ok: true;
   user?: {
     displayName?: string | null;
     email?: string | null;
@@ -56,9 +56,9 @@ function daysUntil(dateValue: string | Date | null | undefined): number | null {
   return Math.max(0, Math.ceil((timestamp - Date.now()) / 86_400_000));
 }
 
-async function loadAuthMe(accessToken: string): Promise<AuthMePayload | null> {
+async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
   const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) return null;
+  if (!baseUrl) throw new Error("BACKEND_API_URL is not configured for the Next.js server.");
 
   try {
     const response = await fetch(`${baseUrl}/api/auth/me`, {
@@ -66,11 +66,24 @@ async function loadAuthMe(accessToken: string): Promise<AuthMePayload | null> {
       cache: "no-store",
     });
 
-    if (!response.ok) return null;
-    return (await response.json()) as AuthMePayload;
+    const payload: unknown = await response.json();
+    if (
+      !response.ok ||
+      typeof payload !== "object" ||
+      payload === null ||
+      !("ok" in payload) ||
+      payload.ok !== true ||
+      !("user" in payload) ||
+      typeof payload.user !== "object" ||
+      payload.user === null
+    ) {
+      throw new Error(`Unable to load the Neon workspace profile (${response.status}).`);
+    }
+
+    return payload as AuthMePayload;
   } catch (error) {
     console.error("[dashboard/layout] Unable to load workspace profile:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -96,23 +109,20 @@ async function DashboardContent({ children }: { children: ReactNode }) {
   if (!onboarding || onboarding.status !== "completed") redirect("/onboarding");
 
   const authMe = await loadAuthMe(session.access_token);
-  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const client = authMe?.client ?? null;
+  const client = authMe.client ?? null;
   const timezone = asText(client?.timezone) ?? "Asia/Kolkata";
   const displayName =
-    asText(authMe?.user?.displayName) ??
-    asText(metadata.full_name) ??
-    asText(metadata.name) ??
-    user.email?.split("@")[0] ??
+    asText(authMe.user?.displayName) ??
+    asText(authMe.user?.email)?.split("@")[0] ??
     "there";
-  const email = asText(authMe?.user?.email) ?? user.email ?? "";
+  const email = asText(authMe.user?.email) ?? "";
   const trialEndsAt = client?.trialEndsAt ?? null;
   const rawPlan = asText(client?.planTier);
 
   const profile: DashboardProfile = {
     displayName,
     email,
-    avatarUrl: asText(authMe?.user?.avatarUrl) ?? asText(metadata.avatar_url),
+    avatarUrl: asText(authMe.user?.avatarUrl),
     workspaceName: asText(client?.name) ?? "Your workspace",
     workspaceId: asText(client?.id),
     timezone,

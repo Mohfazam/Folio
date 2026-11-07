@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
 import { ComingSoonButton } from "@/components/ui/ComingSoon";
 
@@ -13,9 +14,13 @@ export const CtaFooter = () => {
 
     useEffect(() => {
         const getInitialUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-            setIsLoading(false);
+            try {
+                setUser(await getCurrentUser(supabase));
+            } catch (error) {
+                console.error("Failed to fetch user:", error);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         getInitialUser();
