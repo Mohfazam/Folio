@@ -262,10 +262,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     pathname?.includes("sign-up") || pathname?.includes("signup") || false;
 
   return (
-    <main className="grid h-dvh grid-cols-1 overflow-hidden bg-[#FBF9F2] text-[#1B1C18] lg:grid-cols-2">
+    <main className="grid min-h-dvh grid-cols-1 bg-[#FBF9F2] text-[#1B1C18] 2xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
 
       {/* Authentication form */}
-      <section className="relative flex h-dvh min-h-0 flex-col overflow-hidden bg-[#FCFBF7] px-6 py-5 sm:px-10 sm:py-6 lg:px-[clamp(3rem,7vw,7rem)] lg:py-8">
+      <section className="relative flex min-h-dvh flex-col bg-[#FCFBF7] px-5 py-5 sm:px-8 sm:py-6 2xl:px-[clamp(3rem,7vw,7rem)] 2xl:py-8">
         <header className="relative z-20 flex h-14 shrink-0 items-center">
           <Link
             href="/"
@@ -287,8 +287,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </Link>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex lg:items-center lg:justify-center lg:overflow-visible">
-          <div className="w-full max-w-[400px] py-6 lg:py-8">
+        <div className="flex flex-1 flex-col">
+          <div className="mx-auto my-auto w-full max-w-[400px] py-6 sm:py-8">
             {children}
           </div>
         </div>
@@ -296,58 +296,58 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </section>
 
       {/* Shared product showcase. Same animated preview on both routes. */}
-      <aside className="relative hidden h-dvh min-h-0 flex-col justify-center overflow-hidden border-l border-[#EAE7DE] bg-[#F8F6EF] px-8 py-7 lg:flex xl:px-14 xl:py-8">
+      <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-l border-[#EAE7DE] bg-[#F8F6EF] px-8 py-6 2xl:flex 2xl:px-14">
         <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
           <div className="absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(133,105,190,0.10),transparent_68%)]" />
           <div className="absolute -bottom-52 -left-40 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(190,176,139,0.13),transparent_68%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(rgba(120,115,98,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(120,115,98,0.035)_1px,transparent_1px)] bg-[size:54px_54px] [mask-image:linear-gradient(to_bottom,transparent,black_18%,black_82%,transparent)]" />
         </div>
 
-        <div className="relative z-10 flex items-center justify-between">
-          <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.16em] text-[#777970]">
-            THE FOOLIOO PLATFORM
-          </p>
-          <span className="flex items-center gap-2 rounded-full border border-[#E7E3D9] bg-white/65 px-3 py-1.5 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.08em] text-[#777970] backdrop-blur-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#8E79C5]" />
-            {isSignUp ? "BUILT FOR YOUR WORKFLOW" : "YOUR WORKSPACE, CONNECTED"}
-          </span>
-        </div>
+        <div className="relative z-10 mx-auto my-auto flex w-full max-w-[690px] shrink-0 flex-col py-5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.16em] text-[#777970]">
+              THE FOOLIOO PLATFORM
+            </p>
+            <span className="flex items-center gap-2 rounded-full border border-[#E7E3D9] bg-white/65 px-3 py-1.5 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.08em] text-[#777970] backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#8E79C5]" />
+              {isSignUp ? "BUILT FOR YOUR WORKFLOW" : "YOUR WORKSPACE, CONNECTED"}
+            </span>
+          </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-[690px]">
-          <div className="mb-6 max-w-[560px]">
-            <h2 className="font-['Newsreader'] text-[38px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] xl:text-[48px]">
-              {isSignUp ? (
-                <>Build conversations with <span className="italic text-[#7852D6]">clear intent.</span></>
-              ) : (
-                <>Your voice operations, <span className="italic text-[#7852D6]">under control.</span></>
-              )}
-            </h2>
+          <div className="relative z-10 mt-7 w-full">
+            <div className="mb-6 max-w-[560px]">
+              <h2 className="font-['Newsreader'] text-[38px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] xl:text-[48px]">
+                {isSignUp ? (
+                  <>Build conversations with <span className="italic text-[#7852D6]">clear intent.</span></>
+                ) : (
+                  <>Your voice operations, <span className="italic text-[#7852D6]">under control.</span></>
+                )}
+              </h2>
 
-            <p className="mt-4 max-w-[465px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#777970] xl:text-[13px]">
-              {isSignUp
-                ? "Create a workspace for voice campaigns that follow your rules, capture useful context and know when a person should take over."
-                : "Pick up where your team left off. Run structured conversations, inspect every decision and keep people in control of the moments that matter."}
+              <p className="mt-4 max-w-[465px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#777970] xl:text-[13px]">
+                {isSignUp
+                  ? "Create a workspace for voice campaigns that follow your rules, capture useful context and know when a person should take over."
+                  : "Pick up where your team left off. Run structured conversations, inspect every decision and keep people in control of the moments that matter."}
+              </p>
+            </div>
+
+            {/* This is deliberately outside the isSignUp condition. */}
+            <SessionPreview />
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.09em] text-[#85877F]">
+              <span className="flex items-center gap-2"><CheckIcon /> EXPLICIT RULES</span>
+              <span className="hidden h-3 w-px bg-[#DDD9CE] sm:block" />
+              <span className="flex items-center gap-2"><CheckIcon /> TRACEABLE DECISIONS</span>
+              <span className="hidden h-3 w-px bg-[#DDD9CE] sm:block" />
+              <span className="flex items-center gap-2"><CheckIcon /> HUMAN CONTROL</span>
+            </div>
+
+            <p className="mt-4 text-center font-['Space_Grotesk'] text-[9px] text-[#A09F96]">
+              Illustrative product preview · Not live workspace data
             </p>
           </div>
-
-          {/* This is deliberately outside the isSignUp condition. */}
-          <SessionPreview />
-
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 font-['Space_Grotesk'] text-[9px] font-medium tracking-[0.09em] text-[#85877F]">
-            <span className="flex items-center gap-2"><CheckIcon /> EXPLICIT RULES</span>
-            <span className="hidden h-3 w-px bg-[#DDD9CE] sm:block" />
-            <span className="flex items-center gap-2"><CheckIcon /> TRACEABLE DECISIONS</span>
-            <span className="hidden h-3 w-px bg-[#DDD9CE] sm:block" />
-            <span className="flex items-center gap-2"><CheckIcon /> HUMAN CONTROL</span>
-          </div>
-
-          <p className="mt-4 text-center font-['Space_Grotesk'] text-[9px] text-[#A09F96]">
-            Illustrative product preview · Not live workspace data
-          </p>
         </div>
-
       </aside>
-
 
       {/* Global animation styles. Child components are covered too. */}
       <style jsx global>{`

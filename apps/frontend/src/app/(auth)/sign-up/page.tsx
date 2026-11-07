@@ -45,7 +45,7 @@ export default function SignUpPage() {
 
   return (
     <main className="mx-auto w-full max-w-[384px]">
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <div className="mb-3 flex items-center gap-2.5">
           <span className="h-px w-7 bg-[#FD7032]" aria-hidden="true" />
           <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A36A4D]">
@@ -53,7 +53,7 @@ export default function SignUpPage() {
           </span>
         </div>
 
-        <h1 className="max-w-[390px] font-['Newsreader'] text-[42px] font-normal leading-[0.98] tracking-[-1.35px] text-[#1B1C18] sm:text-[48px]">
+        <h1 className="max-w-[390px] font-['Newsreader'] text-[clamp(2.25rem,5.2vw,3rem)] font-normal leading-[1.02] tracking-[-1.2px] text-[#1B1C18]">
           Your workspace starts here<span className="text-[#FD7032]">.</span>
         </h1>
         <p className="mt-4 max-w-[350px] font-['Space_Grotesk'] text-[13px] leading-[22px] text-[#747878] sm:text-[14px]">
@@ -76,7 +76,7 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:gap-5">
         <div className="[&_button]:!min-h-[46px] [&_button]:!w-full [&_button]:!rounded-lg [&_button]:!border [&_button]:!border-[#E6E4DC] [&_button]:!bg-white [&_button]:!font-['Space_Grotesk'] [&_button]:!text-[13px] [&_button]:!font-semibold [&_button]:!text-[#1B1C18] [&_button]:!shadow-[0_1px_2px_rgba(24,24,20,0.04)] [&_button]:transition-colors [&_button:hover]:!bg-[#F8F7F2]">
           <GoogleButton />
         </div>
@@ -104,7 +104,7 @@ export default function SignUpPage() {
           {state.success}
         </div>
       ) : (
-        <form action={formAction} className="mt-6 flex flex-col gap-[17px]">
+        <form action={formAction} className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-[17px]">
           <Input
             id="name"
             name="name"
@@ -207,7 +207,7 @@ export default function SignUpPage() {
         </form>
       )}
 
-      <div className="mt-7 border-t border-[#E9E8E1] pt-5">
+      <div className="mt-6 border-t border-[#E9E8E1] pt-4 sm:mt-7 sm:pt-5">
         <p className="text-center font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878] sm:text-[13px]">
           Already have a Foolioo account?{" "}
           <Link
