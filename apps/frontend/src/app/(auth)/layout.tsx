@@ -262,10 +262,17 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     pathname?.includes("sign-up") || pathname?.includes("signup") || false;
 
   return (
-    <main className="grid min-h-dvh grid-cols-1 bg-[#FBF9F2] text-[#1B1C18] 2xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+    <main
+      className="grid min-h-screen w-full grid-cols-1 items-stretch bg-[#FBF9F2] text-[#1B1C18] xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]"
+      style={{
+        overflowX: "clip",
+        // Keep both columns in one row that fills the viewport and grows with content.
+        gridTemplateRows: "minmax(100vh, auto)",
+      }}
+    >
 
       {/* Authentication form */}
-      <section className="relative flex min-h-dvh flex-col bg-[#FCFBF7] px-5 py-5 sm:px-8 sm:py-6 2xl:px-[clamp(3rem,7vw,7rem)] 2xl:py-8">
+      <section className="relative flex min-w-0 flex-col bg-[#FCFBF7] px-5 py-5 sm:px-8 sm:py-6 xl:px-[clamp(2.5rem,5vw,5.5rem)] xl:py-8 2xl:px-[clamp(3rem,6vw,7rem)]">
         <header className="relative z-20 flex h-14 shrink-0 items-center">
           <Link
             href="/"
@@ -296,14 +303,14 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </section>
 
       {/* Shared product showcase. Same animated preview on both routes. */}
-      <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-l border-[#EAE7DE] bg-[#F8F6EF] px-8 py-6 2xl:flex 2xl:px-14">
-        <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
+      <aside className="relative hidden min-w-0 self-stretch flex-col border-l border-[#EAE7DE] bg-[#F8F6EF] px-6 py-5 xl:flex xl:px-8 2xl:px-14 2xl:py-6">
+        <div className="pointer-events-none absolute inset-0 overflow-clip opacity-70" aria-hidden="true">
           <div className="absolute -right-36 -top-36 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(133,105,190,0.10),transparent_68%)]" />
           <div className="absolute -bottom-52 -left-40 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(190,176,139,0.13),transparent_68%)]" />
           <div className="absolute inset-0 bg-[linear-gradient(rgba(120,115,98,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(120,115,98,0.035)_1px,transparent_1px)] bg-[size:54px_54px] [mask-image:linear-gradient(to_bottom,transparent,black_18%,black_82%,transparent)]" />
         </div>
 
-        <div className="relative z-10 mx-auto my-auto flex w-full max-w-[690px] shrink-0 flex-col py-5">
+        <div className="relative z-10 mx-auto flex w-full max-w-[690px] shrink-0 flex-col py-5">
           <div className="flex items-center justify-between gap-3">
             <p className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.16em] text-[#777970]">
               THE FOOLIOO PLATFORM
@@ -316,7 +323,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
           <div className="relative z-10 mt-7 w-full">
             <div className="mb-6 max-w-[560px]">
-              <h2 className="font-['Newsreader'] text-[38px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] xl:text-[48px]">
+              <h2 className="font-['Newsreader'] text-[34px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] 2xl:text-[48px]">
                 {isSignUp ? (
                   <>Build conversations with <span className="italic text-[#7852D6]">clear intent.</span></>
                 ) : (
@@ -324,7 +331,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                 )}
               </h2>
 
-              <p className="mt-4 max-w-[465px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#777970] xl:text-[13px]">
+              <p className="mt-4 max-w-[465px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#777970] 2xl:text-[13px]">
                 {isSignUp
                   ? "Create a workspace for voice campaigns that follow your rules, capture useful context and know when a person should take over."
                   : "Pick up where your team left off. Run structured conversations, inspect every decision and keep people in control of the moments that matter."}
