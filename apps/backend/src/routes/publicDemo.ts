@@ -3,6 +3,7 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 
 import { db } from "../config/db.js";
 import { matchesSecret } from "../middleware/auth.js";
+import { isLocalPublicDemoDevelopmentRequest } from "../middleware/publicDemo.js";
 import {
   auditLog,
   businessProfiles,
@@ -29,9 +30,7 @@ const ALLOWED_LANGUAGES = new Set([
 const MAX_CALL_SECONDS = 120;
 const RESERVED_CREDITS = Math.ceil(MAX_CALL_SECONDS / 10);
 
-// before Enforce one request per phone number every 24 hours.
-// const PHONE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-// after Enforce one request per phone number every hour.
+// Enforce one request per phone number every hour outside localhost development.
 const PHONE_COOLDOWN_MS = 60 * 60 * 1000;
 const DAILY_REQUEST_LIMIT = 20;
 const MAX_CONCURRENT_DEMOS = 2;
@@ -292,32 +291,34 @@ export async function createPublicDemoRoute(
       // Enforce one request per phone number every 24 hours.
       const cutoff = new Date(Date.now() - PHONE_COOLDOWN_MS);
 
-      const recentSameNumber = await tx
-        .select({
-          customFields: contacts.customFields,
-        })
-        .from(contacts)
-        .where(
-          and(
-            eq(contacts.clientId, demoClientId),
-            eq(contacts.phoneNumber, phoneNumber),
-            gte(contacts.createdAt, cutoff)
-          )
+      if (!isLocalPublicDemoDevelopmentRequest(req)) {
+        const recentSameNumber = await tx
+          .select({
+            customFields: contacts.customFields,
+          })
+          .from(contacts)
+          .where(
+            and(
+              eq(contacts.clientId, demoClientId),
+              eq(contacts.phoneNumber, phoneNumber),
+              gte(contacts.createdAt, cutoff)
+            )
+          );
+
+        const alreadyRequested = recentSameNumber.some(
+          (row) =>
+            isRecord(row.customFields) &&
+            row.customFields._fooliooSystem === "public_demo"
         );
 
-      const alreadyRequested = recentSameNumber.some(
-        (row) =>
-          isRecord(row.customFields) &&
-          row.customFields._fooliooSystem === "public_demo"
-      );
-
-      if (alreadyRequested) {
-        return {
-          ok: false as const,
-          status: 429,
-          error:
-            "This number has already received a demo call recently. You can request another demo after an hour.",
-        };
+        if (alreadyRequested) {
+          return {
+            ok: false as const,
+            status: 429,
+            error:
+              "This number has already received a demo call recently. You can request another demo after an hour.",
+          };
+        }
       }
 
       // Enforce the daily request limit using Indian Standard Time.

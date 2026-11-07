@@ -44,6 +44,11 @@ export async function POST(request: NextRequest) {
     return jsonError("The public demo service is not configured yet. Please try again later.", 503);
   }
 
+  const hostname = request.nextUrl.hostname.toLowerCase().replace(/\.$/, "");
+  const isLocalDevelopmentHost =
+    process.env.NODE_ENV === "development" &&
+    ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
+
   try {
     const upstream = new URL(upstreamUrl);
     if (upstream.protocol !== "https:" && process.env.NODE_ENV === "production") {
@@ -57,6 +62,7 @@ export async function POST(request: NextRequest) {
         "Accept": "application/json",
         "X-Public-Demo-Proxy-Secret": proxySecret,
         "X-Public-Demo-IP": request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "",
+        ...(isLocalDevelopmentHost ? { "X-Public-Demo-Local-Development": "true" } : {}),
       },
       body: JSON.stringify({ phoneNumber, scenario, language, consent: true, captchaToken }),
       cache: "no-store",
