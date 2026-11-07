@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import {
   createCampaignAction,
   createTestCallAction,
@@ -11,7 +9,6 @@ import {
   launchCampaignAction,
   saveAgentSettingsAction,
   saveRoutingRulesAction,
-  syncVerifiedPhoneAction,
 } from "@/app/(dashboard)/dashboard/actions";
 
 type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
@@ -79,7 +76,6 @@ export function SetupWizardModal({
   onClose: () => void;
   onComplete: () => void;
 }) {
-  const router = useRouter();
   const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
   const agentPayload = data.agentSettings.state === "ready" ? data.agentSettings.data : {};
   const agent = isRecord(agentPayload.agentSettings) ? agentPayload.agentSettings : recordValue(recordValue(profile, "metadata"), "aiAgentSettings");
@@ -89,8 +85,6 @@ export function SetupWizardModal({
   const client = items(data.clients)[0] ?? {};
   const authPayload = data.authProfile.state === "ready" ? data.authProfile.data : {};
   const authUser = recordValue(authPayload, "user");
-  const hasVerifiedPhone = authPayload.hasVerifiedPhone === true && textValue(authUser, "phoneNumber") !== "";
-  const verifiedPhone = hasVerifiedPhone ? textValue(authUser, "phoneNumber") : "";
   const accountPhone = textValue(authUser, "phoneNumber");
   const launchContactRows = items(data.launchContacts);
   const campaignRows = items(data.campaigns);
@@ -106,15 +100,7 @@ export function SetupWizardModal({
   const [success, setSuccess] = useState<string | null>(null);
   const [testCallId, setTestCallId] = useState("");
   const [testCallStatus, setTestCallStatus] = useState<RecordValue | null>(null);
-  const [phoneVerified, setPhoneVerified] = useState(hasVerifiedPhone);
-  const [verifiedPhoneNumber, setVerifiedPhoneNumber] = useState(verifiedPhone);
-  const [phoneInput, setPhoneInput] = useState(verifiedPhone || accountPhone);
-  const [phoneOtp, setPhoneOtp] = useState("");
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
-  const [phoneSupabaseVerified, setPhoneSupabaseVerified] = useState(false);
-  const [phoneVerificationBusy, setPhoneVerificationBusy] = useState(false);
-  const [phoneVerificationError, setPhoneVerificationError] = useState<string | null>(null);
-  const [phoneVerificationMessage, setPhoneVerificationMessage] = useState<string | null>(null);
+  const [phoneInput, setPhoneInput] = useState(accountPhone);
   const [selectedCampaignId, setSelectedCampaignId] = useState(() => {
     const first = campaignRows.find((item) => item.status === "draft" || item.status === "paused");
     return textValue(first, "id");
@@ -175,78 +161,6 @@ export function SetupWizardModal({
     campaign: "Create your first campaign",
     routing: "Set up follow-ups and team handling",
     launch: "Review and launch",
-  };
-
-  const requestPhoneVerificationCode = async () => {
-    const normalizedPhone = phoneInput.trim();
-    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
-      setPhoneVerificationError("Enter a valid phone number in international format, including the country code.");
-      return;
-    }
-
-    setPhoneVerificationBusy(true);
-    setPhoneVerificationError(null);
-    setPhoneVerificationMessage(null);
-    try {
-      const supabase = createClient();
-      const { error: otpError } = await supabase.auth.updateUser({ phone: normalizedPhone });
-      if (otpError) throw otpError;
-      setPhoneOtpSent(true);
-      setPhoneSupabaseVerified(false);
-      setPhoneVerificationMessage(`A verification code was sent to ${normalizedPhone}. Enter it below to verify this number.`);
-    } catch (cause) {
-      setPhoneVerificationError(cause instanceof Error ? cause.message : "Unable to send a verification code. Check your phone and try again.");
-    } finally {
-      setPhoneVerificationBusy(false);
-    }
-  };
-
-  const syncVerifiedPhoneWithWorkspace = async () => {
-    setPhoneVerificationBusy(true);
-    setPhoneVerificationError(null);
-    try {
-      const result = await syncVerifiedPhoneAction();
-      if (!result.ok) {
-        setPhoneSupabaseVerified(true);
-        setPhoneVerificationError(`Your number is verified with Supabase, but Foolioo could not sync the verification to your workspace. ${result.error}`);
-        return;
-      }
-      setPhoneVerified(true);
-      setVerifiedPhoneNumber(phoneInput.trim());
-      setPhoneOtpSent(false);
-      setPhoneOtp("");
-      setPhoneSupabaseVerified(false);
-      setPhoneVerificationMessage("Your phone number is verified and linked to this workspace.");
-      router.refresh();
-    } finally {
-      setPhoneVerificationBusy(false);
-    }
-  };
-
-  const confirmPhoneVerificationCode = async () => {
-    if (!/^\d{6}$/.test(phoneOtp.trim())) {
-      setPhoneVerificationError("Enter the six-digit verification code sent to your phone.");
-      return;
-    }
-
-    setPhoneVerificationBusy(true);
-    setPhoneVerificationError(null);
-    setPhoneVerificationMessage(null);
-    try {
-      const supabase = createClient();
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        phone: phoneInput.trim(),
-        token: phoneOtp.trim(),
-        type: "phone_change",
-      });
-      if (verifyError) throw verifyError;
-      setPhoneSupabaseVerified(true);
-      await syncVerifiedPhoneWithWorkspace();
-    } catch (cause) {
-      setPhoneVerificationError(cause instanceof Error ? cause.message : "The verification code could not be confirmed. Request a new code and try again.");
-    } finally {
-      setPhoneVerificationBusy(false);
-    }
   };
 
   const renderFooter = (submitLabel: string, disabled = false) => (
@@ -444,76 +358,38 @@ export function SetupWizardModal({
 
           {action === "test-call" ? (
             <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Call your own verified phone to hear how your configured agent opens a conversation. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
-
-              {!phoneVerified ? (
-                <section className="flex flex-col gap-3 rounded-[6px] border border-[#E9E8E1] bg-[#FAF9F5] p-4" aria-labelledby="verify-phone-heading">
-                  <div>
-                    <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]" id="verify-phone-heading">Verify your phone number</p>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">The number on your account is not verified yet. Foolioo must verify that you own this number before it can place a real test call.</p>
-                  </div>
-                  <label className={LABEL}>Phone number
-                    <input type="tel" value={phoneInput} onChange={(event) => {
-                      setPhoneInput(event.target.value);
-                      setPhoneOtpSent(false);
-                      setPhoneSupabaseVerified(false);
-                      setPhoneOtp("");
-                      setPhoneVerificationError(null);
-                      setPhoneVerificationMessage(null);
-                    }} className={INPUT} placeholder="+919876543210" autoComplete="tel" inputMode="tel" pattern="\+[1-9][0-9]{7,14}" />
-                    <FieldHint>Use international format, for example +91 followed by your mobile number.</FieldHint>
-                  </label>
-                  {phoneOtpSent && !phoneSupabaseVerified ? (
-                    <label className={LABEL}>Six-digit verification code
-                      <input type="text" value={phoneOtp} onChange={(event) => setPhoneOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} className={INPUT} placeholder="Enter SMS code" autoComplete="one-time-code" inputMode="numeric" maxLength={6} />
-                    </label>
-                  ) : null}
-                  {phoneVerificationMessage ? <p role="status" className="font-['Space_Grotesk'] text-[11px] leading-5 text-[#44734D]">{phoneVerificationMessage}</p> : null}
-                  {phoneVerificationError ? <p role="alert" className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{phoneVerificationError}</p> : null}
-                  <div className="flex flex-wrap justify-end gap-2">
-                    {!phoneOtpSent ? (
-                      <button type="button" onClick={requestPhoneVerificationCode} disabled={phoneVerificationBusy || !/^\+[1-9]\d{7,14}$/.test(phoneInput.trim())} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{phoneVerificationBusy ? "Sending code..." : "Send verification code"}</button>
-                    ) : phoneSupabaseVerified ? (
-                      <button type="button" onClick={syncVerifiedPhoneWithWorkspace} disabled={phoneVerificationBusy} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{phoneVerificationBusy ? "Syncing..." : "Sync verification"}</button>
-                    ) : (
-                      <>
-                        <button type="button" onClick={requestPhoneVerificationCode} disabled={phoneVerificationBusy} className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#444748] hover:bg-[#F5F4ED] disabled:opacity-50">Resend code</button>
-                        <button type="button" onClick={confirmPhoneVerificationCode} disabled={phoneVerificationBusy || !/^\d{6}$/.test(phoneOtp.trim())} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{phoneVerificationBusy ? "Verifying..." : "Verify phone"}</button>
-                      </>
-                    )}
-                  </div>
-                  <FieldHint>SMS delivery must be enabled in your Supabase Auth project. Verification is completed by Supabase and then synced to your Foolioo workspace.</FieldHint>
-                </section>
-              ) : (
-                <>
-                  <div className="rounded-[5px] border border-[#D9E8DC] bg-[#F3F8F3] p-3">
-                    <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#25633A]">Phone verified</p>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#44734D]">{verifiedPhoneNumber} is verified on your account. Test calls can only be placed to this number.</p>
-                  </div>
-                  <form className="flex flex-col gap-4" onSubmit={async (event) => {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
-                    const confirmed = form.get("confirmRealCall") === "on";
-                    if (!confirmed) {
-                      setError("Confirm that you are ready to receive a real test call.");
-                      return;
-                    }
-                    const result = await submit(() => createTestCallAction(verifiedPhoneNumber, confirmed), "Test call added to the outbound queue. Foolioo will call your verified phone when the worker picks it up.");
-                    if (result && isRecord(result.testCall)) {
-                      setTestCallId(textValue(result.testCall, "id"));
-                      setTestCallStatus(result.testCall);
-                    }
-                  }}>
-                    <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
-                      <input name="confirmRealCall" type="checkbox" required className="mt-1 accent-[#7852D6]" />
-                      <span>I understand that Foolioo will place a real call to my verified number, for up to two minutes, and that voice credits and my daily call allowance will be used.</span>
-                    </label>
-                    <div className="flex justify-end">
-                      <button type="submit" disabled={busy || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call my phone"}</button>
-                    </div>
-                  </form>
-                </>
-              )}
+              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Enter a phone number you own to hear how your configured agent opens a conversation. No SMS verification code is needed. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
+              <form className="flex flex-col gap-4" onSubmit={async (event) => {
+                event.preventDefault();
+                const normalizedPhone = phoneInput.trim();
+                if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+                  setError("Enter a valid phone number in international format, including the country code.");
+                  return;
+                }
+                const form = new FormData(event.currentTarget);
+                const confirmed = form.get("confirmRealCall") === "on";
+                if (!confirmed) {
+                  setError("Confirm that you are ready to receive a real test call.");
+                  return;
+                }
+                const result = await submit(() => createTestCallAction(normalizedPhone, confirmed), "Test call added to the outbound queue. Foolioo will call the number you entered when the worker picks it up.");
+                if (result && isRecord(result.testCall)) {
+                  setTestCallId(textValue(result.testCall, "id"));
+                  setTestCallStatus(result.testCall);
+                }
+              }}>
+                <label className={LABEL}>Phone number
+                  <input type="tel" value={phoneInput} onChange={(event) => setPhoneInput(event.target.value)} className={INPUT} placeholder="+919876543210" autoComplete="tel" inputMode="tel" pattern="\+[1-9][0-9]{7,14}" required />
+                  <FieldHint>Use international format, for example +91 followed by your mobile number.</FieldHint>
+                </label>
+                <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+                  <input name="confirmRealCall" type="checkbox" required className="mt-1 accent-[#7852D6]" />
+                  <span>I confirm I own this number and understand Foolioo will place a real call to it for up to two minutes, using voice credits and my daily call allowance.</span>
+                </label>
+                <div className="flex justify-end">
+                  <button type="submit" disabled={busy || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call this number"}</button>
+                </div>
+              </form>
 
               {testCallId ? (
                 <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FAF9F5] p-3">
@@ -521,6 +397,11 @@ export function SetupWizardModal({
                     <div>
                       <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">Test call status</p>
                       <p className="mt-1 font-['Space_Grotesk'] text-[11px] capitalize text-[#747878]">{textValue(testCallStatus, "status", "pending").replaceAll("_", " ")}</p>
+                      {textValue(testCallStatus, "status") === "pending" ? (
+                        <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          Test calls are not restricted by workspace calling hours.
+                        </p>
+                      ) : null}
                     </div>
                     <button type="button" disabled={busy} onClick={async () => {
                       const result = await getTestCallStatusAction(testCallId);

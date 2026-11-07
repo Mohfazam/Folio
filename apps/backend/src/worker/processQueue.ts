@@ -1,4 +1,4 @@
-import { eq, lte, sql, and, asc, isNull, inArray } from "drizzle-orm";
+import { eq, lte, sql, and, asc, isNull, inArray, or } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
@@ -9,6 +9,13 @@ import { getWorkspaceAgentRuntimeSettings, isFooliooSystemContact } from "../ser
  * picking the same queue entries or exceeding client limits.
  */
 let isProcessingQueue = false;
+
+const systemCallQueueEntry = sql`${callQueue.campaignId} IS NULL AND EXISTS (
+  SELECT 1 FROM ${contacts}
+  WHERE ${contacts.id} = ${callQueue.contactId}
+    AND ${contacts.clientId} = ${callQueue.clientId}
+    AND ${contacts.customFields}->>'_fooliooSystem' IN ('test_call', 'public_demo')
+)`;
 
 /**
  * Extracts current time ("HH:MM:SS") and calendar date ("YYYY-MM-DD") in the client's timezone.
@@ -61,6 +68,14 @@ export function isWithinCallingHours(currentTime: string, start: string | null, 
   const s = normalizeTime(start, "09:00:00");
   const e = normalizeTime(end, "16:00:00");
   return currentTime >= s && currentTime <= e;
+}
+
+export function isCallingHoursExemptSystemCall(campaignId: string | null, customFields: unknown): boolean {
+  if (campaignId !== null || typeof customFields !== "object" || customFields === null || Array.isArray(customFields)) {
+    return false;
+  }
+  const systemType = (customFields as Record<string, unknown>)._fooliooSystem;
+  return systemType === "test_call" || systemType === "public_demo";
 }
 
 async function releaseDialReservation(
@@ -162,7 +177,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
   try {
     await recoverExpiredQueueClaims();
 
-    // Find distinct clients with pending queue entries scheduled <= now
+    // Include system calls queued before test/demo calls were made independent of calling hours.
     const pendingEntries = await db
       .select({
         clientId: callQueue.clientId,
@@ -171,7 +186,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       .where(
         and(
           eq(callQueue.status, "pending"),
-          lte(callQueue.scheduledFor, new Date())
+          or(lte(callQueue.scheduledFor, new Date()), systemCallQueueEntry)
         )
       )
       .groupBy(callQueue.clientId);
@@ -224,13 +239,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         }
       }
 
-      // ── Check 2: Calling hours ─────────────────────────────────
-      if (!isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd)) {
-        console.log(
-          `[worker] ⏰ Client ${client.id.slice(0, 8)} outside calling hours (${clientLocal.time} not in ${client.callingHoursStart}–${client.callingHoursEnd} ${client.timezone})`
-        );
-        continue;
-      }
+      const withinCallingHours = isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd);
 
       // ── Check 3: Daily call cap ────────────────────────────────
       if (client.callsMadeToday >= client.maxCallsPerDay) {
@@ -252,7 +261,9 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           and(
             eq(callQueue.clientId, client.id),
             eq(callQueue.status, "pending"),
-            lte(callQueue.scheduledFor, new Date())
+            withinCallingHours
+              ? or(lte(callQueue.scheduledFor, new Date()), systemCallQueueEntry)
+              : systemCallQueueEntry
           )
         )
         .orderBy(asc(callQueue.scheduledFor), sql`${callQueue.priority} DESC`, asc(callQueue.createdAt))
@@ -289,6 +300,12 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         : {};
       const isPublicDemo = contactCustomFields._fooliooSystem === "public_demo";
       const isTestCall = queueEntry.campaignId === null && systemContact;
+      if (!withinCallingHours && !isCallingHoursExemptSystemCall(queueEntry.campaignId, contact.customFields)) {
+        console.log(
+          `[worker] ⏰ Client ${client.id.slice(0, 8)} outside calling hours (${clientLocal.time} not in ${client.callingHoursStart}–${client.callingHoursEnd} ${client.timezone})`
+        );
+        continue;
+      }
       // campaign_id=NULL is reserved for isolated Foolioo system calls: dashboard
       // test calls and the fixed public showcase demo. Never let arbitrary unlinked
       // queue rows become live outbound calls.
