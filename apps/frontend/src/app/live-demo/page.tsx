@@ -13,13 +13,12 @@ export default function LiveDemoPage() {
     // On mobile: standard flex column with natural height (allows scrolling).
     // On desktop (lg): locked to screen height with no page scrolling.
     <main className="flex min-h-screen flex-col bg-[#F7F5EF] text-[#1B1C18] lg:h-screen lg:overflow-hidden">
-      
       {/* HEADER */}
       <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-[#E8E3D8] px-5 sm:px-8 lg:px-14">
         <div className="flex items-center gap-4">
-          <Link 
-            href="/" 
-            aria-label="Foolioo home" 
+          <Link
+            href="/"
+            aria-label="Foolioo home"
             className="group inline-flex shrink-0 items-center gap-[9px] rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4"
           >
             <Image
@@ -44,23 +43,35 @@ export default function LiveDemoPage() {
           </span>
         </div>
 
-        <Link href="/sign-up" className="text-[13px] font-semibold text-[#55534F] transition hover:text-[#FD7032]">
-          Create an account <span aria-hidden="true">↗</span>
+        <Link
+          href="/sign-up"
+          className="text-[13px] font-semibold text-[#55534F] transition hover:text-[#FD7032]"
+        >
+          Create an account <span aria-hidden="true">→</span>
         </Link>
       </header>
 
       {/* MAIN CONTENT AREA */}
-      {/* flex-1 fills available space. lg:min-h-0 is the crucial fix that allows flex children to scroll internally on desktop. */}
-      <div className="flex-1 lg:min-h-0 lg:overflow-hidden">
+      {/* relative + flex + min-h-0 ensures the demo section fills exactly this
+          middle region between header and footer, and scrolls internally on
+          desktop without breaking out of the page. */}
+      <div className="relative flex flex-1 flex-col lg:min-h-0 lg:overflow-hidden">
         <PublicDemoExperience />
       </div>
 
       {/* FOOTER */}
       <footer className="flex w-full shrink-0 flex-col gap-3 border-t border-[#E8E3D8] px-5 py-6 text-[11px] leading-5 text-[#77736A] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:py-4">
-        <p>Foolioo AI receptionist showcase. Calls are initiated only after your explicit confirmation.</p>
+        <p>
+          Foolioo AI receptionist showcase. Calls are initiated only after your explicit
+          confirmation.
+        </p>
         <div className="flex gap-4">
-          <Link href="/privacy" className="hover:text-[#1B1C18]">Privacy</Link>
-          <Link href="/terms" className="hover:text-[#1B1C18]">Terms</Link>
+          <Link href="/privacy" className="hover:text-[#1B1C18]">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-[#1B1C18]">
+            Terms
+          </Link>
         </div>
       </footer>
     </main>

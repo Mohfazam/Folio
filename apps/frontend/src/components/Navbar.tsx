@@ -95,11 +95,7 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden items-center gap-5 lg:flex xl:gap-7">
             {navLinks.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className={navItem}
-              >
+              <a key={item.label} href={item.href} className={navItem}>
                 {item.label}
               </a>
             ))}
@@ -114,27 +110,23 @@ const Navbar = () => {
             </Link>
           )}
 
-          <a
-            href="mailto:sales@foolioo.app?subject=Sales%20Inquiry"
-            className={navItem}
-          >
+          <a href="mailto:sales@foolioo.app?subject=Sales%20Inquiry" className={navItem}>
             Contact Sales
           </a>
 
-          {!isLoading && (
-            user ? (
+          {!isLoading &&
+            (user ? (
               <Link href="/dashboard" className={primaryButton}>
                 Dashboard
               </Link>
             ) : (
-              <Link href="/live-demo" className={primaryButton}>
+              <Link href="/live-demo" target="_self" className={primaryButton}>
                 Experience Live Demo
                 <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
-                  ↗
+                  →
                 </span>
               </Link>
-            )
-          )}
+            ))}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -219,8 +211,8 @@ const Navbar = () => {
               Contact Sales
             </a>
 
-            {!isLoading && (
-              user ? (
+            {!isLoading &&
+              (user ? (
                 <Link
                   href="/dashboard"
                   onClick={handleNavClick}
@@ -231,16 +223,16 @@ const Navbar = () => {
               ) : (
                 <Link
                   href="/live-demo"
+                  target="_self"
                   onClick={handleNavClick}
                   className={`${primaryButton} w-full`}
                 >
                   Experience Live Demo
                   <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
-                    ↗
+                    →
                   </span>
                 </Link>
-              )
-            )}
+              ))}
           </div>
         </div>
       )}

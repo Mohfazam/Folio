@@ -85,7 +85,7 @@ export default function PublicDemoExperience() {
     // absolute inset-0 pins the section exactly to the bounds of the middle <div> in page.tsx.
     // overflow-y-auto ensures that IF the content is taller than the laptop screen, it scrolls INTERNALLY.
     // lg:overflow-hidden ensures that on large screens it doesn't scroll at all.
-    <section className="absolute inset-0 mx-auto grid max-w-6xl grid-cols-1 gap-8 overflow-y-auto px-5 py-8 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16 lg:overflow-hidden">
+    <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[0.92fr_1.08fr] lg:gap-16 lg:overflow-hidden">
       
       {/* LEFT COLUMN */}
       <div className="flex flex-col justify-center overflow-y-auto lg:pr-4">
