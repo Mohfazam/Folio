@@ -82,20 +82,40 @@ export default function PublicDemoExperience() {
   }
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-12 px-5 py-12 sm:px-8 sm:py-16 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20 lg:py-20">
-      <div className="flex flex-col justify-center">
-        <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048]"><span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" /> Meet your AI receptionist</div>
-        <h1 className="max-w-xl font-[var(--font-newsreader)] text-[48px] font-medium leading-[0.99] tracking-[-1.9px] sm:text-[62px]">A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span></h1>
-        <p className="mt-6 max-w-lg text-[15px] leading-7 text-[#66635B]">Experience how a Foolioo voice agent handles everyday institute enquiries. Choose a scenario, select a language and receive one live demo call.</p>
-        <div className="mt-10 grid max-w-lg grid-cols-3 gap-3 border-t border-[#E4DED2] pt-6">
-          {[{ value: "01", label: "Choose a scenario" }, { value: "02", label: "Request a call" }, { value: "03", label: "Talk naturally" }].map((item) => <div key={item.value}><p className="font-[var(--font-newsreader)] text-[25px] italic text-[#FD7032]">{item.value}</p><p className="mt-1 text-[11px] leading-4 text-[#77736A]">{item.label}</p></div>)}
+    // absolute inset-0 pins the section exactly to the bounds of the middle <div> in page.tsx.
+    // overflow-y-auto ensures that IF the content is taller than the laptop screen, it scrolls INTERNALLY.
+    // lg:overflow-hidden ensures that on large screens it doesn't scroll at all.
+    <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-8 overflow-y-auto px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[0.92fr_1.08fr] lg:gap-16 lg:overflow-hidden">
+      
+      {/* LEFT COLUMN */}
+      <div className="flex flex-col justify-center overflow-y-auto lg:pr-4">
+        <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" /> Meet your AI receptionist
         </div>
-        <div className="mt-10 flex items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/60 p-4 text-[12px] leading-5 text-[#68645C]"><span className="mt-0.5 text-[#FD7032]">✳</span><p><strong className="font-semibold text-[#292821]">Built for institute front desks.</strong> The showcase agent demonstrates admissions and student-support conversations. It is a curated demo, not a live institution's official support line.</p></div>
+        <h1 className="max-w-xl font-[var(--font-newsreader)] text-[48px] font-medium leading-[0.99] tracking-[-1.9px] sm:text-[62px]">
+          A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span>
+        </h1>
+        <p className="mt-6 max-w-lg text-[15px] leading-7 text-[#66635B]">
+          Experience how a Foolioo voice agent handles everyday institute enquiries. Choose a scenario, select a language and receive one live demo call.
+        </p>
+        <div className="mt-10 grid max-w-lg grid-cols-3 gap-3 border-t border-[#E4DED2] pt-6">
+          {[{ value: "01", label: "Choose a scenario" }, { value: "02", label: "Request a call" }, { value: "03", label: "Talk naturally" }].map((item) => (
+            <div key={item.value}>
+              <p className="font-[var(--font-newsreader)] text-[25px] italic text-[#FD7032]">{item.value}</p>
+              <p className="mt-1 text-[11px] leading-4 text-[#77736A]">{item.label}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-10 flex items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/60 p-4 text-[12px] leading-5 text-[#68645C]">
+          <span className="mt-0.5 text-[#FD7032]">✳</span>
+          <p><strong className="font-semibold text-[#292821]">Built for institute front desks.</strong> The showcase agent demonstrates admissions and student-support conversations. It is a curated demo, not a live institution's official support line.</p>
+        </div>
       </div>
 
-      <div className="rounded-[22px] border border-[#E6E0D5] bg-[#FFFEFA] p-5 shadow-[0_20px_70px_rgba(50,42,27,0.07)] sm:p-8">
+      {/* RIGHT COLUMN (FORM CARD) */}
+      <div className="min-h-0 overflow-y-auto rounded-[22px] border border-[#E6E0D5] bg-[#FFFEFA] p-5 shadow-[0_20px_70px_rgba(50,42,27,0.07)] sm:p-8">
         {status === "queued" ? (
-          <div className="flex min-h-[540px] flex-col items-center justify-center text-center">
+          <div className="flex min-h-full flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[27px] text-[#E96B32]">✓</div>
             <p className="mt-7 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">Request accepted</p>
             <h2 className="mt-3 font-[var(--font-newsreader)] text-[38px] leading-tight">Your demo call is queued.</h2>
@@ -105,20 +125,76 @@ export default function PublicDemoExperience() {
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-semibold uppercase tracking-[1.7px] text-[#A66A4A]">The live experience</p><h2 className="mt-2 font-[var(--font-newsreader)] text-[34px] leading-tight tracking-[-0.7px]">Let’s get you on a call.</h2><p className="mt-2 text-[12px] leading-5 text-[#77736A]">No account or email required.</p></div><span className="rounded-full border border-[#E8E1D5] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[1px] text-[#77736A]">Up to 2 min</span></div>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[1.7px] text-[#A66A4A]">The live experience</p>
+                <h2 className="mt-2 font-[var(--font-newsreader)] text-[34px] leading-tight tracking-[-0.7px]">Let’s get you on a call.</h2>
+                <p className="mt-2 text-[12px] leading-5 text-[#77736A]">No account or email required.</p>
+              </div>
+              <span className="rounded-full border border-[#E8E1D5] px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[1px] text-[#77736A]">Up to 2 min</span>
+            </div>
             <form onSubmit={submit} className="mt-8 space-y-7">
-              <fieldset><legend className="mb-3 text-[12px] font-semibold text-[#34332D]">01. What should the AI receptionist demonstrate?</legend><div className="grid gap-2.5">{scenarios.map((item) => <label key={item.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition ${scenario === item.id ? "border-[#E99A70] bg-[#FFF7F1]" : "border-[#EAE5DB] hover:border-[#CFC5B5]"}`}><input type="radio" name="scenario" value={item.id} checked={scenario === item.id} onChange={() => setScenario(item.id)} className="accent-[#E96B32]" /><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2EEE6] text-[10px] font-semibold text-[#8A8174]">{item.icon}</span><span className="min-w-0 flex-1"><span className="block text-[12px] font-semibold text-[#34332D]">{item.title}</span><span className="mt-0.5 block text-[10px] leading-4 text-[#77736A]">{item.description}</span></span>{scenario === item.id ? <span className="text-[#E96B32]">✓</span> : null}</label>)}</div></fieldset>
-              <div className="grid gap-4 sm:grid-cols-2"><label className="block"><span className="mb-2 block text-[12px] font-semibold text-[#34332D]">02. Conversation language</span><select value={language} onChange={(event) => setLanguage(event.target.value)} className="h-11 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12px] outline-none focus:border-[#E99A70]">{languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><div><label htmlFor="demo-phone" className="mb-2 block text-[12px] font-semibold text-[#34332D]">03. Your phone number</label><div className="flex h-11 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70]"><select aria-label="Country calling code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="w-[82px] border-r border-[#EAE5DB] bg-[#FAF8F3] px-2 text-[12px] outline-none"><option value="+91">IN +91</option></select><input id="demo-phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" className="min-w-0 flex-1 px-3 text-[12px] outline-none" /></div></div></div>
-              <div className="rounded-lg bg-[#F7F4ED] p-3.5"><label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-[18px] text-[#666158]"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 accent-[#E96B32]" /><span>I agree to receive one automated AI demo call from Foolioo at the number provided. I confirm I own this number or have permission to use it. I understand this is an AI-generated call, it is not recorded, and I can end it at any time.</span></label></div>
-              <div><div ref={captchaRef} className="min-h-[0px]" />{!siteKey ? <p className="text-[10px] text-[#9A6044]">Security verification is not configured yet.</p> : null}</div>
+              <fieldset>
+                <legend className="mb-3 text-[12px] font-semibold text-[#34332D]">01. What should the AI receptionist demonstrate?</legend>
+                <div className="grid gap-2.5">
+                  {scenarios.map((item) => (
+                    <label key={item.id} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition ${scenario === item.id ? "border-[#E99A70] bg-[#FFF7F1]" : "border-[#EAE5DB] hover:border-[#CFC5B5]"}`}>
+                      <input type="radio" name="scenario" value={item.id} checked={scenario === item.id} onChange={() => setScenario(item.id)} className="accent-[#E96B32]" />
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F2EEE6] text-[10px] font-semibold text-[#8A8174]">{item.icon}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[12px] font-semibold text-[#34332D]">{item.title}</span>
+                        <span className="mt-0.5 block text-[10px] leading-4 text-[#77736A]">{item.description}</span>
+                      </span>
+                      {scenario === item.id ? <span className="text-[#E96B32]">✓</span> : null}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-[12px] font-semibold text-[#34332D]">02. Conversation language</span>
+                  <select value={language} onChange={(event) => setLanguage(event.target.value)} className="h-11 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12px] outline-none focus:border-[#E99A70]">
+                    {languages.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+                <div>
+                  <label htmlFor="demo-phone" className="mb-2 block text-[12px] font-semibold text-[#34332D]">03. Your phone number</label>
+                  <div className="flex h-11 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70]">
+                    <select aria-label="Country calling code" value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="w-[82px] border-r border-[#EAE5DB] bg-[#FAF8F3] px-2 text-[12px] outline-none">
+                      <option value="+91">IN +91</option>
+                    </select>
+                    <input id="demo-phone" value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" className="min-w-0 flex-1 px-3 text-[12px] outline-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg bg-[#F7F4ED] p-3.5">
+                <label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-[18px] text-[#666158]">
+                  <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 accent-[#E96B32]" />
+                  <span>I agree to receive one automated AI demo call from Foolioo at the number provided. I confirm I own this number or have permission to use it. I understand this is an AI-generated call, it is not recorded, and I can end it at any time.</span>
+                </label>
+              </div>
+
+              <div>
+                <div ref={captchaRef} className="min-h-[0px]" />
+                {!siteKey ? <p className="text-[10px] text-[#9A6044]">Security verification is not configured yet.</p> : null}
+              </div>
+
               {!configured ? <p className="rounded-lg border border-[#EAD5C8] bg-[#FFF8F3] px-3.5 py-3 text-[11px] leading-5 text-[#8A543B]">Public demo calling is being prepared. The call request will become available once the secure public-demo service and security verification are configured.</p> : null}
               {message && status === "error" ? <p role="alert" className="text-[11px] leading-5 text-[#B34E35]">{message}</p> : null}
-              <button type="submit" disabled={!configured || status === "submitting" || !consent || !captchaToken} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40">{status === "submitting" ? "Requesting your call…" : "Request my live demo call"}<span aria-hidden="true">↗</span></button>
-              <p className="text-center text-[9px] leading-4 text-[#969084]">One demo call per phone number every 24 hours. Calls are available from 9 AM to 8 PM IST and last up to two minutes.</p>
+              
+              <button type="submit" disabled={!configured || status === "submitting" || !consent || !captchaToken} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40">
+                {status === "submitting" ? "Requesting your call…" : "Request my live demo call"}
+                <span aria-hidden="true">↗</span>
+              </button>
+              
+              <p className="text-center text-[9px] leading-4 text-[#969084]">One demo call per phone number every hour. Calls are available from 9 AM to 8 PM IST and last up to two minutes.</p>
             </form>
           </>
         )}
       </div>
+
       {siteKey ? <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onLoad={() => { const w = window as TurnstileWindow; if (!w.turnstile || !captchaRef.current || widgetId.current) return; widgetId.current = w.turnstile.render(captchaRef.current, { sitekey: siteKey, action: "public_demo", theme: "light", callback: (token: string) => setCaptchaToken(token), "expired-callback": () => setCaptchaToken(""), "error-callback": () => setCaptchaToken("") }); }} /> : null}
     </section>
   );

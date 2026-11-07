@@ -7,6 +7,7 @@ process.env.NODE_ENV = "test";
 const {
   normalizeTime,
   isWithinCallingHours,
+  isCallingHoursExemptSystemCall,
   getClientLocalTimeAndDate,
 } = await import("../src/worker/processQueue.js");
 
@@ -34,6 +35,14 @@ test("isWithinCallingHours accurately evaluates business hour constraints", () =
   assert.equal(isWithinCallingHours("12:00:00", null, null), true);
   assert.equal(isWithinCallingHours("08:00:00", null, null), false);
   assert.equal(isWithinCallingHours("18:00:00", null, null), false);
+});
+
+test("only dashboard test calls and public demo calls bypass calling hours", () => {
+  assert.equal(isCallingHoursExemptSystemCall(null, { _fooliooSystem: "test_call" }), true);
+  assert.equal(isCallingHoursExemptSystemCall(null, { _fooliooSystem: "public_demo" }), true);
+  assert.equal(isCallingHoursExemptSystemCall("campaign-1", { _fooliooSystem: "test_call" }), false);
+  assert.equal(isCallingHoursExemptSystemCall(null, {}), false);
+  assert.equal(isCallingHoursExemptSystemCall(null, null), false);
 });
 
 test("getClientLocalTimeAndDate parses timezone offsets accurately", () => {

@@ -7,6 +7,7 @@ import { Hero_top_right } from "@/components/utils/hero_top_right";
 import { Hero_bottom_left } from "@/components/utils/hero_bottom_left";
 import { Hero_bottom_right } from "@/components/utils/hero_bottom_right";
 import { createClient } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
 
 export const Hero = () => {
@@ -16,9 +17,13 @@ export const Hero = () => {
 
     useEffect(() => {
         const getInitialUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-            setIsLoading(false);
+            try {
+                setUser(await getCurrentUser(supabase));
+            } catch (error) {
+                console.error("Failed to fetch user:", error);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         getInitialUser();
