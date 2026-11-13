@@ -79,7 +79,7 @@ const NAV_ITEMS: Array<{
   setupAction?: DashboardSetupAction;
 }> = [
   { label: "Overview", href: "/dashboard", icon: "overview", enabled: true },
-  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: false, setupAction: "campaign" },
+  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: true },
   { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: false, setupAction: "contacts" },
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: false },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: false },
