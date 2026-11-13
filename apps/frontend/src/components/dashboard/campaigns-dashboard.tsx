@@ -125,12 +125,18 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
         type: String(form.get("type") ?? "outreach_sales") as CampaignType,
         primaryObjective: String(form.get("primaryObjective") ?? "").trim(),
         callOpeningHook: String(form.get("callOpeningHook") ?? "").trim(),
-        keyTalkingPoints,
+        keyTalkingPoints:
+          String(form.get("language") ?? "auto") === "auto"
+            ? [
+                "At the beginning of the call, ask the customer which language they would prefer to speak. Offer English, Hindi, Telugu, Tamil, Kannada, and Malayalam. Continue the conversation in the language they choose. Do not assume their preferred language.",
+                ...keyTalkingPoints,
+              ]
+            : keyTalkingPoints,
         objectionHandlers: [],
         callToAction: String(form.get("callToAction") ?? "").trim(),
         fallbackOffer: String(form.get("fallbackOffer") ?? "").trim() || undefined,
         targetAudience: String(form.get("targetAudience") ?? "").trim() || undefined,
-        language: String(form.get("language") ?? "en-IN"),
+        language: String(form.get("language") ?? "auto"),
         maxDurationSeconds: Number(form.get("maxDurationSeconds") ?? 300),
       });
 
@@ -201,10 +207,11 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
           </label>
         </FormSection>
 
-        <FormSection title="Call settings" description="Choose the default language and maximum duration for each call.">
+        <FormSection title="Call settings" description="Choose how the agent handles language preferences and set the maximum duration for each call.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className={LABEL}>Preferred language
-              <select name="language" defaultValue="en-IN" className={INPUT}>
+            <label className={LABEL}>Language preference
+              <select name="language" defaultValue="auto" className={INPUT}>
+                <option value="auto">Ask customer (Recommended)</option>
                 <option value="en-IN">English (India)</option>
                 <option value="hi-IN">Hindi</option>
                 <option value="te-IN">Telugu</option>
@@ -212,6 +219,9 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
                 <option value="kn-IN">Kannada</option>
                 <option value="ml-IN">Malayalam</option>
               </select>
+              <span className="mt-2 block font-['Space_Grotesk'] text-[10px] font-normal leading-4 text-[#85877F]">
+                Ask customer lets the agent ask which supported language they prefer, then continue the conversation in that language.
+              </span>
             </label>
             <label className={LABEL}>Maximum call duration
               <select name="maxDurationSeconds" defaultValue="300" className={INPUT}>
