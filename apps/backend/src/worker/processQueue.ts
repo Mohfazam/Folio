@@ -3,6 +3,7 @@ import { db } from "../config/db.js";
 import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
 import { getWorkspaceAgentRuntimeSettings, isFooliooSystemContact } from "../services/workspaceConfiguration.js";
+import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 /**
  * Concurrency Mutex: prevents duplicate simultaneous worker runs from
@@ -197,11 +198,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
 
     // Check each client for eligibility
     for (const entry of pendingEntries) {
-      const [client] = await db
-        .select()
-        .from(clients)
-        .where(eq(clients.id, entry.clientId))
-        .limit(1);
+      const client = await enforceTrialExpiration(entry.clientId);
 
       if (!client) continue;
       if (client.status === "paused" || client.status === "suspended") continue;

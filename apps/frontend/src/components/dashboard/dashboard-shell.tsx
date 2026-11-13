@@ -37,6 +37,7 @@ export type DashboardProfile = {
   greeting: "Good morning" | "Good afternoon" | "Good evening";
   planName: string | null;
   trialDaysLeft: number | null;
+  trialEndsAt: string | null;
   trialExpired: boolean;
   isTrial: boolean;
 };
@@ -224,6 +225,24 @@ function NavEntry({
   );
 }
 
+function getWorkspaceDateKey(timezone: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+
+    const year = parts.find((part) => part.type === "year")?.value ?? "0000";
+    const month = parts.find((part) => part.type === "month")?.value ?? "00";
+    const day = parts.find((part) => part.type === "day")?.value ?? "00";
+    return `${year}-${month}-${day}`;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
 export function DashboardShell({ profile, children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -237,6 +256,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const [requestedSetupAction, setRequestedSetupAction] = useState<DashboardSetupAction | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [showTrialBanner, setShowTrialBanner] = useState(false);
+  const [workspaceDayKey, setWorkspaceDayKey] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -276,39 +297,100 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   };
 
   const trialDays = profile.trialDaysLeft;
+  const trialReminderEligible =
+    profile.isTrial &&
+    (profile.trialExpired ||
+      (trialDays !== null && trialDays > 0 && trialDays <= 3));
+  const trialDismissalKey = profile.workspaceId
+    ? `foolioo:trial-banner-dismissed:${profile.workspaceId}:${profile.email.toLowerCase()}`
+    : null;
+
+  useEffect(() => {
+    if (!trialReminderEligible || !trialDismissalKey) {
+      setShowTrialBanner(false);
+      setWorkspaceDayKey(null);
+      return;
+    }
+
+    let lastWorkspaceDay: string | null = null;
+
+    const syncDailyDismissal = () => {
+      const today = getWorkspaceDateKey(profile.timezone);
+      if (lastWorkspaceDay !== null && lastWorkspaceDay !== today) {
+        router.refresh();
+      }
+      lastWorkspaceDay = today;
+      setWorkspaceDayKey(today);
+
+      try {
+        setShowTrialBanner(
+          window.localStorage.getItem(trialDismissalKey) !== today,
+        );
+      } catch {
+        // If storage is blocked, keep the reminder visible for this session.
+        setShowTrialBanner(true);
+      }
+    };
+
+    syncDailyDismissal();
+    const intervalId = window.setInterval(syncDailyDismissal, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, [
+    profile.timezone,
+    router,
+    trialDismissalKey,
+    trialReminderEligible,
+  ]);
+
+  useEffect(() => {
+    if (!profile.isTrial || !profile.trialEndsAt || profile.trialExpired) {
+      return;
+    }
+
+    const trialEnd = new Date(profile.trialEndsAt).getTime();
+    if (!Number.isFinite(trialEnd)) return;
+
+    const reminderStart = trialEnd - 3 * 24 * 60 * 60 * 1000;
+    const nextRefreshAt = reminderStart > Date.now() ? reminderStart : trialEnd;
+    const delay = Math.max(0, nextRefreshAt - Date.now() + 1_000);
+
+    const timeoutId = window.setTimeout(() => {
+      router.refresh();
+    }, Math.min(delay, 2_147_000_000));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [profile.isTrial, profile.trialEndsAt, profile.trialExpired, router, trialDays]);
+
+  const dismissTrialBannerForToday = () => {
+    if (!trialDismissalKey || !workspaceDayKey) {
+      setShowTrialBanner(false);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(trialDismissalKey, workspaceDayKey);
+    } catch {
+      // The banner still closes for this session when storage is unavailable.
+    }
+
+    setShowTrialBanner(false);
+  };
+
   const trialHeadline = profile.trialExpired
-    ? "Trial expired"
-    : trialDays === 0
-      ? "Trial ends today"
-      : trialDays === 1
-        ? "1 day left in your trial"
-        : trialDays !== null && trialDays <= 3
-          ? `${trialDays} days left in your trial`
-          : "Free trial";
-  const trialBadge = profile.trialExpired
-    ? "Action needed"
-    : trialDays !== null && trialDays > 3
-      ? `${trialDays} days left`
-      : trialDays === 0
-        ? "Ends today"
-        : trialDays !== null && trialDays <= 3
-          ? "Ending soon"
-          : "Trial plan";
+    ? "Free trial over"
+    : `${trialDays} ${trialDays === 1 ? "day" : "days"} left in your free trial`;
   const trialDescription = profile.trialExpired
-    ? "Your trial has ended. Review plans to continue using your workspace."
-    : trialDays !== null && trialDays <= 3
-      ? "Review plans before your trial ends to avoid interruption."
-      : "Explore your workspace features while your free trial is active.";
+    ? "Your unused trial credits have expired. Upgrade to keep using Foolioo voice features."
+    : "Upgrade before your trial ends to keep using campaigns and outbound calling.";
   const trialTone = profile.trialExpired
     ? "border-[#F0D8D4] bg-[#FFF8F7]"
-    : trialDays !== null && trialDays <= 3
-      ? "border-[#F0E2C5] bg-[#FFFBF1]"
-      : "border-[#E9E8E1] bg-white";
-  const trialIconTone = profile.trialExpired
+    : trialDays === 1
+      ? "border-[#F0D8D4] bg-[#FFF8F7]"
+      : "border-[#F0E2C5] bg-[#FFFBF1]";
+  const trialIconTone = profile.trialExpired || trialDays === 1
     ? "bg-[#FBE8E6] text-[#A33A32]"
-    : trialDays !== null && trialDays <= 3
-      ? "bg-[#F8EED8] text-[#8A6826]"
-      : "bg-[#F0EAFB] text-[#7852D6]";
+    : "bg-[#F8EED8] text-[#8A6826]";
 
   const openSetupAction = (action: DashboardSetupAction) => {
     setRequestedSetupAction(action);
@@ -335,18 +417,18 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
         <header
           className={
-            profile.isTrial
+            showTrialBanner
               ? "fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.88)] px-2 pt-[7px] backdrop-blur-xl"
               : "fixed inset-x-0 top-0 z-40 h-0"
           }
         >
-          {profile.isTrial ? (
+          {showTrialBanner ? (
             <div
-              className={`flex h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3 shadow-[0_1px_3px_rgba(27,28,24,0.035)] sm:px-4 ${trialTone}`}
-              role={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "status" : undefined}
-              aria-live={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "polite" : undefined}
+              className={`flex min-h-[42px] items-center justify-between gap-2 rounded-[8px] border px-2.5 py-1.5 shadow-[0_1px_3px_rgba(27,28,24,0.035)] sm:gap-3 sm:px-4 ${trialTone}`}
+              role={profile.trialExpired ? "alert" : "status"}
+              aria-live="polite"
             >
-              <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] ${trialIconTone}`}>
                   <svg
                     viewBox="0 0 20 20"
@@ -358,48 +440,53 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     strokeLinejoin="round"
                     aria-hidden="true"
                   >
-                    <circle cx="10" cy="10" r="7.25" />
-                    <path d="M10 5.8v4.5l2.8 1.7" />
+                    {profile.trialExpired ? (
+                      <path d="M10 3.2 2.8 16h14.4L10 3.2ZM10 7.5v4.2M10 14.2h.01" />
+                    ) : (
+                      <>
+                        <circle cx="10" cy="10" r="7.25" />
+                        <path d="M10 5.8v4.5l2.8 1.7" />
+                      </>
+                    )}
                   </svg>
                 </span>
 
                 <div className="min-w-0 leading-tight">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                    <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#252620] sm:text-[13px]">
-                      {trialHeadline}
-                    </p>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-1 font-['Space_Grotesk'] text-[9px] font-semibold leading-none ${
-                        profile.trialExpired
-                          ? "bg-[#FBE8E6] text-[#A33A32]"
-                          : trialDays !== null && trialDays <= 3
-                            ? "bg-[#F8EED8] text-[#8A6826]"
-                            : "bg-[#F0EAFB] text-[#705AA8]"
-                      }`}
-                    >
-                      {trialBadge}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 hidden truncate font-['Space_Grotesk'] text-[10px] text-[#777970] sm:block">
+                  <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#252620] sm:text-[13px]">
+                    {trialHeadline}
+                  </p>
+                  <p className="mt-0.5 hidden max-w-[620px] truncate font-['Space_Grotesk'] text-[10px] text-[#777970] sm:block">
                     {trialDescription}
                   </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsSection("plan");
-                  setSettingsOpen(true);
-                }}
-                className={`inline-flex h-8 shrink-0 items-center justify-center rounded-[4px] px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 sm:px-4 sm:text-[12px] ${
-                  profile.trialExpired
-                    ? "bg-[#9E3B33] hover:bg-[#852F29]"
-                    : "bg-[#1B1C18] hover:bg-[#34352F]"
-                }`}
-              >
-                {profile.trialExpired ? "View plans" : "Upgrade"}
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsSection("plan");
+                    setSettingsOpen(true);
+                  }}
+                  className={`inline-flex h-8 items-center justify-center whitespace-nowrap rounded-[4px] px-2.5 font-['Space_Grotesk'] text-[10px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 sm:px-4 sm:text-[12px] ${
+                    profile.trialExpired
+                      ? "bg-[#9E3B33] hover:bg-[#852F29]"
+                      : "bg-[#1B1C18] hover:bg-[#34352F]"
+                  }`}
+                >
+                  {profile.trialExpired ? "Upgrade to continue" : "Upgrade"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={dismissTrialBannerForToday}
+                  aria-label="Hide trial reminder for today"
+                  title="Hide for today"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-[#747878] transition-colors hover:bg-black/5 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+                >
+                  <Icon name="close" className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -421,7 +508,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           ) : null}
         </header>
 
-        <aside className={`fixed bottom-4 left-0 ${profile.isTrial ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3`}>
+        <aside className={`fixed bottom-4 left-0 ${showTrialBanner ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3`}>
           <div className="flex flex-col gap-6">
             <Link href="/dashboard" className="flex min-h-7 items-center gap-2.5 px-2" aria-label="Foolioo overview">
               <BrandMark />
@@ -477,7 +564,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           </div>
         </aside>
 
-        <main className={`min-h-screen pb-24 ${profile.isTrial ? "pt-14" : "pt-0"} md:pb-8 md:pl-[72px] lg:pl-[208px]`}>
+        <main className={`min-h-screen pb-24 ${showTrialBanner ? "pt-14" : "pt-0"} md:pb-8 md:pl-[72px] lg:pl-[208px]`}>
           <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-14">
             <div className="rounded-[12px] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:p-7 lg:p-8">
               {children}
@@ -577,9 +664,27 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.07em] text-[#747878]">CURRENT PLAN</p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{profile.planName ?? (profile.isTrial ? "Trial" : "Workspace plan")}</p>
                   </div>
-                  {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
+                  {profile.isTrial ? (
+                    <span className={`rounded-[4px] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold ${profile.trialExpired ? "bg-[#FBE8E6] text-[#A33A32]" : "bg-[#E7DEFF] text-[#4C30A2]"}`}>
+                      {profile.trialExpired
+                        ? "Expired"
+                        : `${profile.trialDaysLeft ?? "—"} days left`}
+                    </span>
+                  ) : null}
                 </div>
-                <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Plan changes are not connected to self-serve billing in this workspace yet. Contact your workspace administrator for upgrade options.</p>
+                <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+                  {settingsSection === "plan"
+                    ? "Self-serve checkout is not connected yet. Contact our team to upgrade your workspace and restore outbound calling credits."
+                    : "Plan changes are not connected to self-serve billing in this workspace yet. Contact your workspace administrator for upgrade options."}
+                </p>
+                {settingsSection === "plan" ? (
+                  <a
+                    href="mailto:sales@foolioo.app?subject=Upgrade%20Foolioo%20workspace"
+                    className="mt-3 inline-flex h-9 items-center justify-center rounded-[4px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                  >
+                    Contact sales
+                  </a>
+                ) : null}
               </div>
               <div className="mt-5 flex justify-end">
                 <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>

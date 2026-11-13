@@ -6,6 +6,7 @@ import { isSupabaseAuthConfigured, verifySupabaseToken } from "../config/supabas
 import { db } from "../config/db.js";
 import { env } from "../config/env.js";
 import { users } from "@repo/db";
+import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 declare global {
   namespace Express {
@@ -61,7 +62,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export function requireWorkspace(req: Request, res: Response, next: NextFunction) {
+export async function requireWorkspace(req: Request, res: Response, next: NextFunction) {
   if (!req.user || !req.clientId) {
     return res.status(403).json({ ok: false, error: "A provisioned workspace is required" });
   }
@@ -79,7 +80,12 @@ export function requireWorkspace(req: Request, res: Response, next: NextFunction
     req.body.clientId = req.clientId;
   }
 
-  return next();
+  try {
+    await enforceTrialExpiration(req.clientId);
+    return next();
+  } catch (err: unknown) {
+    return next(err);
+  }
 }
 
 export function requireClientAdmin(req: Request, res: Response, next: NextFunction) {

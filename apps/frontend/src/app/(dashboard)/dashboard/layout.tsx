@@ -135,6 +135,7 @@ async function DashboardContent({ children }: { children: ReactNode }) {
     greeting: getGreeting(timezone),
     planName: rawPlan ? rawPlan.charAt(0).toUpperCase() + rawPlan.slice(1) : null,
     trialDaysLeft: daysUntil(trialEndsAt),
+    trialEndsAt: Number.isFinite(trialEndTimestamp) ? new Date(trialEndTimestamp).toISOString() : null,
     trialExpired,
     isTrial,
   };
