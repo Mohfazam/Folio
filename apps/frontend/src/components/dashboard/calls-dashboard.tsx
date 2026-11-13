@@ -1,5 +1,10 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState } from "react";
+import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createTestCallAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type CallRecord = {
   id: string;
@@ -132,6 +137,130 @@ function filterHref(filters: CallFilters, changes: Partial<CallFilters>) {
   return serialized ? `/dashboard/calls?${serialized}` : "/dashboard/calls";
 }
 
+
+function CallComposer({
+  onClose,
+  onQueued,
+}: {
+  onClose: () => void;
+  onQueued: (message: string) => void;
+}) {
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busy) return;
+
+    const normalizedPhone = phoneNumber.replace(/[\s()-]/g, "");
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
+      setError("Enter a valid international phone number, including the + country code.");
+      return;
+    }
+    if (!confirmed) {
+      setError("Confirm that you have permission to call this number.");
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await createTestCallAction(normalizedPhone, confirmed);
+      if (!result.ok) {
+        setError(result.error || "The call could not be queued.");
+        return;
+      }
+      onQueued(`Your call to ${normalizedPhone} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The call could not be queued.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-[#1B1C18]/35 p-3 sm:p-5"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="make-call-title"
+        className="my-5 w-full max-w-[500px] overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white shadow-[0_20px_64px_rgba(27,28,24,0.2)]"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[#ECEBE5] px-5 py-4 sm:px-6">
+          <div>
+            <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">OUTBOUND CALL</p>
+            <h2 id="make-call-title" className="mt-1 font-['Newsreader'] text-[27px] leading-tight text-[#1B1C18]">Make a call</h2>
+            <p className="mt-1 max-w-[400px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+              Enter any phone number in international format. You do not need to create a contact or launch a campaign.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="Close make a call"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#747878] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <label className="block font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748]">
+            Phone number
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phoneNumber}
+              onChange={(event) => setPhoneNumber(event.target.value)}
+              placeholder="+91 98765 43210"
+              className="mt-1.5 h-11 w-full rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[13px] font-normal text-[#1B1C18] outline-none focus:border-[#7852D6]"
+              required
+            />
+            <span className="mt-1 block font-['Space_Grotesk'] text-[10px] font-normal text-[#92938C]">Include + and your country code. Example: +919876543210.</span>
+          </label>
+
+          <label className="flex items-start gap-2.5 rounded-[5px] border border-[#ECEBE5] bg-[#FBFAF6] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#62645D]">
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(event) => setConfirmed(event.target.checked)}
+              className="mt-1 h-3.5 w-3.5 accent-[#7852D6]"
+            />
+            <span>I confirm that I have the recipient's permission or another valid legal basis to place this call.</span>
+          </label>
+
+          <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FBFAF6] px-3 py-2.5 font-['Space_Grotesk'] text-[10px] leading-5 text-[#747878]">
+            The call uses your workspace's saved AI agent settings. Workspace credit, daily-call and availability limits still apply. Direct calls currently have a two-minute maximum duration.
+          </div>
+
+          {error ? (
+            <div role="alert" className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{error}</div>
+          ) : null}
+
+          <div className="flex flex-wrap justify-end gap-2 border-t border-[#ECEBE5] pt-4">
+            <button type="button" onClick={onClose} disabled={busy} className="h-10 rounded-[5px] border border-[#DCDDD6] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50">Cancel</button>
+            <button type="submit" disabled={busy || !phoneNumber.trim() || !confirmed} className="h-10 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">
+              {busy ? "Queuing call…" : "Confirm and call"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 export function CallsDashboard({
   calls,
   total,
@@ -143,6 +272,9 @@ export function CallsDashboard({
   filters: CallFilters;
   initialError: string | null;
 }) {
+  const router = useRouter();
+  const [callComposerOpen, setCallComposerOpen] = useState(false);
+  const [callNotice, setCallNotice] = useState<string | null>(null);
   const connectedOnPage = calls.filter((call) => call.outcome === "connected").length;
   const followUpsOnPage = calls.filter((call) => call.followUpRequested).length;
   const creditsOnPage = calls.reduce((sum, call) => sum + call.creditsCharged, 0);
@@ -165,8 +297,25 @@ export function CallsDashboard({
             Review call outcomes, conversation summaries, recordings and AI-generated insights.
           </p>
         </div>
-        <Badge tone="purple">Call history</Badge>
+        <div className="flex items-center gap-2">
+          <Badge tone="purple">Call history</Badge>
+          <button
+            type="button"
+            onClick={() => setCallComposerOpen(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+          >
+            <span aria-hidden="true" className="text-[15px]">＋</span>
+            Make a call
+          </button>
+        </div>
       </header>
+
+      {callNotice ? (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#397A55]">
+          <span>{callNotice}</span>
+          <button type="button" onClick={() => setCallNotice(null)} className="font-semibold">Dismiss</button>
+        </div>
+      ) : null}
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
@@ -352,6 +501,17 @@ export function CallsDashboard({
           </div>
         </footer>
       </section>
+
+      {callComposerOpen ? (
+        <CallComposer
+          onClose={() => setCallComposerOpen(false)}
+          onQueued={(message) => {
+            setCallComposerOpen(false);
+            setCallNotice(message);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

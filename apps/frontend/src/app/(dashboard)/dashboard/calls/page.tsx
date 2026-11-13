@@ -10,7 +10,13 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 type SearchParams = Record<string, string | string[] | undefined>;
-type ApiEnvelope = JsonRecord & { ok?: boolean; error?: string };
+
+type BackendGetResult = {
+  ok: boolean;
+  status: number;
+  payload: unknown;
+  error?: string;
+};
 
 const OUTCOMES = new Set([
   "connected",
@@ -96,6 +102,33 @@ async function getAccessToken(): Promise<string> {
   return session.access_token;
 }
 
+async function backendGet(url: string, token: string): Promise<BackendGetResult> {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const payload: unknown = await response.json().catch(() => null);
+
+    if (!response.ok || !isRecord(payload) || payload.ok !== true) {
+      const message = isRecord(payload) && typeof payload.error === "string"
+        ? payload.error
+        : `Request failed (${response.status}).`;
+      return { ok: false, status: response.status, payload, error: message };
+    }
+
+    return { ok: true, status: response.status, payload };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      payload: null,
+      error: error instanceof Error ? error.message : "Unable to reach the backend.",
+    };
+  }
+}
+
 async function CallsPageContent({
   searchParams,
 }: {
@@ -134,51 +167,41 @@ async function CallsPageContent({
   }
 
   const token = await getAccessToken();
-  const query = new URLSearchParams({
+  const callsQuery = new URLSearchParams({
     limit: String(filters.limit),
     offset: String(filters.offset),
   });
-  if (filters.search) query.set("search", filters.search);
-  if (filters.outcome) query.set("outcome", filters.outcome);
-  if (filters.sentiment) query.set("sentiment", filters.sentiment);
-  if (filters.interestLevel) query.set("interestLevel", filters.interestLevel);
-  if (filters.startDate) query.set("startDate", filters.startDate);
-  if (filters.endDate) {
-    // The API compares an ISO timestamp. Include the full final day.
-    query.set("endDate", `${filters.endDate}T23:59:59.999Z`);
+  if (filters.search) callsQuery.set("search", filters.search);
+  if (filters.outcome) callsQuery.set("outcome", filters.outcome);
+  if (filters.sentiment) callsQuery.set("sentiment", filters.sentiment);
+  if (filters.interestLevel) callsQuery.set("interestLevel", filters.interestLevel);
+  if (filters.startDate) callsQuery.set("startDate", filters.startDate);
+  if (filters.endDate) callsQuery.set("endDate", `${filters.endDate}T23:59:59.999Z`);
+
+  const callsResult = await backendGet(`${baseUrl}/api/calls?${callsQuery.toString()}`, token);
+
+  let calls: CallRecord[] = [];
+  let total = 0;
+  let initialError: string | null = null;
+
+  if (callsResult.ok && isRecord(callsResult.payload)) {
+    const rows = Array.isArray(callsResult.payload.calls) ? callsResult.payload.calls : [];
+    calls = rows.map(toCall).filter((item): item is CallRecord => item !== null);
+    total = typeof callsResult.payload.total === "number"
+      ? callsResult.payload.total
+      : calls.length;
+  } else {
+    initialError = callsResult.error ?? "Unable to load calls.";
   }
 
-  try {
-    const response = await fetch(`${baseUrl}/api/calls?${query.toString()}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    const payload: unknown = await response.json().catch(() => null);
-
-    if (!response.ok || !isRecord(payload) || payload.ok !== true) {
-      const message = isRecord(payload) && typeof payload.error === "string"
-        ? payload.error
-        : `Calls request failed (${response.status}).`;
-      return <CallsDashboard calls={[]} total={0} filters={filters} initialError={message} />;
-    }
-
-    const rows = Array.isArray(payload.calls) ? payload.calls : [];
-    const calls = rows.map(toCall).filter((item): item is CallRecord => item !== null);
-    const total = typeof payload.total === "number" ? payload.total : calls.length;
-
-    return <CallsDashboard calls={calls} total={total} filters={filters} initialError={null} />;
-  } catch (error) {
-    console.error("[dashboard/calls] Unable to load calls:", error);
-    return (
-      <CallsDashboard
-        calls={[]}
-        total={0}
-        filters={filters}
-        initialError={error instanceof Error ? error.message : "Unable to load calls."}
-      />
-    );
-  }
+  return (
+    <CallsDashboard
+      calls={calls}
+      total={total}
+      filters={filters}
+      initialError={initialError}
+    />
+  );
 }
 
 function CallsLoading() {

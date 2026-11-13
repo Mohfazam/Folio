@@ -49,6 +49,7 @@ async function backendRequest(
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/campaigns");
     return { ok: true, data: record };
   } catch (error) {
     console.error(`[dashboard/action] ${method} ${path} failed:`, error);
@@ -96,4 +97,39 @@ export async function launchCampaignAction(
     contactIds,
     confirm: true,
   });
+}
+
+
+/**
+ * Queue one explicitly confirmed outbound call to an eligible CRM contact.
+ * The active campaign supplies the agent's approved conversation context.
+ * The backend queue worker remains responsible for calling hours, workspace
+ * status, daily limits, credit reservations and the final dial attempt.
+ */
+export async function enqueueSingleContactCallAction(
+  contactId: string,
+  campaignId: string,
+  confirm: boolean,
+): Promise<ActionResult> {
+  if (!contactId || !campaignId) {
+    return { ok: false, status: 400, error: "Choose a contact and an active campaign." };
+  }
+  if (confirm !== true) {
+    return { ok: false, status: 400, error: "Confirm that this contact can be called before continuing." };
+  }
+
+  const result = await backendRequest("/api/queue/enqueue", "POST", {
+    contactIds: [contactId],
+    campaignId,
+    maxAttempts: 1,
+    priority: 100,
+    manualCall: true,
+    confirm: true,
+  });
+
+  if (result.ok) {
+    revalidatePath("/dashboard/calls");
+  }
+
+  return result;
 }

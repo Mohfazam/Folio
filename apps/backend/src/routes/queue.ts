@@ -185,8 +185,9 @@ export async function enqueueRoute(req: Request, res: Response) {
     if (Number.isNaN(scheduleDate.getTime())) {
       return res.status(400).json({ ok: false, error: "scheduledFor must be a valid date" });
     }
-    const maxAtt = maxAttempts ?? 2;
-    const prio = priority ?? 0;
+    // A manual one-to-one call is a single attempt, not an automated retry sequence.
+    const maxAtt = manualCall === true ? 1 : maxAttempts ?? 2;
+    const prio = manualCall === true ? 100 : priority ?? 0;
     if (!Number.isInteger(maxAtt) || maxAtt < 1 || maxAtt > 5) {
       return res.status(400).json({ ok: false, error: "maxAttempts must be an integer between 1 and 5" });
     }
@@ -229,7 +230,7 @@ export async function enqueueRoute(req: Request, res: Response) {
             .limit(1);
           if (existing) return "Contact already has an active queue entry";
 
-          await tx.insert(callQueue).values({
+          const [queueEntry] = await tx.insert(callQueue).values({
             contactId: cId,
             clientId,
             campaignId,
@@ -240,12 +241,29 @@ export async function enqueueRoute(req: Request, res: Response) {
             status: "pending",
             maxAttempts: maxAtt,
             priority: prio,
-          });
+          }).returning({ id: callQueue.id });
+
+          if (!queueEntry) return "Unable to create the outbound call queue entry";
 
           await tx
             .update(contacts)
             .set({ status: "queued", updatedAt: new Date() })
             .where(and(eq(contacts.id, cId), eq(contacts.clientId, clientId)));
+
+          if (manualCall === true) {
+            await tx.insert(auditLog).values({
+              clientId,
+              userId: req.user?.id ?? null,
+              action: "call.manual_queued",
+              metadata: {
+                queueEntryId: queueEntry.id,
+                contactId: cId,
+                campaignId,
+                phoneLast4: contact.phoneNumber.slice(-4),
+                confirmed: true,
+              },
+            });
+          }
 
           return null;
         });
