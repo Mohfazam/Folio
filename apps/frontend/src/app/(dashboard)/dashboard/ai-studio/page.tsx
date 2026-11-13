@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { AiStudioDashboard } from "@/components/dashboard/ai-studio-dashboard";
 
@@ -12,7 +13,7 @@ async function load(path: string, token: string) {
   if (!response.ok || !isRecord(payload) || payload.ok === false) throw new Error(isRecord(payload) && typeof payload.error === "string" ? payload.error : `Request failed (${response.status}).`);
   return payload;
 }
-export default async function AiStudioPage() {
+async function AiStudioContent() {
   await connection();
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -39,4 +40,19 @@ export default async function AiStudioPage() {
     languages = Array.isArray(payload.availableLanguages) ? payload.availableLanguages.filter(isRecord).filter((v): v is RecordValue & {code:string;label:string} => typeof v.code === "string" && typeof v.label === "string") : languages;
   } else error = error ?? (results[1].reason instanceof Error ? results[1].reason.message : "Unable to load agent settings.");
   return <AiStudioDashboard entries={entries as never} agent={agent} profile={profile} voices={voices} languages={languages} error={error} />;
+}
+
+
+export default function AiStudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-lg border border-[#ECEBE5] bg-white p-6 text-sm text-[#747878]">
+          Loading AI Studio…
+        </div>
+      }
+    >
+      <AiStudioContent />
+    </Suspense>
+  );
 }
