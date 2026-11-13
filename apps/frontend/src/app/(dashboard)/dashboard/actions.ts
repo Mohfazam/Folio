@@ -183,3 +183,35 @@ export async function enqueueSingleContactCallAction(
 export async function updateCampaignStatusAction(campaignId: string, status: "active" | "paused"): Promise<ActionResult> {
   return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", { status });
 }
+
+export async function createFollowUpAction(input: {
+  contactId: string;
+  callId?: string;
+  type: string;
+  priority: string;
+  dueDate?: string;
+  requestedCallbackTime?: string;
+  notes?: string;
+}): Promise<ActionResult> {
+  if (!input.contactId) return { ok: false, status: 400, error: "Choose a contact for this follow-up." };
+  const result = await backendRequest("/api/follow-ups", "POST", input);
+  if (result.ok) revalidatePath("/dashboard/follow-ups");
+  return result;
+}
+
+export async function updateFollowUpAction(
+  id: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  if (!id) return { ok: false, status: 400, error: "Follow-up ID is missing." };
+  const result = await backendRequest(`/api/follow-ups/${encodeURIComponent(id)}`, "PATCH", input);
+  if (result.ok) revalidatePath("/dashboard/follow-ups");
+  return result;
+}
+
+export async function deleteFollowUpAction(id: string): Promise<ActionResult> {
+  if (!id) return { ok: false, status: 400, error: "Follow-up ID is missing." };
+  const result = await backendRequest(`/api/follow-ups/${encodeURIComponent(id)}`, "DELETE");
+  if (result.ok) revalidatePath("/dashboard/follow-ups");
+  return result;
+}
