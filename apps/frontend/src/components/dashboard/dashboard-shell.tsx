@@ -84,7 +84,7 @@ const NAV_ITEMS: Array<{
   { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: true },
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: true },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: true },
-  { label: "Knowledge & Voice", href: "/dashboard/knowledge-voice", icon: "knowledge", enabled: false, setupAction: "voice" },
+  { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true },
   { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: false },
 ];
 

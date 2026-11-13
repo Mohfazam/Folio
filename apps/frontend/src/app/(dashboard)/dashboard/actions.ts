@@ -223,3 +223,17 @@ export async function deleteFollowUpAction(id: string): Promise<ActionResult> {
   if (result.ok) revalidatePath("/dashboard/follow-ups");
   return result;
 }
+
+export async function createKnowledgeEntryAction(input: Record<string, unknown>): Promise<ActionResult> {
+  return backendRequest("/api/knowledge-base", "POST", input);
+}
+
+export async function updateKnowledgeEntryAction(id: string, input: Record<string, unknown>): Promise<ActionResult> {
+  if (!id) return { ok: false, status: 400, error: "Knowledge entry ID is missing." };
+  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "PATCH", input);
+}
+
+export async function deleteKnowledgeEntryAction(id: string): Promise<ActionResult> {
+  if (!id) return { ok: false, status: 400, error: "Knowledge entry ID is missing." };
+  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "DELETE");
+}
