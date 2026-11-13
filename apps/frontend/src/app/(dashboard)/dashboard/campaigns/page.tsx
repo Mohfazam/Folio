@@ -46,6 +46,10 @@ function toCampaign(value: unknown): Campaign | null {
       totalCalls: asNumber(stats.totalCalls),
       connectedCalls: asNumber(stats.connectedCalls),
       highInterestCalls: asNumber(stats.highInterestCalls),
+      pendingCalls: asNumber(stats.pendingCalls),
+      inProgressCalls: asNumber(stats.inProgressCalls),
+      failedCalls: asNumber(stats.failedCalls),
+      completedQueueCalls: asNumber(stats.completedQueueCalls),
     },
   };
 }

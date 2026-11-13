@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { createCampaignAction } from "@/app/(dashboard)/dashboard/actions";
+import { createCampaignAction, getLaunchEligibleContactsAction, launchCampaignAction, updateCampaignStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 type CampaignStats = {
   totalCalls?: number;
   connectedCalls?: number;
   highInterestCalls?: number;
+  pendingCalls?: number;
+  inProgressCalls?: number;
+  failedCalls?: number;
+  completedQueueCalls?: number;
 };
 
 type Campaign = {
@@ -253,10 +257,80 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
 export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const router = useRouter();
   const campaigns = initialCampaigns;
+  useEffect(() => {
+    const timer = window.setInterval(() => router.refresh(), 10000);
+    return () => window.clearInterval(timer);
+  }, [router]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [launchingCampaign, setLaunchingCampaign] = useState<Campaign | null>(null);
+  const [eligibleContacts, setEligibleContacts] = useState<Array<{ id: string; fullName: string | null; phoneNumber: string }>>([]);
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [loadingAudience, setLoadingAudience] = useState(false);
+  const [launchBusy, setLaunchBusy] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [startAt, setStartAt] = useState("");
+  const [dailyStart, setDailyStart] = useState("09:00");
+  const [dailyEnd, setDailyEnd] = useState("18:00");
+
+  const openLaunch = async (campaign: Campaign) => {
+    setLaunchingCampaign(campaign);
+    setLaunchError(null);
+    setLoadingAudience(true);
+    setSelectedContactIds([]);
+    const result = await getLaunchEligibleContactsAction();
+    if (result.ok) {
+      const rows = Array.isArray(result.data?.contacts) ? result.data.contacts : [];
+      const parsed = rows.flatMap((row) => {
+        if (!row || typeof row !== "object") return [];
+        const item = row as Record<string, unknown>;
+        if (typeof item.id !== "string" || typeof item.phoneNumber !== "string") return [];
+        return [{ id: item.id, phoneNumber: item.phoneNumber, fullName: typeof item.fullName === "string" ? item.fullName : null }];
+      });
+      setEligibleContacts(parsed);
+    } else {
+      setLaunchError(result.error);
+    }
+    setLoadingAudience(false);
+  };
+
+  const submitLaunch = async () => {
+    if (!launchingCampaign || !selectedContactIds.length || launchBusy) return;
+    if (dailyStart >= dailyEnd) {
+      setLaunchError("The daily calling end time must be later than the start time.");
+      return;
+    }
+    const scheduled = startAt ? new Date(startAt) : new Date();
+    if (Number.isNaN(scheduled.getTime()) || scheduled.getTime() < Date.now() - 60_000) {
+      setLaunchError("Choose a launch time in the future, or leave it empty to start manually now.");
+      return;
+    }
+    setLaunchBusy(true);
+    setLaunchError(null);
+    const result = await launchCampaignAction(launchingCampaign.id, selectedContactIds, {
+      startAt: scheduled.toISOString(), dailyStart, dailyEnd,
+    });
+    setLaunchBusy(false);
+    if (!result.ok) {
+      setLaunchError(result.error);
+      return;
+    }
+    setNotice(`Campaign queued for ${selectedContactIds.length} contacts. Calls will run only during ${dailyStart}–${dailyEnd} workspace time.`);
+    setLaunchingCampaign(null);
+    router.refresh();
+  };
+
+  const changeCampaignStatus = async (campaign: Campaign, status: "active" | "paused") => {
+    const result = await updateCampaignStatusAction(campaign.id, status);
+    if (!result.ok) {
+      setNotice(`Could not ${status === "paused" ? "pause" : "resume"} campaign: ${result.error}`);
+      return;
+    }
+    setNotice(status === "paused" ? "Campaign paused. No new calls will start until you resume it." : "Campaign resumed. Pending calls will continue inside the configured calling windows.");
+    router.refresh();
+  };
 
   const filteredCampaigns = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -283,6 +357,30 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
 
   return (
     <div className="space-y-6">
+      {launchingCampaign ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#171812]/45 p-4" role="dialog" aria-modal="true" aria-labelledby="launch-campaign-title">
+          <div className="max-h-[90vh] w-full max-w-[680px] overflow-y-auto rounded-[10px] border border-[#ECEBE5] bg-[#FFFEFB] p-5 shadow-xl sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A8ABF]">Outbound campaign</p><h2 id="launch-campaign-title" className="mt-1 font-['Newsreader'] text-[30px] text-[#1B1C18]">Launch {launchingCampaign.name}</h2><p className="mt-1 text-[12px] leading-5 text-[#747878]">Choose who to call and when the agent is allowed to place calls.</p></div>
+              <button type="button" onClick={() => setLaunchingCampaign(null)} className="rounded border border-[#E5E4DC] px-3 py-1.5 text-[12px]">Close</button>
+            </div>
+            <div className="mt-5 grid gap-4 sm:grid-cols-3">
+              <label className={LABEL}>Start date and time <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={INPUT} /><span className="mt-1 block text-[10px] font-normal text-[#92938C]">Leave empty to start as soon as possible.</span></label>
+              <label className={LABEL}>Daily calls start <input type="time" value={dailyStart} onChange={(e) => setDailyStart(e.target.value)} className={INPUT} /></label>
+              <label className={LABEL}>Daily calls end <input type="time" value={dailyEnd} onChange={(e) => setDailyEnd(e.target.value)} className={INPUT} /></label>
+            </div>
+            <div className="mt-5 rounded-[7px] border border-[#ECEBE5] bg-white">
+              <div className="flex items-center justify-between border-b border-[#ECEBE5] px-4 py-3"><div><p className="text-[12px] font-semibold text-[#1B1C18]">Eligible contacts</p><p className="text-[10px] text-[#85877F]">Select the audience for this campaign.</p></div><button type="button" disabled={!eligibleContacts.length} onClick={() => setSelectedContactIds(selectedContactIds.length === eligibleContacts.length ? [] : eligibleContacts.map((c) => c.id))} className="text-[11px] font-semibold text-[#7852D6]">{selectedContactIds.length === eligibleContacts.length && eligibleContacts.length ? "Clear all" : "Select all"}</button></div>
+              <div className="max-h-[230px] overflow-y-auto">
+                {loadingAudience ? <p className="px-4 py-8 text-center text-[12px] text-[#85877F]">Loading eligible contacts…</p> : eligibleContacts.length ? eligibleContacts.map((contact) => <label key={contact.id} className="flex cursor-pointer items-center gap-3 border-b border-[#F0EFE9] px-4 py-3 last:border-0"><input type="checkbox" checked={selectedContactIds.includes(contact.id)} onChange={(e) => setSelectedContactIds((current) => e.target.checked ? [...current, contact.id] : current.filter((id) => id !== contact.id))} className="h-4 w-4 accent-[#7852D6]" /><span className="min-w-0 flex-1"><span className="block truncate text-[12px] font-medium text-[#1B1C18]">{contact.fullName || "Unnamed contact"}</span><span className="block text-[10px] text-[#85877F]">{contact.phoneNumber}</span></span></label>) : <p className="px-4 py-8 text-center text-[12px] text-[#85877F]">{launchError || "No eligible contacts found. Import contacts or remove opt-out and invalid statuses."}</p>}
+              </div>
+              <div className="border-t border-[#ECEBE5] px-4 py-2 text-[10px] text-[#85877F]">{selectedContactIds.length} of {eligibleContacts.length} selected</div>
+            </div>
+            {launchError ? <p role="alert" className="mt-4 rounded border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[11px] leading-5 text-[#A33A32]">{launchError}</p> : null}
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4"><p className="max-w-[380px] text-[10px] leading-4 text-[#85877F]">Calls also obey workspace calling hours, available credits, daily limits and contact opt-outs.</p><button type="button" disabled={launchBusy || loadingAudience || !selectedContactIds.length} onClick={submitLaunch} className="rounded-[5px] bg-[#1B1C18] px-5 py-2.5 text-[12px] font-semibold text-white disabled:opacity-50">{launchBusy ? "Queuing campaign…" : startAt ? "Schedule campaign" : "Start campaign now"}</button></div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A8ABF]">Workspace / Outbound</p>
@@ -356,9 +454,15 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                     <div><p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">{formatNumber(stats.connectedCalls)}</p><p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">Connected</p></div>
                     <div><p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">{formatNumber(stats.highInterestCalls)}</p><p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">High intent</p></div>
                   </div>
-                  <div className="flex items-center justify-between gap-3 border-t border-[#F0EFE9] pt-3 lg:justify-end lg:border-0 lg:pt-0">
-                    <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">{campaign.status === "draft" ? "Not launched" : campaign.status === "active" ? "Running" : campaign.status === "paused" ? "Paused" : "Finished"}</span>
-                    <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">{campaign.status === "draft" ? "Draft · Not launched" : campaign.status === "active" ? "Campaign running" : campaign.status === "paused" ? "Campaign paused" : "Campaign completed"}</span>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#747878] lg:col-span-3 lg:pl-0">
+                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.inProgressCalls)}</strong> currently calling</span>
+                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</strong> pending</span>
+                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.completedQueueCalls)}</strong> completed</span>
+                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.failedCalls)}</strong> failed</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F0EFE9] pt-3 lg:justify-end lg:border-0 lg:pt-0">
+                    <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">{campaign.status === "draft" ? "Ready to launch" : campaign.status === "active" ? "Running" : campaign.status === "paused" ? "Paused" : "Finished"}</span>
+                    {campaign.status === "draft" ? <button type="button" onClick={() => openLaunch(campaign)} className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]">Start campaign</button> : campaign.status === "paused" ? <button type="button" onClick={() => changeCampaignStatus(campaign, "active")} className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]">Resume campaign</button> : campaign.status === "active" ? <button type="button" onClick={() => changeCampaignStatus(campaign, "paused")} className="rounded-[5px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]">Pause</button> : <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Campaign completed</span>}
                   </div>
                 </article>
               );

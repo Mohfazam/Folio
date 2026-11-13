@@ -89,13 +89,19 @@ export async function saveRoutingRulesAction(clientId: string, input: Record<str
   return backendRequest(`/api/clients/${encodeURIComponent(clientId)}`, "PATCH", input);
 }
 
+export async function getLaunchEligibleContactsAction(): Promise<ActionResult> {
+  return backendRequest("/api/workspace-setup/eligible-contacts?limit=5000", "GET");
+}
+
 export async function launchCampaignAction(
   campaignId: string,
   contactIds: string[],
+  schedule: { startAt: string; dailyStart: string; dailyEnd: string },
 ): Promise<ActionResult> {
   return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}/launch`, "POST", {
     contactIds,
     confirm: true,
+    schedule,
   });
 }
 
@@ -132,4 +138,8 @@ export async function enqueueSingleContactCallAction(
   }
 
   return result;
+}
+
+export async function updateCampaignStatusAction(campaignId: string, status: "active" | "paused"): Promise<ActionResult> {
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", { status });
 }

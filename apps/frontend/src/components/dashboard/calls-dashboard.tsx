@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -273,6 +273,10 @@ export function CallsDashboard({
   initialError: string | null;
 }) {
   const router = useRouter();
+  useEffect(() => {
+    const timer = window.setInterval(() => router.refresh(), 8000);
+    return () => window.clearInterval(timer);
+  }, [router]);
   const [callComposerOpen, setCallComposerOpen] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
   const connectedOnPage = calls.filter((call) => call.outcome === "connected").length;

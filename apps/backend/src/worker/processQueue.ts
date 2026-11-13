@@ -3,7 +3,6 @@ import { db } from "../config/db.js";
 import { callQueue, clients, contacts, campaigns, businessProfiles, knowledgeBaseEntries } from "@repo/db";
 import { env } from "../config/env.js";
 import { getWorkspaceAgentRuntimeSettings, isFooliooSystemContact } from "../services/workspaceConfiguration.js";
-import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 /**
  * Concurrency Mutex: prevents duplicate simultaneous worker runs from
@@ -198,7 +197,11 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
 
     // Check each client for eligibility
     for (const entry of pendingEntries) {
-      const client = await enforceTrialExpiration(entry.clientId);
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, entry.clientId))
+        .limit(1);
 
       if (!client) continue;
       if (client.status === "paused" || client.status === "suspended") continue;
@@ -237,6 +240,22 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       }
 
       const withinCallingHours = isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd);
+      const activeCampaignRows = await db.select({ id: campaigns.id, metadata: campaigns.metadata })
+        .from(campaigns).where(and(eq(campaigns.clientId, client.id), eq(campaigns.status, "active")));
+      const campaignIdsWithinWindow = activeCampaignRows.flatMap((campaign) => {
+        const metadata = campaign.metadata && typeof campaign.metadata === "object" && !Array.isArray(campaign.metadata)
+          ? campaign.metadata as Record<string, unknown> : {};
+        const schedule = metadata.campaignSchedule && typeof metadata.campaignSchedule === "object" && !Array.isArray(metadata.campaignSchedule)
+          ? metadata.campaignSchedule as Record<string, unknown> : null;
+        if (!schedule) return [campaign.id];
+        const startsAt = typeof schedule.startAt === "string" ? new Date(schedule.startAt).getTime() : 0;
+        const dailyStart = typeof schedule.dailyStart === "string" ? schedule.dailyStart : "09:00";
+        const dailyEnd = typeof schedule.dailyEnd === "string" ? schedule.dailyEnd : "18:00";
+        const localClock = clientLocal.time.slice(0, 5);
+        const inDailyWindow = /^([01]\d|2[0-3]):[0-5]\d$/.test(dailyStart) && /^([01]\d|2[0-3]):[0-5]\d$/.test(dailyEnd)
+          && localClock >= dailyStart && localClock < dailyEnd;
+        return Number.isFinite(startsAt) && Date.now() >= startsAt && inDailyWindow ? [campaign.id] : [];
+      });
 
       // ── Check 3: Daily call cap ────────────────────────────────
       if (client.callsMadeToday >= client.maxCallsPerDay) {
@@ -259,7 +278,10 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
             eq(callQueue.clientId, client.id),
             eq(callQueue.status, "pending"),
             withinCallingHours
-              ? or(lte(callQueue.scheduledFor, new Date()), systemCallQueueEntry)
+              ? or(
+                  and(inArray(callQueue.campaignId, campaignIdsWithinWindow.length ? campaignIdsWithinWindow : ["00000000-0000-0000-0000-000000000000"]), lte(callQueue.scheduledFor, new Date())),
+                  systemCallQueueEntry,
+                )
               : systemCallQueueEntry
           )
         )
