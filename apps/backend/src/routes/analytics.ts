@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, sql, gte, desc } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { calls, clients, followUps, callQueue } from "@repo/db";
+import { calls, clients, followUps, callQueue, campaigns } from "@repo/db";
 import { getUtcDateForTimezone } from "../utils/retrySchedule.js";
 
 /**
@@ -20,7 +20,9 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
       timeframe?: string;
     };
 
-    const targetClientId = clientId || req.clientId;
+    // Analytics must remain scoped to the authenticated workspace. Do not allow
+    // a query-string clientId to override the tenant selected by middleware.
+    const targetClientId = req.clientId;
     if (!targetClientId) {
       return res.status(400).json({ ok: false, error: "clientId is required" });
     }
@@ -112,6 +114,36 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
     const total = callStats?.totalCalls ?? 0;
     const connected = callStats?.connectedCalls ?? 0;
     const connectionRate = total > 0 ? Number(((connected / total) * 100).toFixed(1)) : 0;
+
+    // 3b. Daily call trend and campaign performance for the selected window.
+    const dailyTrend = await db
+      .select({
+        date: sql<string>`to_char(date_trunc('day', ${calls.startedAt}), 'YYYY-MM-DD')`,
+        totalCalls: sql<number>`count(*)::int`,
+        connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+        failedCalls: sql<number>`count(case when ${calls.outcome} = 'failed' then 1 end)::int`,
+      })
+      .from(calls)
+      .where(whereClause)
+      .groupBy(sql`date_trunc('day', ${calls.startedAt})`)
+      .orderBy(sql`date_trunc('day', ${calls.startedAt})`);
+
+    const campaignPerformance = await db
+      .select({
+        campaignId: campaigns.id,
+        campaignName: campaigns.name,
+        campaignStatus: campaigns.status,
+        totalCalls: sql<number>`count(${calls.id})::int`,
+        connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+        highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
+        totalDurationSeconds: sql<number>`coalesce(sum(${calls.durationSeconds}), 0)::int`,
+      })
+      .from(calls)
+      .innerJoin(campaigns, eq(calls.campaignId, campaigns.id))
+      .where(whereClause)
+      .groupBy(campaigns.id, campaigns.name, campaigns.status)
+      .orderBy(desc(sql`count(${calls.id})`))
+      .limit(8);
 
     // 4. Pending & Open Actions Count
     const [queueStats] = await db
@@ -206,6 +238,8 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
         tts: Number((callStats?.costTts ?? 0).toFixed(4)),
       },
       recentCalls,
+      dailyTrend,
+      campaignPerformance,
     });
   } catch (err: unknown) {
     console.error("[analytics/overview] Unexpected error:", err);
