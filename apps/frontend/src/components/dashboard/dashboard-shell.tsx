@@ -80,7 +80,7 @@ const NAV_ITEMS: Array<{
 }> = [
   { label: "Overview", href: "/dashboard", icon: "overview", enabled: true },
   { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: true },
-  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: false, setupAction: "contacts" },
+  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: true },
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: false },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: false },
   { label: "Knowledge & Voice", href: "/dashboard/knowledge-voice", icon: "knowledge", enabled: false, setupAction: "voice" },

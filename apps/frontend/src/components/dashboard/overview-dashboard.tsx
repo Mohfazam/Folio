@@ -525,7 +525,22 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-8">
-          <SetupChecklist data={data} onAction={(action) => action === "campaign" ? router.push("/dashboard/campaigns") : setActiveAction(action)} />
+          <SetupChecklist
+            data={data}
+            onAction={(action) => {
+              if (action === "campaign") {
+                router.push("/dashboard/campaigns");
+                return;
+              }
+
+              if (action === "contacts") {
+                router.push("/dashboard/contacts?import=1");
+                return;
+              }
+
+              setActiveAction(action);
+            }}
+          />
           {analytics ? (
             <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
           ) : (
