@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
-import { createTestCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
+import { cancelQueuedCallAction, createTestCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type CallRecord = {
   id: string;
@@ -298,6 +298,8 @@ export function CallsDashboard({
     entries: [],
   });
   const [liveStatusError, setLiveStatusError] = useState<string | null>(null);
+  const [cancellingQueueId, setCancellingQueueId] = useState<string | null>(null);
+  const [queueActionError, setQueueActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -369,6 +371,32 @@ export function CallsDashboard({
 
   const [callComposerOpen, setCallComposerOpen] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+
+  const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
+    if (entry.status !== "pending" || cancellingQueueId) return;
+    const recipient = entry.contactName || entry.phoneNumber || "this recipient";
+    if (!window.confirm(`Cancel the queued call to ${recipient}? It will not be attempted.`)) return;
+
+    setCancellingQueueId(entry.id);
+    setQueueActionError(null);
+    const result = await cancelQueuedCallAction(entry.id);
+    setCancellingQueueId(null);
+
+    if (!result.ok) {
+      setQueueActionError(result.error || "The queued call could not be cancelled.");
+      setLiveRefreshKey((value) => value + 1);
+      return;
+    }
+
+    setLiveStatus((current) => ({
+      ...current,
+      pendingCount: Math.max(0, current.pendingCount - 1),
+      duePendingCount: Math.max(0, current.duePendingCount - (entry.scheduledFor && new Date(entry.scheduledFor).getTime() <= Date.now() ? 1 : 0)),
+      entries: current.entries.filter((item) => item.id !== entry.id),
+    }));
+    setCallNotice(`Queued call to ${recipient} cancelled.`);
+    setLiveRefreshKey((value) => value + 1);
+  };
   const connectedOnPage = calls.filter((call) => call.outcome === "connected").length;
   const followUpsOnPage = calls.filter((call) => call.followUpRequested).length;
   const creditsOnPage = calls.reduce((sum, call) => sum + call.creditsCharged, 0);
@@ -436,7 +464,11 @@ export function CallsDashboard({
           </div>
           {liveStatusError ? (
             <p className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
-          ) : liveStatus.entries.length > 0 ? (
+          ) : null}
+          {queueActionError ? (
+            <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#A33A32]">{queueActionError}</p>
+          ) : null}
+          {liveStatus.entries.length > 0 ? (
             <div className="divide-y divide-[#F0EFE9]">
               {liveStatus.entries.slice(0, 8).map((entry) => (
                 <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
@@ -444,7 +476,19 @@ export function CallsDashboard({
                     <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{entry.contactName || entry.phoneNumber || "Unknown recipient"}</p>
                     <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[10px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}</p>
                   </div>
-                  <Badge tone={entry.status === "in_progress" ? "green" : "amber"}>{entry.status === "in_progress" ? "Calling now" : "Queued"}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge tone={entry.status === "in_progress" ? "green" : "amber"}>{entry.status === "in_progress" ? "Calling now" : "Queued"}</Badge>
+                    {entry.status === "pending" ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleCancelQueuedCall(entry)}
+                        disabled={cancellingQueueId !== null}
+                        className="rounded-[5px] border border-[#E7C9C5] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {cancellingQueueId === entry.id ? "Cancelling…" : "Cancel"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

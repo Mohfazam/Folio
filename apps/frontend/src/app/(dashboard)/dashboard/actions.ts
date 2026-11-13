@@ -84,6 +84,14 @@ export async function getTestCallStatusAction(testCallId: string): Promise<Actio
   return backendRequest(`/api/test-calls/${encodeURIComponent(testCallId)}`, "GET");
 }
 
+/** Cancel a call that is still waiting in the workspace queue. In-progress calls cannot be cancelled through this endpoint. */
+export async function cancelQueuedCallAction(queueEntryId: string): Promise<ActionResult> {
+  if (!queueEntryId || queueEntryId.length > 128) {
+    return { ok: false, error: "A valid queue entry is required." };
+  }
+  return backendRequest(`/api/queue/${encodeURIComponent(queueEntryId)}`, "DELETE");
+}
+
 /** Fetch only changing queue/call state. Unlike backendRequest, this read-only
  * action deliberately does not revalidate dashboard routes. */
 export async function getLiveCallStatusAction(): Promise<ActionResult> {
