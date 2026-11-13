@@ -85,7 +85,7 @@ const NAV_ITEMS: Array<{
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: true },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: true },
   { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true },
-  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true },
+  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: false },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -451,15 +451,14 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <span className="hidden lg:inline">Search</span>
               <kbd className="ml-auto hidden rounded border border-[#D8D8D1] px-1 py-0.5 text-[9px] text-[#747878] lg:inline">⌘K</kbd>
             </button>
-            <button
-              type="button"
-              onClick={() => { setSettingsSection("workspace"); setSettingsOpen(true); }}
-              className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start"
+            <Link
+              href="/dashboard/settings"
+              className={`flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/settings") ? "bg-[#ECEBE4] text-[#1B1C18]" : "text-[#444748]"}`}
               title="Workspace settings"
             >
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() => setProfileOpen((open) => !open)}

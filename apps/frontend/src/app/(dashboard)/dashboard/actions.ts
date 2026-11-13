@@ -237,3 +237,27 @@ export async function deleteKnowledgeEntryAction(id: string): Promise<ActionResu
   if (!id) return { ok: false, status: 400, error: "Knowledge entry ID is missing." };
   return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "DELETE");
 }
+
+export async function getWorkspaceSettingsAction(): Promise<ActionResult> {
+  const [profile, agent] = await Promise.all([
+    backendRequest("/api/business-profile", "GET"),
+    backendRequest("/api/agent-settings", "GET"),
+  ]);
+  if (!profile.ok && profile.status !== 404) return profile;
+  if (!agent.ok) return agent;
+  return {
+    ok: true,
+    data: {
+      businessProfile: profile.ok ? profile.data?.businessProfile ?? null : null,
+      agentSettings: agent.data?.agentSettings ?? null,
+      availableVoices: agent.data?.availableVoices ?? [],
+      availableLanguages: agent.data?.availableLanguages ?? [],
+    },
+  };
+}
+
+export async function saveWorkspaceSettingsAction(input: Record<string, unknown>): Promise<ActionResult> {
+  const result = await backendRequest("/api/business-profile", "PUT", input);
+  if (result.ok) revalidatePath("/dashboard/settings");
+  return result;
+}
