@@ -118,6 +118,12 @@ async function DashboardContent({ children }: { children: ReactNode }) {
   const email = asText(authMe.user?.email) ?? "";
   const trialEndsAt = client?.trialEndsAt ?? null;
   const rawPlan = asText(client?.planTier);
+  const isTrial = client?.status === "trialing" || rawPlan === "trial";
+  const trialEndTimestamp = trialEndsAt
+    ? new Date(trialEndsAt).getTime()
+    : Number.NaN;
+  const trialExpired =
+    isTrial && Number.isFinite(trialEndTimestamp) && trialEndTimestamp <= Date.now();
 
   const profile: DashboardProfile = {
     displayName,
@@ -129,7 +135,8 @@ async function DashboardContent({ children }: { children: ReactNode }) {
     greeting: getGreeting(timezone),
     planName: rawPlan ? rawPlan.charAt(0).toUpperCase() + rawPlan.slice(1) : null,
     trialDaysLeft: daysUntil(trialEndsAt),
-    isTrial: client?.status === "trialing" || rawPlan === "trial",
+    trialExpired,
+    isTrial,
   };
 
   return (
