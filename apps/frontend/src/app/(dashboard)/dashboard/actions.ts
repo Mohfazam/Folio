@@ -84,6 +84,46 @@ export async function getTestCallStatusAction(testCallId: string): Promise<Actio
   return backendRequest(`/api/test-calls/${encodeURIComponent(testCallId)}`, "GET");
 }
 
+/** Fetch only changing queue/call state. Unlike backendRequest, this read-only
+ * action deliberately does not revalidate dashboard routes. */
+export async function getLiveCallStatusAction(): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
+    }
+
+    const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
+    if (!baseUrl) {
+      return { ok: false, error: "BACKEND_API_URL is not configured on the server." };
+    }
+
+    const response = await fetch(`${baseUrl}/api/calls/live`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+
+    if (!response.ok || record.ok === false) {
+      return {
+        ok: false,
+        status: response.status,
+        error: typeof record.error === "string" ? record.error : `The request failed (${response.status}).`,
+      };
+    }
+
+    return { ok: true, data: record };
+  } catch (error) {
+    console.error("[dashboard/action] GET /api/calls/live failed:", error);
+    return { ok: false, error: error instanceof Error ? error.message : "Live call status could not be loaded." };
+  }
+}
+
 export async function saveRoutingRulesAction(clientId: string, input: Record<string, unknown>): Promise<ActionResult> {
   if (!clientId) return { ok: false, status: 400, error: "Workspace ID is missing. Refresh and try again." };
   return backendRequest(`/api/clients/${encodeURIComponent(clientId)}`, "PATCH", input);

@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { createTestCallAction } from "@/app/(dashboard)/dashboard/actions";
+import { createTestCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type CallRecord = {
   id: string;
@@ -26,6 +25,24 @@ export type CallRecord = {
   costTotal: number | null;
   recordingUrl: string | null;
   campaignName: string | null;
+};
+
+type LiveQueueEntry = {
+  id: string;
+  contactName: string | null;
+  phoneNumber: string | null;
+  campaignName: string | null;
+  status: "pending" | "in_progress";
+  scheduledFor: string | null;
+  updatedAt: string | null;
+};
+
+type LiveCallStatus = {
+  pendingCount: number;
+  inProgressCount: number;
+  duePendingCount: number;
+  nextPendingAt: string | null;
+  entries: LiveQueueEntry[];
 };
 
 export type CallFilters = {
@@ -272,11 +289,84 @@ export function CallsDashboard({
   filters: CallFilters;
   initialError: string | null;
 }) {
-  const router = useRouter();
+  const [liveRefreshKey, setLiveRefreshKey] = useState(0);
+  const [liveStatus, setLiveStatus] = useState<LiveCallStatus>({
+    pendingCount: 0,
+    inProgressCount: 0,
+    duePendingCount: 0,
+    nextPendingAt: null,
+    entries: [],
+  });
+  const [liveStatusError, setLiveStatusError] = useState<string | null>(null);
+
   useEffect(() => {
-    const timer = window.setInterval(() => router.refresh(), 8000);
-    return () => window.clearInterval(timer);
-  }, [router]);
+    let disposed = false;
+    let timer: number | undefined;
+
+    const refreshLiveStatus = async () => {
+      if (document.visibilityState === "hidden") return;
+
+      try {
+        const result = await getLiveCallStatusAction();
+        if (disposed) return;
+
+        if (!result.ok || !result.data) {
+          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
+          return;
+        }
+
+        const data = result.data;
+        const entries = Array.isArray(data.entries)
+          ? data.entries.filter((entry): entry is LiveQueueEntry =>
+              typeof entry === "object" && entry !== null &&
+              typeof (entry as LiveQueueEntry).id === "string" &&
+              ((entry as LiveQueueEntry).status === "pending" || (entry as LiveQueueEntry).status === "in_progress"),
+            )
+          : [];
+        const nextStatus: LiveCallStatus = {
+          pendingCount: typeof data.pendingCount === "number" ? data.pendingCount : 0,
+          inProgressCount: typeof data.inProgressCount === "number" ? data.inProgressCount : 0,
+          duePendingCount: typeof data.duePendingCount === "number" ? data.duePendingCount : 0,
+          nextPendingAt: typeof data.nextPendingAt === "string" ? data.nextPendingAt : null,
+          entries,
+        };
+        setLiveStatus(nextStatus);
+        setLiveStatusError(null);
+
+        const hasImmediateWork = nextStatus.inProgressCount > 0 || nextStatus.duePendingCount > 0;
+        if (hasImmediateWork) {
+          timer = window.setTimeout(refreshLiveStatus, 8000);
+        } else if (nextStatus.pendingCount > 0 && nextStatus.nextPendingAt) {
+          const nextAttemptAt = new Date(nextStatus.nextPendingAt).getTime();
+          const waitMs = Number.isFinite(nextAttemptAt)
+            ? Math.max(1000, nextAttemptAt - Date.now())
+            : 30000;
+          timer = window.setTimeout(refreshLiveStatus, waitMs);
+        }
+      } catch (error) {
+        if (disposed) return;
+        setLiveStatusError(error instanceof Error ? error.message : "Live call status is temporarily unavailable.");
+        timer = window.setTimeout(refreshLiveStatus, 15000);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        if (timer !== undefined) window.clearTimeout(timer);
+        void refreshLiveStatus();
+      }
+    };
+
+    void refreshLiveStatus();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      disposed = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [liveRefreshKey]);
+
   const [callComposerOpen, setCallComposerOpen] = useState(false);
   const [callNotice, setCallNotice] = useState<string | null>(null);
   const connectedOnPage = calls.filter((call) => call.outcome === "connected").length;
@@ -330,6 +420,36 @@ export function CallsDashboard({
             Try again
           </Link>
         </div>
+      ) : null}
+
+      {(liveStatus.pendingCount > 0 || liveStatus.inProgressCount > 0 || liveStatusError) ? (
+        <section className="overflow-hidden rounded-[8px] border border-[#E8E3F2] bg-white" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3 sm:px-5">
+            <div>
+              <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Live call activity</h2>
+              <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">Updates automatically while calls are queued or in progress.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="purple">{formatNumber(liveStatus.pendingCount)} pending</Badge>
+              <Badge tone="green">{formatNumber(liveStatus.inProgressCount)} in progress</Badge>
+            </div>
+          </div>
+          {liveStatusError ? (
+            <p className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
+          ) : liveStatus.entries.length > 0 ? (
+            <div className="divide-y divide-[#F0EFE9]">
+              {liveStatus.entries.slice(0, 8).map((entry) => (
+                <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
+                  <div className="min-w-0">
+                    <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{entry.contactName || entry.phoneNumber || "Unknown recipient"}</p>
+                    <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[10px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}</p>
+                  </div>
+                  <Badge tone={entry.status === "in_progress" ? "green" : "amber"}>{entry.status === "in_progress" ? "Calling now" : "Queued"}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Call metrics for current filter">
@@ -512,7 +632,7 @@ export function CallsDashboard({
           onQueued={(message) => {
             setCallComposerOpen(false);
             setCallNotice(message);
-            router.refresh();
+            setLiveRefreshKey((value) => value + 1);
           }}
         />
       ) : null}

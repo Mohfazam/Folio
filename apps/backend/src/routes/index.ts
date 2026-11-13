@@ -14,7 +14,7 @@ import { getAnalyticsOverviewRoute } from "./analytics.js";
 import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
-import { getCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
+import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
 import { getCampaignsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
@@ -89,6 +89,7 @@ export function registerRoutes(app: Express) {
   api.delete("/queue/:id", requireClientAdmin, requireOwnedResource("callQueue"), deleteQueueRoute);
 
   api.get("/calls", getCallsRoute);
+  api.get("/calls/live", getLiveCallsRoute);
   api.get("/calls/:id", requireOwnedResource("calls"), getCallByIdRoute);
 
   api.get("/follow-ups", getFollowUpsRoute);
