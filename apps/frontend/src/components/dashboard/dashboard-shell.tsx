@@ -85,7 +85,7 @@ const NAV_ITEMS: Array<{
   { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: true },
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: true },
   { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true },
-  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: false },
+  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -229,7 +229,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"workspace" | "plan">("workspace");
   const [copiedWorkspaceId, setCopiedWorkspaceId] = useState(false);
@@ -252,7 +251,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       }
       if (event.key === "Escape") {
         setSearchOpen(false);
-        setProfileOpen(false);
         setSettingsOpen(false);
       }
     };
@@ -403,22 +401,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
             </div>
           ) : null}
 
-          {profileOpen ? (
-            <div className="absolute right-2 top-[62px] z-50 w-[248px] rounded-[8px] border border-[#E9E8E1] bg-white p-3 shadow-[0_8px_32px_rgba(27,28,24,0.12)] sm:right-4">
-              <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{profile.displayName}</p>
-              <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">{profile.email}</p>
-              <div className="my-3 h-px bg-[#E9E8E1]" />
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="w-full rounded-[4px] px-2 py-2 text-left font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
-              >
-                {signingOut ? "Signing out..." : "Sign out"}
-              </button>
-              {signOutError ? <p className="mt-2 text-[11px] text-[#B42318]">{signOutError}</p> : null}
-            </div>
-          ) : null}
         </header>
 
         <aside className={`fixed bottom-4 left-0 ${profile.isTrial ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3`}>
@@ -459,11 +441,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
             </Link>
-            <button
-              type="button"
-              onClick={() => setProfileOpen((open) => !open)}
-              className="mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] bg-[#ECEBE4] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start"
-              aria-label="Open account menu"
+            <Link
+              href="/dashboard/profile"
+              onClick={() => setSettingsOpen(false)}
+              className={`mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/profile") ? "bg-[#E5E4DC]" : "bg-[#ECEBE4]"}`}
+              aria-label="Open user profile"
+              title="Your profile"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
                 {initials(profile.displayName)}
@@ -472,7 +455,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{profile.displayName}</span>
                 <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">{profile.email}</span>
               </span>
-            </button>
+            </Link>
           </div>
         </aside>
 
