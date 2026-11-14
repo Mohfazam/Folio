@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { eq, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { clients, users } from "@repo/db";
+import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 function metadataString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -128,6 +129,7 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
             planTier: "trial",
             monthlyCreditsAllowance: 360,
             maxCallsPerDay: 50,
+            trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             status: "trialing",
           })
           .returning({ id: clients.id });
@@ -206,9 +208,9 @@ export async function getAuthMeRoute(req: Request, res: Response) {
   }
 
   try {
-    const [client] = req.user.clientId
-      ? await db.select().from(clients).where(eq(clients.id, req.user.clientId)).limit(1)
-      : [null];
+    const client = req.user.clientId
+      ? await enforceTrialExpiration(req.user.clientId)
+      : null;
 
     return res.json({
       ok: true,

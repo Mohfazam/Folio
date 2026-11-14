@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { eq, and, sql, desc, gte, lte, or, like } from "drizzle-orm";
+import { eq, and, sql, desc, gte, lte, or, like, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { calls, callQueue, clients, contacts, followUps, campaigns, users } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
@@ -670,6 +670,59 @@ export async function getCallsRoute(req: Request, res: Response) {
     console.error("[calls/get] Unexpected error:", err);
     const message = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ ok: false, error: message });
+  }
+}
+
+/**
+ * GET /api/calls/live
+ *
+ * Lightweight workspace-scoped status for active queue entries. This endpoint
+ * intentionally returns no transcript, recordings, summaries or call history.
+ */
+export async function getLiveCallsRoute(req: Request, res: Response) {
+  try {
+    const clientId = req.clientId;
+    if (!clientId) return res.status(401).json({ ok: false, error: "Workspace context is required." });
+
+    const entries = await db
+      .select({
+        id: callQueue.id,
+        contactName: callQueue.contactName,
+        phoneNumber: callQueue.phoneNumber,
+        status: callQueue.status,
+        scheduledFor: callQueue.scheduledFor,
+        updatedAt: callQueue.updatedAt,
+        campaignName: campaigns.name,
+      })
+      .from(callQueue)
+      .leftJoin(campaigns, eq(callQueue.campaignId, campaigns.id))
+      .where(and(
+        eq(callQueue.clientId, clientId),
+        inArray(callQueue.status, ["pending", "in_progress"]),
+      ))
+      .orderBy(desc(callQueue.updatedAt))
+      .limit(50);
+
+    const [counts] = await db
+      .select({
+        pendingCount: sql<number>`count(*) filter (where ${callQueue.status} = 'pending')::int`,
+        inProgressCount: sql<number>`count(*) filter (where ${callQueue.status} = 'in_progress')::int`,
+      })
+      .from(callQueue)
+      .where(and(
+        eq(callQueue.clientId, clientId),
+        inArray(callQueue.status, ["pending", "in_progress"]),
+      ));
+
+    return res.json({
+      ok: true,
+      pendingCount: counts?.pendingCount ?? 0,
+      inProgressCount: counts?.inProgressCount ?? 0,
+      entries,
+    });
+  } catch (err: unknown) {
+    console.error("[calls/live] Unable to load live call status:", err);
+    return res.status(500).json({ ok: false, error: "Live call status could not be loaded." });
   }
 }
 

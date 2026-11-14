@@ -497,6 +497,18 @@ export async function launchCampaignRoute(req: Request, res: Response) {
     const body = isRecord(req.body) ? req.body : {};
     const rawIds = Array.isArray(body.contactIds) ? body.contactIds : [];
     const contactIds = [...new Set(rawIds.filter((id): id is string => typeof id === "string" && id.length > 0))];
+    const schedule = isRecord(body.schedule) ? body.schedule : {};
+    const dailyStart = typeof schedule.dailyStart === "string" ? schedule.dailyStart : "09:00";
+    const dailyEnd = typeof schedule.dailyEnd === "string" ? schedule.dailyEnd : "18:00";
+    const startAt = typeof schedule.startAt === "string" ? new Date(schedule.startAt) : new Date();
+    const validClock = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+    if (!validClock(dailyStart) || !validClock(dailyEnd) || dailyStart >= dailyEnd) {
+      return res.status(400).json({ ok: false, error: "Choose a valid daily calling window. The end time must be later than the start time." });
+    }
+    if (Number.isNaN(startAt.getTime()) || startAt.getTime() < Date.now() - 60_000) {
+      return res.status(400).json({ ok: false, error: "Choose a valid launch time in the future." });
+    }
 
     if (body.confirm !== true) {
       return res.status(400).json({ ok: false, error: "Explicit confirmation is required before launching a campaign." });
@@ -575,9 +587,10 @@ export async function launchCampaignRoute(req: Request, res: Response) {
 
       let scheduledFor: Date;
       try {
-        scheduledFor = nextAllowedCallingTime(
-          launchNow, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
+        const workspaceStart = nextAllowedCallingTime(
+          startAt, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
         );
+        scheduledFor = workspaceStart;
       } catch {
         return { error: "Your workspace timezone or calling hours are invalid. Fix them in follow-up and team handling setup.", status: 409 as const };
       }
@@ -598,9 +611,20 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       const inserted = await tx.insert(callQueue).values(queueRows).returning({ id: callQueue.id });
       await tx.update(contacts).set({ status: "queued", updatedAt: new Date() })
         .where(and(eq(contacts.clientId, req.clientId!), inArray(contacts.id, eligible.map((item) => item.id))));
-      await tx.update(campaigns).set({ status: "active", updatedAt: new Date() })
-        .where(and(eq(campaigns.id, campaign.id), eq(campaigns.clientId, req.clientId!)));
-      const launchRecord = { campaignId: campaign.id, launchedAt: launchNow.toISOString(), queuedCount: inserted.length };
+      const existingCampaignMetadata = metadataRecord(campaign.metadata);
+      const campaignSchedule = {
+        startAt: startAt.toISOString(),
+        dailyStart,
+        dailyEnd,
+        timezone: client.timezone || "Asia/Kolkata",
+        mode: startAt.getTime() > launchNow.getTime() + 60_000 ? "scheduled" : "manual",
+      };
+      await tx.update(campaigns).set({
+        status: "active",
+        metadata: { ...existingCampaignMetadata, campaignSchedule },
+        updatedAt: new Date(),
+      }).where(and(eq(campaigns.id, campaign.id), eq(campaigns.clientId, req.clientId!)));
+      const launchRecord = { campaignId: campaign.id, launchedAt: launchNow.toISOString(), startsAt: scheduledFor.toISOString(), queuedCount: inserted.length, campaignSchedule };
       await tx.update(clients).set({
         metadata: sql`jsonb_set(COALESCE(${clients.metadata}, '{}'::jsonb), '{latestCampaignLaunch}', ${JSON.stringify(launchRecord)}::jsonb, true)`,
         updatedAt: launchNow,
@@ -617,6 +641,7 @@ export async function launchCampaignRoute(req: Request, res: Response) {
         queued: inserted.length,
         queueEntryIds: inserted.map((row) => row.id),
         scheduledFor: scheduledFor.toISOString(),
+        campaignSchedule,
         skippedIneligible: selected.length - eligible.length,
       };
     });
@@ -633,7 +658,9 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       ok: true,
       ...result,
       status: "active",
-      message: "Campaign activated and eligible contacts added to the outbound queue. The queue worker will process them within workspace limits and calling hours.",
+      message: startAt.getTime() > launchNow.getTime() + 60_000
+        ? "Campaign scheduled. Calls will begin at the selected start time and remain inside the daily campaign and workspace calling windows."
+        : "Campaign activated. Calls will run inside the daily campaign and workspace calling windows.",
     });
   } catch (error) {
     console.error("[campaigns/launch]", error);

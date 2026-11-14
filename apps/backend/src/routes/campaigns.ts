@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { campaigns, calls } from "@repo/db";
+import { campaigns, calls, callQueue } from "@repo/db";
 
 const VALID_TYPES = [
   "outreach_sales",
@@ -74,6 +74,12 @@ export async function getCampaignsRoute(req: Request, res: Response) {
           })
           .from(calls)
           .where(and(eq(calls.campaignId, c.id), eq(calls.clientId, clientId)));
+        const [queueStats] = await db.select({
+          pendingCalls: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
+          inProgressCalls: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
+          failedCalls: sql<number>`count(case when ${callQueue.status} in ('failed', 'exhausted') then 1 end)::int`,
+          completedQueueCalls: sql<number>`count(case when ${callQueue.status} = 'completed' then 1 end)::int`,
+        }).from(callQueue).where(and(eq(callQueue.campaignId, c.id), eq(callQueue.clientId, clientId)));
 
         return {
           ...c,
@@ -81,6 +87,10 @@ export async function getCampaignsRoute(req: Request, res: Response) {
             totalCalls: stats?.totalCalls ?? 0,
             connectedCalls: stats?.connectedCalls ?? 0,
             highInterestCalls: stats?.highInterestCalls ?? 0,
+            pendingCalls: queueStats?.pendingCalls ?? 0,
+            inProgressCalls: queueStats?.inProgressCalls ?? 0,
+            failedCalls: queueStats?.failedCalls ?? 0,
+            completedQueueCalls: queueStats?.completedQueueCalls ?? 0,
           },
         };
       })
