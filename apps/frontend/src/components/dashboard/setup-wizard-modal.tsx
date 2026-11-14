@@ -578,7 +578,20 @@ export function SetupWizardModal({
               if (!selectedCampaignId) { setError("Choose a saved campaign first."); return; }
               if (selectedContactIds.length === 0) { setError("Select at least one eligible contact."); return; }
               if (!launchConfirmed) { setError("Confirm that you have permission to contact this audience."); return; }
-              await submit(() => launchCampaignAction(selectedCampaignId, selectedContactIds), "Campaign launched. The selected eligible contacts have been added to the outbound queue.");
+
+              const dailyStart = String(client.callingHoursStart ?? "09:00:00").slice(0, 5);
+              const dailyEnd = String(client.callingHoursEnd ?? "18:00:00").slice(0, 5);
+              const validTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+              if (!validTime(dailyStart) || !validTime(dailyEnd) || dailyStart >= dailyEnd) {
+                setError("The workspace calling window is invalid. Update the start and end times in Routing Rules before launching.");
+                return;
+              }
+
+              await submit(() => launchCampaignAction(selectedCampaignId, selectedContactIds, {
+                startAt: new Date().toISOString(),
+                dailyStart,
+                dailyEnd,
+              }), "Campaign launched. The selected eligible contacts have been added to the outbound queue.");
             }}>
               <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Review the audience and campaign before outbound activity begins. Opted-out, invalid, duplicate and system test-call contacts are excluded by the backend.</p>
               <label className={LABEL}>Campaign to launch

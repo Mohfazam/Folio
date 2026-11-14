@@ -37,6 +37,7 @@ export type DashboardProfile = {
   greeting: "Good morning" | "Good afternoon" | "Good evening";
   planName: string | null;
   trialDaysLeft: number | null;
+  trialEndsAt: string | null;
   trialExpired: boolean;
   isTrial: boolean;
 };
