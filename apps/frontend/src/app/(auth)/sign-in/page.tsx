@@ -36,21 +36,21 @@ function SignInContent() {
 
   return (
     <main className="mx-auto w-full max-w-[384px]">
-      <div className="mb-7">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#E7DEFF] bg-[#F4F0FF] px-3 py-1.5">
+      <div className="mb-6 sm:mb-7">
+        <div className="mb-3 sm:mb-4 inline-flex items-center gap-2 rounded-full border border-[#E7DEFF] bg-[#F4F0FF] px-3 py-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-[#7852D6]" aria-hidden="true" />
           <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.25px] text-[#644ABB]">
             Workspace access
           </span>
         </div>
 
-        <h1 className="font-['Newsreader'] text-[40px] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18] sm:text-[44px]">
+        <h1 className="font-['Newsreader'] text-[clamp(2.25rem,5vw,2.75rem)] font-normal leading-[1.04] tracking-[-1.1px] text-[#1B1C18]">
           Welcome back.
         </h1>
         <p className="mt-3 max-w-[330px] font-['Space_Grotesk'] text-[13px] leading-[21px] text-[#747878] sm:text-[14px]">
           Sign in to pick up where your team left off.
         </p>
-        <div className="mt-4 flex items-center gap-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+        <div className="mt-3 sm:mt-4 flex items-center gap-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
           <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-[#7852D6]" fill="none" aria-hidden="true">
             <path d="M4.2 7V5.2a3.8 3.8 0 0 1 7.6 0V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
             <rect x="2.7" y="7" width="10.6" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
@@ -59,7 +59,7 @@ function SignInContent() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 sm:gap-5">
         <div className="[&_button]:!min-h-[46px] [&_button]:!w-full [&_button]:!rounded-lg [&_button]:!border [&_button]:!border-[#E6E4DC] [&_button]:!bg-white [&_button]:!font-['Space_Grotesk'] [&_button]:!text-[13px] [&_button]:!font-semibold [&_button]:!text-[#1B1C18] [&_button]:!shadow-[0_1px_2px_rgba(24,24,20,0.04)] [&_button]:transition-colors [&_button:hover]:!bg-[#F8F7F2]">
           <GoogleButton />
         </div>
@@ -73,6 +73,7 @@ function SignInContent() {
         </div>
       </div>
 
+<<<<<<< HEAD
       {isVerified && (
         <div
           role="status"
@@ -83,6 +84,9 @@ function SignInContent() {
       )}
 
       <form action={formAction} className="mt-6 flex flex-col gap-[18px]">
+=======
+      <form action={formAction} className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-[18px]">
+>>>>>>> c82e8592b056bf7ac7ced258ba74f8b8077917ee
         <Input
           id="email"
           name="email"
@@ -156,7 +160,7 @@ function SignInContent() {
         </div>
       </form>
 
-      <div className="mt-7 border-t border-[#E9E8E1] pt-5">
+      <div className="mt-6 border-t border-[#E9E8E1] pt-4 sm:mt-7 sm:pt-5">
         <p className="text-center font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878] sm:text-[13px]">
           New to Foolioo?{" "}
           <Link

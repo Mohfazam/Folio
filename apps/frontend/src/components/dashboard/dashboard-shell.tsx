@@ -37,6 +37,7 @@ export type DashboardProfile = {
   greeting: "Good morning" | "Good afternoon" | "Good evening";
   planName: string | null;
   trialDaysLeft: number | null;
+  trialExpired: boolean;
   isTrial: boolean;
 };
 
@@ -79,12 +80,12 @@ const NAV_ITEMS: Array<{
   setupAction?: DashboardSetupAction;
 }> = [
   { label: "Overview", href: "/dashboard", icon: "overview", enabled: true },
-  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: false, setupAction: "campaign" },
-  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: false, setupAction: "contacts" },
-  { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: false },
-  { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: false },
-  { label: "Knowledge & Voice", href: "/dashboard/knowledge-voice", icon: "knowledge", enabled: false, setupAction: "voice" },
-  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: false },
+  { label: "Campaigns", href: "/dashboard/campaigns", icon: "campaigns", enabled: true },
+  { label: "Contacts", href: "/dashboard/contacts", icon: "contacts", enabled: true },
+  { label: "Calls", href: "/dashboard/calls", icon: "calls", enabled: true },
+  { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: true },
+  { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true },
+  { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -228,7 +229,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [profileOpen, setProfileOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"workspace" | "plan">("workspace");
   const [copiedWorkspaceId, setCopiedWorkspaceId] = useState(false);
@@ -251,7 +251,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       }
       if (event.key === "Escape") {
         setSearchOpen(false);
-        setProfileOpen(false);
         setSettingsOpen(false);
       }
     };
@@ -274,11 +273,40 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     }
   };
 
-  const trialCopy = profile.trialDaysLeft !== null
-    ? `${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"} left in your trial`
-    : profile.isTrial
-      ? "Your trial workspace"
-      : profile.planName ?? "Workspace plan";
+  const trialDays = profile.trialDaysLeft;
+  const trialHeadline = profile.trialExpired
+    ? "Trial expired"
+    : trialDays === 0
+      ? "Trial ends today"
+      : trialDays === 1
+        ? "1 day left in your trial"
+        : trialDays !== null && trialDays <= 3
+          ? `${trialDays} days left in your trial`
+          : "Free trial";
+  const trialBadge = profile.trialExpired
+    ? "Action needed"
+    : trialDays !== null && trialDays > 3
+      ? `${trialDays} days left`
+      : trialDays === 0
+        ? "Ends today"
+        : trialDays !== null && trialDays <= 3
+          ? "Ending soon"
+          : "Trial plan";
+  const trialDescription = profile.trialExpired
+    ? "Your trial has ended. Review plans to continue using your workspace."
+    : trialDays !== null && trialDays <= 3
+      ? "Review plans before your trial ends to avoid interruption."
+      : "Explore your workspace features while your free trial is active.";
+  const trialTone = profile.trialExpired
+    ? "border-[#F0D8D4] bg-[#FFF8F7]"
+    : trialDays !== null && trialDays <= 3
+      ? "border-[#F0E2C5] bg-[#FFFBF1]"
+      : "border-[#E9E8E1] bg-white";
+  const trialIconTone = profile.trialExpired
+    ? "bg-[#FBE8E6] text-[#A33A32]"
+    : trialDays !== null && trialDays <= 3
+      ? "bg-[#F8EED8] text-[#8A6826]"
+      : "bg-[#F0EAFB] text-[#7852D6]";
 
   const openSetupAction = (action: DashboardSetupAction) => {
     setRequestedSetupAction(action);
@@ -303,47 +331,79 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     <DashboardProfileContext.Provider value={profile}>
       <DashboardNavigationContext.Provider value={{ requestedSetupAction, clearRequestedSetupAction }}>
       <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
-        <header className="fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.84)] px-2 pt-[7px] backdrop-blur-xl">
-          <div className="flex h-[50px] items-center justify-between gap-3 rounded-[8px] border border-[rgba(100,74,187,0.2)] bg-[#E7DEFF] px-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:px-[17px]">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="hidden min-w-0 items-center gap-2 text-[13px] leading-[18px] sm:flex">
-                <span className="font-semibold text-[#1B1C18]">{trialCopy}</span>
+        <header
+          className={
+            profile.isTrial
+              ? "fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.88)] px-2 pt-[7px] backdrop-blur-xl"
+              : "fixed inset-x-0 top-0 z-40 h-0"
+          }
+        >
+          {profile.isTrial ? (
+            <div
+              className={`flex h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3 shadow-[0_1px_3px_rgba(27,28,24,0.035)] sm:px-4 ${trialTone}`}
+              role={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "status" : undefined}
+              aria-live={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "polite" : undefined}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] ${trialIconTone}`}>
+                  <svg
+                    viewBox="0 0 20 20"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="10" cy="10" r="7.25" />
+                    <path d="M10 5.8v4.5l2.8 1.7" />
+                  </svg>
+                </span>
+
+                <div className="min-w-0 leading-tight">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#252620] sm:text-[13px]">
+                      {trialHeadline}
+                    </p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-1 font-['Space_Grotesk'] text-[9px] font-semibold leading-none ${
+                        profile.trialExpired
+                          ? "bg-[#FBE8E6] text-[#A33A32]"
+                          : trialDays !== null && trialDays <= 3
+                            ? "bg-[#F8EED8] text-[#8A6826]"
+                            : "bg-[#F0EAFB] text-[#705AA8]"
+                      }`}
+                    >
+                      {trialBadge}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 hidden truncate font-['Space_Grotesk'] text-[10px] text-[#777970] sm:block">
+                    {trialDescription}
+                  </p>
+                </div>
               </div>
-              <span className="truncate font-['Space_Grotesk'] text-[12px] text-[#4C30A2] sm:hidden">
-                {trialCopy}
-              </span>
-            </div>
 
-            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
-                onClick={() => { setSettingsSection("plan"); setSettingsOpen(true); }}
-                className="inline-flex h-8 items-center justify-center rounded-[4px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#644ABB] focus-visible:ring-offset-2"
+                onClick={() => {
+                  setSettingsSection("plan");
+                  setSettingsOpen(true);
+                }}
+                className={`inline-flex h-8 shrink-0 items-center justify-center rounded-[4px] px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 sm:px-4 sm:text-[12px] ${
+                  profile.trialExpired
+                    ? "bg-[#9E3B33] hover:bg-[#852F29]"
+                    : "bg-[#1B1C18] hover:bg-[#34352F]"
+                }`}
               >
-                Upgrade
+                {profile.trialExpired ? "View plans" : "Upgrade"}
               </button>
-            </div>
-          </div>
-
-          {profileOpen ? (
-            <div className="absolute right-2 top-[62px] z-50 w-[248px] rounded-[8px] border border-[#E9E8E1] bg-white p-3 shadow-[0_8px_32px_rgba(27,28,24,0.12)] sm:right-4">
-              <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{profile.displayName}</p>
-              <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">{profile.email}</p>
-              <div className="my-3 h-px bg-[#E9E8E1]" />
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="w-full rounded-[4px] px-2 py-2 text-left font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
-              >
-                {signingOut ? "Signing out..." : "Sign out"}
-              </button>
-              {signOutError ? <p className="mt-2 text-[11px] text-[#B42318]">{signOutError}</p> : null}
             </div>
           ) : null}
+
         </header>
 
-        <aside className="fixed bottom-4 left-0 top-14 z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3">
+        <aside className={`fixed bottom-4 left-0 ${profile.isTrial ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3`}>
           <div className="flex flex-col gap-6">
             <Link href="/dashboard" className="flex min-h-7 items-center gap-2.5 px-2" aria-label="Foolioo overview">
               <BrandMark />
@@ -373,20 +433,20 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <span className="hidden lg:inline">Search</span>
               <kbd className="ml-auto hidden rounded border border-[#D8D8D1] px-1 py-0.5 text-[9px] text-[#747878] lg:inline">⌘K</kbd>
             </button>
-            <button
-              type="button"
-              onClick={() => { setSettingsSection("workspace"); setSettingsOpen(true); }}
-              className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start"
+            <Link
+              href="/dashboard/settings"
+              className={`flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/settings") ? "bg-[#ECEBE4] text-[#1B1C18]" : "text-[#444748]"}`}
               title="Workspace settings"
             >
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setProfileOpen((open) => !open)}
-              className="mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] bg-[#ECEBE4] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start"
-              aria-label="Open account menu"
+            </Link>
+            <Link
+              href="/dashboard/profile"
+              onClick={() => setSettingsOpen(false)}
+              className={`mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/profile") ? "bg-[#E5E4DC]" : "bg-[#ECEBE4]"}`}
+              aria-label="Open user profile"
+              title="Your profile"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
                 {initials(profile.displayName)}
@@ -395,11 +455,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{profile.displayName}</span>
                 <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">{profile.email}</span>
               </span>
-            </button>
+            </Link>
           </div>
         </aside>
 
-        <main className="min-h-screen pb-24 pt-14 md:pb-8 md:pl-[72px] lg:pl-[208px]">
+        <main className={`min-h-screen pb-24 ${profile.isTrial ? "pt-14" : "pt-0"} md:pb-8 md:pl-[72px] lg:pl-[208px]`}>
           <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-14">
             <div className="rounded-[12px] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:p-7 lg:p-8">
               {children}

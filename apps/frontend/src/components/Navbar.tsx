@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
 
 const Navbar = () => {
@@ -24,7 +25,8 @@ const Navbar = () => {
     "whitespace-nowrap font-['Space_Grotesk'] text-[13px] font-medium leading-[18px] tracking-[0.1px] text-[#55534F] transition-colors duration-200 hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4";
 
   const primaryButton =
-  "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2";
+    "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2";
+
   const handleNavClick = () => {
     setMenuOpen(false);
   };
@@ -33,18 +35,15 @@ const Navbar = () => {
     let mounted = true;
 
     const getInitialUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (mounted) {
-        if (error) {
-          console.error("Failed to fetch user:", error);
+      try {
+        const user = await getCurrentUser(supabase);
+        if (mounted) setUser(user);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
         }
-
-        setUser(user);
-        setIsLoading(false);
       }
     };
 
@@ -96,11 +95,7 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden items-center gap-5 lg:flex xl:gap-7">
             {navLinks.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className={navItem}
-              >
+              <a key={item.label} href={item.href} className={navItem}>
                 {item.label}
               </a>
             ))}
@@ -115,31 +110,23 @@ const Navbar = () => {
             </Link>
           )}
 
-          <a
-            href="mailto:sales@foolioo.app?subject=Sales%20Inquiry"
-            className={navItem}
-          >
+          <a href="mailto:sales@foolioo.app?subject=Sales%20Inquiry" className={navItem}>
             Contact Sales
           </a>
 
-          <a href="/live-demo" target="_blank" rel="noopener noreferrer" className={navItem}>
-            Experience Live Demo ↗
-          </a>
-
-          {!isLoading && (
-            user ? (
+          {!isLoading &&
+            (user ? (
               <Link href="/dashboard" className={primaryButton}>
                 Dashboard
               </Link>
             ) : (
-              <Link href="/sign-up" className={primaryButton}>
-                Start free trial
+              <Link href="/live-demo" target="_self" className={primaryButton}>
+                Experience Live Demo
                 <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
-                  ↗
+                  →
                 </span>
               </Link>
-            )
-          )}
+            ))}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -224,18 +211,8 @@ const Navbar = () => {
               Contact Sales
             </a>
 
-            <a
-              href="/live-demo"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={handleNavClick}
-              className={`${navItem} text-left text-[14px]`}
-            >
-              Experience Live Demo ↗
-            </a>
-
-            {!isLoading && (
-              user ? (
+            {!isLoading &&
+              (user ? (
                 <Link
                   href="/dashboard"
                   onClick={handleNavClick}
@@ -245,17 +222,17 @@ const Navbar = () => {
                 </Link>
               ) : (
                 <Link
-                  href="/sign-up"
+                  href="/live-demo"
+                  target="_self"
                   onClick={handleNavClick}
                   className={`${primaryButton} w-full`}
                 >
-                  Start free trial
+                  Experience Live Demo
                   <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
-                    ↗
+                    →
                   </span>
                 </Link>
-              )
-            )}
+              ))}
           </div>
         </div>
       )}

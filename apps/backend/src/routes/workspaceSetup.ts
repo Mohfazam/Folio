@@ -164,16 +164,20 @@ export async function getTeamMembersRoute(req: Request, res: Response) {
 
 /**
  * POST /api/test-calls
- * Queues a single, explicit test call to the destination saved in the workspace
- * business profile. The route is protected by requireClientAdmin. The queue worker
- * continues to enforce the test-call duration cap, credit reservation, daily limit,
- * workspace status and calling hours.
+ * Queues a single, explicitly confirmed test call to the supplied phone number.
+ * The route is protected by requireClientAdmin. The queue worker continues to
+ * enforce the test-call duration cap, credit reservation, daily limit, workspace
+ * status and calling hours.
  */
 export async function createTestCallRoute(req: Request, res: Response) {
   try {
     const body = isRecord(req.body) ? req.body : {};
     if (body.confirmRealCall !== true) {
       return res.status(400).json({ ok: false, error: "Confirm that you want Foolioo to place a real test call." });
+    }
+    const phoneNumber = cleanText(body.phoneNumber, 24);
+    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+      return res.status(400).json({ ok: false, error: "Enter a valid phone number in international format, including the country code." });
     }
 
     const [profile] = await db.select().from(businessProfiles)
@@ -190,10 +194,6 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "Finish and save your AI agent setup before placing a test call." });
     }
 
-    const phoneNumber = cleanText(profileMetadata.testCallDestination, 24);
-    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
-      return res.status(409).json({ ok: false, error: "Save a valid test-call destination in your workspace profile before calling." });
-    }
     const agentSettingsUpdatedAt = isRecord(agentSettings) && typeof agentSettings.updatedAt === "string"
       ? agentSettings.updatedAt
       : null;
@@ -204,7 +204,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
       return res.status(409).json({ ok: false, error: "This phone number is marked as do not call. Foolioo will not place a test call to it." });
     }
     if (existingContact && (existingContact.status === "invalid" || existingContact.isDuplicateOf)) {
-      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Save another eligible test-call destination." });
+      return res.status(409).json({ ok: false, error: "This phone number is marked invalid or duplicate. Enter another test-call number." });
     }
 
     const launchNow = new Date();
@@ -235,14 +235,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
         return { error: "Your workspace needs at least 12 available voice credits and one remaining daily call to place a two-minute test call.", status: 409 as const };
       }
 
-      let scheduledFor: Date;
-      try {
-        scheduledFor = nextAllowedCallingTime(
-          launchNow, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
-        );
-      } catch {
-        return { error: "Your workspace timezone or calling hours are invalid. Update them before placing a test call.", status: 409 as const };
-      }
+      const scheduledFor = launchNow;
 
       const [existingContact] = await tx.select({
         id: contacts.id,
@@ -321,7 +314,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
     return res.status(202).json({
       ok: true,
       testCall: { id: created.queueEntry.id, status: created.queueEntry.status, phoneNumber, contactId: created.contactId, scheduledFor: created.scheduledFor.toISOString() },
-      message: "Your test call has been added to the outbound queue and will be attempted within your workspace calling hours.",
+      message: "Your test call has been added to the outbound queue and will be attempted as soon as the calling service is available.",
     });
   } catch (error) {
     console.error("[test-calls/create]", error);
@@ -358,6 +351,7 @@ export async function getTestCallRoute(req: Request, res: Response) {
       testCall: {
         id: queueEntry.id,
         status: queueEntry.status,
+        scheduledFor: queueEntry.scheduledFor.toISOString(),
         phoneLast4: typeof queueEntry.phoneNumber === "string" ? queueEntry.phoneNumber.slice(-4) : null,
         call: call ?? null,
       },
@@ -503,6 +497,18 @@ export async function launchCampaignRoute(req: Request, res: Response) {
     const body = isRecord(req.body) ? req.body : {};
     const rawIds = Array.isArray(body.contactIds) ? body.contactIds : [];
     const contactIds = [...new Set(rawIds.filter((id): id is string => typeof id === "string" && id.length > 0))];
+    const schedule = isRecord(body.schedule) ? body.schedule : {};
+    const dailyStart = typeof schedule.dailyStart === "string" ? schedule.dailyStart : "09:00";
+    const dailyEnd = typeof schedule.dailyEnd === "string" ? schedule.dailyEnd : "18:00";
+    const startAt = typeof schedule.startAt === "string" ? new Date(schedule.startAt) : new Date();
+    const validClock = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+
+    if (!validClock(dailyStart) || !validClock(dailyEnd) || dailyStart >= dailyEnd) {
+      return res.status(400).json({ ok: false, error: "Choose a valid daily calling window. The end time must be later than the start time." });
+    }
+    if (Number.isNaN(startAt.getTime()) || startAt.getTime() < Date.now() - 60_000) {
+      return res.status(400).json({ ok: false, error: "Choose a valid launch time in the future." });
+    }
 
     if (body.confirm !== true) {
       return res.status(400).json({ ok: false, error: "Explicit confirmation is required before launching a campaign." });
@@ -581,9 +587,10 @@ export async function launchCampaignRoute(req: Request, res: Response) {
 
       let scheduledFor: Date;
       try {
-        scheduledFor = nextAllowedCallingTime(
-          launchNow, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
+        const workspaceStart = nextAllowedCallingTime(
+          startAt, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
         );
+        scheduledFor = workspaceStart;
       } catch {
         return { error: "Your workspace timezone or calling hours are invalid. Fix them in follow-up and team handling setup.", status: 409 as const };
       }
@@ -604,9 +611,20 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       const inserted = await tx.insert(callQueue).values(queueRows).returning({ id: callQueue.id });
       await tx.update(contacts).set({ status: "queued", updatedAt: new Date() })
         .where(and(eq(contacts.clientId, req.clientId!), inArray(contacts.id, eligible.map((item) => item.id))));
-      await tx.update(campaigns).set({ status: "active", updatedAt: new Date() })
-        .where(and(eq(campaigns.id, campaign.id), eq(campaigns.clientId, req.clientId!)));
-      const launchRecord = { campaignId: campaign.id, launchedAt: launchNow.toISOString(), queuedCount: inserted.length };
+      const existingCampaignMetadata = metadataRecord(campaign.metadata);
+      const campaignSchedule = {
+        startAt: startAt.toISOString(),
+        dailyStart,
+        dailyEnd,
+        timezone: client.timezone || "Asia/Kolkata",
+        mode: startAt.getTime() > launchNow.getTime() + 60_000 ? "scheduled" : "manual",
+      };
+      await tx.update(campaigns).set({
+        status: "active",
+        metadata: { ...existingCampaignMetadata, campaignSchedule },
+        updatedAt: new Date(),
+      }).where(and(eq(campaigns.id, campaign.id), eq(campaigns.clientId, req.clientId!)));
+      const launchRecord = { campaignId: campaign.id, launchedAt: launchNow.toISOString(), startsAt: scheduledFor.toISOString(), queuedCount: inserted.length, campaignSchedule };
       await tx.update(clients).set({
         metadata: sql`jsonb_set(COALESCE(${clients.metadata}, '{}'::jsonb), '{latestCampaignLaunch}', ${JSON.stringify(launchRecord)}::jsonb, true)`,
         updatedAt: launchNow,
@@ -623,6 +641,7 @@ export async function launchCampaignRoute(req: Request, res: Response) {
         queued: inserted.length,
         queueEntryIds: inserted.map((row) => row.id),
         scheduledFor: scheduledFor.toISOString(),
+        campaignSchedule,
         skippedIneligible: selected.length - eligible.length,
       };
     });
@@ -639,7 +658,9 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       ok: true,
       ...result,
       status: "active",
-      message: "Campaign activated and eligible contacts added to the outbound queue. The queue worker will process them within workspace limits and calling hours.",
+      message: startAt.getTime() > launchNow.getTime() + 60_000
+        ? "Campaign scheduled. Calls will begin at the selected start time and remain inside the daily campaign and workspace calling windows."
+        : "Campaign activated. Calls will run inside the daily campaign and workspace calling windows.",
     });
   } catch (error) {
     console.error("[campaigns/launch]", error);

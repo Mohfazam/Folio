@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Newsreader  } from "next/font/google";
+import { Space_Grotesk, Newsreader } from "next/font/google";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -32,9 +32,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${newsreader.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${newsreader.variable} min-h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body className="min-h-screen overflow-x-clip font-sans">
         {children}
       </body>
     </html>

@@ -163,11 +163,11 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     {
       id: 3,
       title: "Place a test call",
-      description: "Call your own phone and hear how your configured agent handles a real conversation.",
+      description: "Call a phone number you own and hear how your configured agent handles a real conversation.",
       action: "Test call",
       actionKey: "test-call",
       complete: summary?.testCallComplete === true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to your verified phone before contacting your audience.",
+      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallStatus === "pending" ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to a number you own before contacting your audience.",
     },
     {
       id: 4,
@@ -525,7 +525,22 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-8">
-          <SetupChecklist data={data} onAction={setActiveAction} />
+          <SetupChecklist
+            data={data}
+            onAction={(action) => {
+              if (action === "campaign") {
+                router.push("/dashboard/campaigns");
+                return;
+              }
+
+              if (action === "contacts") {
+                router.push("/dashboard/contacts?import=1");
+                return;
+              }
+
+              setActiveAction(action);
+            }}
+          />
           {analytics ? (
             <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
           ) : (
