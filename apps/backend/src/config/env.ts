@@ -46,6 +46,18 @@ export const env = {
       process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim(),
   },
+  /** SMTP Email Configuration */
+  smtp: {
+    host: optional("SMTP_HOST", ""),
+    port: parseInt(optional("SMTP_PORT", "587"), 10),
+    secure: process.env.SMTP_SECURE === "true",
+    authUser: optional("SMTP_AUTH_USER", optional("SMTP_USER", "auth@foolioo.app")),
+    authPass: optional("SMTP_AUTH_PASS", optional("SMTP_PASS", "")),
+    supportUser: optional("SMTP_SUPPORT_USER", optional("SMTP_USER", "support@foolioo.app")),
+    supportPass: optional("SMTP_SUPPORT_PASS", optional("SMTP_PASS", "")),
+    authFrom: optional("AUTH_EMAIL_FROM", '"Foolioo Auth" <auth@foolioo.app>'),
+    supportFrom: optional("SUPPORT_EMAIL_FROM", '"Foolioo Support" <support@foolioo.app>'),
+  },
 };
 
 /**

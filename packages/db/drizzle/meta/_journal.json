@@ -92,6 +92,13 @@
       "when": 1793134200000,
       "tag": "0012_supabase_auth_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794493709415,
+      "tag": "0013_exotic_iron_lad",
+      "breakpoints": true
     }
   ]
 }

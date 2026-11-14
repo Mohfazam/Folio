@@ -23,10 +23,7 @@ type ApiEnvelope<T> = {
 };
 
 function backendBaseUrl() {
-  const value = process.env.BACKEND_API_URL?.trim();
-  if (!value) {
-    throw new Error("BACKEND_API_URL is not configured for the Next.js server");
-  }
+  const value = process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000";
   return value.replace(/\/+$/, "");
 }
 
@@ -85,3 +82,105 @@ export async function resolvePostAuthDestination(accessToken: string): Promise<"
   const onboarding = await syncAndGetOnboardingState(accessToken);
   return onboarding.status === "completed" ? "/dashboard" : "/onboarding";
 }
+
+export async function requestAuthOtp(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/otp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to send verification code" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[auth/otp/send] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function verifyAuthOtp(email: string, otp: string): Promise<{ ok: boolean; verified?: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; verified?: boolean; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Invalid verification code" };
+    }
+    return { ok: true, verified: payload.verified };
+  } catch (err: unknown) {
+    console.error("[auth/otp/verify] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function requestSupportOtp(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/support/otp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to send support verification code" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[support/otp/send] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function verifySupportOtp(email: string, otp: string): Promise<{ ok: boolean; verified?: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/support/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; verified?: boolean; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Invalid code" };
+    }
+    return { ok: true, verified: payload.verified };
+  } catch (err: unknown) {
+    console.error("[support/otp/verify] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function submitSupportTicket(data: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  contactPhone?: string;
+}): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/support/ticket`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to submit support ticket" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[support/ticket] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+

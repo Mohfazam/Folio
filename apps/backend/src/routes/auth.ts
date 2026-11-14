@@ -1,7 +1,16 @@
 import type { Request, Response } from "express";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { clients, users } from "@repo/db";
+import { clients, emailVerificationOtps, users } from "@repo/db";
+import {
+  generateNumericOtp,
+  hashOtp,
+  verifyOtpHash,
+  OTP_EXPIRY_MINUTES,
+  MAX_OTP_ATTEMPTS,
+  OTP_RESEND_COOLDOWN_SECONDS,
+} from "../utils/otp.js";
+import { sendAuthOtpEmail } from "../services/email.js";
 
 function metadataString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
@@ -268,3 +277,163 @@ export async function updateAuthPhoneRoute(req: Request, res: Response) {
     return res.status(500).json({ ok: false, error: "Unable to update verified phone number" });
   }
 }
+
+/**
+ * POST /api/auth/otp/send
+ *
+ * Sends a 6-digit email verification OTP from auth@foolioo.app.
+ */
+export async function sendAuthOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+
+    // Rate-limit resends: check if an OTP was sent within the last OTP_RESEND_COOLDOWN_SECONDS
+    const cooldownThreshold = new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000);
+    const [recentOtp] = await db
+      .select({ createdAt: emailVerificationOtps.createdAt })
+      .from(emailVerificationOtps)
+      .where(
+        and(
+          eq(emailVerificationOtps.email, rawEmail),
+          eq(emailVerificationOtps.purpose, "auth_verification"),
+          gt(emailVerificationOtps.createdAt, cooldownThreshold)
+        )
+      )
+      .orderBy(desc(emailVerificationOtps.createdAt))
+      .limit(1);
+
+    if (recentOtp) {
+      return res.status(429).json({
+        ok: false,
+        error: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting another code.`,
+      });
+    }
+
+    // Optional user association
+    const [matchedUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .limit(1);
+
+    const otp = generateNumericOtp();
+    const otpHash = hashOtp(otp);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await db.insert(emailVerificationOtps).values({
+      email: rawEmail,
+      userId: matchedUser?.id ?? null,
+      otpHash,
+      purpose: "auth_verification",
+      expiresAt,
+      attempts: 0,
+    });
+
+    await sendAuthOtpEmail({
+      to: rawEmail,
+      otp,
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: `Verification code sent to ${rawEmail}`,
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/otp/send] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to send verification code. Please try again." });
+  }
+}
+
+/**
+ * POST /api/auth/otp/verify
+ *
+ * Verifies the 6-digit OTP and marks the account's email as verified.
+ */
+export async function verifyAuthOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const rawOtp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
+
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+    if (!rawOtp || !/^\d{6}$/.test(rawOtp)) {
+      return res.status(400).json({ ok: false, error: "A valid 6-digit verification code is required" });
+    }
+
+    const [activeRecord] = await db
+      .select()
+      .from(emailVerificationOtps)
+      .where(
+        and(
+          eq(emailVerificationOtps.email, rawEmail),
+          eq(emailVerificationOtps.purpose, "auth_verification"),
+          isNull(emailVerificationOtps.consumedAt),
+          gt(emailVerificationOtps.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(emailVerificationOtps.createdAt))
+      .limit(1);
+
+    if (!activeRecord) {
+      return res.status(400).json({
+        ok: false,
+        error: "Verification code has expired or is invalid. Please request a new code.",
+      });
+    }
+
+    if (activeRecord.attempts >= MAX_OTP_ATTEMPTS) {
+      return res.status(429).json({
+        ok: false,
+        error: "Too many failed attempts. Please request a new verification code.",
+      });
+    }
+
+    const isValid = verifyOtpHash(rawOtp, activeRecord.otpHash);
+    if (!isValid) {
+      await db
+        .update(emailVerificationOtps)
+        .set({ attempts: activeRecord.attempts + 1 })
+        .where(eq(emailVerificationOtps.id, activeRecord.id));
+
+      const remaining = Math.max(0, MAX_OTP_ATTEMPTS - (activeRecord.attempts + 1));
+      return res.status(400).json({
+        ok: false,
+        error: `Incorrect verification code. ${remaining > 0 ? `${remaining} attempts remaining.` : "Please request a new code."}`,
+      });
+    }
+
+    // Mark OTP as consumed
+    await db
+      .update(emailVerificationOtps)
+      .set({
+        consumedAt: new Date(),
+        attempts: activeRecord.attempts + 1,
+      })
+      .where(eq(emailVerificationOtps.id, activeRecord.id));
+
+    // Update user record if present
+    await db
+      .update(users)
+      .set({
+        emailVerified: true,
+        updatedAt: new Date(),
+      })
+      .where(sql`lower(${users.email}) = ${rawEmail}`);
+
+    return res.status(200).json({
+      ok: true,
+      verified: true,
+      message: "Email verified successfully.",
+    });
+  } catch (err: unknown) {
+    console.error("[auth/otp/verify] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to verify code. Please try again." });
+  }
+}
+

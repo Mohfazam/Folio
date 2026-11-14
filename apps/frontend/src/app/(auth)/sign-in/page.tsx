@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState, type KeyboardEvent } from "react";
+import { useActionState, useState, Suspense, type KeyboardEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signInAction } from "../actions";
 import { GoogleButton } from "@/components/auth/google-button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +23,9 @@ function VisibilityIcon({ visible }: { visible: boolean }) {
   );
 }
 
-export default function SignInPage() {
+function SignInContent() {
+  const searchParams = useSearchParams();
+  const isVerified = searchParams.get("verified") === "true";
   const [state, formAction, isPending] = useActionState(signInAction, null);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
@@ -69,6 +72,15 @@ export default function SignInPage() {
           <div className="h-px flex-1 bg-[#E9E8E1]" />
         </div>
       </div>
+
+      {isVerified && (
+        <div
+          role="status"
+          className="mt-5 rounded-lg border border-[#22A06B]/25 bg-[#EAF8F1] px-3.5 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#18794E]"
+        >
+          ✓ Email verified successfully! Please sign in with your password to access your workspace.
+        </div>
+      )}
 
       <form action={formAction} className="mt-6 flex flex-col gap-[18px]">
         <Input
@@ -156,5 +168,19 @@ export default function SignInPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[300px] items-center justify-center font-['Space_Grotesk'] text-[13px] text-[#747878]">
+          Loading…
+        </div>
+      }
+    >
+      <SignInContent />
+    </Suspense>
   );
 }

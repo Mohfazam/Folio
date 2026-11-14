@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, time, pgEnum, jsonb, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, timestamp, time, pgEnum, jsonb, boolean, real, index } from "drizzle-orm/pg-core";
 
 // ── Enums ─────────────────────────────────────────────────────────────
 
@@ -347,3 +347,22 @@ export const knowledgeBaseEntries = pgTable("knowledge_base_entries", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const emailVerificationOtps = pgTable(
+  "email_verification_otps",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+    otpHash: text("otp_hash").notNull(),
+    purpose: text("purpose").notNull().default("auth_verification"),
+    expiresAt: timestamp("expires_at").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_email_verification_otps_email").on(table.email),
+    index("idx_email_verification_otps_purpose").on(table.purpose),
+  ]
+);

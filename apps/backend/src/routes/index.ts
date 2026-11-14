@@ -11,7 +11,18 @@ import { authRateLimiter, publicDemoRateLimiter, uploadRateLimiter } from "../mi
 import { getLivenessRoute, getReadinessRoute } from "./health.js";
 import { createPublicDemoRoute } from "./publicDemo.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
-import { syncAuthUserRoute, getAuthMeRoute, updateAuthPhoneRoute } from "./auth.js";
+import {
+  syncAuthUserRoute,
+  getAuthMeRoute,
+  updateAuthPhoneRoute,
+  sendAuthOtpRoute,
+  verifyAuthOtpRoute,
+} from "./auth.js";
+import {
+  submitSupportTicketRoute,
+  sendSupportOtpRoute,
+  verifySupportOtpRoute,
+} from "./support.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
 import { getCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
@@ -51,6 +62,15 @@ export function registerRoutes(app: Express) {
   api.post("/auth/sync", authRateLimiter, requireAuth, syncAuthUserRoute);
   api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
   api.patch("/auth/phone", authRateLimiter, requireAuth, updateAuthPhoneRoute);
+
+  // Email verification endpoints (OTP via Nodemailer auth@foolioo.app)
+  api.post("/auth/otp/send", authRateLimiter, sendAuthOtpRoute);
+  api.post("/auth/otp/verify", authRateLimiter, verifyAuthOtpRoute);
+
+  // Support endpoints (via Nodemailer support@foolioo.app)
+  api.post("/support/ticket", authRateLimiter, submitSupportTicketRoute);
+  api.post("/support/otp/send", authRateLimiter, sendSupportOtpRoute);
+  api.post("/support/otp/verify", authRateLimiter, verifySupportOtpRoute);
 
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
