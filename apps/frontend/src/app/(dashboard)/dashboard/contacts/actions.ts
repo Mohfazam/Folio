@@ -26,13 +26,7 @@ async function contactBackendRequest(
       };
     }
 
-    const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-    if (!baseUrl) {
-      return {
-        ok: false,
-        error: "BACKEND_API_URL is not configured on the server.",
-      };
-    }
+    const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
     const response = await fetch(`${baseUrl}${path}`, {
       method,

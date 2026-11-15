@@ -114,10 +114,7 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
 
   if (!session?.access_token) redirect("/sign-in");
 
-  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) {
-    return <CallDetailView call={null} error="BACKEND_API_URL is not configured for the Next.js server." />;
-  }
+  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
   try {
     const response = await fetch(

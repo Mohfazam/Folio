@@ -562,7 +562,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   </div>
                   {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
                 </div>
-                <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Plan changes are not connected to self-serve billing in this workspace yet. Contact your workspace administrator for upgrade options.</p>
+                <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we'll get back to you within one business day.</p>
               </div>
               <div className="mt-5 flex justify-end">
                 <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { emailVerificationOtps } from "@repo/db";
+import { emailVerificationOtps, supportTickets } from "@repo/db";
 import {
   generateNumericOtp,
   hashOtp,
@@ -38,6 +38,18 @@ export async function submitSupportTicketRoute(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Please enter a detailed message (minimum 5 characters)" });
     }
 
+    const [ticket] = await db
+      .insert(supportTickets)
+      .values({
+        name,
+        email,
+        subject,
+        message,
+        contactPhone,
+        status: "open",
+      })
+      .returning();
+
     await sendSupportTicketEmail({
       name,
       email,
@@ -48,6 +60,7 @@ export async function submitSupportTicketRoute(req: Request, res: Response) {
 
     return res.status(200).json({
       ok: true,
+      ticketId: ticket?.id,
       message: "Your support request has been submitted. A confirmation has been sent to your email from support@foolioo.app.",
     });
   } catch (err: unknown) {

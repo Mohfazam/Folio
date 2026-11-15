@@ -57,8 +57,7 @@ function daysUntil(dateValue: string | Date | null | undefined): number | null {
 }
 
 async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
-  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) throw new Error("BACKEND_API_URL is not configured for the Next.js server.");
+  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
   try {
     const response = await fetch(`${baseUrl}/api/auth/me`, {

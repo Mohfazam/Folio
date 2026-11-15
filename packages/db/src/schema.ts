@@ -366,3 +366,22 @@ export const emailVerificationOtps = pgTable(
     index("idx_email_verification_otps_purpose").on(table.purpose),
   ]
 );
+
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    subject: text("subject").notNull(),
+    message: text("message").notNull(),
+    contactPhone: text("contact_phone"),
+    status: text("status").notNull().default("open"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_support_tickets_email").on(table.email),
+    index("idx_support_tickets_status").on(table.status),
+  ]
+);

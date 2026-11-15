@@ -52,10 +52,7 @@ async function DynamicContent() {
         throw new Error("No access token is available for the signed-in user.");
       }
 
-      const backendUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-      if (!backendUrl) {
-        throw new Error("BACKEND_API_URL is not configured for the Next.js server.");
-      }
+      const backendUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
       const response = await fetch(`${backendUrl}/api/clients`, {
         headers: { Authorization: `Bearer ${session.access_token}` },

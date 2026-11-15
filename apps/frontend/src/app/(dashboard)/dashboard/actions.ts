@@ -20,10 +20,7 @@ async function backendRequest(
       return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
     }
 
-    const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-    if (!baseUrl) {
-      return { ok: false, error: "BACKEND_API_URL is not configured on the server." };
-    }
+    const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
     const headers: Record<string, string> = { Authorization: `Bearer ${session.access_token}` };
     if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
@@ -102,10 +99,7 @@ export async function getLiveCallStatusAction(): Promise<ActionResult> {
       return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
     }
 
-    const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-    if (!baseUrl) {
-      return { ok: false, error: "BACKEND_API_URL is not configured on the server." };
-    }
+    const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
     const response = await fetch(`${baseUrl}/api/calls/live`, {
       method: "GET",

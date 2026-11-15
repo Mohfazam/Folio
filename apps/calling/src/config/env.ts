@@ -12,7 +12,6 @@ export const env = {
   plivoPhoneNumber: required("PLIVO_PHONE_NUMBER"),
   myTestPhoneNumber: required("MY_TEST_PHONE_NUMBER"),
   sarvamApiKey: required("SARVAM_API_KEY"),
-  claudeApiKey: process.env.ANTHROPIC_API_KEY?.trim() ?? "",
   geminiApiKey: required("GEMINI_API_KEY"),
   publicUrl: required("PUBLIC_URL"), // Fly.io or ngrok URL for Plivo webhooks
 };

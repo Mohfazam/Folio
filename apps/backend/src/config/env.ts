@@ -21,7 +21,7 @@ const isTest = nodeEnv === "test";
 const rawAllowedOrigins = optional("ALLOWED_ORIGINS", "*");
 const parsedAllowedOrigins = rawAllowedOrigins === "*"
   ? ["*"]
-  : rawAllowedOrigins.split(",").map((origin) => origin.trim()).filter(Boolean);
+  : rawAllowedOrigins.split(",").map((origin) => origin.trim().replace(/\/+$/, "")).filter(Boolean);
 
 export const env = {
   nodeEnv,
@@ -68,12 +68,13 @@ export const env = {
  */
 export function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return true;
+  const cleanOrigin = origin.trim().replace(/\/+$/, "");
   if (env.allowedOrigins.includes("*")) return true;
-  if (env.allowedOrigins.includes(origin)) return true;
+  if (env.allowedOrigins.includes(cleanOrigin)) return true;
 
   // In non-production environments, allow localhost / 127.0.0.1 for local developer tools
   if (!env.isProduction) {
-    if (/^https?:\/\/localhost(:\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin)) {
+    if (/^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(cleanOrigin)) {
       return true;
     }
   }

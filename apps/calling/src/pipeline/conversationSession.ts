@@ -1,6 +1,6 @@
 import { performance } from "node:perf_hooks";
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
-import { generateReplyStream } from "../providers/claude/generateReply.js";
+import { generateReplyStream } from "../providers/gemini/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
 import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";

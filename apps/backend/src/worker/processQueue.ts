@@ -239,6 +239,15 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         }
       }
 
+      // ── Check 2a: Day-of-week guard ────────────────────────────────
+      // Skip calling on weekends (Saturday = 6, Sunday = 0) unless the client
+      // is configured to operate on those days. We derive the local day from
+      // the already-computed clientLocal.date string ("YYYY-MM-DD") to avoid
+      // any UTC vs. timezone mismatch.
+      const clientLocalDay = new Date(`${clientLocal.date}T00:00:00`).getDay(); // 0=Sun … 6=Sat
+      const isWeekend = clientLocalDay === 0 || clientLocalDay === 6;
+      if (isWeekend) continue;
+
       const withinCallingHours = isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd);
       const activeCampaignRows = await db.select({ id: campaigns.id, metadata: campaigns.metadata })
         .from(campaigns).where(and(eq(campaigns.clientId, client.id), eq(campaigns.status, "active")));

@@ -115,18 +115,7 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
 
   if (!session?.access_token) redirect("/sign-in");
 
-  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) {
-    return (
-      <ContactsDashboard
-        contacts={[]}
-        total={0}
-        filters={filters}
-        initialError="BACKEND_API_URL is not configured for the Next.js server."
-        startInImportMode={startInImportMode}
-      />
-    );
-  }
+  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
   const query = new URLSearchParams({
     limit: String(filters.limit),

@@ -19,8 +19,7 @@ async function AnalyticsPageContent({ searchParams }: { searchParams: Promise<Se
   if (error || !user) redirect("/sign-in");
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) redirect("/sign-in");
-  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) return <AnalyticsDashboard timeframe={timeframe} data={null} error="BACKEND_API_URL is not configured for the Next.js server." />;
+  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
   try {
     const response = await fetch(`${baseUrl}/api/analytics/overview?timeframe=${timeframe}`, { headers: { Authorization: `Bearer ${session.access_token}` }, cache: "no-store" });
     const payload: unknown = await response.json().catch(() => null);

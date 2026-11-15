@@ -154,17 +154,7 @@ async function CallsPageContent({
     offset,
   };
 
-  const baseUrl = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!baseUrl) {
-    return (
-      <CallsDashboard
-        calls={[]}
-        total={0}
-        filters={filters}
-        initialError="BACKEND_API_URL is not configured for the Next.js server."
-      />
-    );
-  }
+  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
   const token = await getAccessToken();
   const callsQuery = new URLSearchParams({

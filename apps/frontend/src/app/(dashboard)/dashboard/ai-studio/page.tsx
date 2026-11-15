@@ -6,8 +6,7 @@ import { AiStudioDashboard } from "@/components/dashboard/ai-studio-dashboard";
 type RecordValue = Record<string, unknown>;
 function isRecord(value: unknown): value is RecordValue { return typeof value === "object" && value !== null && !Array.isArray(value); }
 async function load(path: string, token: string) {
-  const base = process.env.BACKEND_API_URL?.trim().replace(/\/+$/, "");
-  if (!base) throw new Error("BACKEND_API_URL is not configured on the server.");
+  const base = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
   const response = await fetch(`${base}${path}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
   const payload: unknown = await response.json().catch(() => null);
   if (!response.ok || !isRecord(payload) || payload.ok === false) throw new Error(isRecord(payload) && typeof payload.error === "string" ? payload.error : `Request failed (${response.status}).`);
