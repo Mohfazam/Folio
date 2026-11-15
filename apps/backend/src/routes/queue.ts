@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, desc, sql, asc, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { contacts, callQueue, campaigns } from "@repo/db";
+import { contacts, callQueue, campaigns, auditLog } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 
 const VALID_QUEUE_STATUSES = ["pending", "in_progress", "completed", "failed", "exhausted"] as const;
@@ -102,6 +102,7 @@ export async function enqueueRoute(req: Request, res: Response) {
       scheduledFor,
       maxAttempts,
       priority,
+      manualCall,
     } = req.body as {
       uploadBatchId?: string;
       contactIds?: string[];
@@ -109,6 +110,7 @@ export async function enqueueRoute(req: Request, res: Response) {
       scheduledFor?: string;
       maxAttempts?: number;
       priority?: number;
+      manualCall?: boolean;
     };
 
     const clientId = req.clientId!;
