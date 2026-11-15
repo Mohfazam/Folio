@@ -17,6 +17,10 @@ type Campaign = {
     totalCalls?: number;
     connectedCalls?: number;
     highInterestCalls?: number;
+    pendingCalls?: number;
+    inProgressCalls?: number;
+    failedCalls?: number;
+    completedQueueCalls?: number;
   };
 };
 

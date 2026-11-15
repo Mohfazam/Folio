@@ -73,7 +73,6 @@ function SignInContent() {
         </div>
       </div>
 
-<<<<<<< HEAD
       {isVerified && (
         <div
           role="status"
@@ -83,10 +82,7 @@ function SignInContent() {
         </div>
       )}
 
-      <form action={formAction} className="mt-6 flex flex-col gap-[18px]">
-=======
       <form action={formAction} className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-[18px]">
->>>>>>> c82e8592b056bf7ac7ced258ba74f8b8077917ee
         <Input
           id="email"
           name="email"
