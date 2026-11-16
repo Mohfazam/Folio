@@ -1,16 +1,7 @@
 import type { Request, Response } from "express";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { clients, emailVerificationOtps, users } from "@repo/db";
-import {
-  generateNumericOtp,
-  hashOtp,
-  verifyOtpHash,
-  OTP_EXPIRY_MINUTES,
-  MAX_OTP_ATTEMPTS,
-  OTP_RESEND_COOLDOWN_SECONDS,
-} from "../utils/otp.js";
-import { sendAuthOtpEmail } from "../services/email.js";
+import { clients, users } from "@repo/db";
 import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 function metadataString(value: unknown): string | null {
@@ -57,12 +48,12 @@ function readProfile(req: Request) {
  * POST /api/auth/sync
  *
  * Provisions the signed-in Supabase identity and its initial workspace.
- * Profile identity fields are sourced from the verified Supabase user.
+ * Profile identity fields are sourced from the authenticated Supabase user.
  */
 export async function syncAuthUserRoute(req: Request, res: Response) {
   try {
     if (!req.supabaseUser) {
-      return res.status(401).json({ ok: false, error: "Verified Supabase identity is required" });
+      return res.status(401).json({ ok: false, error: "Authenticated Supabase session is required" });
     }
 
     const profile = readProfile(req);
@@ -88,13 +79,6 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
         .where(sql`lower(${users.email}) = ${profile.email}`)
         .limit(1)
         : [];
-
-    if (existingByEmail && !profile.emailVerified) {
-      return res.status(409).json({
-        ok: false,
-        error: "Verify your email before linking this sign-in to an existing account",
-      });
-    }
 
     if (
       existingByEmail?.authUserId &&
@@ -198,7 +182,7 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
       ok: true,
       user: publicUser(result.user),
       client: result.client,
-      requiresPhoneVerification: !result.user.phoneNumber || !result.user.phoneVerified,
+      requiresPhoneVerification: false,
     });
   } catch (err: unknown) {
     console.error("[auth/sync] Unexpected error:", err);
@@ -229,211 +213,5 @@ export async function getAuthMeRoute(req: Request, res: Response) {
   } catch (err: unknown) {
     console.error("[auth/me] Unexpected error:", err);
     return res.status(500).json({ ok: false, error: "Unable to load user profile" });
-  }
-}
-
-/**
- * PATCH /api/auth/phone
- *
- * Store only a phone number asserted by Supabase's verified user record.
- */
-export async function updateAuthPhoneRoute(req: Request, res: Response) {
-  const profile = req.supabaseUser ? readProfile(req) : undefined;
-  if (!profile?.phoneNumber || !req.user) {
-    return res.status(403).json({
-      ok: false,
-      error: "A verified Supabase phone sign-in and an existing user profile are required",
-    });
-  }
-
-  try {
-    const updatedUser = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .update(users)
-        .set({
-          phoneNumber: profile.phoneNumber,
-          phoneVerified: true,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, req.user!.id))
-        .returning();
-
-      if (user?.clientId) {
-        await tx
-          .update(clients)
-          .set({
-            contactPhone: profile.phoneNumber,
-            isPhoneVerified: true,
-            updatedAt: new Date(),
-          })
-          .where(eq(clients.id, user.clientId));
-      }
-
-      return user;
-    });
-
-    return res.json({ ok: true, user: updatedUser ? publicUser(updatedUser) : null });
-  } catch (err: unknown) {
-    console.error("[auth/phone] Unexpected error:", err);
-    return res.status(500).json({ ok: false, error: "Unable to update verified phone number" });
-  }
-}
-
-/**
- * POST /api/auth/otp/send
- *
- * Sends a 6-digit email verification OTP from auth@foolioo.app.
- */
-export async function sendAuthOtpRoute(req: Request, res: Response) {
-  try {
-    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
-      return res.status(400).json({ ok: false, error: "A valid email address is required" });
-    }
-
-    // Rate-limit resends: check if an OTP was sent within the last OTP_RESEND_COOLDOWN_SECONDS
-    const cooldownThreshold = new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000);
-    const [recentOtp] = await db
-      .select({ createdAt: emailVerificationOtps.createdAt })
-      .from(emailVerificationOtps)
-      .where(
-        and(
-          eq(emailVerificationOtps.email, rawEmail),
-          eq(emailVerificationOtps.purpose, "auth_verification"),
-          gt(emailVerificationOtps.createdAt, cooldownThreshold)
-        )
-      )
-      .orderBy(desc(emailVerificationOtps.createdAt))
-      .limit(1);
-
-    if (recentOtp) {
-      return res.status(429).json({
-        ok: false,
-        error: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting another code.`,
-      });
-    }
-
-    // Optional user association
-    const [matchedUser] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(sql`lower(${users.email}) = ${rawEmail}`)
-      .limit(1);
-
-    const otp = generateNumericOtp();
-    const otpHash = hashOtp(otp);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
-    await db.insert(emailVerificationOtps).values({
-      email: rawEmail,
-      userId: matchedUser?.id ?? null,
-      otpHash,
-      purpose: "auth_verification",
-      expiresAt,
-      attempts: 0,
-    });
-
-    await sendAuthOtpEmail({
-      to: rawEmail,
-      otp,
-      expiryMinutes: OTP_EXPIRY_MINUTES,
-    });
-
-    return res.status(200).json({
-      ok: true,
-      message: `Verification code sent to ${rawEmail}`,
-      expiryMinutes: OTP_EXPIRY_MINUTES,
-    });
-  } catch (err: unknown) {
-    console.error("[auth/otp/send] Unexpected error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to send verification code. Please try again." });
-  }
-}
-
-/**
- * POST /api/auth/otp/verify
- *
- * Verifies the 6-digit OTP and marks the account's email as verified.
- */
-export async function verifyAuthOtpRoute(req: Request, res: Response) {
-  try {
-    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    const rawOtp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
-
-    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
-      return res.status(400).json({ ok: false, error: "A valid email address is required" });
-    }
-    if (!rawOtp || !/^\d{6}$/.test(rawOtp)) {
-      return res.status(400).json({ ok: false, error: "A valid 6-digit verification code is required" });
-    }
-
-    const [activeRecord] = await db
-      .select()
-      .from(emailVerificationOtps)
-      .where(
-        and(
-          eq(emailVerificationOtps.email, rawEmail),
-          eq(emailVerificationOtps.purpose, "auth_verification"),
-          isNull(emailVerificationOtps.consumedAt),
-          gt(emailVerificationOtps.expiresAt, new Date())
-        )
-      )
-      .orderBy(desc(emailVerificationOtps.createdAt))
-      .limit(1);
-
-    if (!activeRecord) {
-      return res.status(400).json({
-        ok: false,
-        error: "Verification code has expired or is invalid. Please request a new code.",
-      });
-    }
-
-    if (activeRecord.attempts >= MAX_OTP_ATTEMPTS) {
-      return res.status(429).json({
-        ok: false,
-        error: "Too many failed attempts. Please request a new verification code.",
-      });
-    }
-
-    const isValid = verifyOtpHash(rawOtp, activeRecord.otpHash);
-    if (!isValid) {
-      await db
-        .update(emailVerificationOtps)
-        .set({ attempts: activeRecord.attempts + 1 })
-        .where(eq(emailVerificationOtps.id, activeRecord.id));
-
-      const remaining = Math.max(0, MAX_OTP_ATTEMPTS - (activeRecord.attempts + 1));
-      return res.status(400).json({
-        ok: false,
-        error: `Incorrect verification code. ${remaining > 0 ? `${remaining} attempts remaining.` : "Please request a new code."}`,
-      });
-    }
-
-    // Mark OTP as consumed
-    await db
-      .update(emailVerificationOtps)
-      .set({
-        consumedAt: new Date(),
-        attempts: activeRecord.attempts + 1,
-      })
-      .where(eq(emailVerificationOtps.id, activeRecord.id));
-
-    // Update user record if present
-    await db
-      .update(users)
-      .set({
-        emailVerified: true,
-        updatedAt: new Date(),
-      })
-      .where(sql`lower(${users.email}) = ${rawEmail}`);
-
-    return res.status(200).json({
-      ok: true,
-      verified: true,
-      message: "Email verified successfully.",
-    });
-  } catch (err: unknown) {
-    console.error("[auth/otp/verify] Unexpected error:", err);
-    return res.status(500).json({ ok: false, error: "Failed to verify code. Please try again." });
   }
 }

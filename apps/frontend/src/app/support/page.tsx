@@ -14,69 +14,8 @@ export default function SupportPage() {
     subject: "",
     message: "",
   });
-  const [otp, setOtp] = useState("");
-  const [showOtpStep, setShowOtpStep] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  const handleSendOtp = async () => {
-    if (!formData.email) {
-      setStatusMessage({ type: "error", text: "Please enter your email first to receive a support OTP." });
-      return;
-    }
-    setLoading(true);
-    setStatusMessage(null);
-    try {
-      const res = await fetch("/api/support/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email }),
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setShowOtpStep(true);
-        setStatusMessage({
-          type: "success",
-          text: `A 6-digit verification code has been sent from support@foolioo.app to ${formData.email}.`,
-        });
-      } else {
-        setStatusMessage({ type: "error", text: data.error || "Failed to send verification code." });
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    if (!otp || otp.length !== 6) {
-      setStatusMessage({ type: "error", text: "Please enter a valid 6-digit code." });
-      return;
-    }
-    setLoading(true);
-    setStatusMessage(null);
-    try {
-      const res = await fetch("/api/support/otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", email: formData.email, otp }),
-      });
-      const data = await res.json();
-      if (res.ok && data.ok) {
-        setIsOtpVerified(true);
-        setShowOtpStep(false);
-        setStatusMessage({ type: "success", text: "Support email verified successfully!" });
-      } else {
-        setStatusMessage({ type: "error", text: data.error || "Incorrect or expired verification code." });
-      }
-    } catch {
-      setStatusMessage({ type: "error", text: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,8 +36,6 @@ export default function SupportPage() {
           text: "Thank you! Your inquiry was received. A confirmation has been sent to your email from support@foolioo.app.",
         });
         setFormData({ name: "", email: "", contactPhone: "", subject: "", message: "" });
-        setOtp("");
-        setIsOtpVerified(false);
       } else {
         setStatusMessage({ type: "error", text: data.error || "Failed to submit request." });
       }
@@ -174,63 +111,15 @@ export default function SupportPage() {
               required
             />
 
-            <div>
-              <div className="flex items-end justify-between">
-                <div className="flex-1">
-                  <Input
-                    id="email"
-                    type="email"
-                    label="Email address"
-                    placeholder="you@company.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                  />
-                </div>
-                {!isOtpVerified && (
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={loading || !formData.email}
-                    className="mb-1 ml-2 inline-flex h-11 shrink-0 items-center rounded-md border border-[#E9E8E1] bg-[#F8F6EF] px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#51496A] transition hover:bg-[#EAE5F5] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Verify via OTP
-                  </button>
-                )}
-              </div>
-              {isOtpVerified && (
-                <span className="mt-1 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#18794E]">
-                  ✓ Verified from support@foolioo.app
-                </span>
-              )}
-            </div>
-
-            {showOtpStep && !isOtpVerified && (
-              <div className="rounded-lg border border-[#E7DEFF] bg-[#FAF8FF] p-4">
-                <label htmlFor="support-otp" className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#51496A]">
-                  Enter 6-digit Support Code from support@foolioo.app
-                </label>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    id="support-otp"
-                    type="text"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    className="h-10 w-36 rounded-md border border-[#D9D0EC] bg-white text-center font-mono text-[16px] font-bold tracking-widest text-[#1B1C18] outline-none focus:border-[#7852D6]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyOtp}
-                    disabled={loading || otp.length !== 6}
-                    className="rounded-md bg-[#7852D6] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#644ABB] disabled:opacity-50"
-                  >
-                    Verify code
-                  </button>
-                </div>
-              </div>
-            )}
+            <Input
+              id="email"
+              type="email"
+              label="Email address"
+              placeholder="you@company.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
 
             <Input
               id="contactPhone"

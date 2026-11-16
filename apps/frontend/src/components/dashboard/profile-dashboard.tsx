@@ -114,7 +114,7 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <h2 className="truncate font-['Newsreader'] text-[25px] text-[#1B1C18]">{displayName}</h2>
           <p className="mt-1 truncate font-['Space_Grotesk'] text-[12px] text-[#777A74]">{account.email}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${emailVerified ? "bg-[#E7F2E8] text-[#31613B]" : "bg-[#F5EBDD] text-[#8B5B24]"}`}>{emailVerified ? "Email verified" : "Email not verified"}</span>
+            <span className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${emailVerified ? "bg-[#E7F2E8] text-[#31613B]" : "bg-[#F5EBDD] text-[#8B5B24]"}`}>{emailVerified ? "Email verified" : "Email verification disabled"}</span>
             <span className="rounded-full bg-[#ECEBE4] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#55574F]">{account.provider} sign-in</span>
           </div>
         </div>
@@ -125,7 +125,7 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <Detail label="Full name" value={displayName} />
           <Detail label="Email address" value={account.email} />
           <Detail label="Phone number" value={account.phone ?? "Not provided"} />
-          <Detail label="Phone verification" value={account.phone ? (phoneVerified ? "Verified" : "Not verified") : "No phone number added"} />
+          <Detail label="Phone verification" value={account.phone ? (phoneVerified ? "Verified" : "Phone verification disabled") : "No phone number added"} />
         </Section>
 
         <Section title="Account information" description="Authentication and account activity details.">
@@ -143,8 +143,8 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
         </Section>
 
         <Section title="Verification & security" description="Current verification information provided by your authentication account.">
-          <Detail label="Email status" value={emailVerified ? `Verified on ${dateLabel(account.emailConfirmedAt)}` : "Email confirmation pending"} />
-          <Detail label="Phone status" value={!account.phone ? "No phone number on account" : phoneVerified ? `Verified on ${dateLabel(account.phoneConfirmedAt)}` : "Phone confirmation pending"} />
+          <Detail label="Email status" value={emailVerified ? `Verified on ${dateLabel(account.emailConfirmedAt)}` : "Not required for now"} />
+          <Detail label="Phone status" value={!account.phone ? "No phone number on account" : phoneVerified ? `Verified on ${dateLabel(account.phoneConfirmedAt)}` : "Not required for now"} />
           <div className="pt-4">
             <Link href="/dashboard/settings" className="inline-flex rounded-[5px] bg-[#1B1C18] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]">Manage account settings</Link>
           </div>

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { resolvePostAuthDestination, requestAuthOtp, verifyAuthOtp } from "@/lib/auth/backend";
+import { resolvePostAuthDestination } from "@/lib/auth/backend";
 
 // Keep the existing server-side rate limit. Credentials remain outside browser code.
 const ratelimit = new Ratelimit({
@@ -55,8 +55,9 @@ export async function signInAction(prevState: AuthState, formData: FormData): Pr
 
   if (error || !data.session?.access_token) {
     if (error?.message?.toLowerCase().includes("email not confirmed")) {
-      await requestAuthOtp(validated.data.email);
-      redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}&unconfirmed=true`);
+      return {
+        error: "Email confirmation is still enabled in Supabase. Disable Confirm email in Authentication settings to allow sign-in without verification.",
+      };
     }
     return { error: "Invalid email or password." };
   }
@@ -101,36 +102,19 @@ export async function signUpAction(prevState: AuthState, formData: FormData): Pr
     return { error: "Could not create account. Please try again." };
   }
 
-  // Send 6-digit OTP email from auth@foolioo.app via Nodemailer
-  await requestAuthOtp(validated.data.email);
-
-  // Redirect to email verification page with the registered email
-  redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}`);
-}
-
-export async function verifyOtpAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
-  const limited = await rateLimit("verify_otp", "Too many verification attempts. Please try again in a minute.");
-  if (limited) return limited;
-
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const otp = String(formData.get("otp") ?? "").trim();
-
-  if (!email || !otp) {
-    return { error: "Please enter the 6-digit verification code." };
+  // OTP verification is disabled for now. Password sign-up must receive a
+  // Supabase session immediately so the user can enter the workspace.
+  if (!data.session?.access_token) {
+    return {
+      error: "Your account was created, but Supabase is still requiring email confirmation. Disable Confirm email in Supabase Authentication settings, then sign in again.",
+    };
   }
 
-  const result = await verifyAuthOtp(email, otp);
-  if (!result.ok) {
-    return { error: result.error || "Invalid or expired verification code." };
+  const result = await destinationOrError(data.session.access_token);
+  if (result.error || !result.destination) {
+    return { error: result.error ?? "Your account was created, but we couldn't open your workspace." };
   }
-
-  // After successful OTP verification, redirect to sign-in with success indicator
-  redirect("/sign-in?verified=true");
-}
-
-export async function resendOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
-  if (!email) return { ok: false, error: "Email address is required" };
-  return requestAuthOtp(email);
+  redirect(result.destination);
 }
 
 export async function forgotPasswordAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
