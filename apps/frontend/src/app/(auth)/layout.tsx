@@ -122,7 +122,7 @@ function SessionPreview() {
 
               <div className="min-w-0 flex-1">
                 <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#262720]">
-                  Folio voice agent
+                  Foolioo voice agent
                 </p>
                 <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#898B84]">
                   Rule-guided conversation

@@ -135,7 +135,7 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <Detail label="Last sign-in" value={dateLabel(account.lastSignInAt)} />
         </Section>
 
-        <Section title="Workspace membership" description="Your current Folioo workspace context.">
+        <Section title="Workspace membership" description="Your current Foolioo workspace context.">
           <Detail label="Workspace name" value={workspace.workspaceName} />
           <Detail label="Workspace ID" value={workspace.workspaceId ?? "Not available"} mono />
           <Detail label="Workspace timezone" value={workspace.timezone} />
