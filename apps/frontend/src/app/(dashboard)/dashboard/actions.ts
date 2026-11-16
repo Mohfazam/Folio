@@ -45,8 +45,11 @@ async function backendRequest(
       };
     }
 
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/campaigns");
+    // Read-only requests must not invalidate dashboard routes. Mutations do.
+    if (method !== "GET") {
+      revalidatePath("/dashboard");
+      revalidatePath("/dashboard/campaigns");
+    }
     return { ok: true, data: record };
   } catch (error) {
     console.error(`[dashboard/action] ${method} ${path} failed:`, error);
@@ -133,6 +136,11 @@ export async function saveRoutingRulesAction(clientId: string, input: Record<str
 
 export async function getLaunchEligibleContactsAction(): Promise<ActionResult> {
   return backendRequest("/api/workspace-setup/eligible-contacts?limit=5000", "GET");
+}
+
+/** Fetch only campaign statuses and aggregate counters for lightweight polling. */
+export async function getCampaignLiveStatsAction(): Promise<ActionResult> {
+  return backendRequest("/api/campaigns/live-stats", "GET");
 }
 
 export async function launchCampaignAction(

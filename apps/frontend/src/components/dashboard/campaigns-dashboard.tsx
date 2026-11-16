@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { createCampaignAction, getLaunchEligibleContactsAction, launchCampaignAction, updateCampaignStatusAction } from "@/app/(dashboard)/dashboard/actions";
+import { createCampaignAction, getCampaignLiveStatsAction, getLaunchEligibleContactsAction, launchCampaignAction, updateCampaignStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 type CampaignStats = {
   totalCalls?: number;
@@ -254,13 +254,99 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
   );
 }
 
+type LiveCampaignSnapshot = {
+  status: string;
+  stats: CampaignStats;
+};
+
 export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const router = useRouter();
-  const campaigns = initialCampaigns;
+  const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
+  const liveStatsRequestInFlight = useRef(false);
+
+  // Merge changing counters into the server-rendered campaign records without
+  // refreshing the full Next.js route.
+  const campaigns = useMemo(
+    () => initialCampaigns.map((campaign) => {
+      const live = liveCampaigns[campaign.id];
+      return live
+        ? { ...campaign, status: live.status, stats: live.stats }
+        : campaign;
+    }),
+    [initialCampaigns, liveCampaigns],
+  );
+  const hasActiveCampaigns = campaigns.some((campaign) => campaign.status === "active");
+
+  // A server refresh after a user mutation is authoritative. Drop old live
+  // snapshots so they cannot overwrite freshly returned campaign statuses.
   useEffect(() => {
-    const timer = window.setInterval(() => router.refresh(), 10000);
-    return () => window.clearInterval(timer);
-  }, [router]);
+    setLiveCampaigns({});
+  }, [initialCampaigns]);
+
+  useEffect(() => {
+    if (!hasActiveCampaigns) return;
+
+    let disposed = false;
+
+    const refreshLiveStats = async () => {
+      if (disposed || document.visibilityState !== "visible" || liveStatsRequestInFlight.current) return;
+
+      liveStatsRequestInFlight.current = true;
+      try {
+        const result = await getCampaignLiveStatsAction();
+        if (!disposed && result.ok && Array.isArray(result.data?.campaigns)) {
+          const next: Record<string, LiveCampaignSnapshot> = {};
+
+          for (const value of result.data.campaigns) {
+            if (!value || typeof value !== "object") continue;
+            const row = value as Record<string, unknown>;
+            if (typeof row.id !== "string") continue;
+
+            const rawStats = row.stats && typeof row.stats === "object"
+              ? row.stats as Record<string, unknown>
+              : {};
+            const toCount = (value: unknown) =>
+              typeof value === "number" && Number.isFinite(value) ? value : 0;
+
+            next[row.id] = {
+              status: typeof row.status === "string" ? row.status : "draft",
+              stats: {
+                totalCalls: toCount(rawStats.totalCalls),
+                connectedCalls: toCount(rawStats.connectedCalls),
+                highInterestCalls: toCount(rawStats.highInterestCalls),
+                pendingCalls: toCount(rawStats.pendingCalls),
+                inProgressCalls: toCount(rawStats.inProgressCalls),
+                failedCalls: toCount(rawStats.failedCalls),
+                completedQueueCalls: toCount(rawStats.completedQueueCalls),
+              },
+            };
+          }
+
+          setLiveCampaigns(next);
+        }
+      } catch (error) {
+        console.error("[campaigns] Live statistics refresh failed:", error);
+      } finally {
+        liveStatsRequestInFlight.current = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshLiveStats();
+    };
+
+    // Fetch once immediately, then poll every 15 seconds while active.
+    void refreshLiveStats();
+    const timer = window.setInterval(() => void refreshLiveStats(), 15000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [hasActiveCampaigns]);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
