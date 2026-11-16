@@ -270,16 +270,12 @@ export function CallDetailView({
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Cost breakdown</h2>
+            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Usage & billing</h2>
             <div className="mt-4 space-y-3">
-              <DetailRow label="Telephony" value={formatAmount(call.costTelephony)} />
-              <DetailRow label="Speech recognition" value={formatAmount(call.costStt)} />
-              <DetailRow label="Language model" value={formatAmount(call.costLlm)} />
-              <DetailRow label="Text to speech" value={formatAmount(call.costTts)} />
-              <div className="border-t border-[#F0EFE9] pt-3">
-                <DetailRow label="Estimated total" value={formatAmount(call.costTotal)} strong />
-              </div>
-              <p className="font-['Space_Grotesk'] text-[9px] leading-4 text-[#92938C]">Values are shown as returned by the calling service and backend. Currency is not inferred here.</p>
+              <DetailRow label="Credits charged" value={`${call.creditsCharged} credits`} strong />
+              <DetailRow label="Call duration" value={formatDuration(call.durationSeconds)} />
+              <DetailRow label="Billing status" value={call.isBillable ? "Billable call" : "Not billable"} />
+              <DetailRow label="Call outcome" value={call.outcome.replaceAll("_", " ")} />
             </div>
           </section>
 

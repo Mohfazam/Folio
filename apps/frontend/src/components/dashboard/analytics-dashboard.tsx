@@ -80,7 +80,44 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
 
     <section className="grid gap-4 xl:grid-cols-2">
       <div className={panel}><h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#252620]">Lead intelligence</h2><p className="mt-1 text-[10px] text-[#92938C]">Interest and sentiment captured from conversations</p><div className="mt-5 grid gap-6 sm:grid-cols-2"><div className="space-y-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-[#92938C]">Interest level</p><BreakdownRow label="High interest" value={number(leads, "highInterestCount")} total={interestTotal} color="bg-[#4D9469]"/><BreakdownRow label="Medium interest" value={number(leads, "mediumInterestCount")} total={interestTotal} color="bg-[#D7A64A]"/><BreakdownRow label="Low interest" value={number(leads, "lowInterestCount")} total={interestTotal} color="bg-[#8B8D88]"/></div><div className="space-y-4"><p className="text-[10px] font-semibold uppercase tracking-wider text-[#92938C]">Sentiment</p><BreakdownRow label="Positive" value={number(sentiments, "positive")} total={total} color="bg-[#4D9469]"/><BreakdownRow label="Neutral" value={number(sentiments, "neutral")} total={total} color="bg-[#9B9D96]"/><BreakdownRow label="Negative" value={number(sentiments, "negative")} total={total} color="bg-[#C66C5C]"/></div></div><div className="mt-5 rounded-[6px] bg-[#F8F7F2] px-4 py-3"><p className="text-[10px] text-[#777970]">Follow-up requests</p><p className="mt-1 font-['Newsreader'] text-[26px] text-[#1B1C18]">{number(leads, "followUpsRequestedCount").toLocaleString("en-IN")}</p></div></div>
-      <div className={panel}><h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#252620]">Operating costs</h2><p className="mt-1 text-[10px] text-[#92938C]">Estimated infrastructure cost breakdown</p><div className="mt-5 flex items-end justify-between gap-3"><div><p className="text-[10px] text-[#92938C]">Total estimated cost</p><p className="mt-1 font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">{money(number(costs, "totalEstimatedCost"))}</p></div><p className="text-right text-[10px] text-[#92938C]">{number(metrics, "totalCreditsCharged").toLocaleString("en-IN")} credits charged</p></div><div className="mt-6 space-y-4"><BreakdownRow label="Telephony" value={number(costs, "telephony")} total={number(costs, "totalEstimatedCost")} color="bg-[#7655C7]"/><BreakdownRow label="Speech to text" value={number(costs, "stt")} total={number(costs, "totalEstimatedCost")} color="bg-[#8E79C9]"/><BreakdownRow label="Language model" value={number(costs, "llm")} total={number(costs, "totalEstimatedCost")} color="bg-[#B09FD8]"/><BreakdownRow label="Text to speech" value={number(costs, "tts")} total={number(costs, "totalEstimatedCost")} color="bg-[#D0C4E9]"/></div><p className="mt-5 text-[9px] leading-4 text-[#92938C]">Costs are estimates based on recorded call cost fields. They may exclude costs not yet reported by providers.</p></div>
+      <div className={panel}>
+        <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#252620]">Credits & usage</h2>
+        <p className="mt-1 text-[10px] text-[#92938C]">Workspace credit consumption breakdown</p>
+        <div className="mt-5 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] text-[#92938C]">Total credits consumed</p>
+            <p className="mt-1 font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
+              {number(metrics, "totalCreditsCharged").toLocaleString("en-IN")}
+            </p>
+          </div>
+          <p className="text-right text-[10px] text-[#92938C]">
+            {number(data?.quota, "creditsRemaining").toLocaleString("en-IN")} credits available
+          </p>
+        </div>
+        <div className="mt-6 space-y-4">
+          <BreakdownRow
+            label="Connected calls usage"
+            value={number(metrics, "connectedCalls")}
+            total={total}
+            color="bg-[#4D9469]"
+          />
+          <BreakdownRow
+            label="Unanswered / no-answer attempts"
+            value={unanswered}
+            total={total}
+            color="bg-[#D7A64A]"
+          />
+          <BreakdownRow
+            label="Incomplete / failed attempts"
+            value={failed}
+            total={total}
+            color="bg-[#C66C5C]"
+          />
+        </div>
+        <div className="mt-5 rounded-[6px] bg-[#F8F7F2] p-3 text-[10px] leading-5 text-[#777970]">
+          Calls consume workspace credits based on connected duration. Unused credits rollover according to your plan tier.
+        </div>
+      </div>
     </section>
 
     <section className={panel}><div className="flex items-center justify-between gap-3"><div><h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#252620]">Campaign performance</h2><p className="mt-1 text-[10px] text-[#92938C]">Top campaigns by call volume</p></div><span className="text-[10px] text-[#92938C]">{campaignRows.length} campaigns</span></div>{campaignRows.length ? <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[620px] text-left"><thead><tr className="border-b border-[#F0EFE9] text-[9px] uppercase tracking-wider text-[#92938C]"><th className="pb-3 font-medium">Campaign</th><th className="pb-3 font-medium">Status</th><th className="pb-3 text-right font-medium">Calls</th><th className="pb-3 text-right font-medium">Connected</th><th className="pb-3 text-right font-medium">Connection rate</th><th className="pb-3 text-right font-medium">High interest</th></tr></thead><tbody>{campaignRows.map((row, index) => { const count = number(row, "totalCalls"); const ok = number(row, "connectedCalls"); return <tr key={String(row.campaignId ?? index)} className="border-b border-[#F5F4EF] last:border-0"><td className="py-3 pr-4 text-[11px] font-semibold text-[#252620]">{String(row.campaignName ?? "Campaign")}</td><td className="py-3 text-[10px] capitalize text-[#777970]">{String(row.campaignStatus ?? "unknown")}</td><td className="py-3 text-right text-[11px] tabular-nums text-[#252620]">{count}</td><td className="py-3 text-right text-[11px] tabular-nums text-[#252620]">{ok}</td><td className="py-3 text-right text-[11px] tabular-nums text-[#252620]">{percent(ok, count)}</td><td className="py-3 text-right text-[11px] tabular-nums text-[#252620]">{number(row, "highInterestCalls")}</td></tr>; })}</tbody></table></div> : <div className="py-12 text-center text-[11px] text-[#92938C]">Campaign performance will appear after calls are associated with campaigns.</div>}</section>
