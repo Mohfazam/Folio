@@ -240,13 +240,11 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       }
 
       // ── Check 2a: Day-of-week guard ────────────────────────────────
-      // Skip calling on weekends (Saturday = 6, Sunday = 0) unless the client
-      // is configured to operate on those days. We derive the local day from
-      // the already-computed clientLocal.date string ("YYYY-MM-DD") to avoid
-      // any UTC vs. timezone mismatch.
+      // Skip calling on weekends (Saturday = 6, Sunday = 0) for regular
+      // campaign calls. System calls (test calls, public demos) are allowed
+      // on any day so the owner can test their agent whenever they want.
       const clientLocalDay = new Date(`${clientLocal.date}T00:00:00`).getDay(); // 0=Sun … 6=Sat
       const isWeekend = clientLocalDay === 0 || clientLocalDay === 6;
-      if (isWeekend) continue;
 
       const withinCallingHours = isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd);
       const activeCampaignRows = await db.select({ id: campaigns.id, metadata: campaigns.metadata })
@@ -279,6 +277,9 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       }
 
       // ── All checks passed — pick the highest priority & oldest pending entry ──
+      // On weekends or outside calling hours, only system calls (test/demo)
+      // are eligible. During business hours on weekdays, campaign calls run too.
+      const campaignCallsAllowed = withinCallingHours && !isWeekend;
       const [queueEntry] = await db
         .select()
         .from(callQueue)
@@ -286,7 +287,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           and(
             eq(callQueue.clientId, client.id),
             eq(callQueue.status, "pending"),
-            withinCallingHours
+            campaignCallsAllowed
               ? or(
                   and(inArray(callQueue.campaignId, campaignIdsWithinWindow.length ? campaignIdsWithinWindow : ["00000000-0000-0000-0000-000000000000"]), lte(callQueue.scheduledFor, new Date())),
                   systemCallQueueEntry,
