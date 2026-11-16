@@ -23,7 +23,7 @@ export const getDashboardAuthContext = cache(async (): Promise<DashboardAuthCont
   const claims = data?.claims as Record<string, unknown> | undefined;
   const userId = typeof claims?.sub === "string" ? claims.sub : null;
 
-  if (error || !userId) return null;
+  if (error || !claims || !userId) return null;
 
   // getClaims refreshes an expiring SSR session. Read the session afterwards
   // only to obtain the current access token, never to establish identity.

@@ -15,7 +15,10 @@ import {
 type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
 type RecordValue = Record<string, unknown>;
 type Snapshot = { items: RecordValue[]; total: number | null; itemsKnown: boolean };
-type LoadResult<T> = { state: "ready"; data: T } | { state: "error"; error: string; status?: number };
+type LoadResult<T> =
+  | { state: "loading" }
+  | { state: "ready"; data: T }
+  | { state: "error"; error: string; status?: number };
 
 type SetupData = {
   businessProfile: LoadResult<RecordValue | null>;
