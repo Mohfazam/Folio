@@ -498,8 +498,41 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                     <span><strong className="text-[#1B1C18]">{formatNumber(stats.failedCalls)}</strong> failed</span>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F0EFE9] pt-3 lg:justify-end lg:border-0 lg:pt-0">
-                    <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">{campaign.status === "draft" ? "Ready to launch" : campaign.status === "active" ? "Running" : campaign.status === "paused" ? "Paused" : "Finished"}</span>
-                    {campaign.status === "draft" ? <button type="button" onClick={() => openLaunch(campaign)} className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]">Start campaign</button> : campaign.status === "paused" ? <button type="button" onClick={() => changeCampaignStatus(campaign, "active")} className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]">Resume campaign</button> : campaign.status === "active" ? <button type="button" onClick={() => changeCampaignStatus(campaign, "paused")} className="rounded-[5px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]">Pause</button> : <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Campaign completed</span>}
+                    {campaign.status === "draft" ? (
+                      <button
+                        type="button"
+                        onClick={() => openLaunch(campaign)}
+                        className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                      >
+                        Ready to launch? <span aria-hidden="true">→</span> Start campaign
+                      </button>
+                    ) : campaign.status === "paused" ? (
+                      <>
+                        <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Paused</span>
+                        <button
+                          type="button"
+                          onClick={() => changeCampaignStatus(campaign, "active")}
+                          className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]"
+                        >
+                          Resume campaign
+                        </button>
+                      </>
+                    ) : campaign.status === "active" ? (
+                      <>
+                        <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Running</span>
+                        <button
+                          type="button"
+                          onClick={() => changeCampaignStatus(campaign, "paused")}
+                          className="rounded-[5px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
+                        >
+                          Pause
+                        </button>
+                      </>
+                    ) : (
+                      <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                        Finished
+                      </span>
+                    )}
                   </div>
                 </article>
               );
