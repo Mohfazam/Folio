@@ -70,11 +70,13 @@ export function SetupWizardModal({
   data,
   onClose,
   onComplete,
+  onSwitchAction,
 }: {
   action: SetupAction;
   data: SetupData;
   onClose: () => void;
   onComplete: () => void;
+  onSwitchAction?: (nextAction: SetupAction) => void;
 }) {
   const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
   const agentPayload = data.agentSettings.state === "ready" ? data.agentSettings.data : {};
@@ -645,7 +647,53 @@ export function SetupWizardModal({
             </form>
           ) : null}
 
-          {error ? <p className="mt-4 rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#8D3028]" role="alert">{error}</p> : null}
+          {error ? (
+            <div className="mt-4 flex flex-col gap-2 rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3.5 py-3" role="alert">
+              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#8D3028]">{error}</p>
+              {error.includes("follow-up and team-handling rules") && onSwitchAction ? (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      onSwitchAction("routing");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                  >
+                    Configure follow-up rules now →
+                  </button>
+                </div>
+              ) : null}
+              {error.includes("AI agent") && onSwitchAction ? (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      onSwitchAction("voice");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                  >
+                    Configure AI agent now →
+                  </button>
+                </div>
+              ) : null}
+              {error.includes("test call") && onSwitchAction ? (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      onSwitchAction("test-call");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                  >
+                    Place test call now →
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {success ? <p className="mt-4 rounded-[4px] border border-[#CDE4D2] bg-[#F5FBF6] px-3 py-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#25633A]" role="status">{success}</p> : null}
         </div>
       </section>

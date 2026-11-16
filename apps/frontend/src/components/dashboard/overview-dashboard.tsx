@@ -560,6 +560,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           data={data}
           onClose={() => setActiveAction(null)}
           onComplete={() => { setActiveAction(null); router.refresh(); }}
+          onSwitchAction={(nextAction) => setActiveAction(nextAction)}
         />
       ) : null}
     </div>
