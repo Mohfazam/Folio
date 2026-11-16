@@ -477,57 +477,104 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
             {filteredCampaigns.map((campaign) => {
               const stats = campaign.stats;
               return (
-                <article key={campaign.id} className="grid gap-4 px-4 py-4 transition-colors hover:bg-[#FFFEFB] sm:px-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(130px,0.7fr)_minmax(180px,0.9fr)] lg:items-center">
+                <article
+                  key={campaign.id}
+                  className="grid gap-4 px-4 py-4 transition-colors hover:bg-[#FFFEFB] sm:px-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(130px,0.7fr)_minmax(180px,0.9fr)] lg:items-center"
+                >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <h3 className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{campaign.name}</h3>
+                      <h3 className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {campaign.name}
+                      </h3>
                       <StatusBadge status={campaign.status} />
                     </div>
-                    <p className="mt-1.5 line-clamp-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{campaign.primaryObjective || "No campaign objective added."}</p>
-                    <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")} · Created {formatDate(campaign.createdAt)}</p>
+                    <p className="mt-1.5 line-clamp-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+                      {campaign.primaryObjective || "No campaign objective added."}
+                    </p>
+                    <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">
+                      {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")} · Created{" "}
+                      {formatDate(campaign.createdAt)}
+                    </p>
                   </div>
                   <div className="grid grid-cols-3 gap-3 lg:grid-cols-1 lg:gap-1">
-                    <div><p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">{formatNumber(stats.totalCalls)}</p><p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">Calls</p></div>
-                    <div><p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">{formatNumber(stats.connectedCalls)}</p><p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">Connected</p></div>
-                    <div><p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">{formatNumber(stats.highInterestCalls)}</p><p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">High intent</p></div>
+                    <div>
+                      <p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">
+                        {formatNumber(stats.totalCalls)}
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">Calls</p>
+                    </div>
+                    <div>
+                      <p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">
+                        {formatNumber(stats.connectedCalls)}
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">
+                        Connected
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-['Newsreader'] text-[19px] leading-none text-[#1B1C18]">
+                        {formatNumber(stats.highInterestCalls)}
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[9px] text-[#92938C]">
+                        High intent
+                      </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[#747878] lg:col-span-3 lg:pl-0">
-                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.inProgressCalls)}</strong> currently calling</span>
-                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</strong> pending</span>
-                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.completedQueueCalls)}</strong> completed</span>
-                    <span><strong className="text-[#1B1C18]">{formatNumber(stats.failedCalls)}</strong> failed</span>
+                    <span>
+                      <strong className="text-[#1B1C18]">
+                        {formatNumber(stats.inProgressCalls)}
+                      </strong>{" "}
+                      currently calling
+                    </span>
+                    <span>
+                      <strong className="text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</strong>{" "}
+                      pending
+                    </span>
+                    <span>
+                      <strong className="text-[#1B1C18]">
+                        {formatNumber(stats.completedQueueCalls)}
+                      </strong>{" "}
+                      completed
+                    </span>
+                    <span>
+                      <strong className="text-[#1B1C18]">{formatNumber(stats.failedCalls)}</strong>{" "}
+                      failed
+                    </span>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#F0EFE9] pt-3 lg:justify-end lg:border-0 lg:pt-0">
                     {campaign.status === "draft" ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
+                          Ready to launch?
+                        </span>
+                        <span className="text-[#92938C]" aria-hidden="true">
+                          →
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => openLaunch(campaign)}
+                          className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                        >
+                          Start campaign
+                        </button>
+                      </div>
+                    ) : campaign.status === "paused" ? (
                       <button
                         type="button"
-                        onClick={() => openLaunch(campaign)}
-                        className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                        onClick={() => changeCampaignStatus(campaign, "active")}
+                        className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]"
                       >
-                        Ready to launch? <span aria-hidden="true">→</span> Start campaign
+                        Resume campaign
                       </button>
-                    ) : campaign.status === "paused" ? (
-                      <>
-                        <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Paused</span>
-                        <button
-                          type="button"
-                          onClick={() => changeCampaignStatus(campaign, "active")}
-                          className="rounded-[5px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]"
-                        >
-                          Resume campaign
-                        </button>
-                      </>
                     ) : campaign.status === "active" ? (
-                      <>
-                        <span className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Running</span>
-                        <button
-                          type="button"
-                          onClick={() => changeCampaignStatus(campaign, "paused")}
-                          className="rounded-[5px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
-                        >
-                          Pause
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => changeCampaignStatus(campaign, "paused")}
+                        className="rounded-[5px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
+                      >
+                        Pause
+                      </button>
                     ) : (
                       <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
                         Finished
