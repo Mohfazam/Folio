@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
 
@@ -486,6 +486,15 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup) ? data.setup.data.setup : null;
   const canPlaceTestCall = setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
   const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
+
+  const searchParams = useSearchParams();
+  const setupParam = searchParams?.get("setup") as SetupAction | null;
+
+  useEffect(() => {
+    if (setupParam && ["voice", "contacts", "test-call", "campaign", "routing", "launch"].includes(setupParam)) {
+      setActiveAction(setupParam);
+    }
+  }, [setupParam]);
 
   useEffect(() => {
     if (requestedSetupAction) {
