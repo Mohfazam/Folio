@@ -314,7 +314,7 @@ export async function createTestCallRoute(req: Request, res: Response) {
     return res.status(202).json({
       ok: true,
       testCall: { id: created.queueEntry.id, status: created.queueEntry.status, phoneNumber, contactId: created.contactId, scheduledFor: created.scheduledFor.toISOString() },
-      message: "Your test call has been added to the outbound queue and will be attempted as soon as the calling service is available.",
+      message: "Your test call is on its way! Keep your phone handy — Foolioo is connecting to let you hear your AI agent live.",
     });
   } catch (error) {
     console.error("[test-calls/create]", error);
