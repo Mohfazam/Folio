@@ -23,23 +23,22 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // getClaims verifies the JWT signature and uses the cached project JWKS
-  // when asymmetric signing keys are configured. Unlike getUser, it avoids an
-  // Auth-server user lookup on every dashboard navigation in that case.
+  // Run on application routes so refreshed Supabase session cookies are
+  // persisted before Server Components read the session. getClaims verifies
+  // the JWT without a separate Auth user lookup.
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims as Record<string, unknown> | undefined;
   const authenticated = !error && typeof claims?.sub === "string";
-  const pathname = request.nextUrl.pathname;
 
-  if (pathname === "/sign-in" && authenticated) {
+  if (request.nextUrl.pathname === "/sign-in" && authenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
 }
 
-// Dashboard routes are verified by the shared request-scoped auth context in
-// the dashboard layout. Keep the proxy only for the sign-in redirect guard.
 export const config = {
-  matcher: ["/sign-in"],
+  // Refresh sessions on protected application routes without adding an
+  // authentication lookup to unrelated public pages or static assets.
+  matcher: ["/dashboard/:path*", "/onboarding", "/sign-in", "/auth/callback"],
 };

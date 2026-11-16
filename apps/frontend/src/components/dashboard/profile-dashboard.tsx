@@ -16,8 +16,8 @@ type AccountDetails = {
   provider: string;
   createdAt: string | null;
   lastSignInAt: string | null;
-  emailConfirmedAt: string | null;
-  phoneConfirmedAt: string | null;
+  emailVerified: boolean;
+  phoneVerified: boolean;
 };
 
 function initials(value: string) {
@@ -75,8 +75,8 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
   };
 
   const displayName = account.name || workspace.displayName;
-  const emailVerified = Boolean(account.emailConfirmedAt);
-  const phoneVerified = Boolean(account.phoneConfirmedAt);
+  const emailVerified = account.emailVerified;
+  const phoneVerified = account.phoneVerified;
 
   return (
     <div className="space-y-6">
@@ -143,8 +143,8 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
         </Section>
 
         <Section title="Verification & security" description="Current verification information provided by your authentication account.">
-          <Detail label="Email status" value={emailVerified ? `Verified on ${dateLabel(account.emailConfirmedAt)}` : "Not required for now"} />
-          <Detail label="Phone status" value={!account.phone ? "No phone number on account" : phoneVerified ? `Verified on ${dateLabel(account.phoneConfirmedAt)}` : "Not required for now"} />
+          <Detail label="Email status" value={emailVerified ? "Verified" : "Not required for now"} />
+          <Detail label="Phone status" value={!account.phone ? "No phone number on account" : phoneVerified ? "Verified" : "Not required for now"} />
           <div className="pt-4">
             <Link href="/dashboard/settings" className="inline-flex rounded-[5px] bg-[#1B1C18] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]">Manage account settings</Link>
           </div>
