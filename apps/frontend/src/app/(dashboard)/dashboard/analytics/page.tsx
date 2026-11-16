@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -32,5 +31,6 @@ async function AnalyticsPageContent({ searchParams }: { searchParams: Promise<Se
     return <AnalyticsDashboard timeframe={timeframe} data={null} error={cause instanceof Error ? cause.message : "Unable to load analytics."} />;
   }
 }
-function AnalyticsLoading() { return <div className="space-y-5" aria-busy="true"><div className="h-16 animate-pulse rounded-lg bg-[#F0EFE9]" /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0,1,2,3].map((item) => <div key={item} className="h-28 animate-pulse rounded-lg bg-[#F0EFE9]" />)}</div><div className="h-80 animate-pulse rounded-lg bg-[#F0EFE9]" /></div>; }
-export default function AnalyticsPage({ searchParams }: { searchParams: Promise<SearchParams> }) { return <Suspense fallback={<AnalyticsLoading />}><AnalyticsPageContent searchParams={searchParams} /></Suspense>; }
+export default function AnalyticsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  return <AnalyticsPageContent searchParams={searchParams} />;
+}

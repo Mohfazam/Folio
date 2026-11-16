@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -101,10 +100,6 @@ async function FollowUpsPageContent({ searchParams }: { searchParams: Promise<Se
   }
 }
 
-function FollowUpsLoading() {
-  return <div className="space-y-6" aria-live="polite" aria-busy="true"><div><div className="h-3 w-36 animate-pulse rounded bg-[#E9E8E1]" /><div className="mt-3 h-10 w-56 animate-pulse rounded bg-[#E9E8E1]" /></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-[8px] bg-[#F0EFE9]" />)}</div><div className="h-80 animate-pulse rounded-[8px] bg-[#F0EFE9]" /></div>;
-}
-
 export default function FollowUpsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <Suspense fallback={<FollowUpsLoading />}><FollowUpsPageContent searchParams={searchParams} /></Suspense>;
+  return <FollowUpsPageContent searchParams={searchParams} />;
 }

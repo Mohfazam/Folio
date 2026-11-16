@@ -1,5 +1,4 @@
 import { connection } from "next/server";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsDashboard } from "@/components/dashboard/settings-dashboard";
 
@@ -11,5 +10,5 @@ async function SettingsContent() {
 }
 
 export default function SettingsPage() {
-  return <Suspense fallback={<div className="p-8 text-sm text-[#747878]">Loading settings...</div>}><SettingsContent /></Suspense>;
+  return <SettingsContent />;
 }

@@ -1,5 +1,4 @@
 import { connection } from "next/server";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { AiStudioDashboard } from "@/components/dashboard/ai-studio-dashboard";
 
@@ -43,15 +42,5 @@ async function AiStudioContent() {
 
 
 export default function AiStudioPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="rounded-lg border border-[#ECEBE5] bg-white p-6 text-sm text-[#747878]">
-          Loading AI Studio…
-        </div>
-      }
-    >
-      <AiStudioContent />
-    </Suspense>
-  );
+  return <AiStudioContent />;
 }

@@ -1,5 +1,4 @@
 import { connection } from "next/server";
-import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ProfileDashboard } from "@/components/dashboard/profile-dashboard";
@@ -38,9 +37,5 @@ async function ProfileContent() {
 }
 
 export default function ProfilePage() {
-  return (
-    <Suspense fallback={<div className="p-8 font-['Space_Grotesk'] text-sm text-[#747878]">Loading your profile...</div>}>
-      <ProfileContent />
-    </Suspense>
-  );
+  return <ProfileContent />;
 }

@@ -7,6 +7,7 @@ import {
   DashboardShell,
   type DashboardProfile,
 } from "@/components/dashboard/dashboard-shell";
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 
 type AuthMePayload = {
   ok: true;
@@ -56,6 +57,13 @@ function daysUntil(dateValue: string | Date | null | undefined): number | null {
   return Math.max(0, Math.ceil((timestamp - Date.now()) / 86_400_000));
 }
 
+class BackendResponseError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "BackendResponseError";
+  }
+}
+
 async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
@@ -65,9 +73,21 @@ async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
       cache: "no-store",
     });
 
-    const payload: unknown = await response.json();
+    const payload: unknown = await response.json().catch(() => null);
+    const backendMessage =
+      typeof payload === "object" && payload !== null && "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : null;
+
+    if (!response.ok) {
+      throw new BackendResponseError(
+        `Unable to load the Neon workspace profile (${response.status})${backendMessage ? `: ${backendMessage}` : "."}`,
+        response.status,
+      );
+    }
+
     if (
-      !response.ok ||
       typeof payload !== "object" ||
       payload === null ||
       !("ok" in payload) ||
@@ -76,13 +96,45 @@ async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
       typeof payload.user !== "object" ||
       payload.user === null
     ) {
-      throw new Error(`Unable to load the Neon workspace profile (${response.status}).`);
+      throw new Error("The backend returned an invalid workspace profile response.");
     }
 
     return payload as AuthMePayload;
   } catch (error) {
     console.error("[dashboard/layout] Unable to load workspace profile:", error);
     throw error;
+  }
+}
+
+async function loadAuthMeWithRefresh(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  accessToken: string,
+): Promise<AuthMePayload> {
+  try {
+    return await loadAuthMe(accessToken);
+  } catch (error) {
+    // Recover once from an expired access token. Do not retry other failures.
+    if (!(error instanceof BackendResponseError) || error.status !== 401) {
+      throw error;
+    }
+
+    const { data, error: refreshError } = await supabase.auth.refreshSession();
+    const refreshedToken = data.session?.access_token;
+
+    if (refreshError || !refreshedToken) {
+      throw new Error("Your sign-in session has expired. Please sign in again.");
+    }
+
+    try {
+      return await loadAuthMe(refreshedToken);
+    } catch (retryError) {
+      if (retryError instanceof BackendResponseError && retryError.status === 401) {
+        throw new Error(
+          "The backend rejected the refreshed sign-in token. Check that the frontend and backend use the same Supabase project URL and publishable/anon key, and restart the backend after changing its environment variables.",
+        );
+      }
+      throw retryError;
+    }
   }
 }
 
@@ -103,11 +155,12 @@ async function DashboardContent({ children }: { children: ReactNode }) {
 
   if (!session?.access_token) redirect("/sign-in");
 
-  // The backend remains authoritative for dashboard access.
-  const onboarding = await getOnboardingState(session.access_token);
+  // These independent backend reads share the same verified session and run concurrently.
+  const [onboarding, authMe] = await Promise.all([
+    getOnboardingState(session.access_token),
+    loadAuthMeWithRefresh(supabase, session.access_token),
+  ]);
   if (!onboarding || onboarding.status !== "completed") redirect("/onboarding");
-
-  const authMe = await loadAuthMe(session.access_token);
   const client = authMe.client ?? null;
   const timezone = asText(client?.timezone) ?? "Asia/Kolkata";
   const displayName =
@@ -152,15 +205,7 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#FBF9F2]">
-          <p className="font-['Space_Grotesk'] text-sm text-[#747878]">
-            Loading your workspace...
-          </p>
-        </div>
-      }
-    >
+    <Suspense fallback={<DashboardPageSkeleton variant="overview" showSidebar />}>
       <DashboardContent>{children}</DashboardContent>
     </Suspense>
   );

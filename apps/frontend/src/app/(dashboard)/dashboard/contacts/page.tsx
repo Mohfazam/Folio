@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -180,33 +179,6 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   }
 }
 
-function ContactsLoading() {
-  return (
-    <div className="space-y-6" aria-live="polite" aria-busy="true">
-      <div>
-        <div className="h-3 w-36 animate-pulse rounded bg-[#E9E8E1]" />
-        <div className="mt-3 h-10 w-56 animate-pulse rounded bg-[#E9E8E1]" />
-        <div className="mt-3 h-4 w-full max-w-[520px] animate-pulse rounded bg-[#F0EFE9]" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-        ))}
-      </div>
-      <div className="h-80 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <span className="sr-only">Loading contacts…</span>
-    </div>
-  );
-}
-
-export default function ContactsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  return (
-    <Suspense fallback={<ContactsLoading />}>
-      <ContactsPageContent searchParams={searchParams} />
-    </Suspense>
-  );
+export default function ContactsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  return <ContactsPageContent searchParams={searchParams} />;
 }

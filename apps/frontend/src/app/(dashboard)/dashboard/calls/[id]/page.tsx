@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -153,26 +152,6 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
   }
 }
 
-function CallDetailLoading() {
-  return (
-    <div className="space-y-5" aria-live="polite" aria-busy="true">
-      <div className="h-3 w-28 animate-pulse rounded bg-[#E9E8E1]" />
-      <div className="h-10 w-64 animate-pulse rounded bg-[#E9E8E1]" />
-      <div className="h-28 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <div className="h-72 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <span className="sr-only">Loading call details…</span>
-    </div>
-  );
-}
-
-export default async function CallDetailsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  return (
-    <Suspense fallback={<CallDetailLoading />}>
-      <CallDetailContent params={params} />
-    </Suspense>
-  );
+export default function CallDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  return <CallDetailContent params={params} />;
 }
