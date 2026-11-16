@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { useDashboardProfile } from "@/components/dashboard/dashboard-shell";
 
 type AccountDetails = {
@@ -56,7 +58,22 @@ function Section({ title, description, children }: { title: string; description:
 }
 
 export function ProfileDashboard({ account }: { account: AccountDetails }) {
+  const router = useRouter();
   const workspace = useDashboardProfile();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.replace("/sign-in");
+      router.refresh();
+    } catch {
+      setSigningOut(false);
+    }
+  };
+
   const displayName = account.name || workspace.displayName;
   const emailVerified = Boolean(account.emailConfirmedAt);
   const phoneVerified = Boolean(account.phoneConfirmedAt);
@@ -69,7 +86,22 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <h1 className="mt-1 font-['Newsreader'] text-[32px] leading-tight text-[#1B1C18]">Your profile</h1>
           <p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[12px] leading-5 text-[#777A74]">Your personal account details and the workspace you currently belong to.</p>
         </div>
-        <Link href="/dashboard/settings" className="rounded-[5px] border border-[#DCDCD4] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#34352F] transition-colors hover:bg-[#F5F4ED]">Account settings</Link>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link href="/dashboard/settings" className="rounded-[5px] border border-[#DCDCD4] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#34352F] transition-colors hover:bg-[#F5F4ED]">Account settings</Link>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="inline-flex items-center gap-2 rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FBE8E6] disabled:opacity-50"
+          >
+            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
+              <path d="M11 11l3-3-3-3" />
+              <path d="M14 8H6" />
+            </svg>
+            {signingOut ? "Signing out..." : "Log out"}
+          </button>
+        </div>
       </div>
 
       <section className="flex flex-wrap items-center gap-4 rounded-[10px] border border-[#E9E8E1] bg-[#FBFAF6] p-5 sm:p-6">

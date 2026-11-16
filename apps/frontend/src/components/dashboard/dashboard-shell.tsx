@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -238,6 +239,9 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return NAV_ITEMS;
@@ -253,11 +257,23 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       if (event.key === "Escape") {
         setSearchOpen(false);
         setSettingsOpen(false);
+        setUserMenuOpen(false);
       }
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [userMenuOpen]);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -442,21 +458,124 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
               <span className="hidden lg:inline">Settings</span>
             </Link>
-            <Link
-              href="/dashboard/profile"
-              onClick={() => setSettingsOpen(false)}
-              className={`mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/profile") ? "bg-[#E5E4DC]" : "bg-[#ECEBE4]"}`}
-              aria-label="Open user profile"
-              title="Your profile"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
-                {initials(profile.displayName)}
-              </span>
-              <span className="hidden min-w-0 flex-1 lg:block">
-                <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{profile.displayName}</span>
-                <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">{profile.email}</span>
-              </span>
-            </Link>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={userMenuOpen}
+                aria-haspopup="menu"
+                className={`mb-1 ml-1 flex w-[calc(100%-4px)] items-center gap-3 rounded-[8px] px-3 py-3 text-left transition-colors hover:bg-[#E5E4DC] md:justify-center lg:justify-start ${
+                  userMenuOpen || pathname.startsWith("/dashboard/profile") ? "bg-[#E5E4DC]" : "bg-[#ECEBE4]"
+                }`}
+                aria-label="Open user menu"
+                title="Your profile & options"
+              >
+                {profile.avatarUrl ? (
+                  <Image
+                    src={profile.avatarUrl}
+                    alt={profile.displayName}
+                    width={32}
+                    height={32}
+                    unoptimized
+                    className="h-8 w-8 shrink-0 rounded-[8px] object-cover"
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
+                    {initials(profile.displayName)}
+                  </span>
+                )}
+                <span className="hidden min-w-0 flex-1 lg:block">
+                  <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                    {profile.displayName}
+                  </span>
+                  <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                    {profile.email}
+                  </span>
+                </span>
+                <svg
+                  viewBox="0 0 16 16"
+                  className={`hidden h-3.5 w-3.5 shrink-0 text-[#747878] transition-transform lg:block ${
+                    userMenuOpen ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </button>
+
+              {/* Popover Menu */}
+              {userMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute bottom-full left-1 mb-2 w-56 overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white p-1.5 shadow-[0_12px_36px_rgba(27,28,24,0.14)] md:left-full md:bottom-2 md:ml-3"
+                >
+                  <div className="border-b border-[#F0EFEA] px-3 py-2.5">
+                    <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                      {profile.displayName}
+                    </p>
+                    <p className="truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      {profile.email}
+                    </p>
+                  </div>
+
+                  <div className="py-1">
+                    <Link
+                      href="/dashboard/profile"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex w-full items-center gap-2.5 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                    >
+                      <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="8" cy="5" r="3" />
+                        <path d="M2.5 14c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" />
+                      </svg>
+                      Your Profile
+                    </Link>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setSettingsSection("workspace");
+                        setSettingsOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-[4px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                    >
+                      <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="2" width="12" height="12" rx="2" />
+                        <path d="M2 6h12M6 2v12" />
+                      </svg>
+                      Workspace Settings
+                    </button>
+                  </div>
+
+                  <div className="border-t border-[#F0EFEA] pt-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        handleSignOut();
+                      }}
+                      disabled={signingOut}
+                      className="flex w-full items-center gap-2.5 rounded-[4px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:opacity-50"
+                    >
+                      <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
+                        <path d="M11 11l3-3-3-3" />
+                        <path d="M14 8H6" />
+                      </svg>
+                      {signingOut ? "Signing out..." : "Log out"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </aside>
 
@@ -468,7 +587,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           </div>
         </main>
 
-        <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-[#E9E8E1] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden">
+        <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#E9E8E1] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden">
           {NAV_ITEMS.slice(0, 4).map((item) => (
             <NavEntry
               key={item.href}
@@ -478,6 +597,28 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               onSetupAction={openSetupAction}
             />
           ))}
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen(true)}
+            className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center font-['Space_Grotesk'] text-[10px] text-[#444748] transition-colors hover:bg-[#ECEBE4]"
+            aria-label="Account options"
+          >
+            {profile.avatarUrl ? (
+              <Image
+                src={profile.avatarUrl}
+                alt={profile.displayName}
+                width={16}
+                height={16}
+                unoptimized
+                className="h-4 w-4 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1B1C18] text-[8px] font-semibold text-white">
+                {initials(profile.displayName)}
+              </span>
+            )}
+            <span className="max-w-full truncate">Account</span>
+          </button>
         </nav>
 
         {searchOpen ? (
