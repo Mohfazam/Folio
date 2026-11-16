@@ -376,7 +376,44 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               </div>
               <div className="border-t border-[#ECEBE5] px-4 py-2 text-[10px] text-[#85877F]">{selectedContactIds.length} of {eligibleContacts.length} selected</div>
             </div>
-            {launchError ? <p role="alert" className="mt-4 rounded border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[11px] leading-5 text-[#A33A32]">{launchError}</p> : null}
+            {launchError ? (
+              <div role="alert" className="mt-4 flex flex-col gap-2 rounded border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-3">
+                <p className="text-[11px] leading-5 text-[#A33A32]">{launchError}</p>
+                {launchError.includes("follow-up and team-handling rules") ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard?setup=routing")}
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                    >
+                      Go to follow-up rules →
+                    </button>
+                  </div>
+                ) : null}
+                {launchError.includes("AI agent") ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/ai-studio")}
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                    >
+                      Configure AI agent →
+                    </button>
+                  </div>
+                ) : null}
+                {launchError.includes("test call") ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard?setup=test-call")}
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                    >
+                      Place a test call →
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4"><p className="max-w-[380px] text-[10px] leading-4 text-[#85877F]">Calls also obey workspace calling hours, available credits, daily limits and contact opt-outs.</p><button type="button" disabled={launchBusy || loadingAudience || !selectedContactIds.length} onClick={submitLaunch} className="rounded-[5px] bg-[#1B1C18] px-5 py-2.5 text-[12px] font-semibold text-white disabled:opacity-50">{launchBusy ? "Queuing campaign…" : startAt ? "Schedule campaign" : "Start campaign now"}</button></div>
           </div>
         </div>
