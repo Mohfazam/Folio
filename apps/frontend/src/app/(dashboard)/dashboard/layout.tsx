@@ -1,29 +1,13 @@
 import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext, getWorkspaceAuthMe, type AuthMePayload, type DashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { getOnboardingState } from "../../../lib/auth/backend";
 import {
   DashboardShell,
   type DashboardProfile,
 } from "@/components/dashboard/dashboard-shell";
-
-type AuthMePayload = {
-  ok: true;
-  user?: {
-    displayName?: string | null;
-    email?: string | null;
-    avatarUrl?: string | null;
-  };
-  client?: {
-    id?: string;
-    name?: string | null;
-    timezone?: string | null;
-    planTier?: string | null;
-    status?: string | null;
-    trialEndsAt?: string | Date | null;
-  } | null;
-};
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -56,58 +40,70 @@ function daysUntil(dateValue: string | Date | null | undefined): number | null {
   return Math.max(0, Math.ceil((timestamp - Date.now()) / 86_400_000));
 }
 
+class BackendResponseError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "BackendResponseError";
+  }
+}
+
 async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
-  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
+  const result = await getWorkspaceAuthMe(accessToken);
+  if (!result.ok) {
+    throw new BackendResponseError(
+      `Unable to load the Neon workspace profile (${result.status})${result.error ? `: ${result.error}` : "."}`,
+      result.status,
+    );
+  }
+  return result.data;
+}
 
+async function loadAuthMeWithRefresh(
+  supabase: DashboardAuthContext["supabase"],
+  accessToken: string,
+): Promise<AuthMePayload> {
   try {
-    const response = await fetch(`${baseUrl}/api/auth/me`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    });
-
-    const payload: unknown = await response.json();
-    if (
-      !response.ok ||
-      typeof payload !== "object" ||
-      payload === null ||
-      !("ok" in payload) ||
-      payload.ok !== true ||
-      !("user" in payload) ||
-      typeof payload.user !== "object" ||
-      payload.user === null
-    ) {
-      throw new Error(`Unable to load the Neon workspace profile (${response.status}).`);
+    return await loadAuthMe(accessToken);
+  } catch (error) {
+    // Recover once from an expired access token. Do not retry other failures.
+    if (!(error instanceof BackendResponseError) || error.status !== 401) {
+      throw error;
     }
 
-    return payload as AuthMePayload;
-  } catch (error) {
-    console.error("[dashboard/layout] Unable to load workspace profile:", error);
-    throw error;
+    const { data, error: refreshError } = await supabase.auth.refreshSession();
+    const refreshedToken = data.session?.access_token;
+
+    if (refreshError || !refreshedToken) {
+      throw new Error("Your sign-in session has expired. Please sign in again.");
+    }
+
+    try {
+      return await loadAuthMe(refreshedToken);
+    } catch (retryError) {
+      if (retryError instanceof BackendResponseError && retryError.status === 401) {
+        throw new Error(
+          "The backend rejected the refreshed sign-in token. Check that the frontend and backend use the same Supabase project URL and publishable/anon key, and restart the backend after changing its environment variables.",
+        );
+      }
+      throw retryError;
+    }
   }
 }
 
 async function DashboardContent({ children }: { children: ReactNode }) {
   await connection();
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
 
-  if (error || !user) redirect("/sign-in");
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) redirect("/sign-in");
-
-  // The backend remains authoritative for dashboard access.
-  const onboarding = await getOnboardingState(session.access_token);
+  // The JWT is signature-verified once for this server render. Both backend
+  // reads use the same token and run concurrently; /api/auth/me is request-cached
+  // for child Server Components such as the Overview page.
+  const [onboarding, authMe] = await Promise.all([
+    getOnboardingState(auth.accessToken),
+    loadAuthMeWithRefresh(auth.supabase, auth.accessToken),
+  ]);
   if (!onboarding || onboarding.status !== "completed") redirect("/onboarding");
-
-  const authMe = await loadAuthMe(session.access_token);
   const client = authMe.client ?? null;
   const timezone = asText(client?.timezone) ?? "Asia/Kolkata";
   const displayName =
@@ -152,15 +148,7 @@ export default function DashboardLayout({
   children: ReactNode;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#FBF9F2]">
-          <p className="font-['Space_Grotesk'] text-sm text-[#747878]">
-            Loading your workspace...
-          </p>
-        </div>
-      }
-    >
+    <Suspense fallback={<DashboardPageSkeleton variant="overview" showSidebar />}>
       <DashboardContent>{children}</DashboardContent>
     </Suspense>
   );

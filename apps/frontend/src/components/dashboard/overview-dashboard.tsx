@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
+import { getOverviewAnalyticsAction, skipTestCallSetupAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -25,6 +26,7 @@ export type CollectionSnapshot = {
 };
 
 type LoadResult<T> =
+  | { state: "loading" }
   | { state: "ready"; data: T }
   | { state: "error"; error: string; status?: number };
 
@@ -121,6 +123,7 @@ type SetupStep = {
   complete: boolean;
   detail: string;
   recommended?: boolean;
+  optional?: boolean;
   disabled?: boolean;
   disabledReason?: string;
 };
@@ -133,13 +136,14 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const summary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
     ? data.setup.data.setup
     : null;
-  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
   const contactCount = recordNumber(summary, "contactCount");
   const campaignCount = recordNumber(summary, "campaignCount");
   const activeCampaignCount = recordNumber(summary, "activeCampaignCount");
   const testCallStatus = recordText(summary, "testCallStatus");
   const testCallOutcome = recordText(summary, "testCallOutcome");
-  const agentName = recordText(profile, "aiPersonaName") ?? "your AI agent";
+  const testCallSkipped = summary?.testCallSkipped === true;
+  const testCallComplete = summary?.testCallComplete === true;
+  const agentName = recordText(summary, "agentName") ?? "your AI agent";
 
   const steps: SetupStep[] = [
     {
@@ -163,11 +167,22 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     {
       id: 3,
       title: "Place a test call",
-      description: "Call a phone number you own and hear how your configured agent handles a real conversation.",
+      description: "Recommended: call a number you own to hear how your agent handles a real conversation. This step is optional, and you can continue setup without placing a test call.",
       action: "Test call",
       actionKey: "test-call",
-      complete: summary?.testCallComplete === true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallStatus === "pending" ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to a number you own before contacting your audience.",
+      complete: testCallComplete || testCallSkipped,
+      optional: true,
+      detail: testCallComplete
+        ? "Your agent connected successfully on the test call."
+        : testCallSkipped
+          ? "Skipped. You can still place a test call later from this step."
+          : testCallStatus === "pending"
+            ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours."
+            : testCallOutcome
+              ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. A successful test call is recommended, but not required to launch.`
+              : testCallStatus
+                ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}. A test call is optional.`
+                : "Optional. Run a test call to hear your agent before launch, or skip this step and continue setup.",
     },
     {
       id: 4,
@@ -200,9 +215,13 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
 
   const agentConfigured = steps[0]?.complete === true;
   const contactsImported = steps[1]?.complete === true;
-  const firstFiveComplete = steps.slice(0, 5).every((step) => step.complete);
+  // A test call is a recommendation, not a launch prerequisite. Only the
+  // required setup steps before launch can block the final review step.
+  const requiredSetupComplete = steps
+    .filter((step) => !step.optional && step.actionKey !== "launch")
+    .every((step) => step.complete);
 
-  const firstIncompleteStepId = steps.find((step) => !step.complete)?.id ?? null;
+  const firstIncompleteStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
 
   return steps.map((step) => {
     const nextStep = {
@@ -212,7 +231,7 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     if (step.actionKey === "test-call" && !(agentConfigured && contactsImported)) {
       return { ...nextStep, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
     }
-    if (step.actionKey === "launch" && !firstFiveComplete) {
+    if (step.actionKey === "launch" && !requiredSetupComplete) {
       return { ...nextStep, disabled: true, disabledReason: "Complete the setup steps above before launching." };
     }
     return nextStep;
@@ -234,17 +253,47 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
 }
 
 function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAction: (action: SetupAction) => void }) {
+  const router = useRouter();
   const steps = useMemo(() => buildSetupSteps(data), [data]);
   const [expanded, setExpanded] = useState<number[]>([1]);
   const [hasManuallyChangedExpansion, setHasManuallyChangedExpansion] = useState(false);
-  const complete = steps.filter((step) => step.complete).length;
+  const [skippingTestCall, setSkippingTestCall] = useState(false);
+  const [skipTestCallError, setSkipTestCallError] = useState<string | null>(null);
+  const requiredSteps = steps.filter((step) => !step.optional);
+  const complete = requiredSteps.filter((step) => step.complete).length;
   const anyExpanded = expanded.length > 0;
 
   useEffect(() => {
     if (hasManuallyChangedExpansion) return;
-    const nextStep = steps.find((step) => !step.complete)?.id ?? null;
+    const nextStep = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
     setExpanded(nextStep ? [nextStep] : []);
   }, [steps, hasManuallyChangedExpansion]);
+
+  const handleSkipTestCall = async () => {
+    if (skippingTestCall) return;
+    setSkippingTestCall(true);
+    setSkipTestCallError(null);
+
+    try {
+      const result = await skipTestCallSetupAction();
+      if (!result.ok) {
+        setSkipTestCallError(result.error);
+        setHasManuallyChangedExpansion(true);
+        setExpanded([3]);
+        return;
+      }
+
+      // Move focus to the next outstanding required step after persisting the skip.
+      const nextRequiredStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
+      setHasManuallyChangedExpansion(true);
+      setExpanded(nextRequiredStepId ? [nextRequiredStepId] : []);
+      router.refresh();
+    } catch (error) {
+      setSkipTestCallError(error instanceof Error ? error.message : "Unable to skip the test-call step.");
+    } finally {
+      setSkippingTestCall(false);
+    }
+  };
 
   const toggleAll = () => {
     setHasManuallyChangedExpansion(true);
@@ -261,7 +310,7 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
       <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
         <div className="flex flex-col gap-4 bg-[rgba(245,244,237,0.4)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-center gap-4">
-            <ProgressRing complete={complete} total={steps.length} />
+            <ProgressRing complete={complete} total={requiredSteps.length} />
             <div className="min-w-0">
               <h2 id="setup-heading" className="font-['Space_Grotesk'] text-[15px] font-semibold tracking-[-0.16px] text-[#1B1C18] sm:text-[16px]">Get your workspace ready for outbound voice</h2>
               <p className="mt-1 max-w-[560px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#444748] sm:text-[13px]">Complete these essential steps to run your first compliant AI voice campaign.</p>
@@ -285,7 +334,7 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
                   <div className="min-w-0 flex-1">
                     <button type="button" onClick={() => toggleStep(step.id)} aria-expanded={isExpanded} className="block min-w-0 text-left">
                       <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
+                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.optional ? " · OPTIONAL" : step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
                         {!step.recommended ? <span className="hidden h-1 w-1 rounded-full bg-[#C4C7C7] sm:inline-block" /> : null}
                         <span className="font-['Space_Grotesk'] text-[14px] font-semibold leading-5 text-[#1B1C18] sm:text-[15px]">{step.title}</span>
                       </span>
@@ -298,19 +347,34 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
                         ) : step.detail ? (
                           <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{step.detail}</p>
                         ) : null}
+                        {step.actionKey === "test-call" && skipTestCallError ? (
+                          <p role="alert" className="mt-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{skipTestCallError}</p>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onAction(step.actionKey)}
-                    disabled={step.disabled}
-                    title={step.disabled ? step.disabledReason : undefined}
-                    aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
-                    className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
-                  >
-                    {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onAction(step.actionKey)}
+                      disabled={step.disabled}
+                      title={step.disabled ? step.disabledReason : undefined}
+                      aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
+                      className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
+                    >
+                      {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
+                    </button>
+                    {step.actionKey === "test-call" && !step.complete ? (
+                      <button
+                        type="button"
+                        onClick={handleSkipTestCall}
+                        disabled={skippingTestCall}
+                        className="inline-flex h-[34px] shrink-0 items-center justify-center rounded-[3px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {skippingTestCall ? "Skipping…" : "Skip"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             );
@@ -439,9 +503,13 @@ function RecentCalls({ analytics, timezone, onPlaceTestCall, canPlaceTestCall }:
 }
 
 function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
-  const contactTotal = data.contacts.state === "ready" ? data.contacts.data.total : null;
-  const campaignTotal = data.campaigns.state === "ready" ? data.campaigns.data.total : null;
-  const knowledgeTotal = data.knowledgeBase.state === "ready" ? data.knowledgeBase.data.total : null;
+  const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+    ? data.setup.data.setup
+    : null;
+  const setupReady = data.setup.state === "ready";
+  const contactTotal = recordNumber(setupSummary, "contactCount");
+  const campaignTotal = recordNumber(setupSummary, "campaignCount");
+  const knowledgeTotal = recordNumber(setupSummary, "knowledgeBaseCount");
 
   const readinessLabel = (value: number | null, ready: boolean, singular: string) => {
     if (!ready) return "Unavailable";
@@ -449,9 +517,9 @@ function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
   };
 
   const rows = [
-    { label: "Contacts", value: readinessLabel(contactTotal, data.contacts.state === "ready", "Contacts"), error: data.contacts.state === "error" },
-    { label: "Campaigns", value: readinessLabel(campaignTotal, data.campaigns.state === "ready", "Campaigns"), error: data.campaigns.state === "error" },
-    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, data.knowledgeBase.state === "ready", "Knowledge base"), error: data.knowledgeBase.state === "error" },
+    { label: "Contacts", value: readinessLabel(contactTotal, setupReady, "Contacts"), error: data.setup.state === "error" },
+    { label: "Campaigns", value: readinessLabel(campaignTotal, setupReady, "Campaigns"), error: data.setup.state === "error" },
+    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, setupReady, "Knowledge base"), error: data.setup.state === "error" },
   ];
 
   return (
@@ -477,12 +545,56 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const router = useRouter();
   const { requestedSetupAction, clearRequestedSetupAction } = useDashboardNavigation();
   const firstName = profile.displayName.trim().split(/\s+/)[0] || "there";
-  const analytics = data.analytics.state === "ready" ? data.analytics.data : null;
+  const [analyticsResult, setAnalyticsResult] = useState<LoadResult<AnalyticsOverview>>(data.analytics);
+  useEffect(() => {
+    if (data.analytics.state === "ready" || data.analytics.state === "error") {
+      setAnalyticsResult(data.analytics);
+      return;
+    }
+
+    let active = true;
+    getOverviewAnalyticsAction().then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        setAnalyticsResult({ state: "error", error: result.error, status: result.status });
+        return;
+      }
+      const payload = result.data?.analytics;
+      if (!isJsonRecord(payload)) {
+        setAnalyticsResult({ state: "error", error: "The analytics response was invalid." });
+        return;
+      }
+      const isRecordValue = (value: unknown): value is JsonRecord => isJsonRecord(value);
+      if (!isRecordValue(payload.quota) || !isRecordValue(payload.callMetrics) || !isRecordValue(payload.pipeline)) {
+        setAnalyticsResult({ state: "error", error: "The analytics response is missing required workspace metrics." });
+        return;
+      }
+      setAnalyticsResult({
+        state: "ready",
+        data: {
+          timeframe: typeof payload.timeframe === "string" ? payload.timeframe : "30d",
+          client: isRecordValue(payload.client) ? payload.client : {},
+          quota: payload.quota,
+          callMetrics: payload.callMetrics,
+          leadIntelligence: isRecordValue(payload.leadIntelligence) ? payload.leadIntelligence : {},
+          pipeline: payload.pipeline,
+          costs: isRecordValue(payload.costs) ? payload.costs : {},
+          recentCalls: Array.isArray(payload.recentCalls) ? payload.recentCalls.filter(isRecordValue) : [],
+        },
+      });
+    }).catch((error) => {
+      if (active) setAnalyticsResult({ state: "error", error: error instanceof Error ? error.message : "Unable to load workspace analytics." });
+    });
+
+    return () => { active = false; };
+  }, [data.analytics]);
+
+  const analytics = analyticsResult.state === "ready" ? analyticsResult.data : null;
   const callMetrics = analytics?.callMetrics;
   const pipeline = analytics?.pipeline;
   const leadIntelligence = analytics?.leadIntelligence;
   const timezone = profile.timezone || "Asia/Kolkata";
-  const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : "ANALYTICS UNAVAILABLE";
+  const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : analyticsResult.state === "loading" ? "LOADING METRICS" : "ANALYTICS UNAVAILABLE";
   const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup) ? data.setup.data.setup : null;
   const canPlaceTestCall = setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
   const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
@@ -520,8 +632,12 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           <h2 id="metrics-heading" className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE METRICS</h2>
           <span className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#747878]">{telemetryLabel}</span>
         </div>
-        {data.analytics.state === "error" ? (
-          <SectionError title="Workspace analytics" error={data.analytics.error} />
+        {analyticsResult.state === "loading" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => <div key={item} className="h-[106px] rounded-[8px] border border-[#E9E8E1] bg-white p-4"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-4 h-8 w-16 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-3 h-2.5 w-32 rounded bg-[#F1F0EB]" /></div>)}
+          </div>
+        ) : analyticsResult.state === "error" ? (
+          <SectionError title="Workspace analytics" error={analyticsResult.error} />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Calls placed" value={recordNumber(callMetrics, "totalCalls")} helper="Calls in the selected period" icon="calls" />
@@ -552,13 +668,15 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           />
           {analytics ? (
             <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
+          ) : analyticsResult.state === "loading" ? (
+            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3.5 w-32 rounded bg-[#ECEBE5]" /><div className="mt-5 space-y-4">{[0, 1, 2].map((item) => <div key={item} className="flex gap-3"><div className="animate-pulse motion-reduce:animate-none h-9 w-9 rounded-full bg-[#ECEBE5]" /><div className="flex-1 space-y-2"><div className="animate-pulse motion-reduce:animate-none h-3 w-40 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none h-2.5 w-56 rounded bg-[#F1F0EB]" /></div></div>)}</div></div>
           ) : (
-            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable until analytics loads.</p></div>
+            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable.</p></div>
           )}
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5 lg:col-span-4" aria-label="Workspace resources">
-          {analytics ? <QuotaPanel analytics={analytics} /> : null}
+          {analytics ? <QuotaPanel analytics={analytics} /> : analyticsResult.state === "loading" ? <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-6 h-10 w-28 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-5 h-2.5 w-full rounded bg-[#F1F0EB]" /></div> : null}
           <WorkspaceSnapshot data={data} />
         </aside>
       </div>

@@ -1,7 +1,6 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { FollowUpsDashboard, type FollowUpRecord } from "@/components/dashboard/follow-ups-dashboard";
 
 type JsonRecord = Record<string, unknown>;
@@ -61,15 +60,13 @@ async function FollowUpsPageContent({ searchParams }: { searchParams: Promise<Se
   const requestedStatus = first(params.status);
   const status = ["open", "done", "not_needed"].includes(requestedStatus) ? requestedStatus : "open";
 
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect("/sign-in");
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
-  const headers = { Authorization: `Bearer ${session.access_token}` };
+  const headers = { Authorization: `Bearer ${accessToken}` };
   try {
     const [followUpsResponse, contactsResponse] = await Promise.all([
       fetch(`${baseUrl}/api/follow-ups?limit=100&offset=0`, { headers, cache: "no-store" }),
@@ -101,10 +98,6 @@ async function FollowUpsPageContent({ searchParams }: { searchParams: Promise<Se
   }
 }
 
-function FollowUpsLoading() {
-  return <div className="space-y-6" aria-live="polite" aria-busy="true"><div><div className="h-3 w-36 animate-pulse rounded bg-[#E9E8E1]" /><div className="mt-3 h-10 w-56 animate-pulse rounded bg-[#E9E8E1]" /></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-[8px] bg-[#F0EFE9]" />)}</div><div className="h-80 animate-pulse rounded-[8px] bg-[#F0EFE9]" /></div>;
-}
-
 export default function FollowUpsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <Suspense fallback={<FollowUpsLoading />}><FollowUpsPageContent searchParams={searchParams} /></Suspense>;
+  return <FollowUpsPageContent searchParams={searchParams} />;
 }

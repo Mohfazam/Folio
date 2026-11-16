@@ -1,7 +1,6 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import {
   ContactsDashboard,
   type ContactRecord,
@@ -101,19 +100,9 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   };
   const startInImportMode = first(params.import) === "1";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) redirect("/sign-in");
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
@@ -129,7 +118,7 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   try {
     const response = await fetch(`${baseUrl}/api/contacts?${query.toString()}`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
 
@@ -180,33 +169,6 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   }
 }
 
-function ContactsLoading() {
-  return (
-    <div className="space-y-6" aria-live="polite" aria-busy="true">
-      <div>
-        <div className="h-3 w-36 animate-pulse rounded bg-[#E9E8E1]" />
-        <div className="mt-3 h-10 w-56 animate-pulse rounded bg-[#E9E8E1]" />
-        <div className="mt-3 h-4 w-full max-w-[520px] animate-pulse rounded bg-[#F0EFE9]" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-28 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-        ))}
-      </div>
-      <div className="h-80 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <span className="sr-only">Loading contacts…</span>
-    </div>
-  );
-}
-
-export default function ContactsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  return (
-    <Suspense fallback={<ContactsLoading />}>
-      <ContactsPageContent searchParams={searchParams} />
-    </Suspense>
-  );
+export default function ContactsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  return <ContactsPageContent searchParams={searchParams} />;
 }

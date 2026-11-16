@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getWorkspaceSettingsAction, saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
+import { useMemo, useState } from "react";
+import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
 
 type Section = "general" | "account" | "ai" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
@@ -28,32 +28,20 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 function SectionHeading({ title, description }: { title: string; description: string }) { return <div className="mb-6"><h2 className="font-['Newsreader'] text-[27px] text-[#1B1C18]">{title}</h2><p className="mt-1 text-[12px] text-[#777970]">{description}</p></div>; }
 function Placeholder({ title, description, items }: { title: string; description: string; items: string[] }) { return <><SectionHeading title={title} description={description} /><div className="rounded-lg border border-[#E9E8E1] bg-white"><div className="divide-y divide-[#F0EFE9]">{items.map((item) => <div key={item} className="flex items-center justify-between gap-4 px-4 py-4"><div><p className="text-[13px] font-medium text-[#34352F]">{item}</p><p className="mt-1 text-[11px] text-[#92938B]">This control will be available when the required backend integration is implemented.</p></div><span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 text-[10px] font-semibold text-[#777970]">Coming soon</span></div>)}</div></div></>; }
 
-export function SettingsDashboard({ account }: { account: { name: string; email: string } }) {
+export function SettingsDashboard({ account, initialSettings }: {
+  account: { name: string; email: string };
+  initialSettings: { profile: RecordValue; agent: RecordValue; voices: string[]; languages: string[]; error: string | null };
+}) {
   const [section, setSection] = useState<Section>("general");
-  const [profile, setProfile] = useState<RecordValue>({});
-  const [agent, setAgent] = useState<RecordValue>({});
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<RecordValue>(initialSettings.profile);
+  const [agent, setAgent] = useState<RecordValue>(initialSettings.agent);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialSettings.error);
   const [success, setSuccess] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [voices, setVoices] = useState<string[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
-
-  useEffect(() => {
-    let active = true;
-    getWorkspaceSettingsAction().then((result) => {
-      if (!active) return;
-      if (!result.ok) { setError(result.error); setLoading(false); return; }
-      const data = result.data ?? {};
-      setProfile((data.businessProfile && typeof data.businessProfile === "object" ? data.businessProfile : {}) as RecordValue);
-      setAgent((data.agentSettings && typeof data.agentSettings === "object" ? data.agentSettings : {}) as RecordValue);
-      setVoices(Array.isArray(data.availableVoices) ? data.availableVoices.map((item) => typeof item === "string" ? item : str((item as RecordValue).id)).filter(Boolean) : []);
-      setLanguages(Array.isArray(data.availableLanguages) ? data.availableLanguages.map((item) => typeof item === "string" ? item : str((item as RecordValue).code)).filter(Boolean) : []);
-      setLoading(false);
-    }).catch((e) => { if (active) { setError(e instanceof Error ? e.message : "Unable to load settings."); setLoading(false); } });
-    return () => { active = false; };
-  }, []);
+  const [voices] = useState<string[]>(initialSettings.voices);
+  const [languages] = useState<string[]>(initialSettings.languages);
 
   const active = NAV.find((item) => item.id === section)!;
   const updateProfile = (key: string, value: string) => { setProfile((current) => ({ ...current, [key]: value })); setDirty(true); setSuccess(null); };

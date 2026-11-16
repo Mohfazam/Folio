@@ -11,22 +11,12 @@ import { authRateLimiter, publicDemoRateLimiter, uploadRateLimiter } from "../mi
 import { getLivenessRoute, getReadinessRoute } from "./health.js";
 import { createPublicDemoRoute } from "./publicDemo.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
-import {
-  syncAuthUserRoute,
-  getAuthMeRoute,
-  updateAuthPhoneRoute,
-  sendAuthOtpRoute,
-  verifyAuthOtpRoute,
-} from "./auth.js";
-import {
-  submitSupportTicketRoute,
-  sendSupportOtpRoute,
-  verifySupportOtpRoute,
-} from "./support.js";
+import { syncAuthUserRoute, getAuthMeRoute } from "./auth.js";
+import { submitSupportTicketRoute } from "./support.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
 import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
-import { getCampaignsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
+import { getCampaignsRoute, getCampaignLiveStatsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
 import { contactImportUpload, importContactsFileRoute } from "./contactImport.js";
@@ -48,6 +38,7 @@ import {
   getTestCallRoute,
   getWorkspaceSetupRoute,
   launchCampaignRoute,
+  skipTestCallSetupRoute,
 } from "./workspaceSetup.js";
 
 export function registerRoutes(app: Express) {
@@ -61,16 +52,8 @@ export function registerRoutes(app: Express) {
   // Rate-limited Auth endpoints (Supabase access-token validation)
   api.post("/auth/sync", authRateLimiter, requireAuth, syncAuthUserRoute);
   api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
-  api.patch("/auth/phone", authRateLimiter, requireAuth, updateAuthPhoneRoute);
-
-  // Email verification endpoints (OTP via Nodemailer auth@foolioo.app)
-  api.post("/auth/otp/send", authRateLimiter, sendAuthOtpRoute);
-  api.post("/auth/otp/verify", authRateLimiter, verifyAuthOtpRoute);
-
   // Support endpoints (via Nodemailer support@foolioo.app)
   api.post("/support/ticket", authRateLimiter, submitSupportTicketRoute);
-  api.post("/support/otp/send", authRateLimiter, sendSupportOtpRoute);
-  api.post("/support/otp/verify", authRateLimiter, verifySupportOtpRoute);
 
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
@@ -89,6 +72,7 @@ export function registerRoutes(app: Express) {
   // Production workspace setup configuration.
   api.get("/workspace-setup", getWorkspaceSetupRoute);
   api.get("/workspace-setup/eligible-contacts", getLaunchEligibleContactsRoute);
+  api.post("/workspace-setup/test-call/skip", requireClientAdmin, skipTestCallSetupRoute);
   api.get("/agent-settings", getAgentSettingsRoute);
   api.get("/team-members", getTeamMembersRoute);
   api.post("/test-calls", requireClientAdmin, uploadRateLimiter, createTestCallRoute);
@@ -118,6 +102,7 @@ export function registerRoutes(app: Express) {
   api.delete("/follow-ups/:id", requireClientAdmin, requireOwnedResource("followUps"), deleteFollowUpRoute);
 
   api.get("/campaigns", getCampaignsRoute);
+  api.get("/campaigns/live-stats", getCampaignLiveStatsRoute);
   api.post("/campaigns/:id/launch", requireClientAdmin, uploadRateLimiter, launchCampaignRoute);
   api.get("/campaigns/:id", requireOwnedResource("campaigns"), getCampaignByIdRoute);
   api.post("/campaigns", requireClientAdmin, createCampaignRoute);

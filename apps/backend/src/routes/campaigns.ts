@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { campaigns, calls, callQueue } from "@repo/db";
 
@@ -63,38 +63,58 @@ export async function getCampaignsRoute(req: Request, res: Response) {
       .where(and(...conditions))
       .orderBy(desc(campaigns.createdAt));
 
-    // Calculate aggregated stats for each campaign
-    const enrichedCampaigns = await Promise.all(
-      campaignList.map(async (c) => {
-        const [stats] = await db
-          .select({
-            totalCalls: sql<number>`count(*)::int`,
-            connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
-            highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
-          })
-          .from(calls)
-          .where(and(eq(calls.campaignId, c.id), eq(calls.clientId, clientId)));
-        const [queueStats] = await db.select({
-          pendingCalls: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
-          inProgressCalls: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
-          failedCalls: sql<number>`count(case when ${callQueue.status} in ('failed', 'exhausted') then 1 end)::int`,
-          completedQueueCalls: sql<number>`count(case when ${callQueue.status} = 'completed' then 1 end)::int`,
-        }).from(callQueue).where(and(eq(callQueue.campaignId, c.id), eq(callQueue.clientId, clientId)));
+    // Aggregate calls and queue entries once per workspace query rather than
+    // issuing two additional queries for every campaign (N+1 query pattern).
+    const campaignIds = campaignList.map((campaign) => campaign.id);
+    const [callStatsRows, queueStatsRows] = campaignIds.length
+      ? await Promise.all([
+          db
+            .select({
+              campaignId: calls.campaignId,
+              totalCalls: sql<number>`count(*)::int`,
+              connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+              highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
+            })
+            .from(calls)
+            .where(and(eq(calls.clientId, clientId), inArray(calls.campaignId, campaignIds)))
+            .groupBy(calls.campaignId),
+          db
+            .select({
+              campaignId: callQueue.campaignId,
+              pendingCalls: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
+              inProgressCalls: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
+              failedCalls: sql<number>`count(case when ${callQueue.status} in ('failed', 'exhausted') then 1 end)::int`,
+              completedQueueCalls: sql<number>`count(case when ${callQueue.status} = 'completed' then 1 end)::int`,
+            })
+            .from(callQueue)
+            .where(and(eq(callQueue.clientId, clientId), inArray(callQueue.campaignId, campaignIds)))
+            .groupBy(callQueue.campaignId),
+        ])
+      : [[], []];
 
-        return {
-          ...c,
-          stats: {
-            totalCalls: stats?.totalCalls ?? 0,
-            connectedCalls: stats?.connectedCalls ?? 0,
-            highInterestCalls: stats?.highInterestCalls ?? 0,
-            pendingCalls: queueStats?.pendingCalls ?? 0,
-            inProgressCalls: queueStats?.inProgressCalls ?? 0,
-            failedCalls: queueStats?.failedCalls ?? 0,
-            completedQueueCalls: queueStats?.completedQueueCalls ?? 0,
-          },
-        };
-      })
+    const callsByCampaign = new Map<string, (typeof callStatsRows)[number]>(
+      callStatsRows.filter((row) => row.campaignId).map((row) => [row.campaignId!, row] as const),
     );
+    const queueByCampaign = new Map<string, (typeof queueStatsRows)[number]>(
+      queueStatsRows.filter((row) => row.campaignId).map((row) => [row.campaignId!, row] as const),
+    );
+
+    const enrichedCampaigns = campaignList.map((campaign) => {
+      const stats = callsByCampaign.get(campaign.id);
+      const queueStats = queueByCampaign.get(campaign.id);
+      return {
+        ...campaign,
+        stats: {
+          totalCalls: stats?.totalCalls ?? 0,
+          connectedCalls: stats?.connectedCalls ?? 0,
+          highInterestCalls: stats?.highInterestCalls ?? 0,
+          pendingCalls: queueStats?.pendingCalls ?? 0,
+          inProgressCalls: queueStats?.inProgressCalls ?? 0,
+          failedCalls: queueStats?.failedCalls ?? 0,
+          completedQueueCalls: queueStats?.completedQueueCalls ?? 0,
+        },
+      };
+    });
 
     return res.json({
       ok: true,
@@ -103,6 +123,83 @@ export async function getCampaignsRoute(req: Request, res: Response) {
     });
   } catch (err: unknown) {
     console.error("[campaigns/get] Unexpected error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ ok: false, error: message });
+  }
+}
+
+/**
+ * GET /api/campaigns/live-stats
+ *
+ * Return only changing campaign status and counters for the authenticated workspace.
+ * This endpoint is intended for lightweight dashboard polling.
+ */
+export async function getCampaignLiveStatsRoute(req: Request, res: Response) {
+  try {
+    const clientId = req.clientId;
+    if (!clientId) {
+      return res.status(403).json({ ok: false, error: "A provisioned workspace is required" });
+    }
+
+    const [campaignRows, callRows, queueRows] = await Promise.all([
+      db
+        .select({ id: campaigns.id, status: campaigns.status })
+        .from(campaigns)
+        .where(eq(campaigns.clientId, clientId)),
+      db
+        .select({
+          campaignId: calls.campaignId,
+          totalCalls: sql<number>`count(*)::int`,
+          connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+          highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
+        })
+        .from(calls)
+        .where(eq(calls.clientId, clientId))
+        .groupBy(calls.campaignId),
+      db
+        .select({
+          campaignId: callQueue.campaignId,
+          pendingCalls: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
+          inProgressCalls: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
+          failedCalls: sql<number>`count(case when ${callQueue.status} in ('failed', 'exhausted') then 1 end)::int`,
+          completedQueueCalls: sql<number>`count(case when ${callQueue.status} = 'completed' then 1 end)::int`,
+        })
+        .from(callQueue)
+        .where(eq(callQueue.clientId, clientId))
+        .groupBy(callQueue.campaignId),
+    ]);
+
+    const callsByCampaign = new Map<string, (typeof callRows)[number]>();
+    for (const row of callRows) {
+      if (row.campaignId) callsByCampaign.set(row.campaignId, row);
+    }
+
+    const queueByCampaign = new Map<string, (typeof queueRows)[number]>();
+    for (const row of queueRows) {
+      if (row.campaignId) queueByCampaign.set(row.campaignId, row);
+    }
+
+    const liveCampaigns = campaignRows.map((campaign) => {
+      const callStats = callsByCampaign.get(campaign.id);
+      const queueStats = queueByCampaign.get(campaign.id);
+      return {
+        id: campaign.id,
+        status: campaign.status,
+        stats: {
+          totalCalls: callStats?.totalCalls ?? 0,
+          connectedCalls: callStats?.connectedCalls ?? 0,
+          highInterestCalls: callStats?.highInterestCalls ?? 0,
+          pendingCalls: queueStats?.pendingCalls ?? 0,
+          inProgressCalls: queueStats?.inProgressCalls ?? 0,
+          failedCalls: queueStats?.failedCalls ?? 0,
+          completedQueueCalls: queueStats?.completedQueueCalls ?? 0,
+        },
+      };
+    });
+
+    return res.json({ ok: true, campaigns: liveCampaigns });
+  } catch (err: unknown) {
+    console.error("[campaigns/live-stats] Unexpected error:", err);
     const message = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ ok: false, error: message });
   }
