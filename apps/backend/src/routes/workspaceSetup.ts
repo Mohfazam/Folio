@@ -544,21 +544,9 @@ export async function launchCampaignRoute(req: Request, res: Response) {
         return { error: "Save your follow-up and team-handling rules before launching a campaign.", status: 409 as const };
       }
 
-      const latestTestCall = isRecord(clientMetadata.latestTestCall) ? clientMetadata.latestTestCall : null;
-      if (!latestTestCall || typeof latestTestCall.queueId !== "string") {
-        return { error: "Place a successful test call before launching your first campaign.", status: 409 as const };
-      }
-      const [testQueue] = await tx.select({ status: callQueue.status }).from(callQueue)
-        .where(and(eq(callQueue.id, latestTestCall.queueId), eq(callQueue.clientId, req.clientId!))).limit(1);
-      const [testCall] = await tx.select({ outcome: calls.outcome }).from(calls)
-        .where(eq(calls.queueEntryId, latestTestCall.queueId)).orderBy(desc(calls.startedAt)).limit(1);
-      const currentAgentUpdatedAt = typeof metadataRecord(profile.metadata).aiAgentSettings === "object" && metadataRecord(profile.metadata).aiAgentSettings !== null
-        ? (metadataRecord(profile.metadata).aiAgentSettings as Record<string, unknown>).updatedAt
-        : null;
-      if (testQueue?.status !== "completed" || testCall?.outcome !== "connected" ||
-          (latestTestCall.agentSettingsUpdatedAt ?? null) !== (currentAgentUpdatedAt ?? null)) {
-        return { error: "Complete a successful test call using your latest saved AI agent settings before launching.", status: 409 as const };
-      }
+      // A successful test call is recommended during onboarding, but it is
+      // not a prerequisite for launching a campaign. Keep the launch checks
+      // focused on agent configuration, routing, audience permission and capacity.
 
       const selected = await tx.select().from(contacts)
         .where(and(eq(contacts.clientId, req.clientId!), inArray(contacts.id, contactIds)));

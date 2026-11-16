@@ -121,6 +121,7 @@ type SetupStep = {
   complete: boolean;
   detail: string;
   recommended?: boolean;
+  optional?: boolean;
   disabled?: boolean;
   disabledReason?: string;
 };
@@ -163,11 +164,12 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     {
       id: 3,
       title: "Place a test call",
-      description: "Call a phone number you own and hear how your configured agent handles a real conversation.",
+      description: "Recommended: call a number you own to hear how your agent handles a real conversation. This step is optional, and you can continue setup without placing a test call.",
       action: "Test call",
       actionKey: "test-call",
       complete: summary?.testCallComplete === true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallStatus === "pending" ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. Review the agent and try again.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}.` : "Place a real test call to a number you own before contacting your audience.",
+      optional: true,
+      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallStatus === "pending" ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. A successful test call is recommended, but not required to launch.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}. A test call is optional.` : "Optional. Run a test call to hear your agent before launch, or skip this step and continue setup.",
     },
     {
       id: 4,
@@ -200,9 +202,13 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
 
   const agentConfigured = steps[0]?.complete === true;
   const contactsImported = steps[1]?.complete === true;
-  const firstFiveComplete = steps.slice(0, 5).every((step) => step.complete);
+  // A test call is a recommendation, not a launch prerequisite. Only the
+  // required setup steps before launch can block the final review step.
+  const requiredSetupComplete = steps
+    .filter((step) => !step.optional && step.actionKey !== "launch")
+    .every((step) => step.complete);
 
-  const firstIncompleteStepId = steps.find((step) => !step.complete)?.id ?? null;
+  const firstIncompleteStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
 
   return steps.map((step) => {
     const nextStep = {
@@ -212,7 +218,7 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
     if (step.actionKey === "test-call" && !(agentConfigured && contactsImported)) {
       return { ...nextStep, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
     }
-    if (step.actionKey === "launch" && !firstFiveComplete) {
+    if (step.actionKey === "launch" && !requiredSetupComplete) {
       return { ...nextStep, disabled: true, disabledReason: "Complete the setup steps above before launching." };
     }
     return nextStep;
@@ -237,12 +243,13 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
   const steps = useMemo(() => buildSetupSteps(data), [data]);
   const [expanded, setExpanded] = useState<number[]>([1]);
   const [hasManuallyChangedExpansion, setHasManuallyChangedExpansion] = useState(false);
-  const complete = steps.filter((step) => step.complete).length;
+  const requiredSteps = steps.filter((step) => !step.optional);
+  const complete = requiredSteps.filter((step) => step.complete).length;
   const anyExpanded = expanded.length > 0;
 
   useEffect(() => {
     if (hasManuallyChangedExpansion) return;
-    const nextStep = steps.find((step) => !step.complete)?.id ?? null;
+    const nextStep = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
     setExpanded(nextStep ? [nextStep] : []);
   }, [steps, hasManuallyChangedExpansion]);
 
@@ -261,7 +268,7 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
       <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
         <div className="flex flex-col gap-4 bg-[rgba(245,244,237,0.4)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div className="flex items-center gap-4">
-            <ProgressRing complete={complete} total={steps.length} />
+            <ProgressRing complete={complete} total={requiredSteps.length} />
             <div className="min-w-0">
               <h2 id="setup-heading" className="font-['Space_Grotesk'] text-[15px] font-semibold tracking-[-0.16px] text-[#1B1C18] sm:text-[16px]">Get your workspace ready for outbound voice</h2>
               <p className="mt-1 max-w-[560px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#444748] sm:text-[13px]">Complete these essential steps to run your first compliant AI voice campaign.</p>
@@ -285,7 +292,7 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
                   <div className="min-w-0 flex-1">
                     <button type="button" onClick={() => toggleStep(step.id)} aria-expanded={isExpanded} className="block min-w-0 text-left">
                       <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
+                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.optional ? " · OPTIONAL" : step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
                         {!step.recommended ? <span className="hidden h-1 w-1 rounded-full bg-[#C4C7C7] sm:inline-block" /> : null}
                         <span className="font-['Space_Grotesk'] text-[14px] font-semibold leading-5 text-[#1B1C18] sm:text-[15px]">{step.title}</span>
                       </span>
