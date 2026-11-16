@@ -271,12 +271,13 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const [loadingAudience, setLoadingAudience] = useState(false);
   const [launchBusy, setLaunchBusy] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
-  const [startAt, setStartAt] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [dailyStart, setDailyStart] = useState("09:00");
   const [dailyEnd, setDailyEnd] = useState("18:00");
 
   const openLaunch = async (campaign: Campaign) => {
     setLaunchingCampaign(campaign);
+    setStartDate("");
     setLaunchError(null);
     setLoadingAudience(true);
     setSelectedContactIds([]);
@@ -302,9 +303,15 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       setLaunchError("The daily calling end time must be later than the start time.");
       return;
     }
-    const scheduled = startAt ? new Date(startAt) : new Date();
-    if (Number.isNaN(scheduled.getTime()) || scheduled.getTime() < Date.now() - 60_000) {
-      setLaunchError("Choose a launch time in the future, or leave it empty to start manually now.");
+    // When a launch date is selected, the campaign becomes eligible to start
+    // at the beginning of its daily calling window. No separate launch-time
+    // field is needed because Daily calls start already defines that time.
+    const scheduled = startDate
+      ? new Date(`${startDate}T${dailyStart}:00`)
+      : new Date();
+
+    if (Number.isNaN(scheduled.getTime()) || (startDate && scheduled.getTime() < Date.now() - 60_000)) {
+      setLaunchError("Choose a future launch date, or leave it empty to start as soon as possible.");
       return;
     }
     setLaunchBusy(true);
@@ -365,10 +372,38 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               <button type="button" onClick={() => setLaunchingCampaign(null)} className="rounded border border-[#E5E4DC] px-3 py-1.5 text-[12px]">Close</button>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              <label className={LABEL}>Start date and time <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={INPUT} /><span className="mt-1 block text-[10px] font-normal text-[#92938C]">Leave empty to start as soon as possible.</span></label>
-              <label className={LABEL}>Daily calls start <input type="time" value={dailyStart} onChange={(e) => setDailyStart(e.target.value)} className={INPUT} /></label>
-              <label className={LABEL}>Daily calls end <input type="time" value={dailyEnd} onChange={(e) => setDailyEnd(e.target.value)} className={INPUT} /></label>
+              <label className={LABEL}>
+                Start date
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={INPUT}
+                />
+                <span className="mt-1 block text-[10px] font-normal text-[#92938C]">Choose the launch date.</span>
+              </label>
+              <label className={LABEL}>
+                Daily calls start
+                <input
+                  type="time"
+                  value={dailyStart}
+                  onChange={(e) => setDailyStart(e.target.value)}
+                  className={INPUT}
+                />
+              </label>
+              <label className={LABEL}>
+                Daily calls end
+                <input
+                  type="time"
+                  value={dailyEnd}
+                  onChange={(e) => setDailyEnd(e.target.value)}
+                  className={INPUT}
+                />
+              </label>
             </div>
+            <p className="mt-2 font-['Space_Grotesk'] text-[10px] leading-4 text-[#92938C]">
+              Leave the start date empty to launch as soon as possible. On the selected date, calls can begin at your daily calls start time.
+            </p>
             <div className="mt-5 rounded-[7px] border border-[#ECEBE5] bg-white">
               <div className="flex items-center justify-between border-b border-[#ECEBE5] px-4 py-3"><div><p className="text-[12px] font-semibold text-[#1B1C18]">Eligible contacts</p><p className="text-[10px] text-[#85877F]">Select the audience for this campaign.</p></div><button type="button" disabled={!eligibleContacts.length} onClick={() => setSelectedContactIds(selectedContactIds.length === eligibleContacts.length ? [] : eligibleContacts.map((c) => c.id))} className="text-[11px] font-semibold text-[#7852D6]">{selectedContactIds.length === eligibleContacts.length && eligibleContacts.length ? "Clear all" : "Select all"}</button></div>
               <div className="max-h-[230px] overflow-y-auto">
@@ -414,7 +449,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                 ) : null}
               </div>
             ) : null}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4"><p className="max-w-[380px] text-[10px] leading-4 text-[#85877F]">Calls also obey workspace calling hours, available credits, daily limits and contact opt-outs.</p><button type="button" disabled={launchBusy || loadingAudience || !selectedContactIds.length} onClick={submitLaunch} className="rounded-[5px] bg-[#1B1C18] px-5 py-2.5 text-[12px] font-semibold text-white disabled:opacity-50">{launchBusy ? "Queuing campaign…" : startAt ? "Schedule campaign" : "Start campaign now"}</button></div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4"><p className="max-w-[380px] text-[10px] leading-4 text-[#85877F]">Calls also obey workspace calling hours, available credits, daily limits and contact opt-outs.</p><button type="button" disabled={launchBusy || loadingAudience || !selectedContactIds.length} onClick={submitLaunch} className="rounded-[5px] bg-[#1B1C18] px-5 py-2.5 text-[12px] font-semibold text-white disabled:opacity-50">{launchBusy ? "Queuing campaign…" : startDate ? "Schedule campaign" : "Start campaign now"}</button></div>
           </div>
         </div>
       ) : null}
