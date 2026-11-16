@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { CampaignsDashboard } from "@/components/dashboard/campaigns-dashboard";
 
 type JsonRecord = Record<string, unknown>;
@@ -60,19 +60,16 @@ function toCampaign(value: unknown): Campaign | null {
 async function CampaignsPageContent() {
   await connection();
 
-  const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) redirect("/sign-in");
-
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
   try {
     const response = await fetch(`${baseUrl}/api/campaigns`, {
       method: "GET",
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
     });
     const payload: unknown = await response.json().catch(() => null);

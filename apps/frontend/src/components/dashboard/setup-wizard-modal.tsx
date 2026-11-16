@@ -9,6 +9,7 @@ import {
   launchCampaignAction,
   saveAgentSettingsAction,
   saveRoutingRulesAction,
+  getSetupWizardDataAction,
 } from "@/app/(dashboard)/dashboard/actions";
 
 type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
@@ -78,18 +79,46 @@ export function SetupWizardModal({
   onComplete: () => void;
   onSwitchAction?: (nextAction: SetupAction) => void;
 }) {
-  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
-  const agentPayload = data.agentSettings.state === "ready" ? data.agentSettings.data : {};
+  const [wizardData, setWizardData] = useState<SetupData | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [dataLoadAttempt, setDataLoadAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setLoadingData(true);
+    setDataLoadError(null);
+    getSetupWizardDataAction().then((result) => {
+      if (!active) return;
+      const setupData = result.ok ? result.data?.setupData : null;
+      if (!result.ok || !isRecord(setupData)) {
+        setDataLoadError(result.ok ? "Setup details could not be loaded." : result.error);
+        setLoadingData(false);
+        return;
+      }
+      setWizardData(setupData as unknown as SetupData);
+      setLoadingData(false);
+    }).catch((cause) => {
+      if (!active) return;
+      setDataLoadError(cause instanceof Error ? cause.message : "Setup details could not be loaded.");
+      setLoadingData(false);
+    });
+    return () => { active = false; };
+  }, [dataLoadAttempt]);
+
+  const effectiveData = wizardData ?? data;
+  const profile = effectiveData.businessProfile.state === "ready" ? effectiveData.businessProfile.data : null;
+  const agentPayload = effectiveData.agentSettings.state === "ready" ? effectiveData.agentSettings.data : {};
   const agent = isRecord(agentPayload.agentSettings) ? agentPayload.agentSettings : recordValue(recordValue(profile, "metadata"), "aiAgentSettings");
-  const routingPayload = data.routingRules.state === "ready" ? data.routingRules.data : {};
+  const routingPayload = effectiveData.routingRules.state === "ready" ? effectiveData.routingRules.data : {};
   const routing = isRecord(routingPayload.routingRules) ? routingPayload.routingRules : {};
-  const team = items(data.teamMembers);
-  const client = items(data.clients)[0] ?? {};
-  const authPayload = data.authProfile.state === "ready" ? data.authProfile.data : {};
+  const team = items(effectiveData.teamMembers);
+  const client = items(effectiveData.clients)[0] ?? {};
+  const authPayload = effectiveData.authProfile.state === "ready" ? effectiveData.authProfile.data : {};
   const authUser = recordValue(authPayload, "user");
   const accountPhone = textValue(authUser, "phoneNumber");
-  const launchContactRows = items(data.launchContacts);
-  const campaignRows = items(data.campaigns);
+  const launchContactRows = items(effectiveData.launchContacts);
+  const campaignRows = items(effectiveData.campaigns);
   const voices = Array.isArray(agentPayload.availableVoices)
     ? agentPayload.availableVoices.filter(isRecord)
     : [];
@@ -113,6 +142,22 @@ export function SetupWizardModal({
   const [contactFile, setContactFile] = useState<File | null>(null);
   const [contactImportStage, setContactImportStage] = useState<"select" | "review">("select");
   const [contactImportConfirmed, setContactImportConfirmed] = useState(false);
+
+  useEffect(() => {
+    if (!wizardData) return;
+    const loadedProfile = wizardData.businessProfile.state === "ready" ? wizardData.businessProfile.data : null;
+    const loadedAgentPayload = wizardData.agentSettings.state === "ready" ? wizardData.agentSettings.data : {};
+    const loadedAgent = isRecord(loadedAgentPayload.agentSettings)
+      ? loadedAgentPayload.agentSettings
+      : recordValue(recordValue(loadedProfile, "metadata"), "aiAgentSettings");
+    const loadedAuth = wizardData.authProfile.state === "ready" ? wizardData.authProfile.data : {};
+    const loadedUser = recordValue(loadedAuth, "user");
+    const loadedCampaigns = items(wizardData.campaigns);
+    const firstLaunchable = loadedCampaigns.find((item) => item.status === "draft" || item.status === "paused");
+    setPhoneInput(textValue(loadedUser, "phoneNumber"));
+    setSelectedCampaignId(textValue(firstLaunchable, "id"));
+    setSpeechRate(String(loadedAgent.speechRate ?? 1));
+  }, [wizardData]);
 
   const availableContacts = useMemo(() => launchContactRows, [launchContactRows]);
 
@@ -190,6 +235,20 @@ export function SetupWizardModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          {loadingData ? (
+            <div className="space-y-4 py-8" aria-live="polite" aria-busy="true">
+              <p className="text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">Loading setup details…</p>
+              <div className="h-10 rounded bg-[#F4F3EE]" />
+              <div className="h-10 rounded bg-[#F4F3EE]" />
+              <div className="h-24 rounded bg-[#F4F3EE]" />
+            </div>
+          ) : dataLoadError ? (
+            <div className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] p-4">
+              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{dataLoadError}</p>
+              <button type="button" onClick={() => setDataLoadAttempt((value) => value + 1)} className="mt-3 rounded-[4px] bg-[#1B1C18] px-3 py-2 text-[11px] font-semibold text-white">Try again</button>
+            </div>
+          ) : (
+          <>
           {action === "voice" ? (
             <form className="flex flex-col gap-4" onSubmit={async (event) => {
               event.preventDefault();
@@ -608,17 +667,17 @@ export function SetupWizardModal({
                   {campaignRows.filter((campaign) => campaign.status === "draft" || campaign.status === "paused").map((campaign) => <option key={textValue(campaign, "id")} value={textValue(campaign, "id")}>{textValue(campaign, "name", "Untitled campaign")} · {textValue(campaign, "status")}</option>)}
                 </select>
               </label>
-              {data.knowledgeBase.state === "ready" && data.knowledgeBase.data.items.length === 0 ? <div className="rounded-[4px] border border-[#E9D9B9] bg-[#FFFBF2] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#725B34]">Your knowledge base is empty. The agent can use its business profile and campaign instructions, but it will not have approved FAQs or policy articles to reference. Add those under Knowledge & Voice before campaigns that need detailed answers.</div> : null}
-              {data.knowledgeBase.state === "error" ? <div className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Knowledge-base status could not be checked. Review it before launching a campaign that requires approved factual answers.</div> : null}
+              {effectiveData.knowledgeBase.state === "ready" && effectiveData.knowledgeBase.data.items.length === 0 ? <div className="rounded-[4px] border border-[#E9D9B9] bg-[#FFFBF2] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#725B34]">Your knowledge base is empty. The agent can use its business profile and campaign instructions, but it will not have approved FAQs or policy articles to reference. Add those under Knowledge & Voice before campaigns that need detailed answers.</div> : null}
+              {effectiveData.knowledgeBase.state === "error" ? <div className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Knowledge-base status could not be checked. Review it before launching a campaign that requires approved factual answers.</div> : null}
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">Choose your audience</p>
-                  <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">{availableContacts.length.toLocaleString("en-IN")} eligible contacts available{data.launchContacts.state === "ready" && data.launchContacts.data.total !== null ? ` of ${data.launchContacts.data.total.toLocaleString("en-IN")}` : ""}</p>
+                  <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">{availableContacts.length.toLocaleString("en-IN")} eligible contacts available{effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null ? ` of ${effectiveData.launchContacts.data.total.toLocaleString("en-IN")}` : ""}</p>
                 </div>
                 <button type="button" onClick={() => setSelectedContactIds(selectedContactIds.length === availableContacts.length ? [] : availableContacts.map((contact) => textValue(contact, "id")).filter(Boolean))} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#444748] hover:bg-[#F5F4ED]">{selectedContactIds.length === availableContacts.length ? "Clear all" : "Select all eligible"}</button>
               </div>
-              {data.launchContacts.state === "ready" && data.launchContacts.data.total !== null && data.launchContacts.data.total > availableContacts.length ? <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">This selector shows the first 5,000 eligible contacts. Refine the audience before launching a larger list.</p> : null}
-              {data.launchContacts.state === "error" ? <p className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF9F8] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Eligible contacts could not be loaded. Refresh the dashboard and try again.</p> : availableContacts.length > 0 ? (
+              {effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null && effectiveData.launchContacts.data.total > availableContacts.length ? <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">This selector shows the first 5,000 eligible contacts. Refine the audience before launching a larger list.</p> : null}
+              {effectiveData.launchContacts.state === "error" ? <p className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF9F8] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Eligible contacts could not be loaded. Refresh the dashboard and try again.</p> : availableContacts.length > 0 ? (
                 <div className="max-h-[220px] overflow-y-auto rounded-[5px] border border-[#E9E8E1]">
                   {availableContacts.map((contact) => {
                     const id = textValue(contact, "id");
@@ -695,6 +754,8 @@ export function SetupWizardModal({
             </div>
           ) : null}
           {success ? <p className="mt-4 rounded-[4px] border border-[#CDE4D2] bg-[#F5FBF6] px-3 py-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#25633A]" role="status">{success}</p> : null}
+          </>
+          )}
         </div>
       </section>
     </div>

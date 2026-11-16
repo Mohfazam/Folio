@@ -85,18 +85,20 @@ export async function getContactsRoute(req: Request, res: Response) {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const items = await db
-      .select()
-      .from(contacts)
-      .where(whereClause)
-      .orderBy(desc(contacts.createdAt))
-      .limit(take)
-      .offset(skip);
-
-    const [countResult] = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(contacts)
-      .where(whereClause);
+    const [items, countRows] = await Promise.all([
+      db
+        .select()
+        .from(contacts)
+        .where(whereClause)
+        .orderBy(desc(contacts.createdAt))
+        .limit(take)
+        .offset(skip),
+      db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(contacts)
+        .where(whereClause),
+    ]);
+    const countResult = countRows[0];
 
     const total = countResult?.total ?? items.length;
 

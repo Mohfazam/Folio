@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { FollowUpsDashboard, type FollowUpRecord } from "@/components/dashboard/follow-ups-dashboard";
 
 type JsonRecord = Record<string, unknown>;
@@ -60,15 +60,13 @@ async function FollowUpsPageContent({ searchParams }: { searchParams: Promise<Se
   const requestedStatus = first(params.status);
   const status = ["open", "done", "not_needed"].includes(requestedStatus) ? requestedStatus : "open";
 
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) redirect("/sign-in");
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
-  const headers = { Authorization: `Bearer ${session.access_token}` };
+  const headers = { Authorization: `Bearer ${accessToken}` };
   try {
     const [followUpsResponse, contactsResponse] = await Promise.all([
       fetch(`${baseUrl}/api/follow-ups?limit=100&offset=0`, { headers, cache: "no-store" }),

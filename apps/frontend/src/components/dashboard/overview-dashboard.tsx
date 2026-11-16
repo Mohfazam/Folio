@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
-import { skipTestCallSetupAction } from "@/app/(dashboard)/dashboard/actions";
+import { getOverviewAnalyticsAction, skipTestCallSetupAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -26,6 +26,7 @@ export type CollectionSnapshot = {
 };
 
 type LoadResult<T> =
+  | { state: "loading" }
   | { state: "ready"; data: T }
   | { state: "error"; error: string; status?: number };
 
@@ -135,7 +136,6 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const summary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
     ? data.setup.data.setup
     : null;
-  const profile = data.businessProfile.state === "ready" ? data.businessProfile.data : null;
   const contactCount = recordNumber(summary, "contactCount");
   const campaignCount = recordNumber(summary, "campaignCount");
   const activeCampaignCount = recordNumber(summary, "activeCampaignCount");
@@ -143,7 +143,7 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const testCallOutcome = recordText(summary, "testCallOutcome");
   const testCallSkipped = summary?.testCallSkipped === true;
   const testCallComplete = summary?.testCallComplete === true;
-  const agentName = recordText(profile, "aiPersonaName") ?? "your AI agent";
+  const agentName = recordText(summary, "agentName") ?? "your AI agent";
 
   const steps: SetupStep[] = [
     {
@@ -503,9 +503,13 @@ function RecentCalls({ analytics, timezone, onPlaceTestCall, canPlaceTestCall }:
 }
 
 function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
-  const contactTotal = data.contacts.state === "ready" ? data.contacts.data.total : null;
-  const campaignTotal = data.campaigns.state === "ready" ? data.campaigns.data.total : null;
-  const knowledgeTotal = data.knowledgeBase.state === "ready" ? data.knowledgeBase.data.total : null;
+  const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+    ? data.setup.data.setup
+    : null;
+  const setupReady = data.setup.state === "ready";
+  const contactTotal = recordNumber(setupSummary, "contactCount");
+  const campaignTotal = recordNumber(setupSummary, "campaignCount");
+  const knowledgeTotal = recordNumber(setupSummary, "knowledgeBaseCount");
 
   const readinessLabel = (value: number | null, ready: boolean, singular: string) => {
     if (!ready) return "Unavailable";
@@ -513,9 +517,9 @@ function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
   };
 
   const rows = [
-    { label: "Contacts", value: readinessLabel(contactTotal, data.contacts.state === "ready", "Contacts"), error: data.contacts.state === "error" },
-    { label: "Campaigns", value: readinessLabel(campaignTotal, data.campaigns.state === "ready", "Campaigns"), error: data.campaigns.state === "error" },
-    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, data.knowledgeBase.state === "ready", "Knowledge base"), error: data.knowledgeBase.state === "error" },
+    { label: "Contacts", value: readinessLabel(contactTotal, setupReady, "Contacts"), error: data.setup.state === "error" },
+    { label: "Campaigns", value: readinessLabel(campaignTotal, setupReady, "Campaigns"), error: data.setup.state === "error" },
+    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, setupReady, "Knowledge base"), error: data.setup.state === "error" },
   ];
 
   return (
@@ -541,12 +545,56 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const router = useRouter();
   const { requestedSetupAction, clearRequestedSetupAction } = useDashboardNavigation();
   const firstName = profile.displayName.trim().split(/\s+/)[0] || "there";
-  const analytics = data.analytics.state === "ready" ? data.analytics.data : null;
+  const [analyticsResult, setAnalyticsResult] = useState<LoadResult<AnalyticsOverview>>(data.analytics);
+  useEffect(() => {
+    if (data.analytics.state === "ready" || data.analytics.state === "error") {
+      setAnalyticsResult(data.analytics);
+      return;
+    }
+
+    let active = true;
+    getOverviewAnalyticsAction().then((result) => {
+      if (!active) return;
+      if (!result.ok) {
+        setAnalyticsResult({ state: "error", error: result.error, status: result.status });
+        return;
+      }
+      const payload = result.data?.analytics;
+      if (!isJsonRecord(payload)) {
+        setAnalyticsResult({ state: "error", error: "The analytics response was invalid." });
+        return;
+      }
+      const isRecordValue = (value: unknown): value is JsonRecord => isJsonRecord(value);
+      if (!isRecordValue(payload.quota) || !isRecordValue(payload.callMetrics) || !isRecordValue(payload.pipeline)) {
+        setAnalyticsResult({ state: "error", error: "The analytics response is missing required workspace metrics." });
+        return;
+      }
+      setAnalyticsResult({
+        state: "ready",
+        data: {
+          timeframe: typeof payload.timeframe === "string" ? payload.timeframe : "30d",
+          client: isRecordValue(payload.client) ? payload.client : {},
+          quota: payload.quota,
+          callMetrics: payload.callMetrics,
+          leadIntelligence: isRecordValue(payload.leadIntelligence) ? payload.leadIntelligence : {},
+          pipeline: payload.pipeline,
+          costs: isRecordValue(payload.costs) ? payload.costs : {},
+          recentCalls: Array.isArray(payload.recentCalls) ? payload.recentCalls.filter(isRecordValue) : [],
+        },
+      });
+    }).catch((error) => {
+      if (active) setAnalyticsResult({ state: "error", error: error instanceof Error ? error.message : "Unable to load workspace analytics." });
+    });
+
+    return () => { active = false; };
+  }, [data.analytics]);
+
+  const analytics = analyticsResult.state === "ready" ? analyticsResult.data : null;
   const callMetrics = analytics?.callMetrics;
   const pipeline = analytics?.pipeline;
   const leadIntelligence = analytics?.leadIntelligence;
   const timezone = profile.timezone || "Asia/Kolkata";
-  const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : "ANALYTICS UNAVAILABLE";
+  const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : analyticsResult.state === "loading" ? "LOADING METRICS" : "ANALYTICS UNAVAILABLE";
   const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup) ? data.setup.data.setup : null;
   const canPlaceTestCall = setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
   const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
@@ -584,8 +632,12 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           <h2 id="metrics-heading" className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE METRICS</h2>
           <span className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#747878]">{telemetryLabel}</span>
         </div>
-        {data.analytics.state === "error" ? (
-          <SectionError title="Workspace analytics" error={data.analytics.error} />
+        {analyticsResult.state === "loading" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => <div key={item} className="h-[106px] rounded-[8px] border border-[#E9E8E1] bg-white p-4"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-4 h-8 w-16 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-3 h-2.5 w-32 rounded bg-[#F1F0EB]" /></div>)}
+          </div>
+        ) : analyticsResult.state === "error" ? (
+          <SectionError title="Workspace analytics" error={analyticsResult.error} />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Calls placed" value={recordNumber(callMetrics, "totalCalls")} helper="Calls in the selected period" icon="calls" />
@@ -616,13 +668,15 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           />
           {analytics ? (
             <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
+          ) : analyticsResult.state === "loading" ? (
+            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3.5 w-32 rounded bg-[#ECEBE5]" /><div className="mt-5 space-y-4">{[0, 1, 2].map((item) => <div key={item} className="flex gap-3"><div className="animate-pulse motion-reduce:animate-none h-9 w-9 rounded-full bg-[#ECEBE5]" /><div className="flex-1 space-y-2"><div className="animate-pulse motion-reduce:animate-none h-3 w-40 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none h-2.5 w-56 rounded bg-[#F1F0EB]" /></div></div>)}</div></div>
           ) : (
-            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable until analytics loads.</p></div>
+            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable.</p></div>
           )}
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5 lg:col-span-4" aria-label="Workspace resources">
-          {analytics ? <QuotaPanel analytics={analytics} /> : null}
+          {analytics ? <QuotaPanel analytics={analytics} /> : analyticsResult.state === "loading" ? <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-6 h-10 w-28 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-5 h-2.5 w-full rounded bg-[#F1F0EB]" /></div> : null}
           <WorkspaceSnapshot data={data} />
         </aside>
       </div>

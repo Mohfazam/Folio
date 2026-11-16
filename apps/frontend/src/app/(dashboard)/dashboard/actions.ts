@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
 type ActionResult =
   | { ok: true; data?: Record<string, unknown> }
@@ -267,4 +268,144 @@ export async function saveWorkspaceSettingsAction(input: Record<string, unknown>
   const result = await backendRequest("/api/business-profile", "PUT", input);
   if (result.ok) revalidatePath("/dashboard/settings");
   return result;
+}
+
+
+/**
+ * Load the Setup Wizard's supporting data only when the user opens the wizard.
+ * One verified session is reused for all parallel workspace-scoped reads.
+ */
+export async function getSetupWizardDataAction(): Promise<ActionResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
+    }
+
+    const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
+    const headers = { Authorization: `Bearer ${session.access_token}` };
+    const paths = [
+      "/api/business-profile",
+      "/api/agent-settings",
+      "/api/team-members",
+      "/api/clients",
+      "/api/auth/me",
+      "/api/campaigns",
+      "/api/knowledge-base?limit=100&offset=0",
+      "/api/workspace-setup/eligible-contacts?limit=5000",
+    ];
+    const responses = await Promise.all(paths.map(async (path) => {
+      try {
+        const response = await fetch(`${baseUrl}${path}`, { headers, cache: "no-store" });
+        const payload: unknown = await response.json().catch(() => null);
+        const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+          ? payload as Record<string, unknown>
+          : {};
+        return { path, status: response.status, ok: response.ok && record.ok !== false, record };
+      } catch (error) {
+        return { path, status: 0, ok: false, record: { error: error instanceof Error ? error.message : "Request failed." } };
+      }
+    }));
+    const byPath = new Map(responses.map((result) => [result.path, result]));
+    const get = (path: string) => byPath.get(path)!;
+    const asRecord = (value: unknown): Record<string, unknown> | null =>
+      typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+    const snapshot = (path: string, keys: string[]):
+      | { state: "ready"; data: { items: Record<string, unknown>[]; total: number | null; itemsKnown: boolean } }
+      | { state: "error"; status: number; error: string } => {
+      const result = get(path);
+      if (!result.ok) {
+        return { state: "error", status: result.status, error: typeof result.record.error === "string" ? result.record.error : `Request failed (${result.status}).` };
+      }
+      const rows = keys.map((key) => result.record[key]).find(Array.isArray) as unknown[] | undefined;
+      const data = asRecord(result.record.data) ?? {};
+      const total = typeof result.record.total === "number" ? result.record.total : typeof data.total === "number" ? data.total : rows?.length ?? null;
+      return { state: "ready", data: { items: (rows ?? []).filter((item): item is Record<string, unknown> => asRecord(item) !== null), total, itemsKnown: rows !== undefined } };
+    };
+    const profileResult = get("/api/business-profile");
+    const agentResult = get("/api/agent-settings");
+    const clients = snapshot("/api/clients", ["clients"]);
+    const teams = snapshot("/api/team-members", ["members"]);
+    const campaigns = snapshot("/api/campaigns", ["campaigns"]);
+    const knowledgeBase = snapshot("/api/knowledge-base?limit=100&offset=0", ["entries", "knowledgeBase", "knowledgeBaseEntries"]);
+    const launchContacts = snapshot("/api/workspace-setup/eligible-contacts?limit=5000", ["contacts"]);
+    const contactSummary = snapshot("/api/workspace-setup/eligible-contacts?limit=5000", ["contacts"]);
+    const authProfileResult = get("/api/auth/me");
+
+    const profileRecord = asRecord(profileResult.record.businessProfile);
+    const agentRecord = agentResult.ok ? agentResult.record : {};
+    const clientRows = clients.state === "ready" ? clients.data.items as Record<string, unknown>[] : [];
+    const workspace = clientRows[0] ?? {};
+    const metadata = asRecord(workspace.metadata) ?? {};
+    const savedRules = asRecord(metadata.routingRules);
+    const authPayload = authProfileResult.ok ? authProfileResult.record : {};
+    const authUser = asRecord(authPayload.user) ?? {};
+    const userId = typeof authUser.id === "string" ? authUser.id : null;
+    const defaultRules = {
+      callback: { enabled: true, assignToUserId: userId, dueInMinutes: 30 },
+      highInterest: { enabled: true, assignToUserId: userId },
+      humanRequested: { enabled: true, assignToUserId: userId },
+      noAnswer: { enabled: true, retryAfterMinutes: 1440, maxRetries: 2 },
+    };
+
+    const setupData = {
+      businessProfile: profileResult.ok || profileResult.status === 404
+        ? { state: "ready", data: profileResult.status === 404 ? null : profileRecord }
+        : { state: "error", status: profileResult.status, error: typeof profileResult.record.error === "string" ? profileResult.record.error : "Business profile request failed." },
+      agentSettings: agentResult.ok
+        ? { state: "ready", data: agentRecord }
+        : { state: "error", status: agentResult.status, error: typeof agentResult.record.error === "string" ? agentResult.record.error : "Agent settings request failed." },
+      routingRules: clients.state === "error"
+        ? clients
+        : { state: "ready", data: { ok: true, configured: savedRules?.configured === true, routingRules: savedRules ?? defaultRules } },
+      teamMembers: teams,
+      clients,
+      contacts: contactSummary,
+      campaigns,
+      knowledgeBase,
+      authProfile: authProfileResult.ok
+        ? { state: "ready", data: authPayload }
+        : { state: "error", status: authProfileResult.status, error: typeof authProfileResult.record.error === "string" ? authProfileResult.record.error : "Account profile request failed." },
+      launchContacts,
+    };
+
+    return { ok: true, data: { setupData } };
+  } catch (error) {
+    console.error("[dashboard/action] setup wizard data failed:", error);
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to load setup details." };
+  }
+}
+
+
+/** Fetch Overview analytics after the workspace shell has rendered. */
+export async function getOverviewAnalyticsAction(): Promise<ActionResult> {
+  try {
+    const auth = await getDashboardAuthContext();
+    if (!auth) return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
+
+    const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
+    const response = await fetch(`${baseUrl}/api/analytics/overview?timeframe=30d`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      cache: "no-store",
+    });
+    const payload: unknown = await response.json().catch(() => null);
+    const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+
+    if (!response.ok || record.ok !== true) {
+      return {
+        ok: false,
+        status: response.status,
+        error: typeof record.error === "string" ? record.error : `Analytics request failed (${response.status}).`,
+      };
+    }
+
+    return { ok: true, data: { analytics: record } };
+  } catch (error) {
+    console.error("[dashboard/action] Overview analytics failed:", error);
+    return { ok: false, error: error instanceof Error ? error.message : "Unable to load workspace analytics." };
+  }
 }

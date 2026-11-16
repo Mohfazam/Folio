@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { AiStudioDashboard } from "@/components/dashboard/ai-studio-dashboard";
 
 type RecordValue = Record<string, unknown>;
@@ -13,9 +13,9 @@ async function load(path: string, token: string) {
 }
 async function AiStudioContent() {
   await connection();
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) return <div className="rounded-lg border border-[#ECEBE5] bg-white p-6 text-sm">Your session has expired. Sign in again.</div>;
+  const auth = await getDashboardAuthContext();
+  if (!auth) return <div className="rounded-lg border border-[#ECEBE5] bg-white p-6 text-sm">Your session has expired. Sign in again.</div>;
+  const accessToken = auth.accessToken;
   let entries: RecordValue[] = [];
   let agent: RecordValue = {};
   let profile: RecordValue = {};
@@ -23,8 +23,8 @@ async function AiStudioContent() {
   let languages: Array<{code:string;label:string}> = [{code:"en-IN",label:"English (India)"}];
   let error: string | null = null;
   const results = await Promise.allSettled([
-    load("/api/knowledge-base?limit=100&offset=0", session.access_token),
-    load("/api/agent-settings", session.access_token),
+    load("/api/knowledge-base?limit=100&offset=0", accessToken),
+    load("/api/agent-settings", accessToken),
   ]);
   if (results[0].status === "fulfilled") {
     const payload = results[0].value;

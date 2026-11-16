@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import {
   CallsDashboard,
   type CallRecord,
@@ -85,20 +85,9 @@ function toCall(value: unknown): CallRecord | null {
 }
 
 async function getAccessToken(): Promise<string> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) redirect("/sign-in");
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) redirect("/sign-in");
-  return session.access_token;
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  return auth.accessToken;
 }
 
 async function backendGet(url: string, token: string): Promise<BackendGetResult> {

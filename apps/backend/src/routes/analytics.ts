@@ -75,109 +75,98 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
 
     const whereClause = and(...conditions);
 
-    // 3. Aggregate Call Metrics & Outcomes
-    const [callStats] = await db
-      .select({
-        totalCalls: sql<number>`count(*)::int`,
-        connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
-        noAnswerCalls: sql<number>`count(case when ${calls.outcome} = 'no_answer' then 1 end)::int`,
-        busyCalls: sql<number>`count(case when ${calls.outcome} = 'busy' then 1 end)::int`,
-        droppedEarlyCalls: sql<number>`count(case when ${calls.outcome} = 'dropped_early' then 1 end)::int`,
-        failedCalls: sql<number>`count(case when ${calls.outcome} = 'failed' then 1 end)::int`,
-        totalDurationSeconds: sql<number>`coalesce(sum(${calls.durationSeconds}), 0)::int`,
-        avgDurationSeconds: sql<number>`coalesce(avg(case when ${calls.outcome} = 'connected' then ${calls.durationSeconds} end), 0)::int`,
-        totalCreditsCharged: sql<number>`coalesce(sum(${calls.creditsCharged}), 0)::int`,
-
-        // Interest Levels
-        highInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
-        mediumInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'medium' then 1 end)::int`,
-        lowInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'low' then 1 end)::int`,
-
-        // Sentiments
-        positiveSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'positive' then 1 end)::int`,
-        neutralSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'neutral' then 1 end)::int`,
-        negativeSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'negative' then 1 end)::int`,
-
-        // Follow-ups
-        followUpsRequestedCount: sql<number>`count(case when ${calls.followUpRequested} = true then 1 end)::int`,
-
-        // Cost sums
-        totalCost: sql<number>`coalesce(sum(${calls.costTotal}), 0)::real`,
-        costTelephony: sql<number>`coalesce(sum(${calls.costTelephony}), 0)::real`,
-        costStt: sql<number>`coalesce(sum(${calls.costStt}), 0)::real`,
-        costLlm: sql<number>`coalesce(sum(${calls.costLlm}), 0)::real`,
-        costTts: sql<number>`coalesce(sum(${calls.costTts}), 0)::real`,
-      })
-      .from(calls)
-      .where(whereClause);
-
+    // These datasets are independent after the workspace timezone and date
+    // window are known. Run them concurrently instead of serial database reads.
+    const [callStatsRows, dailyTrend, campaignPerformance, queueStatsRows, followUpStatsRows, recentCalls] = await Promise.all([
+      db
+        .select({
+          totalCalls: sql<number>`count(*)::int`,
+          connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+          noAnswerCalls: sql<number>`count(case when ${calls.outcome} = 'no_answer' then 1 end)::int`,
+          busyCalls: sql<number>`count(case when ${calls.outcome} = 'busy' then 1 end)::int`,
+          droppedEarlyCalls: sql<number>`count(case when ${calls.outcome} = 'dropped_early' then 1 end)::int`,
+          failedCalls: sql<number>`count(case when ${calls.outcome} = 'failed' then 1 end)::int`,
+          totalDurationSeconds: sql<number>`coalesce(sum(${calls.durationSeconds}), 0)::int`,
+          avgDurationSeconds: sql<number>`coalesce(avg(case when ${calls.outcome} = 'connected' then ${calls.durationSeconds} end), 0)::int`,
+          totalCreditsCharged: sql<number>`coalesce(sum(${calls.creditsCharged}), 0)::int`,
+          highInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
+          mediumInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'medium' then 1 end)::int`,
+          lowInterestCount: sql<number>`count(case when ${calls.interestLevel} = 'low' then 1 end)::int`,
+          positiveSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'positive' then 1 end)::int`,
+          neutralSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'neutral' then 1 end)::int`,
+          negativeSentimentCount: sql<number>`count(case when ${calls.sentiment} = 'negative' then 1 end)::int`,
+          followUpsRequestedCount: sql<number>`count(case when ${calls.followUpRequested} = true then 1 end)::int`,
+          totalCost: sql<number>`coalesce(sum(${calls.costTotal}), 0)::real`,
+          costTelephony: sql<number>`coalesce(sum(${calls.costTelephony}), 0)::real`,
+          costStt: sql<number>`coalesce(sum(${calls.costStt}), 0)::real`,
+          costLlm: sql<number>`coalesce(sum(${calls.costLlm}), 0)::real`,
+          costTts: sql<number>`coalesce(sum(${calls.costTts}), 0)::real`,
+        })
+        .from(calls)
+        .where(whereClause),
+      db
+        .select({
+          date: sql<string>`to_char(date_trunc('day', ${calls.startedAt}), 'YYYY-MM-DD')`,
+          totalCalls: sql<number>`count(*)::int`,
+          connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+          failedCalls: sql<number>`count(case when ${calls.outcome} = 'failed' then 1 end)::int`,
+        })
+        .from(calls)
+        .where(whereClause)
+        .groupBy(sql`date_trunc('day', ${calls.startedAt})`)
+        .orderBy(sql`date_trunc('day', ${calls.startedAt})`),
+      db
+        .select({
+          campaignId: campaigns.id,
+          campaignName: campaigns.name,
+          campaignStatus: campaigns.status,
+          totalCalls: sql<number>`count(${calls.id})::int`,
+          connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
+          highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
+          totalDurationSeconds: sql<number>`coalesce(sum(${calls.durationSeconds}), 0)::int`,
+        })
+        .from(calls)
+        .innerJoin(campaigns, eq(calls.campaignId, campaigns.id))
+        .where(whereClause)
+        .groupBy(campaigns.id, campaigns.name, campaigns.status)
+        .orderBy(desc(sql`count(${calls.id})`))
+        .limit(8),
+      db
+        .select({
+          pendingCount: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
+          inProgressCount: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
+        })
+        .from(callQueue)
+        .where(eq(callQueue.clientId, targetClientId)),
+      db
+        .select({
+          openFollowUpsCount: sql<number>`count(case when ${followUps.status} = 'open' then 1 end)::int`,
+        })
+        .from(followUps)
+        .where(eq(followUps.clientId, targetClientId)),
+      db
+        .select({
+          id: calls.id,
+          contactName: calls.contactName,
+          phoneNumber: calls.phoneNumber,
+          startedAt: calls.startedAt,
+          durationSeconds: calls.durationSeconds,
+          outcome: calls.outcome,
+          sentiment: calls.sentiment,
+          interestLevel: calls.interestLevel,
+          summary: calls.summary,
+        })
+        .from(calls)
+        .where(eq(calls.clientId, targetClientId))
+        .orderBy(desc(calls.startedAt))
+        .limit(5),
+    ]);
+    const callStats = callStatsRows[0];
+    const queueStats = queueStatsRows[0];
+    const followUpStats = followUpStatsRows[0];
     const total = callStats?.totalCalls ?? 0;
     const connected = callStats?.connectedCalls ?? 0;
     const connectionRate = total > 0 ? Number(((connected / total) * 100).toFixed(1)) : 0;
-
-    // 3b. Daily call trend and campaign performance for the selected window.
-    const dailyTrend = await db
-      .select({
-        date: sql<string>`to_char(date_trunc('day', ${calls.startedAt}), 'YYYY-MM-DD')`,
-        totalCalls: sql<number>`count(*)::int`,
-        connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
-        failedCalls: sql<number>`count(case when ${calls.outcome} = 'failed' then 1 end)::int`,
-      })
-      .from(calls)
-      .where(whereClause)
-      .groupBy(sql`date_trunc('day', ${calls.startedAt})`)
-      .orderBy(sql`date_trunc('day', ${calls.startedAt})`);
-
-    const campaignPerformance = await db
-      .select({
-        campaignId: campaigns.id,
-        campaignName: campaigns.name,
-        campaignStatus: campaigns.status,
-        totalCalls: sql<number>`count(${calls.id})::int`,
-        connectedCalls: sql<number>`count(case when ${calls.outcome} = 'connected' then 1 end)::int`,
-        highInterestCalls: sql<number>`count(case when ${calls.interestLevel} = 'high' then 1 end)::int`,
-        totalDurationSeconds: sql<number>`coalesce(sum(${calls.durationSeconds}), 0)::int`,
-      })
-      .from(calls)
-      .innerJoin(campaigns, eq(calls.campaignId, campaigns.id))
-      .where(whereClause)
-      .groupBy(campaigns.id, campaigns.name, campaigns.status)
-      .orderBy(desc(sql`count(${calls.id})`))
-      .limit(8);
-
-    // 4. Pending & Open Actions Count
-    const [queueStats] = await db
-      .select({
-        pendingCount: sql<number>`count(case when ${callQueue.status} = 'pending' then 1 end)::int`,
-        inProgressCount: sql<number>`count(case when ${callQueue.status} = 'in_progress' then 1 end)::int`,
-      })
-      .from(callQueue)
-      .where(eq(callQueue.clientId, targetClientId));
-
-    const [followUpStats] = await db
-      .select({
-        openFollowUpsCount: sql<number>`count(case when ${followUps.status} = 'open' then 1 end)::int`,
-      })
-      .from(followUps)
-      .where(eq(followUps.clientId, targetClientId));
-
-    // 5. Recent 5 Calls Preview
-    const recentCalls = await db
-      .select({
-        id: calls.id,
-        contactName: calls.contactName,
-        phoneNumber: calls.phoneNumber,
-        startedAt: calls.startedAt,
-        durationSeconds: calls.durationSeconds,
-        outcome: calls.outcome,
-        sentiment: calls.sentiment,
-        interestLevel: calls.interestLevel,
-        summary: calls.summary,
-      })
-      .from(calls)
-      .where(eq(calls.clientId, targetClientId))
-      .orderBy(desc(calls.startedAt))
-      .limit(5);
 
     const creditsRemaining = Math.max(
       0,

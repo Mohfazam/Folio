@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import {
   CallDetailView,
   type CallDetailRecord,
@@ -99,19 +99,9 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
   await connection();
   const { id } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) redirect("/sign-in");
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
@@ -120,7 +110,7 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
       `${baseUrl}/api/calls/${encodeURIComponent(id)}`,
       {
         method: "GET",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       },
     );
