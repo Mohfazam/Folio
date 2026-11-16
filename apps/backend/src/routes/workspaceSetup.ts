@@ -410,6 +410,42 @@ export async function getLaunchEligibleContactsRoute(req: Request, res: Response
   }
 }
 
+/**
+ * POST /api/workspace-setup/test-call/skip
+ * Persists an explicit decision to skip the optional onboarding test call.
+ * The user can still place a test call later; this only completes the checklist step.
+ */
+export async function skipTestCallSetupRoute(req: Request, res: Response) {
+  try {
+    const updated = await db.transaction(async (tx) => {
+      const [workspace] = await tx.update(clients).set({
+        metadata: sql`jsonb_set(COALESCE(${clients.metadata}, '{}'::jsonb), '{testCallSkipped}', 'true'::jsonb, true)`,
+        updatedAt: new Date(),
+      }).where(eq(clients.id, req.clientId!)).returning({ id: clients.id });
+
+      if (!workspace) return null;
+
+      await tx.insert(auditLog).values({
+        clientId: req.clientId!,
+        userId: req.user?.id ?? null,
+        action: "workspace_setup.test_call_skipped",
+        metadata: { step: 3, optional: true },
+      });
+
+      return workspace;
+    });
+
+    if (!updated) {
+      return res.status(404).json({ ok: false, error: "Workspace not found." });
+    }
+
+    return res.json({ ok: true, testCallSkipped: true });
+  } catch (error) {
+    console.error("[workspace-setup/test-call/skip]", error);
+    return res.status(500).json({ ok: false, error: "Unable to skip the optional test-call step." });
+  }
+}
+
 /** GET /api/workspace-setup. The checklist is derived from workspace records. */
 export async function getWorkspaceSetupRoute(req: Request, res: Response) {
   try {
@@ -468,6 +504,7 @@ export async function getWorkspaceSetupRoute(req: Request, res: Response) {
         contactsImported: usableContacts > 0,
         testCallRequested: Boolean(latestTestCall),
         testCallComplete,
+        testCallSkipped: metadata.testCallSkipped === true,
         testCallStatus,
         testCallOutcome,
         campaignCount: savedCampaigns,

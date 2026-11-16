@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
+import { skipTestCallSetupAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -140,6 +141,8 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const activeCampaignCount = recordNumber(summary, "activeCampaignCount");
   const testCallStatus = recordText(summary, "testCallStatus");
   const testCallOutcome = recordText(summary, "testCallOutcome");
+  const testCallSkipped = summary?.testCallSkipped === true;
+  const testCallComplete = summary?.testCallComplete === true;
   const agentName = recordText(profile, "aiPersonaName") ?? "your AI agent";
 
   const steps: SetupStep[] = [
@@ -167,9 +170,19 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
       description: "Recommended: call a number you own to hear how your agent handles a real conversation. This step is optional, and you can continue setup without placing a test call.",
       action: "Test call",
       actionKey: "test-call",
-      complete: summary?.testCallComplete === true,
+      complete: testCallComplete || testCallSkipped,
       optional: true,
-      detail: summary?.testCallComplete === true ? "Your agent connected successfully on the test call." : testCallStatus === "pending" ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours." : testCallOutcome ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. A successful test call is recommended, but not required to launch.` : testCallStatus ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}. A test call is optional.` : "Optional. Run a test call to hear your agent before launch, or skip this step and continue setup.",
+      detail: testCallComplete
+        ? "Your agent connected successfully on the test call."
+        : testCallSkipped
+          ? "Skipped. You can still place a test call later from this step."
+          : testCallStatus === "pending"
+            ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours."
+            : testCallOutcome
+              ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. A successful test call is recommended, but not required to launch.`
+              : testCallStatus
+                ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}. A test call is optional.`
+                : "Optional. Run a test call to hear your agent before launch, or skip this step and continue setup.",
     },
     {
       id: 4,
@@ -240,9 +253,12 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
 }
 
 function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAction: (action: SetupAction) => void }) {
+  const router = useRouter();
   const steps = useMemo(() => buildSetupSteps(data), [data]);
   const [expanded, setExpanded] = useState<number[]>([1]);
   const [hasManuallyChangedExpansion, setHasManuallyChangedExpansion] = useState(false);
+  const [skippingTestCall, setSkippingTestCall] = useState(false);
+  const [skipTestCallError, setSkipTestCallError] = useState<string | null>(null);
   const requiredSteps = steps.filter((step) => !step.optional);
   const complete = requiredSteps.filter((step) => step.complete).length;
   const anyExpanded = expanded.length > 0;
@@ -252,6 +268,32 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
     const nextStep = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
     setExpanded(nextStep ? [nextStep] : []);
   }, [steps, hasManuallyChangedExpansion]);
+
+  const handleSkipTestCall = async () => {
+    if (skippingTestCall) return;
+    setSkippingTestCall(true);
+    setSkipTestCallError(null);
+
+    try {
+      const result = await skipTestCallSetupAction();
+      if (!result.ok) {
+        setSkipTestCallError(result.error);
+        setHasManuallyChangedExpansion(true);
+        setExpanded([3]);
+        return;
+      }
+
+      // Move focus to the next outstanding required step after persisting the skip.
+      const nextRequiredStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
+      setHasManuallyChangedExpansion(true);
+      setExpanded(nextRequiredStepId ? [nextRequiredStepId] : []);
+      router.refresh();
+    } catch (error) {
+      setSkipTestCallError(error instanceof Error ? error.message : "Unable to skip the test-call step.");
+    } finally {
+      setSkippingTestCall(false);
+    }
+  };
 
   const toggleAll = () => {
     setHasManuallyChangedExpansion(true);
@@ -305,19 +347,34 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
                         ) : step.detail ? (
                           <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{step.detail}</p>
                         ) : null}
+                        {step.actionKey === "test-call" && skipTestCallError ? (
+                          <p role="alert" className="mt-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{skipTestCallError}</p>
+                        ) : null}
                       </>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onAction(step.actionKey)}
-                    disabled={step.disabled}
-                    title={step.disabled ? step.disabledReason : undefined}
-                    aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
-                    className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
-                  >
-                    {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onAction(step.actionKey)}
+                      disabled={step.disabled}
+                      title={step.disabled ? step.disabledReason : undefined}
+                      aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
+                      className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
+                    >
+                      {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
+                    </button>
+                    {step.actionKey === "test-call" && !step.complete ? (
+                      <button
+                        type="button"
+                        onClick={handleSkipTestCall}
+                        disabled={skippingTestCall}
+                        className="inline-flex h-[34px] shrink-0 items-center justify-center rounded-[3px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {skippingTestCall ? "Skipping…" : "Skip"}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             );

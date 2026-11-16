@@ -26,7 +26,7 @@ import {
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
 import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, callCompleteRoute } from "./calls.js";
-import { getCampaignsRoute, getCampaignLiveStatsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
+import { getCampaignsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
 import { contactImportUpload, importContactsFileRoute } from "./contactImport.js";
@@ -48,6 +48,7 @@ import {
   getTestCallRoute,
   getWorkspaceSetupRoute,
   launchCampaignRoute,
+  skipTestCallSetupRoute,
 } from "./workspaceSetup.js";
 
 export function registerRoutes(app: Express) {
@@ -89,6 +90,7 @@ export function registerRoutes(app: Express) {
   // Production workspace setup configuration.
   api.get("/workspace-setup", getWorkspaceSetupRoute);
   api.get("/workspace-setup/eligible-contacts", getLaunchEligibleContactsRoute);
+  api.post("/workspace-setup/test-call/skip", requireClientAdmin, skipTestCallSetupRoute);
   api.get("/agent-settings", getAgentSettingsRoute);
   api.get("/team-members", getTeamMembersRoute);
   api.post("/test-calls", requireClientAdmin, uploadRateLimiter, createTestCallRoute);
@@ -118,7 +120,6 @@ export function registerRoutes(app: Express) {
   api.delete("/follow-ups/:id", requireClientAdmin, requireOwnedResource("followUps"), deleteFollowUpRoute);
 
   api.get("/campaigns", getCampaignsRoute);
-  api.get("/campaigns/live-stats", getCampaignLiveStatsRoute);
   api.post("/campaigns/:id/launch", requireClientAdmin, uploadRateLimiter, launchCampaignRoute);
   api.get("/campaigns/:id", requireOwnedResource("campaigns"), getCampaignByIdRoute);
   api.post("/campaigns", requireClientAdmin, createCampaignRoute);
