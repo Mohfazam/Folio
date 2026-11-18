@@ -182,6 +182,8 @@ function NavEntry({
   onSetupAction?: (action: DashboardSetupAction) => void;
 }) {
   const isMobile = variant === "mobile";
+  const [shouldPrefetch, setShouldPrefetch] = useState(false);
+  const warmRoute = () => setShouldPrefetch(true);
   const className = [
     "flex w-full rounded-[4px] font-['Space_Grotesk'] transition-colors",
     isMobile
@@ -200,7 +202,16 @@ function NavEntry({
 
   if (item.enabled) {
     return (
-      <Link href={item.href} aria-current={active ? "page" : undefined} className={className} title={!isMobile ? item.label : undefined}>
+      <Link
+        href={item.href}
+        prefetch={shouldPrefetch}
+        onMouseEnter={warmRoute}
+        onFocus={warmRoute}
+        onTouchStart={warmRoute}
+        aria-current={active ? "page" : undefined}
+        className={className}
+        title={!isMobile ? item.label : undefined}
+      >
         {content}
       </Link>
     );

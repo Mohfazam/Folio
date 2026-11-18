@@ -1,41 +1,44 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response = NextResponse.next({ request })
-            response.cookies.set(name, value, options)
-          })
+            request.cookies.set(name, value);
+            response = NextResponse.next({ request });
+            response.cookies.set(name, value, options);
+          });
         },
       },
-    }
-  )
+    },
+  );
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Run on application routes so refreshed Supabase session cookies are
+  // persisted before Server Components read the session. getClaims verifies
+  // the JWT without a separate Auth user lookup.
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims as Record<string, unknown> | undefined;
+  const authenticated = !error && typeof claims?.sub === "string";
 
-  // Protect the dashboard
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !user) {
-    return NextResponse.redirect(new URL('/sign-in', request.url))
+  if (request.nextUrl.pathname === "/sign-in" && authenticated) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
-  
-  // Redirect logged-in users away from auth pages
-  if (request.nextUrl.pathname.startsWith('/sign-in') && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
 
-  return response
+  return response;
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
-}
+  // Refresh sessions on protected application routes without adding an
+  // authentication lookup to unrelated public pages or static assets.
+  matcher: ["/dashboard/:path*", "/onboarding", "/sign-in", "/auth/callback"],
+};

@@ -1,7 +1,6 @@
-import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import {
   CallDetailView,
   type CallDetailRecord,
@@ -100,19 +99,9 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
   await connection();
   const { id } = await params;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) redirect("/sign-in");
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.access_token) redirect("/sign-in");
+  const auth = await getDashboardAuthContext();
+  if (!auth) redirect("/sign-in");
+  const accessToken = auth.accessToken;
 
   const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
 
@@ -121,7 +110,7 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
       `${baseUrl}/api/calls/${encodeURIComponent(id)}`,
       {
         method: "GET",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       },
     );
@@ -153,26 +142,6 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
   }
 }
 
-function CallDetailLoading() {
-  return (
-    <div className="space-y-5" aria-live="polite" aria-busy="true">
-      <div className="h-3 w-28 animate-pulse rounded bg-[#E9E8E1]" />
-      <div className="h-10 w-64 animate-pulse rounded bg-[#E9E8E1]" />
-      <div className="h-28 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <div className="h-72 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB]" />
-      <span className="sr-only">Loading call details…</span>
-    </div>
-  );
-}
-
-export default async function CallDetailsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  return (
-    <Suspense fallback={<CallDetailLoading />}>
-      <CallDetailContent params={params} />
-    </Suspense>
-  );
+export default function CallDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  return <CallDetailContent params={params} />;
 }

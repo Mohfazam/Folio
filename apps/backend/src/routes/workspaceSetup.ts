@@ -12,6 +12,7 @@ import {
   clients,
   contacts,
   users,
+  knowledgeBaseEntries,
 } from "@repo/db";
 
 
@@ -410,20 +411,64 @@ export async function getLaunchEligibleContactsRoute(req: Request, res: Response
   }
 }
 
+/**
+ * POST /api/workspace-setup/test-call/skip
+ * Persists an explicit decision to skip the optional onboarding test call.
+ * The user can still place a test call later; this only completes the checklist step.
+ */
+export async function skipTestCallSetupRoute(req: Request, res: Response) {
+  try {
+    const updated = await db.transaction(async (tx) => {
+      const [workspace] = await tx.update(clients).set({
+        metadata: sql`jsonb_set(COALESCE(${clients.metadata}, '{}'::jsonb), '{testCallSkipped}', 'true'::jsonb, true)`,
+        updatedAt: new Date(),
+      }).where(eq(clients.id, req.clientId!)).returning({ id: clients.id });
+
+      if (!workspace) return null;
+
+      await tx.insert(auditLog).values({
+        clientId: req.clientId!,
+        userId: req.user?.id ?? null,
+        action: "workspace_setup.test_call_skipped",
+        metadata: { step: 3, optional: true },
+      });
+
+      return workspace;
+    });
+
+    if (!updated) {
+      return res.status(404).json({ ok: false, error: "Workspace not found." });
+    }
+
+    return res.json({ ok: true, testCallSkipped: true });
+  } catch (error) {
+    console.error("[workspace-setup/test-call/skip]", error);
+    return res.status(500).json({ ok: false, error: "Unable to skip the optional test-call step." });
+  }
+}
+
 /** GET /api/workspace-setup. The checklist is derived from workspace records. */
 export async function getWorkspaceSetupRoute(req: Request, res: Response) {
   try {
-    const [client] = await db.select().from(clients).where(eq(clients.id, req.clientId!)).limit(1);
+    const [clientRows, profileRows, contactStatsRows, campaignStatsRows, knowledgeStatsRows] = await Promise.all([
+      db.select().from(clients).where(eq(clients.id, req.clientId!)).limit(1),
+      db.select().from(businessProfiles).where(eq(businessProfiles.clientId, req.clientId!)).limit(1),
+      db.select({
+        usableContacts: sql<number>`count(case when ${contacts.optOut} = false and ${contacts.isDuplicateOf} is null and ${contacts.status} not in ('invalid', 'do_not_call') and COALESCE(${contacts.customFields}->>'_fooliooSystem', '') <> 'test_call' then 1 end)::int`,
+      }).from(contacts).where(eq(contacts.clientId, req.clientId!)),
+      db.select({
+        campaignCount: sql<number>`count(*)::int`,
+        activeCampaignCount: sql<number>`count(case when ${campaigns.status} = 'active' then 1 end)::int`,
+      }).from(campaigns).where(eq(campaigns.clientId, req.clientId!)),
+      db.select({ knowledgeBaseCount: sql<number>`count(*)::int` })
+        .from(knowledgeBaseEntries).where(eq(knowledgeBaseEntries.clientId, req.clientId!)),
+    ]);
+    const client = clientRows[0];
     if (!client) return res.status(404).json({ ok: false, error: "Workspace not found." });
-    const [profile] = await db.select().from(businessProfiles)
-      .where(eq(businessProfiles.clientId, req.clientId!)).limit(1);
-    const [contactStats] = await db.select({
-      usableContacts: sql<number>`count(case when ${contacts.optOut} = false and ${contacts.isDuplicateOf} is null and ${contacts.status} not in ('invalid', 'do_not_call') and COALESCE(${contacts.customFields}->>'_fooliooSystem', '') <> 'test_call' then 1 end)::int`,
-    }).from(contacts).where(eq(contacts.clientId, req.clientId!));
-    const [campaignStats] = await db.select({
-      campaignCount: sql<number>`count(*)::int`,
-      activeCampaignCount: sql<number>`count(case when ${campaigns.status} = 'active' then 1 end)::int`,
-    }).from(campaigns).where(eq(campaigns.clientId, req.clientId!));
+    const profile = profileRows[0];
+    const contactStats = contactStatsRows[0];
+    const campaignStats = campaignStatsRows[0];
+    const knowledgeStats = knowledgeStatsRows[0];
 
     const metadata = metadataRecord(client.metadata);
     const profileMetadata = metadataRecord(profile?.metadata);
@@ -437,22 +482,30 @@ export async function getWorkspaceSetupRoute(req: Request, res: Response) {
     const usableContacts = contactStats?.usableContacts ?? 0;
     const latestTestCall = isRecord(metadata.latestTestCall) ? metadata.latestTestCall : null;
     let testCallStatus: string | null = null;
-    if (latestTestCall && typeof latestTestCall.queueId === "string") {
-      const [queueEntry] = await db.select({ status: callQueue.status }).from(callQueue)
-        .where(and(eq(callQueue.id, latestTestCall.queueId), eq(callQueue.clientId, req.clientId!))).limit(1);
-      testCallStatus = queueEntry?.status ?? null;
-    }
     let testCallComplete = false;
     let testCallOutcome: string | null = null;
-    if (testCallStatus === "completed" && latestTestCall && typeof latestTestCall.queueId === "string") {
-      const [testCall] = await db.select({ outcome: calls.outcome }).from(calls)
-        .where(eq(calls.queueEntryId, latestTestCall.queueId)).orderBy(desc(calls.startedAt)).limit(1);
-      testCallOutcome = testCall?.outcome ?? null;
-      const currentAgentUpdatedAt = typeof profileMetadata.aiAgentSettings === "object" && profileMetadata.aiAgentSettings !== null && !Array.isArray(profileMetadata.aiAgentSettings)
-        ? (profileMetadata.aiAgentSettings as Record<string, unknown>).updatedAt
-        : null;
-      testCallComplete = testCallOutcome === "connected" &&
-        (latestTestCall.agentSettingsUpdatedAt ?? null) === (currentAgentUpdatedAt ?? null);
+    if (latestTestCall && typeof latestTestCall.queueId === "string") {
+      // Read queue status and its latest call outcome together. The previous
+      // implementation made a second sequential database round trip whenever
+      // the test call had completed.
+      const [testCallState] = await db.select({
+        status: callQueue.status,
+        outcome: calls.outcome,
+      })
+        .from(callQueue)
+        .leftJoin(calls, eq(calls.queueEntryId, callQueue.id))
+        .where(and(eq(callQueue.id, latestTestCall.queueId), eq(callQueue.clientId, req.clientId!)))
+        .orderBy(desc(calls.startedAt))
+        .limit(1);
+      testCallStatus = testCallState?.status ?? null;
+      testCallOutcome = testCallState?.outcome ?? null;
+      if (testCallStatus === "completed") {
+        const currentAgentUpdatedAt = typeof profileMetadata.aiAgentSettings === "object" && profileMetadata.aiAgentSettings !== null && !Array.isArray(profileMetadata.aiAgentSettings)
+          ? (profileMetadata.aiAgentSettings as Record<string, unknown>).updatedAt
+          : null;
+        testCallComplete = testCallOutcome === "connected" &&
+          (latestTestCall.agentSettingsUpdatedAt ?? null) === (currentAgentUpdatedAt ?? null);
+      }
     }
     const savedCampaigns = campaignStats?.campaignCount ?? 0;
     const activeCampaigns = campaignStats?.activeCampaignCount ?? 0;
@@ -464,14 +517,18 @@ export async function getWorkspaceSetupRoute(req: Request, res: Response) {
       ok: true,
       setup: {
         agentConfigured,
+        agentName: profile?.aiPersonaName ?? null,
+        businessName: profile?.displayName ?? client.name,
         contactCount: usableContacts,
         contactsImported: usableContacts > 0,
         testCallRequested: Boolean(latestTestCall),
         testCallComplete,
+        testCallSkipped: metadata.testCallSkipped === true,
         testCallStatus,
         testCallOutcome,
         campaignCount: savedCampaigns,
         campaignCreated: savedCampaigns > 0,
+        knowledgeBaseCount: knowledgeStats?.knowledgeBaseCount ?? 0,
         routingConfigured: eligibleRouting,
         activeCampaignCount: activeCampaigns,
         campaignLaunched,
@@ -544,21 +601,9 @@ export async function launchCampaignRoute(req: Request, res: Response) {
         return { error: "Save your follow-up and team-handling rules before launching a campaign.", status: 409 as const };
       }
 
-      const latestTestCall = isRecord(clientMetadata.latestTestCall) ? clientMetadata.latestTestCall : null;
-      if (!latestTestCall || typeof latestTestCall.queueId !== "string") {
-        return { error: "Place a successful test call before launching your first campaign.", status: 409 as const };
-      }
-      const [testQueue] = await tx.select({ status: callQueue.status }).from(callQueue)
-        .where(and(eq(callQueue.id, latestTestCall.queueId), eq(callQueue.clientId, req.clientId!))).limit(1);
-      const [testCall] = await tx.select({ outcome: calls.outcome }).from(calls)
-        .where(eq(calls.queueEntryId, latestTestCall.queueId)).orderBy(desc(calls.startedAt)).limit(1);
-      const currentAgentUpdatedAt = typeof metadataRecord(profile.metadata).aiAgentSettings === "object" && metadataRecord(profile.metadata).aiAgentSettings !== null
-        ? (metadataRecord(profile.metadata).aiAgentSettings as Record<string, unknown>).updatedAt
-        : null;
-      if (testQueue?.status !== "completed" || testCall?.outcome !== "connected" ||
-          (latestTestCall.agentSettingsUpdatedAt ?? null) !== (currentAgentUpdatedAt ?? null)) {
-        return { error: "Complete a successful test call using your latest saved AI agent settings before launching.", status: 409 as const };
-      }
+      // A successful test call is recommended during onboarding, but it is
+      // not a prerequisite for launching a campaign. Keep the launch checks
+      // focused on agent configuration, routing, audience permission and capacity.
 
       const selected = await tx.select().from(contacts)
         .where(and(eq(contacts.clientId, req.clientId!), inArray(contacts.id, contactIds)));
