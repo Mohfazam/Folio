@@ -45,6 +45,7 @@ export class CallSessionState {
   readonly callbackUrl?: string;
   readonly recordCall?: boolean;
   readonly isPublicDemo: boolean;
+  readonly contactName?: string;
 
   // ── Plivo ─────────────────────────────────────────────────────
   plivoCallId = "";
@@ -87,6 +88,7 @@ export class CallSessionState {
     this.phoneNumber = request.phoneNumber;
     this.context = request.context;
     this.isPublicDemo = request.context?.isPublicDemo === true;
+    this.contactName = request.context?.contact?.fullName;
 
     const agentSettings = request.context?.agentSettings;
     this.language = request.language ?? agentSettings?.language ?? "en-IN";

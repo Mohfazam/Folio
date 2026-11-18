@@ -91,7 +91,7 @@ export function createConversationSession(
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
     const greetingText =
-      options?.greetingText || "Hello! Thanks for taking my call. Do you have a quick moment?";
+      options?.greetingText || (options?.sessionState?.contactName ? `Hello, is this ${options.sessionState.contactName}?` : "Hello! Can you hear me okay?");
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
     options?.sessionState?.addAssistantTurn(greetingText);
@@ -104,7 +104,13 @@ export function createConversationSession(
         pace: speechRate,
       });
 
-      if (closed || generationId !== currentGen) return;
+      if (closed || generationId !== currentGen) {
+        // If caller already spoke or interrupted, remove this unplayed greeting from history
+        if (history.length > 0 && history[history.length - 1]?.content === greetingText) {
+          history.pop();
+        }
+        return;
+      }
 
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
@@ -120,10 +126,13 @@ export function createConversationSession(
     const trimmed = userText.trim();
     if (!trimmed) return;
 
-    // ── Turn serialization: if a turn is already in progress, queue this one ──
+    // ── Turn serialization & fresh interrupt handling ──
+    // If a turn is currently in progress and the caller speaks again,
+    // interrupt the in-progress AI response immediately and prioritize this latest utterance.
     if (turnInProgress) {
+      console.log(`${tag} 🔄 Interrupted ongoing turn with fresh caller utterance: "${trimmed.slice(0, 50)}..."`);
+      interruptForCallerSpeech();
       queuedTurn = { text: trimmed, language };
-      console.log(`${tag} ⏳ Turn queued (another turn in progress): "${trimmed.slice(0, 50)}..."`);
       return;
     }
     turnInProgress = true;
@@ -274,11 +283,19 @@ export function createConversationSession(
   }
 
   function interruptForCallerSpeech() {
-    if (interruptionHandled) return;
-    interruptionHandled = true;
     generationId++;
     activeTurn?.abort();
+    activeTurn = null;
     callbacks.clearAudio();
+
+    // If an assistant turn was cut off mid-speech, clean up trailing assistant record
+    // so Gemini doesn't assume the caller heard the entire message
+    if (history.length > 0 && history[history.length - 1]?.role === "assistant") {
+      const last = history.pop();
+      if (last) {
+        history.push({ role: "assistant", content: `${last.content.slice(0, 40)}... [interrupted]` });
+      }
+    }
   }
 
   // ── STT Connection with auto-reconnect ─────────────────────────
@@ -286,17 +303,16 @@ export function createConversationSession(
     try {
       const session = await openSttSession({
         onSpeechStart: () => {
-          interruptionHandled = false;
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
-          if (!text?.trim()) return;
-          if (isNoiseOrFiller(text)) return;
-          // Only interrupt on substantial partial transcripts (>10 chars)
-          if (text.trim().length > 10) {
+          const trimmed = text?.trim();
+          if (!trimmed || isNoiseOrFiller(trimmed)) return;
+          // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
+          if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
-              console.log(`${tag} ... ${text.trim()}`);
+              console.log(`${tag} ... ${trimmed}`);
             }
           }
         },
