@@ -674,6 +674,72 @@ export async function getCallsRoute(req: Request, res: Response) {
 }
 
 /**
+ * GET /api/calls/:id/transcript
+ *
+ * Returns a bounded transcript window so large call records do not have to be
+ * serialized into the dashboard page response all at once.
+ */
+export async function getCallTranscriptRoute(req: Request, res: Response) {
+  const { id } = req.params;
+  const offsetValue = req.query.offset ?? "0";
+  const limitValue = req.query.limit ?? "20";
+  const offset = typeof offsetValue === "string" && /^\d+$/.test(offsetValue)
+    ? Number(offsetValue)
+    : Number.NaN;
+  const limit = typeof limitValue === "string" && /^\d+$/.test(limitValue)
+    ? Number(limitValue)
+    : Number.NaN;
+
+  if (
+    !id ||
+    !req.clientId ||
+    !Number.isSafeInteger(offset) ||
+    offset < 0 ||
+    offset > 2000 ||
+    !Number.isSafeInteger(limit) ||
+    limit < 1 ||
+    limit > 20
+  ) {
+    return res.status(400).json({ ok: false, error: "Invalid transcript pagination parameters" });
+  }
+
+  try {
+    const transcriptArray = sql`case
+      when jsonb_typeof(${calls.transcript}) = 'array' then ${calls.transcript}
+      else '[]'::jsonb
+    end`;
+    const [call] = await db
+      .select({
+        total: sql<number>`jsonb_array_length(${transcriptArray})::int`,
+        transcript: sql<unknown[]>`coalesce((
+          select jsonb_agg(entry order by ordinal)
+          from jsonb_array_elements(${transcriptArray}) with ordinality as transcript_items(entry, ordinal)
+          where ordinal > ${offset} and ordinal <= ${offset + limit}
+        ), '[]'::jsonb)`,
+      })
+      .from(calls)
+      .where(and(eq(calls.id, id), eq(calls.clientId, req.clientId)))
+      .limit(1);
+
+    if (!call) {
+      return res.status(404).json({ ok: false, error: `Call with ID ${id} not found` });
+    }
+
+    return res.json({
+      ok: true,
+      transcript: call.transcript,
+      total: call.total,
+      offset,
+      limit,
+    });
+  } catch (err: unknown) {
+    console.error("[calls/transcript] Unexpected error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ ok: false, error: message });
+  }
+}
+
+/**
  * GET /api/calls/live
  *
  * Lightweight workspace-scoped status for active queue entries. This endpoint
@@ -738,56 +804,59 @@ export async function getCallByIdRoute(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Call ID parameter is required" });
     }
 
+    const includeTranscript = req.query.includeTranscript !== "false";
+    const callFields = {
+      id: calls.id,
+      contactId: calls.contactId,
+      clientId: calls.clientId,
+      campaignId: calls.campaignId,
+      queueEntryId: calls.queueEntryId,
+      contactName: calls.contactName,
+      phoneNumber: calls.phoneNumber,
+      attemptNumber: calls.attemptNumber,
+      startedAt: calls.startedAt,
+      endedAt: calls.endedAt,
+      durationSeconds: calls.durationSeconds,
+      outcome: calls.outcome,
+      isBillable: calls.isBillable,
+      creditsCharged: calls.creditsCharged,
+      summary: calls.summary,
+      interestLevel: calls.interestLevel,
+      sentiment: calls.sentiment,
+      objectionsRaised: calls.objectionsRaised,
+      followUpRequested: calls.followUpRequested,
+      costTelephony: calls.costTelephony,
+      costStt: calls.costStt,
+      costLlm: calls.costLlm,
+      costTts: calls.costTts,
+      costTotal: calls.costTotal,
+      recordingUrl: calls.recordingUrl,
+      ...(includeTranscript ? { transcript: calls.transcript } : {}),
+      createdAt: calls.createdAt,
+      contact: {
+        id: contacts.id,
+        fullName: contacts.fullName,
+        email: contacts.email,
+        companyName: contacts.companyName,
+        jobTitle: contacts.jobTitle,
+        department: contacts.department,
+        industry: contacts.industry,
+        city: contacts.city,
+        leadScore: contacts.leadScore,
+        lifecycleStage: contacts.lifecycleStage,
+        accountTier: contacts.accountTier,
+        courseOrStream: contacts.courseOrStream,
+      },
+      campaign: {
+        id: campaigns.id,
+        name: campaigns.name,
+        type: campaigns.type,
+        primaryObjective: campaigns.primaryObjective,
+      },
+    };
+
     const [callItem] = await db
-      .select({
-        id: calls.id,
-        contactId: calls.contactId,
-        clientId: calls.clientId,
-        campaignId: calls.campaignId,
-        queueEntryId: calls.queueEntryId,
-        contactName: calls.contactName,
-        phoneNumber: calls.phoneNumber,
-        attemptNumber: calls.attemptNumber,
-        startedAt: calls.startedAt,
-        endedAt: calls.endedAt,
-        durationSeconds: calls.durationSeconds,
-        outcome: calls.outcome,
-        isBillable: calls.isBillable,
-        creditsCharged: calls.creditsCharged,
-        summary: calls.summary,
-        interestLevel: calls.interestLevel,
-        sentiment: calls.sentiment,
-        objectionsRaised: calls.objectionsRaised,
-        followUpRequested: calls.followUpRequested,
-        costTelephony: calls.costTelephony,
-        costStt: calls.costStt,
-        costLlm: calls.costLlm,
-        costTts: calls.costTts,
-        costTotal: calls.costTotal,
-        recordingUrl: calls.recordingUrl,
-        transcript: calls.transcript,
-        createdAt: calls.createdAt,
-        contact: {
-          id: contacts.id,
-          fullName: contacts.fullName,
-          email: contacts.email,
-          companyName: contacts.companyName,
-          jobTitle: contacts.jobTitle,
-          department: contacts.department,
-          industry: contacts.industry,
-          city: contacts.city,
-          leadScore: contacts.leadScore,
-          lifecycleStage: contacts.lifecycleStage,
-          accountTier: contacts.accountTier,
-          courseOrStream: contacts.courseOrStream,
-        },
-        campaign: {
-          id: campaigns.id,
-          name: campaigns.name,
-          type: campaigns.type,
-          primaryObjective: campaigns.primaryObjective,
-        },
-      })
+      .select(callFields)
       .from(calls)
       .leftJoin(contacts, eq(calls.contactId, contacts.id))
       .leftJoin(campaigns, eq(calls.campaignId, campaigns.id))

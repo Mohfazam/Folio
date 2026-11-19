@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-
-type TranscriptLine = {
-  speaker: "assistant" | "user";
-  text: string;
-  timestamp: string | null;
-  isComplete: boolean;
-};
+import { CallTranscript } from "./call-transcript";
 
 type ContactDetail = {
   id: string | null;
@@ -54,7 +48,6 @@ export type CallDetailRecord = {
   costTts: number | null;
   costTotal: number | null;
   recordingUrl: string | null;
-  transcript: TranscriptLine[];
   createdAt: string | null;
   contact: ContactDetail | null;
   campaign: CampaignDetail | null;
@@ -204,29 +197,9 @@ export function CallDetailView({
                 <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Conversation transcript</h2>
                 <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">Recorded conversation turns from the call.</p>
               </div>
-              <Badge>{call.transcript.length} entries</Badge>
             </div>
 
-            {call.transcript.length > 0 ? (
-              <div className="space-y-3">
-                {call.transcript.map((line, index) => {
-                  const assistant = line.speaker === "assistant";
-                  return (
-                    <div key={`${index}-${line.timestamp ?? "transcript"}`} className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
-                      <div className={`max-w-[92%] rounded-[9px] border px-3.5 py-3 sm:max-w-[82%] ${assistant ? "border-[#ECEBE5] bg-[#F8F7F2]" : "border-[#E7E0F3] bg-[#F5F1FB]"}`}>
-                        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                          <span className={`font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] ${assistant ? "text-[#747878]" : "text-[#806DB2]"}`}>{assistant ? "FOOLIOO AGENT" : "CONTACT"}</span>
-                          {line.timestamp ? <time className="font-['Space_Grotesk'] text-[9px] text-[#92938C]">{formatDate(line.timestamp)}</time> : null}
-                        </div>
-                        <p className="mt-2 whitespace-pre-wrap break-words font-['Space_Grotesk'] text-[12px] leading-5 text-[#34362E]">{line.text || "[No transcript text]"}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-[6px] bg-[#FBFAF6] px-4 py-8 text-center font-['Space_Grotesk'] text-[11px] text-[#85877F]">No transcript is available for this call.</div>
-            )}
+            <CallTranscript key={call.id} callId={call.id} />
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
