@@ -295,17 +295,21 @@ export function buildPersonalizedGreeting(ctx?: PromptContext): string {
   const contactName = ctx?.contact?.fullName?.trim();
   const businessName = ctx?.business?.displayName?.trim();
   const persona = ctx?.business?.aiPersonaName?.trim();
-  const objective = ctx?.campaign?.primaryObjective?.trim();
 
-  // If we know the person's name, ask for them naturally like a real caller does:
-  if (contactName) {
+  // 1. If we know the person's name, greet them directly and verify identity like a real human caller:
+  if (contactName && !/^(unknown|test|user|contact|lead)$/i.test(contactName)) {
     return `Hello, is this ${contactName}?`;
   }
 
-  // If business/persona is known but no contact name:
+  // 2. If business / persona is known:
   if (businessName && persona) {
-    return `Hello! This is ${persona} calling from ${businessName}. Am I speaking with someone who can help with ${objective || "our inquiry"}?`;
+    return `Hello! This is ${persona} from ${businessName}. Can you hear me okay?`;
   }
 
+  if (businessName) {
+    return `Hello! I'm calling from ${businessName}. Can you hear me okay?`;
+  }
+
+  // 3. Natural human fallback:
   return "Hello! Can you hear me okay?";
 }

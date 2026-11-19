@@ -111,10 +111,10 @@ export class CallSessionState {
       this.instructions = request.instructions;
     }
 
+    const personalized = buildPersonalizedGreeting(request.context);
     this.greetingText =
       request.greetingText ||
-      agentSettings?.greeting ||
-      buildPersonalizedGreeting(request.context);
+      (this.contactName ? personalized : (agentSettings?.greeting || personalized));
 
     this.callbackUrl = request.callbackUrl;
     this.recordCall = request.recordCall;
