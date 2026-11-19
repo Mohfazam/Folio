@@ -251,6 +251,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [trialBannerDismissed, setTrialBannerDismissed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   const filteredItems = useMemo(() => {
@@ -269,6 +271,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
         setSearchOpen(false);
         setSettingsOpen(false);
         setUserMenuOpen(false);
+        setMobileDrawerOpen(false);
       }
     };
     window.addEventListener("keydown", handleShortcut);
@@ -355,20 +358,24 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     }
   };
 
+  const showTrialBanner =
+    profile.isTrial &&
+    (!trialBannerDismissed || profile.trialExpired || (trialDays !== null && trialDays <= 2));
+
   return (
     <DashboardProfileContext.Provider value={profile}>
       <DashboardNavigationContext.Provider value={{ requestedSetupAction, clearRequestedSetupAction }}>
       <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
         <header
           className={
-            profile.isTrial
-              ? "fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.88)] px-2 pt-[7px] backdrop-blur-xl"
+            showTrialBanner
+              ? "fixed inset-x-0 top-0 z-40 h-14 bg-[rgba(251,249,242,0.92)] px-2 pt-[7px] backdrop-blur-xl sm:px-3"
               : "fixed inset-x-0 top-0 z-40 h-0"
           }
         >
-          {profile.isTrial ? (
+          {showTrialBanner ? (
             <div
-              className={`flex h-[42px] items-center justify-between gap-3 rounded-[8px] border px-3 shadow-[0_1px_3px_rgba(27,28,24,0.035)] sm:px-4 ${trialTone}`}
+              className={`mx-auto flex h-[42px] max-w-[1380px] items-center justify-between gap-3 rounded-[10px] border px-3 shadow-[0_1px_3px_rgba(27,28,24,0.035)] sm:px-4 ${trialTone}`}
               role={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "status" : undefined}
               aria-live={profile.trialExpired || (trialDays !== null && trialDays <= 3) ? "polite" : undefined}
             >
@@ -390,50 +397,66 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 </span>
 
                 <div className="min-w-0 leading-tight">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <div className="flex min-w-0 items-center gap-2">
                     <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#252620] sm:text-[13px]">
                       {trialHeadline}
                     </p>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-1 font-['Space_Grotesk'] text-[9px] font-semibold leading-none ${
+                      className={`shrink-0 rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold leading-none ${
                         profile.trialExpired
                           ? "bg-[#FBE8E6] text-[#A33A32]"
                           : trialDays !== null && trialDays <= 3
                             ? "bg-[#F8EED8] text-[#8A6826]"
-                            : "bg-[#F0EAFB] text-[#705AA8]"
+                            : "bg-[#F0EAFB] text-[#644ABB]"
                       }`}
                     >
                       {trialBadge}
                     </span>
+                    <span className="hidden truncate font-['Space_Grotesk'] text-[11px] text-[#666A68] lg:inline">
+                      — {trialDescription}
+                    </span>
                   </div>
-                  <p className="mt-0.5 hidden truncate font-['Space_Grotesk'] text-[10px] text-[#777970] sm:block">
-                    {trialDescription}
-                  </p>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsSection("plan");
-                  setSettingsOpen(true);
-                }}
-                className={`inline-flex h-8 shrink-0 items-center justify-center rounded-[4px] px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 sm:px-4 sm:text-[12px] ${
-                  profile.trialExpired
-                    ? "bg-[#9E3B33] hover:bg-[#852F29]"
-                    : "bg-[#1B1C18] hover:bg-[#34352F]"
-                }`}
-              >
-                {profile.trialExpired ? "View plans" : "Upgrade"}
-              </button>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsSection("plan");
+                    setSettingsOpen(true);
+                  }}
+                  className={`inline-flex h-8 shrink-0 items-center justify-center rounded-[6px] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 ${
+                    profile.trialExpired
+                      ? "bg-[#9E3B33] hover:bg-[#852F29]"
+                      : "bg-[#1B1C18] hover:bg-[#34352F]"
+                  }`}
+                >
+                  {profile.trialExpired ? "View plans" : "Upgrade"}
+                </button>
+                {!profile.trialExpired && (trialDays === null || trialDays > 2) ? (
+                  <button
+                    type="button"
+                    onClick={() => setTrialBannerDismissed(true)}
+                    aria-label="Dismiss trial notice for this session"
+                    title="Dismiss for this session"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] text-[#666A68] transition-colors hover:bg-black/5 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                  >
+                    <Icon name="close" className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
             </div>
           ) : null}
-
         </header>
 
-        <aside className={`fixed bottom-4 left-0 ${profile.isTrial ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between bg-[#F5F4ED] px-2 pt-4 pb-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)] md:flex lg:w-[208px] lg:px-3`}>
-          <div className="flex flex-col gap-6">
-            <Link href="/dashboard" className="flex min-h-7 items-center gap-2.5 px-2" aria-label="Foolioo overview">
+        <aside className={`fixed bottom-0 left-0 ${showTrialBanner ? "top-14" : "top-0"} z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-5 md:flex lg:w-[216px] lg:px-3.5`}>
+          <div className="flex flex-col gap-5">
+            <Link
+              href="/dashboard"
+              className="flex min-h-8 items-center gap-2.5 rounded-[6px] px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+              aria-label="Foolioo overview"
+            >
               <BrandMark />
             </Link>
 
@@ -450,23 +473,23 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
             </nav>
           </div>
 
-          <div className="flex flex-col gap-2 pb-2 pl-1">
+          <div className="flex flex-col gap-1.5 border-t border-[#E6E5DD] pt-3">
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start"
+              className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition-colors hover:bg-[#ECEBE4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-start"
               title="Search (Ctrl or Cmd + K)"
             >
-              <Icon name="search" className="h-[15px] w-[15px] shrink-0" />
+              <Icon name="search" className="h-4 w-4 shrink-0" />
               <span className="hidden lg:inline">Search</span>
-              <kbd className="ml-auto hidden rounded border border-[#D8D8D1] px-1 py-0.5 text-[9px] text-[#747878] lg:inline">⌘K</kbd>
+              <kbd className="ml-auto hidden rounded border border-[#D8D8D1] bg-white/70 px-1.5 py-0.5 text-[10px] text-[#666A68] lg:inline">⌘K</kbd>
             </button>
             <Link
               href="/dashboard/settings"
-              className={`flex w-full items-center gap-3 rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[13px] transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/settings") ? "bg-[#ECEBE4] text-[#1B1C18]" : "text-[#444748]"}`}
+              className={`flex w-full items-center gap-3 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[13px] transition-colors hover:bg-[#ECEBE4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-start ${pathname.startsWith("/dashboard/settings") ? "bg-[#E9E8E1] font-semibold text-[#1B1C18]" : "text-[#444748]"}`}
               title="Workspace settings"
             >
-              <Icon name="settings" className="h-[15px] w-[15px] shrink-0" />
+              <Icon name="settings" className="h-4 w-4 shrink-0" />
               <span className="hidden lg:inline">Settings</span>
             </Link>
             <div className="relative" ref={userMenuRef}>
@@ -590,47 +613,136 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           </div>
         </aside>
 
-        <main className={`min-h-screen pb-24 ${profile.isTrial ? "pt-14" : "pt-0"} md:pb-8 md:pl-[72px] lg:pl-[208px]`}>
-          <div className="mx-auto w-full max-w-7xl px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pt-14">
-            <div className="rounded-[12px] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)] sm:p-7 lg:p-8">
+        <main className={`min-h-screen pb-24 ${showTrialBanner ? "pt-14" : "pt-0"} md:pb-10 md:pl-[72px] lg:pl-[216px]`}>
+          <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pt-8">
+            <div className="rounded-[12px] border border-[#E9E8E1]/80 bg-white p-4 shadow-[0_1px_4px_rgba(27,28,24,0.03)] sm:p-6 lg:p-8">
               {children}
             </div>
           </div>
         </main>
 
-        <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#E9E8E1] bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden">
+        <nav aria-label="Mobile navigation" className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-[#E9E8E1] bg-white/95 px-1.5 pb-[max(env(safe-area-inset-bottom),8px)] pt-1.5 backdrop-blur md:hidden">
           {NAV_ITEMS.slice(0, 4).map((item) => (
             <NavEntry
               key={item.href}
               item={item}
-              active={pathname === item.href}
+              active={pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`))}
               variant="mobile"
               onSetupAction={openSetupAction}
             />
           ))}
           <button
             type="button"
-            onClick={() => setUserMenuOpen(true)}
-            className="flex min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-center font-['Space_Grotesk'] text-[10px] text-[#444748] transition-colors hover:bg-[#ECEBE4]"
-            aria-label="Account options"
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-expanded={mobileDrawerOpen}
+            aria-label="More workspace navigation"
+            className="flex min-h-[44px] min-w-0 flex-col items-center justify-center gap-1 rounded-[6px] px-1 py-1.5 text-center font-['Space_Grotesk'] text-[10px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]"
           >
-            {profile.avatarUrl ? (
-              <Image
-                src={profile.avatarUrl}
-                alt={profile.displayName}
-                width={16}
-                height={16}
-                unoptimized
-                className="h-4 w-4 rounded-full object-cover"
-              />
-            ) : (
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#1B1C18] text-[8px] font-semibold text-white">
-                {initials(profile.displayName)}
-              </span>
-            )}
-            <span className="max-w-full truncate">Account</span>
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+            <span className="max-w-full truncate">More</span>
           </button>
         </nav>
+
+        {mobileDrawerOpen ? (
+          <div
+            className="fixed inset-0 z-50 flex justify-end bg-[#1B1C18]/30 backdrop-blur-[1px] md:hidden"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setMobileDrawerOpen(false);
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Workspace navigation"
+              className="flex h-full w-72 max-w-[85vw] flex-col justify-between border-l border-[#E9E8E1] bg-[#F5F4ED] p-4 shadow-xl"
+            >
+              <div>
+                <div className="flex items-center justify-between border-b border-[#E6E5DD] pb-3">
+                  <BrandMark />
+                  <button
+                    type="button"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    aria-label="Close navigation"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] text-[#444748] hover:bg-[#ECEBE4]"
+                  >
+                    <Icon name="close" className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="mt-4 flex flex-col gap-1">
+                  {NAV_ITEMS.map((item) => {
+                    const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileDrawerOpen(false)}
+                        aria-current={active ? "page" : undefined}
+                        className={`flex min-h-[44px] items-center gap-3 rounded-[6px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                          active ? "bg-[#E9E8E1] font-semibold text-[#1B1C18]" : "text-[#444748] hover:bg-[#ECEBE4]"
+                        }`}
+                      >
+                        <Icon name={item.icon} className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{item.label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 border-t border-[#E6E5DD] pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileDrawerOpen(false);
+                    setSearchOpen(true);
+                  }}
+                  className="flex min-h-[44px] w-full items-center gap-3 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                >
+                  <Icon name="search" className="h-4 w-4" />
+                  <span>Search</span>
+                </button>
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex min-h-[44px] w-full items-center gap-3 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                >
+                  <Icon name="settings" className="h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+                <Link
+                  href="/dashboard/profile"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex min-h-[44px] items-center gap-3 rounded-[8px] bg-[#ECEBE4] px-3 py-2.5"
+                >
+                  {profile.avatarUrl ? (
+                    <Image
+                      src={profile.avatarUrl}
+                      alt={profile.displayName}
+                      width={32}
+                      height={32}
+                      unoptimized
+                      className="h-8 w-8 shrink-0 rounded-[6px] object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
+                      {initials(profile.displayName)}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                      {profile.displayName}
+                    </span>
+                    <span className="block truncate font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+                      {profile.workspaceName}
+                    </span>
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {searchOpen ? (
           <div className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1B1C18]/25 px-4 pt-[15vh]" onMouseDown={(event) => {

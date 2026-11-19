@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useDashboardNavigation, useDashboardProfile, type DashboardSetupAction } from "@/components/dashboard/dashboard-shell";
+import {
+  useDashboardNavigation,
+  useDashboardProfile,
+  type DashboardSetupAction,
+} from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
-import { getOverviewAnalyticsAction, skipTestCallSetupAction } from "@/app/(dashboard)/dashboard/actions";
+import {
+  getOverviewAnalyticsAction,
+  skipTestCallSetupAction,
+  type OverviewTimeframe,
+} from "@/app/(dashboard)/dashboard/actions";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -17,6 +26,8 @@ export type AnalyticsOverview = {
   pipeline: JsonRecord;
   costs: JsonRecord;
   recentCalls: JsonRecord[];
+  dailyTrend: JsonRecord[];
+  campaignPerformance: JsonRecord[];
 };
 
 export type CollectionSnapshot = {
@@ -46,34 +57,122 @@ export type DashboardOverviewData = {
   setup: LoadResult<JsonRecord>;
 };
 
+type IconKind =
+  | "calls"
+  | "conversation"
+  | "followup"
+  | "queue"
+  | "contacts"
+  | "campaign"
+  | "voice"
+  | "clock"
+  | "check"
+  | "arrow"
+  | "alert"
+  | "credit"
+  | "knowledge"
+  | "routing"
+  | "refresh"
+  | "activity";
 
-function Icon({
-  kind,
-  className = "h-4 w-4",
-}: {
-  kind: "calls" | "conversation" | "followup" | "queue" | "contacts" | "campaign" | "voice" | "clock" | "check" | "arrow" | "alert" | "credit";
-  className?: string;
-}) {
-  const paths: Record<typeof kind, ReactNode> = {
-    calls: <path d="M6.5 3.5h3l1.5 4-2 1.8a15 15 0 0 0 5.7 5.7l1.8-2 4 1.5v3c0 1.1-.9 2-2 2A15.5 15.5 0 0 1 4.5 5.5c0-1.1.9-2 2-2Z" />,
-    conversation: <><path d="M4 5h16v11H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>,
-    followup: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 17h6" /></>,
-    queue: <><path d="M4 6h16M4 12h16M4 18h10" /><circle cx="18" cy="18" r="2" /></>,
-    contacts: <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.2 2.6-5 6-5s6 1.8 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .5 3 2 3 4" /></>,
-    campaign: <><path d="M3 11v2a2 2 0 0 0 2 2h2l3 5h2l-2-6" /><path d="M7 9 19 4v16L7 15z" /></>,
-    voice: <><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" /></>,
-    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+function Icon({ kind, className = "h-4 w-4" }: { kind: IconKind; className?: string }) {
+  const paths: Record<IconKind, ReactNode> = {
+    calls: (
+      <path d="M6.5 3.5h3l1.5 4-2 1.8a15 15 0 0 0 5.7 5.7l1.8-2 4 1.5v3c0 1.1-.9 2-2 2A15.5 15.5 0 0 1 4.5 5.5c0-1.1.9-2 2-2Z" />
+    ),
+    conversation: (
+      <>
+        <path d="M4 5h16v11H9l-5 4z" />
+        <path d="M8 9h8M8 12h5" />
+      </>
+    ),
+    followup: (
+      <>
+        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <path d="M7 3v4M17 3v4M3 10h18M8 14h3M8 17h6" />
+      </>
+    ),
+    queue: (
+      <>
+        <path d="M4 6h16M4 12h16M4 18h10" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    contacts: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 20c0-3.2 2.6-5 6-5s6 1.8 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .5 3 2 3 4" />
+      </>
+    ),
+    campaign: (
+      <>
+        <path d="M3 11v2a2 2 0 0 0 2 2h2l3 5h2l-2-6" />
+        <path d="M7 9 19 4v16L7 15z" />
+      </>
+    ),
+    voice: <path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
     check: <path d="m5 12 4 4L19 6" />,
     arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
-    alert: <><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v5M12 17h.01" /></>,
-    credit: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+    alert: (
+      <>
+        <path d="M12 3 2.8 20h18.4L12 3Z" />
+        <path d="M12 9v5M12 17h.01" />
+      </>
+    ),
+    credit: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="M3 10h18M7 15h4" />
+      </>
+    ),
+    knowledge: (
+      <>
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z" />
+        <path d="M4 5.5V22M8 7h8M8 11h8" />
+      </>
+    ),
+    routing: (
+      <>
+        <circle cx="6" cy="6" r="2.5" />
+        <circle cx="18" cy="18" r="2.5" />
+        <path d="M8.5 6H14a4 4 0 0 1 4 4v5.5" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M20 11a8 8 0 0 0-14.5-4.5L3 9" />
+        <path d="M3 4v5h5" />
+        <path d="M4 13a8 8 0 0 0 14.5 4.5L21 15" />
+        <path d="M21 20v-5h-5" />
+      </>
+    ),
+    activity: <path d="M3 12h4l3-7 4 14 3-7h4" />,
   };
 
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.65"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       {paths[kind]}
     </svg>
   );
+}
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function recordText(record: JsonRecord | null | undefined, key: string): string | null {
@@ -112,6 +211,26 @@ function formatDate(value: unknown, timezone: string): string {
   }
 }
 
+function formatShortDate(value: unknown, timezone: string): string {
+  if (typeof value !== "string" && !(value instanceof Date)) return "—";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: timezone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(date);
+  }
+}
+
 type SetupAction = DashboardSetupAction;
 
 type SetupStep = {
@@ -128,14 +247,22 @@ type SetupStep = {
   disabledReason?: string;
 };
 
-function isJsonRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+type WorkspaceSetupState = {
+  mandatorySteps: SetupStep[];
+  allSteps: SetupStep[];
+  completedMandatoryCount: number;
+  totalMandatoryCount: number;
+  isComplete: boolean;
+  hasPartialProgress: boolean;
+  nextRequiredStep: SetupStep | null;
+};
 
-function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
-  const summary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
-    ? data.setup.data.setup
-    : null;
+function evaluateWorkspaceSetup(data: DashboardOverviewData): WorkspaceSetupState {
+  const summary =
+    data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+      ? data.setup.data.setup
+      : null;
+
   const contactCount = recordNumber(summary, "contactCount");
   const campaignCount = recordNumber(summary, "campaignCount");
   const activeCampaignCount = recordNumber(summary, "activeCampaignCount");
@@ -145,231 +272,394 @@ function buildSetupSteps(data: DashboardOverviewData): SetupStep[] {
   const testCallComplete = summary?.testCallComplete === true;
   const agentName = recordText(summary, "agentName") ?? "your AI agent";
 
-  const steps: SetupStep[] = [
+  const agentConfigured = summary?.agentConfigured === true;
+  const contactsImported = summary?.contactsImported === true;
+  const campaignCreated = summary?.campaignCreated === true;
+  const routingConfigured = summary?.routingConfigured === true;
+  const campaignLaunched = summary?.campaignLaunched === true;
+
+  const rawSteps: SetupStep[] = [
     {
       id: 1,
       title: "Set up your AI agent",
-      description: "Give your agent the context, speaking style and safety rules to represent your business.",
-      action: summary?.agentConfigured === true ? "Edit details" : "Set up voice",
+      description:
+        "Configure your business context, agent persona, opening greeting, and safety guardrails.",
+      action: agentConfigured ? "Edit details" : "Set up voice",
       actionKey: "voice",
-      complete: summary?.agentConfigured === true,
-      detail: summary?.agentConfigured === true ? `${agentName} is configured.` : "Add your business context, agent identity, greeting and guardrails.",
+      complete: agentConfigured,
+      detail: agentConfigured
+        ? `${agentName} is configured and ready.`
+        : "Add your business context, agent identity, greeting, and guardrails.",
     },
     {
       id: 2,
-      title: "Add your contacts",
-      description: "Import a contact list. Invalid, duplicate and opted-out records are excluded from campaign audiences.",
+      title: "Import eligible contacts",
+      description:
+        "Upload a contact list. Invalid, duplicate, and opted-out numbers are filtered automatically.",
       action: "Import contacts",
       actionKey: "contacts",
-      complete: summary?.contactsImported === true,
-      detail: contactCount !== null ? `${formatNumber(contactCount)} eligible contacts in this workspace.` : "Upload a CSV or Excel contact list.",
+      complete: contactsImported,
+      detail:
+        contactCount !== null
+          ? `${formatNumber(contactCount)} eligible contacts available in this workspace.`
+          : "Upload a CSV or Excel contact list.",
     },
     {
       id: 3,
       title: "Place a test call",
-      description: "Recommended: call a number you own to hear how your agent handles a real conversation. This step is optional, and you can continue setup without placing a test call.",
+      description:
+        "Optional: call a number you own to preview your agent live before launching to customers.",
       action: "Test call",
       actionKey: "test-call",
       complete: testCallComplete || testCallSkipped,
       optional: true,
       detail: testCallComplete
-        ? "Your agent connected successfully on the test call."
+        ? "Test call connected successfully."
         : testCallSkipped
-          ? "Skipped. You can still place a test call later from this step."
+          ? "Skipped — you can still run a test call anytime."
           : testCallStatus === "pending"
-            ? "Test call queued. Test calls can be placed at any time, independent of workspace calling hours."
+            ? "Test call queued and connecting shortly."
             : testCallOutcome
-              ? `The last test call ended with ${testCallOutcome.replaceAll("_", " ")}. A successful test call is recommended, but not required to launch.`
-              : testCallStatus
-                ? `Latest test call status: ${testCallStatus.replaceAll("_", " ")}. A test call is optional.`
-                : "Optional. Run a test call to hear your agent before launch, or skip this step and continue setup.",
+              ? `Last test call ended with ${testCallOutcome.replaceAll("_", " ")}.`
+              : "Optional step — skip anytime to continue setup.",
     },
     {
       id: 4,
       title: "Create your first campaign",
-      description: "Choose the outcome, shape the conversation and save a campaign draft.",
+      description:
+        "Define your outreach objective, talking points, and call-to-action in a campaign draft.",
       action: "Create campaign",
       actionKey: "campaign",
-      complete: summary?.campaignCreated === true,
-      detail: campaignCount !== null ? `${formatNumber(campaignCount)} saved campaigns in this workspace.` : "Create and save your first campaign draft.",
+      complete: campaignCreated,
+      detail:
+        campaignCount !== null
+          ? `${formatNumber(campaignCount)} campaign${campaignCount === 1 ? "" : "s"} created in this workspace.`
+          : "Create and save your first campaign draft.",
     },
     {
       id: 5,
-      title: "Set up follow-ups and team handling",
-      description: "Choose who receives callbacks, interested leads and requests for a human.",
+      title: "Configure follow-up routing & hours",
+      description:
+        "Assign callback ownership, no-answer retry cadences, and compliant local calling hours.",
       action: "Configure routing",
       actionKey: "routing",
-      complete: summary?.routingConfigured === true,
-      detail: summary?.routingConfigured === true ? "Follow-up ownership and calling hours are saved." : "Set callback ownership, no-answer retries and calling hours.",
+      complete: routingConfigured,
+      detail: routingConfigured
+        ? "Follow-up routing and local calling hours are configured."
+        : "Set callback ownership, retry limits, and calling hours.",
     },
     {
       id: 6,
-      title: "Review and launch",
-      description: "Select eligible contacts, review your campaign and approve outbound activity.",
+      title: "Review and launch campaign",
+      description:
+        "Select eligible contacts, review your script, and approve your first outbound run.",
       action: "Launch campaign",
       actionKey: "launch",
-      complete: summary?.campaignLaunched === true,
-      detail: summary?.campaignLaunched === true ? "Your first campaign has been approved and added to the outbound queue." : activeCampaignCount !== null ? `${formatNumber(activeCampaignCount)} active campaigns in this workspace.` : "Review the audience and explicitly approve your first launch.",
+      complete: campaignLaunched,
+      detail: campaignLaunched
+        ? "Your first campaign has been approved for outbound calling."
+        : activeCampaignCount !== null
+          ? `${formatNumber(activeCampaignCount)} active campaigns currently running.`
+          : "Review your audience and approve launch.",
     },
   ];
 
-  const agentConfigured = steps[0]?.complete === true;
-  const contactsImported = steps[1]?.complete === true;
-  // A test call is a recommendation, not a launch prerequisite. Only the
-  // required setup steps before launch can block the final review step.
-  const requiredSetupComplete = steps
-    .filter((step) => !step.optional && step.actionKey !== "launch")
-    .every((step) => step.complete);
+  const requiredBeforeLaunchComplete =
+    agentConfigured && contactsImported && campaignCreated && routingConfigured;
 
-  const firstIncompleteStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
+  const firstIncompleteMandatory =
+    rawSteps.find((step) => !step.optional && !step.complete) ?? null;
 
-  return steps.map((step) => {
-    const nextStep = {
-      ...step,
-      recommended: !step.complete && step.id === firstIncompleteStepId,
-    };
+  const allSteps = rawSteps.map((step) => {
+    const recommended =
+      !step.complete && firstIncompleteMandatory !== null && step.id === firstIncompleteMandatory.id;
     if (step.actionKey === "test-call" && !(agentConfigured && contactsImported)) {
-      return { ...nextStep, disabled: true, disabledReason: "Set up your AI agent and import contacts first." };
+      return {
+        ...step,
+        recommended,
+        disabled: true,
+        disabledReason: "Set up your AI agent and import contacts first.",
+      };
     }
-    if (step.actionKey === "launch" && !requiredSetupComplete) {
-      return { ...nextStep, disabled: true, disabledReason: "Complete the setup steps above before launching." };
+    if (step.actionKey === "launch" && !requiredBeforeLaunchComplete) {
+      return {
+        ...step,
+        recommended,
+        disabled: true,
+        disabledReason: "Complete the required setup steps above before launching.",
+      };
     }
-    return nextStep;
+    return { ...step, recommended };
   });
+
+  const mandatorySteps = allSteps.filter((step) => !step.optional);
+  const completedMandatoryCount = mandatorySteps.filter((step) => step.complete).length;
+  const totalMandatoryCount = mandatorySteps.length;
+  const isComplete =
+    data.setup.state === "ready" &&
+    totalMandatoryCount > 0 &&
+    completedMandatoryCount === totalMandatoryCount;
+
+  const hasPartialProgress =
+    !isComplete &&
+    (completedMandatoryCount > 0 || testCallComplete || testCallSkipped);
+
+  return {
+    mandatorySteps,
+    allSteps,
+    completedMandatoryCount,
+    totalMandatoryCount,
+    isComplete,
+    hasPartialProgress,
+    nextRequiredStep: firstIncompleteMandatory,
+  };
 }
 
-function ProgressRing({ complete, total }: { complete: number; total: number }) {
-  const percentage = total > 0 ? (complete / total) * 100 : 0;
+function SectionError({
+  title,
+  error,
+  onRetry,
+}: {
+  title: string;
+  error: string;
+  onRetry?: () => void;
+}) {
   return (
     <div
-      className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full"
-      style={{ background: `conic-gradient(#644ABB ${percentage * 3.6}deg, #E9E8E1 0deg)` }}
-      role="img"
-      aria-label={`${complete} of ${total} setup steps complete`}
+      role="alert"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#F0D8D4] bg-[#FFF9F8] px-4 py-3"
     >
-      <div className="absolute inset-[4px] flex items-center justify-center rounded-full bg-[#F8F7F2] font-['Space_Grotesk'] text-[11px] font-bold tracking-[0.06em] text-[#1B1C18]">{complete}/{total}</div>
+      <div className="min-w-0">
+        <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#8D3028]">
+          {title} could not be loaded
+        </p>
+        <p className="mt-0.5 break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D5A55]">
+          {error}
+        </p>
+      </div>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] border border-[#E5C4BF] bg-white px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028] transition-colors hover:bg-[#FDF2F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+        >
+          <Icon kind="refresh" className="h-3.5 w-3.5" />
+          Retry
+        </button>
+      ) : null}
     </div>
   );
 }
 
-function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAction: (action: SetupAction) => void }) {
+function ProgressRing({ complete, total }: { complete: number; total: number }) {
+  const percentage = total > 0 ? Math.min(100, Math.round((complete / total) * 100)) : 0;
+  return (
+    <div
+      className="relative flex h-13 w-13 shrink-0 items-center justify-center rounded-full"
+      style={{ background: `conic-gradient(#644ABB ${percentage * 3.6}deg, #E9E8E1 0deg)` }}
+      role="img"
+      aria-label={`${complete} of ${total} required setup steps complete (${percentage}%)`}
+    >
+      <div className="absolute inset-[4px] flex items-center justify-center rounded-full bg-[#F8F7F2] font-['Space_Grotesk'] text-[11px] font-bold tracking-[0.04em] text-[#1B1C18]">
+        {complete}/{total}
+      </div>
+    </div>
+  );
+}
+
+function SetupChecklist({
+  setupState,
+  setupError,
+  onAction,
+}: {
+  setupState: WorkspaceSetupState;
+  setupError: string | null;
+  onAction: (action: SetupAction) => void;
+}) {
   const router = useRouter();
-  const steps = useMemo(() => buildSetupSteps(data), [data]);
-  const [expanded, setExpanded] = useState<number[]>([1]);
-  const [hasManuallyChangedExpansion, setHasManuallyChangedExpansion] = useState(false);
+  const { allSteps, mandatorySteps, completedMandatoryCount, totalMandatoryCount, hasPartialProgress } =
+    setupState;
+
+  const visibleSteps = useMemo(() => {
+    if (!hasPartialProgress) return allSteps;
+    return allSteps.filter((step) => !(step.optional && step.complete));
+  }, [allSteps, hasPartialProgress]);
+
+  const [expandedId, setExpandedId] = useState<number | null>(
+    setupState.nextRequiredStep?.id ?? visibleSteps[0]?.id ?? null,
+  );
   const [skippingTestCall, setSkippingTestCall] = useState(false);
   const [skipTestCallError, setSkipTestCallError] = useState<string | null>(null);
-  const requiredSteps = steps.filter((step) => !step.optional);
-  const complete = requiredSteps.filter((step) => step.complete).length;
-  const anyExpanded = expanded.length > 0;
 
   useEffect(() => {
-    if (hasManuallyChangedExpansion) return;
-    const nextStep = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
-    setExpanded(nextStep ? [nextStep] : []);
-  }, [steps, hasManuallyChangedExpansion]);
+    setExpandedId(setupState.nextRequiredStep?.id ?? null);
+  }, [setupState.nextRequiredStep?.id]);
+
+  const progressPercent =
+    totalMandatoryCount > 0
+      ? Math.round((completedMandatoryCount / totalMandatoryCount) * 100)
+      : 0;
 
   const handleSkipTestCall = async () => {
     if (skippingTestCall) return;
     setSkippingTestCall(true);
     setSkipTestCallError(null);
-
     try {
       const result = await skipTestCallSetupAction();
       if (!result.ok) {
         setSkipTestCallError(result.error);
-        setHasManuallyChangedExpansion(true);
-        setExpanded([3]);
         return;
       }
-
-      // Move focus to the next outstanding required step after persisting the skip.
-      const nextRequiredStepId = steps.find((step) => !step.complete && !step.optional)?.id ?? null;
-      setHasManuallyChangedExpansion(true);
-      setExpanded(nextRequiredStepId ? [nextRequiredStepId] : []);
       router.refresh();
     } catch (error) {
-      setSkipTestCallError(error instanceof Error ? error.message : "Unable to skip the test-call step.");
+      setSkipTestCallError(
+        error instanceof Error ? error.message : "Unable to skip the test-call step.",
+      );
     } finally {
       setSkippingTestCall(false);
     }
   };
 
-  const toggleAll = () => {
-    setHasManuallyChangedExpansion(true);
-    setExpanded(anyExpanded ? [] : steps.map((step) => step.id));
-  };
-  const toggleStep = (id: number) => {
-    setHasManuallyChangedExpansion(true);
-    setExpanded((current) => current.includes(id) ? current.filter((item) => item !== id) : [id]);
-  };
-
   return (
-    <>
-      {data.setup.state === "error" ? <SectionError title="Workspace setup status" error={data.setup.error} /> : null}
-      <section className="overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white pb-3 shadow-[0_1px_2px_rgba(0,0,0,0.05)]" aria-labelledby="setup-heading">
-        <div className="flex flex-col gap-4 bg-[rgba(245,244,237,0.4)] p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
-          <div className="flex items-center gap-4">
-            <ProgressRing complete={complete} total={requiredSteps.length} />
+    <div className="space-y-3">
+      {setupError ? <SectionError title="Workspace setup status" error={setupError} /> : null}
+      <section
+        className="overflow-hidden rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+        aria-labelledby="setup-heading"
+      >
+        <div className="flex flex-col gap-3 border-b border-[#ECEBE5] bg-[#F8F7F2] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <ProgressRing complete={completedMandatoryCount} total={totalMandatoryCount} />
             <div className="min-w-0">
-              <h2 id="setup-heading" className="font-['Space_Grotesk'] text-[15px] font-semibold tracking-[-0.16px] text-[#1B1C18] sm:text-[16px]">Get your workspace ready for outbound voice</h2>
-              <p className="mt-1 max-w-[560px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#444748] sm:text-[13px]">Complete these essential steps to run your first compliant AI voice campaign.</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2
+                  id="setup-heading"
+                  className="font-['Space_Grotesk'] text-[15px] font-semibold tracking-[-0.01em] text-[#1B1C18]"
+                >
+                  {hasPartialProgress
+                    ? "Finish setting up your workspace"
+                    : "Get your workspace ready for outbound voice"}
+                </h2>
+                <span className="rounded-full bg-[#E7DEFF] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
+                  {progressPercent}% required complete
+                </span>
+              </div>
+              <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#565B5B]">
+                {mandatorySteps.length - completedMandatoryCount} required{" "}
+                {mandatorySteps.length - completedMandatoryCount === 1 ? "step" : "steps"} remaining
+                to launch outbound campaigns.
+              </p>
             </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:justify-end">
-            <button type="button" onClick={toggleAll} className="rounded-[2px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-white">{anyExpanded ? "Collapse steps" : "Expand steps"}</button>
-            <span className="inline-flex items-center gap-1.5 rounded-[12px] bg-[#E7DEFF] px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#644ABB]"><Icon kind="clock" className="h-3 w-3" /> Est. 8 mins</span>
           </div>
         </div>
 
-        <div className="flex flex-col px-4 pt-1 sm:px-6">
-          {steps.map((step) => {
-            const isExpanded = expanded.includes(step.id);
+        <div className="divide-y divide-[#ECEBE5] px-4 py-1 sm:px-5">
+          {visibleSteps.map((step) => {
+            const isExpanded = expandedId === step.id;
+            const statusLabel = step.complete
+              ? "Completed"
+              : step.disabled
+                ? "Blocked"
+                : step.optional
+                  ? "Optional"
+                  : step.recommended
+                    ? "Next step"
+                    : "Pending";
+
             return (
-              <article key={step.id} className={`border-b border-[#ECEBE5] last:border-b-0 ${step.recommended && isExpanded ? "my-1 rounded-[4px] border-0 bg-[#F5F4ED] px-3" : "px-3"}`}>
-                <div className={`flex items-center gap-3 sm:gap-4 ${isExpanded ? "py-4" : "py-3"}`}>
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${step.complete ? "border-[#6BA77A] bg-[#E8F3EA] text-[#25633A]" : "border-[#D5D5CE] bg-white text-transparent"}`} aria-hidden="true">
-                    {step.complete ? <Icon kind="check" className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-transparent" />}
+              <article
+                key={step.id}
+                className={`py-3 transition-colors ${
+                  step.recommended ? "-mx-2 my-1 rounded-[8px] bg-[#F8F7F2] px-3" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                      step.complete
+                        ? "border-[#6BA77A] bg-[#E8F3EA] text-[#25633A]"
+                        : step.recommended
+                          ? "border-[#644ABB] bg-[#F0EAFB] text-[#644ABB]"
+                          : "border-[#D5D5CE] bg-white text-transparent"
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {step.complete ? (
+                      <Icon kind="check" className="h-3 w-3" />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    )}
                   </span>
+
                   <div className="min-w-0 flex-1">
-                    <button type="button" onClick={() => toggleStep(step.id)} aria-expanded={isExpanded} className="block min-w-0 text-left">
-                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.07em] ${step.recommended ? "text-[#644ABB]" : "text-[#747878]"}`}>STEP {step.id}{step.optional ? " · OPTIONAL" : step.recommended ? " · RECOMMENDED NEXT" : ""}</span>
-                        {!step.recommended ? <span className="hidden h-1 w-1 rounded-full bg-[#C4C7C7] sm:inline-block" /> : null}
-                        <span className="font-['Space_Grotesk'] text-[14px] font-semibold leading-5 text-[#1B1C18] sm:text-[15px]">{step.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : step.id)}
+                      aria-expanded={isExpanded}
+                      className="flex w-full flex-wrap items-center gap-2 rounded-[4px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                    >
+                      <span
+                        className={`font-['Space_Grotesk'] text-[14px] font-semibold ${
+                          step.complete ? "text-[#565B5B]" : "text-[#1B1C18]"
+                        }`}
+                      >
+                        {step.title}
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${
+                          step.complete
+                            ? "bg-[#EFF8F1] text-[#34734B]"
+                            : step.disabled
+                              ? "bg-[#F1F0EB] text-[#747878]"
+                              : step.optional
+                                ? "bg-[#F7F5EF] text-[#696B62]"
+                                : step.recommended
+                                  ? "bg-[#E7DEFF] text-[#644ABB]"
+                                  : "bg-[#FFFAEC] text-[#8A6826]"
+                        }`}
+                      >
+                        {statusLabel}
                       </span>
                     </button>
+
                     {isExpanded ? (
-                      <>
-                        <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-[20px] text-[#565B5B]">{step.description}</p>
-                        {step.id === 1 && !step.complete ? (
-                          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Add your business context, agent identity, greeting and guardrails in one setup flow.</p>
-                        ) : step.detail ? (
-                          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{step.detail}</p>
-                        ) : null}
+                      <div className="mt-1.5 space-y-1">
+                        <p className="max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
+                          {step.description}
+                        </p>
+                        <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          {step.disabled && step.disabledReason ? step.disabledReason : step.detail}
+                        </p>
                         {step.actionKey === "test-call" && skipTestCallError ? (
-                          <p role="alert" className="mt-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">{skipTestCallError}</p>
+                          <p role="alert" className="font-['Space_Grotesk'] text-[11px] text-[#A33A32]">
+                            {skipTestCallError}
+                          </p>
                         ) : null}
-                      </>
+                      </div>
                     ) : null}
                   </div>
+
                   <div className="flex shrink-0 items-center gap-2">
                     <button
                       type="button"
                       onClick={() => onAction(step.actionKey)}
                       disabled={step.disabled}
                       title={step.disabled ? step.disabledReason : undefined}
-                      aria-label={step.disabled ? `${step.action}. ${step.disabledReason}` : step.action}
-                      className={`inline-flex h-[34px] shrink-0 items-center gap-2 rounded-[3px] px-3.5 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#A1A39F] disabled:opacity-70 ${step.recommended ? "bg-black text-white hover:bg-[#34352F]" : "bg-[#F1F0EB] text-[#1B1C18] hover:bg-[#E9E8E1]"}`}
+                      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#929493] ${
+                        step.recommended
+                          ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
+                          : "border border-[#DCDDD6] bg-white text-[#1B1C18] hover:bg-[#F5F4ED]"
+                      }`}
                     >
-                      {step.action}{step.disabled ? null : <Icon kind="arrow" className="h-3 w-3" />}
+                      <span>{step.action}</span>
+                      {!step.disabled ? <Icon kind="arrow" className="h-3 w-3" /> : null}
                     </button>
                     {step.actionKey === "test-call" && !step.complete ? (
                       <button
                         type="button"
                         onClick={handleSkipTestCall}
                         disabled={skippingTestCall}
-                        className="inline-flex h-[34px] shrink-0 items-center justify-center rounded-[3px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                        className="inline-flex h-8 shrink-0 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#565B5B] transition-colors hover:bg-[#F5F4ED] disabled:opacity-60"
                       >
                         {skippingTestCall ? "Skipping…" : "Skip"}
                       </button>
@@ -381,119 +671,150 @@ function SetupChecklist({ data, onAction }: { data: DashboardOverviewData; onAct
           })}
         </div>
       </section>
-    </>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  helper,
-  icon,
-}: {
-  label: string;
-  value: number | null;
-  helper: string;
-  icon: "calls" | "conversation" | "followup" | "queue" | "contacts";
-}) {
-  return (
-    <article className="flex min-h-[128px] flex-col justify-between rounded-[8px] bg-[rgba(245,244,237,0.7)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)] sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] sm:text-[13px]">{label}</h3>
-        <span className="text-[#747878]"><Icon kind={icon} className="h-4 w-4" /></span>
-      </div>
-      <div>
-        <p className="font-['Newsreader'] text-[30px] leading-9 text-[#1B1C18]">{value === null ? "—" : formatNumber(value)}</p>
-        <p className="mt-1 font-['Space_Grotesk'] text-[10px] font-semibold leading-[14px] tracking-[0.03em] text-[#747878]">{helper}</p>
-      </div>
-    </article>
-  );
-}
-
-function SectionError({ title, error }: { title: string; error: string }) {
-  return (
-    <div className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-3">
-      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#8D3028]">{title} could not be loaded</p>
-      <p className="mt-1 break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D5A55]">{error}</p>
     </div>
   );
 }
 
-function QuotaPanel({ analytics }: { analytics: AnalyticsOverview }) {
-  const allowance = recordNumber(analytics.quota, "monthlyCreditsAllowance");
-  const used = recordNumber(analytics.quota, "creditsUsedThisCycle");
-  const reserved = recordNumber(analytics.quota, "creditsReservedThisCycle");
-  const remaining = recordNumber(analytics.quota, "creditsRemaining");
-  const percentRemaining = allowance && remaining !== null ? Math.min(100, Math.max(0, (remaining / allowance) * 100)) : 0;
+type ActionPriority = "critical" | "important" | "recommended" | "informational";
+
+type WorkspaceActionItem = {
+  id: string;
+  priority: ActionPriority;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  icon: IconKind;
+  onTrigger: () => void;
+};
+
+const PRIORITY_STYLES: Record<ActionPriority, { label: string; badge: string; iconBg: string }> = {
+  critical: {
+    label: "Critical",
+    badge: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
+    iconBg: "bg-[#FBE8E6] text-[#A33A32]",
+  },
+  important: {
+    label: "Important",
+    badge: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
+    iconBg: "bg-[#F8EED8] text-[#8A6826]",
+  },
+  recommended: {
+    label: "Recommended",
+    badge: "border-[#E2D9F8] bg-[#F7F4FC] text-[#644ABB]",
+    iconBg: "bg-[#EFEAFB] text-[#644ABB]",
+  },
+  informational: {
+    label: "Info",
+    badge: "border-[#E5E1D5] bg-[#F7F5EF] text-[#565B5B]",
+    iconBg: "bg-[#F1F0EB] text-[#565B5B]",
+  },
+};
+
+function ActionCenter({
+  items,
+  loading,
+}: {
+  items: WorkspaceActionItem[];
+  loading: boolean;
+}) {
+  const visibleItems = items.slice(0, 4);
 
   return (
-    <section className="rounded-[8px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6" aria-labelledby="quota-heading">
+    <section
+      className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+      aria-labelledby="action-center-heading"
+    >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE CAPACITY</p>
-          <h2 id="quota-heading" className="mt-1 font-['Newsreader'] text-[21px] font-semibold text-[#1B1C18]">Voice credits</h2>
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+            ACTION CENTER
+          </p>
+          <h2
+            id="action-center-heading"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
+          >
+            Recommended next actions
+          </h2>
         </div>
-        <span className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-[#E7DEFF] text-[#644ABB]"><Icon kind="credit" className="h-4 w-4" /></span>
+        {visibleItems.length > 0 ? (
+          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]">
+            {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}
+          </span>
+        ) : null}
       </div>
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <div>
-          <p className="font-['Newsreader'] text-[30px] leading-9 text-[#1B1C18]">{formatNumber(remaining)}</p>
-          <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Credits remaining this cycle</p>
-        </div>
-        <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#444748]">{formatNumber(allowance)} allowance</p>
-      </div>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#EFEEE7]" role="progressbar" aria-label="Monthly voice credits remaining" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percentRemaining)}>
-        <div className="h-full rounded-full bg-[#7852D6] transition-[width]" style={{ width: `${percentRemaining}%` }} />
-      </div>
-      <div className="mt-3 flex flex-wrap justify-between gap-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-        <span>{formatNumber(used)} / {formatNumber(allowance)} used</span>
-        <span>{formatNumber(reserved)} reserved</span>
-        <span>{formatNumber(recordNumber(analytics.quota, "callsRemainingToday"))} calls left today</span>
-      </div>
-    </section>
-  );
-}
 
-function RecentCalls({ analytics, timezone, onPlaceTestCall, canPlaceTestCall }: { analytics: AnalyticsOverview; timezone: string; onPlaceTestCall: () => void; canPlaceTestCall: boolean }) {
-  const recentCalls = analytics.recentCalls;
-  return (
-    <section className="rounded-[8px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]" aria-labelledby="recent-calls-heading">
-      <div className="flex items-center justify-between border-b border-[#ECEBE5] px-5 py-4 sm:px-6">
-        <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">LATEST ACTIVITY</p>
-          <h2 id="recent-calls-heading" className="mt-1 font-['Newsreader'] text-[21px] font-semibold text-[#1B1C18]">Recent calls</h2>
+      {loading ? (
+        <div className="mt-4 space-y-2.5" aria-busy="true">
+          {[0, 1].map((row) => (
+            <div
+              key={row}
+              className="flex items-center justify-between gap-3 rounded-[8px] border border-[#ECEBE5] p-3.5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 animate-pulse motion-reduce:animate-none rounded-[6px] bg-[#ECEBE5]" />
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-44 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+                  <div className="h-2.5 w-64 animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
+                </div>
+              </div>
+              <div className="h-8 w-24 animate-pulse motion-reduce:animate-none rounded-[6px] bg-[#ECEBE5]" />
+            </div>
+          ))}
         </div>
-        {recentCalls.length > 0 ? <span className="rounded-[12px] bg-[#F1F0EB] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B]">Last 5 records</span> : null}
-      </div>
-      {recentCalls.length === 0 ? (
-        <div className="flex flex-col items-center px-6 py-9 text-center">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#E7DEFF] text-[#644ABB]"><Icon kind="calls" className="h-5 w-5" /></span>
-          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-medium text-[#444748]">No calls recorded yet</p>
-          <p className="mt-1 max-w-[300px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Place a test call to hear your AI agent before starting an outbound campaign.</p>
-          <button type="button" onClick={onPlaceTestCall} disabled={!canPlaceTestCall} title={!canPlaceTestCall ? "Set up your AI agent and import contacts first." : undefined} className="mt-4 inline-flex h-9 items-center gap-2 rounded-[4px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:bg-[#E9E8E1] disabled:text-[#929493]">
-            Place a test call<Icon kind="arrow" className="h-3 w-3" />
-          </button>
-          {!canPlaceTestCall ? <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#929493]">Complete agent setup and contact import first.</p> : null}
+      ) : visibleItems.length === 0 ? (
+        <div className="mt-4 flex items-center gap-3 rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] px-4 py-3.5">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EFF8F1] text-[#34734B]">
+            <Icon kind="check" className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+              You&apos;re all caught up.
+            </p>
+            <p className="font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+              No urgent configuration gaps, credit warnings, or unlaunched drafts require attention.
+            </p>
+          </div>
         </div>
       ) : (
-        <div className="divide-y divide-[#ECEBE5]">
-          {recentCalls.map((call, index) => {
-            const outcome = recordText(call, "outcome") ?? "unknown";
-            const connected = outcome === "connected";
-            const contactName = recordText(call, "contactName") ?? recordText(call, "phoneNumber") ?? "Unknown contact";
-            const summary = recordText(call, "summary");
+        <div className="mt-4 divide-y divide-[#ECEBE5] rounded-[8px] border border-[#ECEBE5]">
+          {visibleItems.map((item) => {
+            const tone = PRIORITY_STYLES[item.priority];
             return (
-              <article key={recordText(call, "id") ?? `${outcome}-${index}`} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] ${connected ? "bg-[#E8F3EA] text-[#25633A]" : "bg-[#F1F0EB] text-[#666A68]"}`}><Icon kind={connected ? "conversation" : "calls"} className="h-4 w-4" /></span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{contactName}</p>
-                  <p className="mt-0.5 line-clamp-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{summary ?? formatDate(call.startedAt, timezone)}</p>
+              <div
+                key={item.id}
+                className="flex flex-col gap-3 p-3.5 transition-colors hover:bg-[#FAF9F5] sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] ${tone.iconBg}`}
+                  >
+                    <Icon kind={item.icon} className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {item.title}
+                      </p>
+                      <span
+                        className={`rounded-full border px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold leading-none ${tone.badge}`}
+                      >
+                        {tone.label}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
+                      {item.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
-                  <span className={`rounded-[2px] px-2 py-1 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${connected ? "bg-[#E8F3EA] text-[#25633A]" : "bg-[#F1F0EB] text-[#666A68]"}`}>{outcome.replaceAll("_", " ")}</span>
-                  <span className="font-['Space_Grotesk'] text-[10px] text-[#929493]">{formatDuration(recordNumber(call, "durationSeconds"))} · {formatDate(call.startedAt, timezone)}</span>
-                </div>
-              </article>
+                <button
+                  type="button"
+                  onClick={item.onTrigger}
+                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 self-start rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:border-[#C5C6BE] hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:self-center"
+                >
+                  <span>{item.ctaLabel}</span>
+                  <Icon kind="arrow" className="h-3 w-3" />
+                </button>
+              </div>
             );
           })}
         </div>
@@ -502,108 +823,837 @@ function RecentCalls({ analytics, timezone, onPlaceTestCall, canPlaceTestCall }:
   );
 }
 
-function WorkspaceSnapshot({ data }: { data: DashboardOverviewData }) {
-  const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
-    ? data.setup.data.setup
-    : null;
-  const setupReady = data.setup.state === "ready";
-  const contactTotal = recordNumber(setupSummary, "contactCount");
-  const campaignTotal = recordNumber(setupSummary, "campaignCount");
-  const knowledgeTotal = recordNumber(setupSummary, "knowledgeBaseCount");
+function MetricCard({
+  label,
+  value,
+  subtext,
+  badge,
+  icon,
+  href,
+}: {
+  label: string;
+  value: string;
+  subtext: string;
+  badge?: string;
+  icon: IconKind;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex min-h-[126px] flex-col justify-between rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F4] p-4 shadow-[0_1px_2px_rgba(27,28,24,0.03)] transition-all hover:border-[#D3D1C7] hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:p-5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] sm:text-[13px]">
+          {label}
+        </span>
+        <span className="flex h-7 w-7 items-center justify-center rounded-[6px] bg-white text-[#565B5B] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors group-hover:text-[#644ABB]">
+          <Icon kind={icon} className="h-3.5 w-3.5" />
+        </span>
+      </div>
 
-  const readinessLabel = (value: number | null, ready: boolean, singular: string) => {
-    if (!ready) return "Unavailable";
-    return value !== null && value > 0 ? `${singular} added` : "Not set up yet";
-  };
+      <div className="mt-3">
+        <div className="flex items-baseline gap-2">
+          <p className="font-['Newsreader'] text-[30px] leading-none tracking-[-0.4px] text-[#1B1C18]">
+            {value}
+          </p>
+          {badge ? (
+            <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
+              {badge}
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1.5 flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+          <span className="truncate">{subtext}</span>
+          <span className="shrink-0 text-[#747878] opacity-0 transition-opacity group-hover:opacity-100">
+            View →
+          </span>
+        </p>
+      </div>
+    </Link>
+  );
+}
 
-  const rows = [
-    { label: "Contacts", value: readinessLabel(contactTotal, setupReady, "Contacts"), error: data.setup.state === "error" },
-    { label: "Campaigns", value: readinessLabel(campaignTotal, setupReady, "Campaigns"), error: data.setup.state === "error" },
-    { label: "Knowledge base", value: readinessLabel(knowledgeTotal, setupReady, "Knowledge base"), error: data.setup.state === "error" },
+function PerformanceAnalytics({
+  analytics,
+  timeframeLabel,
+  onPlaceTestCall,
+  canPlaceTestCall,
+}: {
+  analytics: AnalyticsOverview;
+  timeframeLabel: string;
+  onPlaceTestCall: () => void;
+  canPlaceTestCall: boolean;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const metrics = analytics.callMetrics;
+  const totalCalls = recordNumber(metrics, "totalCalls") ?? 0;
+  const connectedCalls = recordNumber(metrics, "connectedCalls") ?? 0;
+  const unansweredCalls = recordNumber(metrics, "unansweredCalls") ?? 0;
+  const droppedEarlyCalls = recordNumber(metrics, "droppedEarlyCalls") ?? 0;
+  const failedCalls = recordNumber(metrics, "failedCalls") ?? 0;
+  const avgDuration = recordNumber(metrics, "avgDurationSeconds") ?? 0;
+
+  const trendSlice = useMemo(() => analytics.dailyTrend.slice(-14), [analytics.dailyTrend]);
+  const maxDailyTotal = useMemo(
+    () => Math.max(1, ...trendSlice.map((row) => recordNumber(row, "totalCalls") ?? 0)),
+    [trendSlice],
+  );
+
+  const outcomeRows = [
+    { label: "Connected", count: connectedCalls, color: "bg-[#4D9469]" },
+    { label: "No answer / busy", count: unansweredCalls, color: "bg-[#D7A64A]" },
+    { label: "Dropped early", count: droppedEarlyCalls, color: "bg-[#8B8D88]" },
+    { label: "Failed", count: failedCalls, color: "bg-[#C66C5C]" },
   ];
 
+  const activePoint = hoveredIdx !== null ? trendSlice[hoveredIdx] ?? null : null;
+
   return (
-    <section className="rounded-[8px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] sm:p-6" aria-labelledby="workspace-snapshot-heading">
-      <div className="pb-3">
-        <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE STATUS</p>
-        <h2 id="workspace-snapshot-heading" className="mt-1 font-['Newsreader'] text-[21px] font-semibold text-[#1B1C18]">Workspace snapshot</h2>
+    <section
+      className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+      aria-labelledby="performance-analytics-heading"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+            PERFORMANCE ANALYTICS
+          </p>
+          <h2
+            id="performance-analytics-heading"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
+          >
+            Call activity & outcomes
+          </h2>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B]">
+            Avg talk: {totalCalls > 0 ? formatDuration(avgDuration) : "—"}
+          </span>
+          <Link
+            href="/dashboard/analytics"
+            className="rounded font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+          >
+            Full analytics →
+          </Link>
+        </div>
       </div>
-      <div className="divide-y divide-[#ECEBE5]">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between gap-3 py-3">
-            <span className="font-['Space_Grotesk'] text-[12px] text-[#444748]">{row.label}</span>
-            <span className={`font-['Space_Grotesk'] text-[10px] font-semibold ${row.error ? "text-[#A33A32]" : row.value === "Not set up yet" ? "text-[#929493]" : "text-[#44734D]"}`}>{row.value}</span>
+
+      {totalCalls === 0 && trendSlice.length === 0 ? (
+        <div className="mt-4 flex flex-col items-center rounded-[10px] border border-dashed border-[#DFDDD4] bg-[#FAF9F5] px-5 py-8 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EFEAFB] text-[#644ABB]">
+            <Icon kind="activity" className="h-5 w-5" />
+          </span>
+          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+            Performance insights will appear after your first calls
+          </p>
+          <p className="mt-1 max-w-[360px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
+            No calls were recorded during {timeframeLabel.toLowerCase()}. Place a test call or launch
+            a campaign to populate daily trends and outcome breakdowns.
+          </p>
+          {canPlaceTestCall ? (
+            <button
+              type="button"
+              onClick={onPlaceTestCall}
+              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+            >
+              Make a test call
+              <Icon kind="arrow" className="h-3 w-3" />
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_1fr]">
+          <div className="flex flex-col justify-between rounded-[10px] border border-[#ECEBE5] bg-[#FCFBF8] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                Daily call volume
+              </p>
+              {activePoint ? (
+                <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">
+                  {String(activePoint.date ?? "")}: {recordNumber(activePoint, "totalCalls") ?? 0}{" "}
+                  total · {recordNumber(activePoint, "connectedCalls") ?? 0} connected
+                </p>
+              ) : (
+                <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[10px] text-[#666A68]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-xs bg-[#DFD6F7]" />
+                    Total
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-xs bg-[#644ABB]" />
+                    Connected
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {trendSlice.length === 0 ? (
+              <div className="flex h-40 items-center justify-center font-['Space_Grotesk'] text-[12px] text-[#747878]">
+                No daily trend points in this range.
+              </div>
+            ) : (
+              <div
+                className="mt-4 flex h-40 items-end gap-1.5 border-b border-[#E6E5DD] px-1 pb-1"
+                role="img"
+                aria-label="Bar chart showing daily total calls and connected calls"
+              >
+                {trendSlice.map((row, idx) => {
+                  const dayTotal = recordNumber(row, "totalCalls") ?? 0;
+                  const dayConnected = recordNumber(row, "connectedCalls") ?? 0;
+                  const totalHeightPct = Math.max(6, Math.round((dayTotal / maxDailyTotal) * 100));
+                  const connectedRatioPct =
+                    dayTotal > 0 ? Math.min(100, Math.round((dayConnected / dayTotal) * 100)) : 0;
+                  const dateStr = typeof row.date === "string" ? row.date : "";
+                  const parsed = dateStr ? new Date(`${dateStr}T00:00:00`) : null;
+                  const shortDay =
+                    parsed && Number.isFinite(parsed.getTime())
+                      ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(
+                          parsed,
+                        )
+                      : dateStr;
+
+                  return (
+                    <button
+                      key={`${dateStr}-${idx}`}
+                      type="button"
+                      onMouseEnter={() => setHoveredIdx(idx)}
+                      onMouseLeave={() => setHoveredIdx(null)}
+                      onFocus={() => setHoveredIdx(idx)}
+                      onBlur={() => setHoveredIdx(null)}
+                      aria-label={`${shortDay}: ${dayTotal} total calls, ${dayConnected} connected`}
+                      className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end focus-visible:outline-none"
+                    >
+                      <div
+                        className="relative w-full max-w-[26px] overflow-hidden rounded-t-[4px] bg-[#E5DDFB] transition-opacity group-hover:opacity-90"
+                        style={{ height: `${totalHeightPct}%` }}
+                      >
+                        <div
+                          className="absolute inset-x-0 bottom-0 rounded-t-[4px] bg-[#644ABB]"
+                          style={{ height: `${connectedRatioPct}%` }}
+                        />
+                      </div>
+                      <span className="mt-1.5 truncate font-['Space_Grotesk'] text-[9px] text-[#747878]">
+                        {trendSlice.length <= 7 || idx % 2 === 0 ? shortDay : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        ))}
+
+          <div className="flex flex-col justify-between rounded-[10px] border border-[#ECEBE5] bg-[#FCFBF8] p-4">
+            <div>
+              <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                Outcome breakdown
+              </p>
+              <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+                Distribution across {formatNumber(totalCalls)} calls
+              </p>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {outcomeRows.map((row) => {
+                const pct = totalCalls > 0 ? Math.round((row.count / totalCalls) * 100) : 0;
+                return (
+                  <div key={row.label}>
+                    <div className="flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[11px]">
+                      <span className="text-[#444748]">{row.label}</span>
+                      <span className="font-semibold tabular-nums text-[#1B1C18]">
+                        {formatNumber(row.count)}{" "}
+                        <span className="font-normal text-[#747878]">({pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#ECEBE5]">
+                      <div
+                        className={`h-full rounded-full ${row.color}`}
+                        style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QuotaPanel({
+  analytics,
+  timezone,
+  onUpgrade,
+}: {
+  analytics: AnalyticsOverview;
+  timezone: string;
+  onUpgrade: () => void;
+}) {
+  const allowance = Math.max(0, recordNumber(analytics.quota, "monthlyCreditsAllowance") ?? 0);
+  const used = Math.max(0, recordNumber(analytics.quota, "creditsUsedThisCycle") ?? 0);
+  const reserved = Math.max(0, recordNumber(analytics.quota, "creditsReservedThisCycle") ?? 0);
+  const remaining = Math.max(0, recordNumber(analytics.quota, "creditsRemaining") ?? 0);
+  const maxCallsPerDay = Math.max(0, recordNumber(analytics.quota, "maxCallsPerDay") ?? 0);
+  const callsRemainingToday = Math.max(
+    0,
+    recordNumber(analytics.quota, "callsRemainingToday") ?? 0,
+  );
+  const resetDate = analytics.quota.nextBillingResetAt;
+
+  const consumedAndReserved = used + reserved;
+  const usedPercent =
+    allowance > 0 ? Math.min(100, Math.max(0, Math.round((consumedAndReserved / allowance) * 100))) : 0;
+  const remainingRatio = allowance > 0 ? remaining / allowance : 0;
+
+  const statusTone =
+    allowance > 0 && remaining === 0
+      ? {
+          label: "Exhausted",
+          badge: "bg-[#FBE8E6] text-[#A33A32]",
+          bar: "bg-[#B84339]",
+          showUpgrade: true,
+        }
+      : allowance > 0 && remainingRatio <= 0.2
+        ? {
+            label: "Low balance",
+            badge: "bg-[#FFFAEC] text-[#8A6826]",
+            bar: "bg-[#C98A2C]",
+            showUpgrade: true,
+          }
+        : {
+            label: "Healthy",
+            badge: "bg-[#EFEAFB] text-[#644ABB]",
+            bar: "bg-[#7852D6]",
+            showUpgrade: false,
+          };
+
+  return (
+    <section
+      className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+      aria-labelledby="quota-heading"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+            VOICE CREDITS & USAGE
+          </p>
+          <h2
+            id="quota-heading"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
+          >
+            Voice capacity
+          </h2>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${statusTone.badge}`}
+        >
+          {statusTone.label}
+        </span>
+      </div>
+
+      <div className="mt-4 flex items-baseline justify-between gap-3">
+        <div>
+          <p className="font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
+            {formatNumber(remaining)}
+          </p>
+          <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+            credits remaining of {formatNumber(allowance)} monthly allowance
+          </p>
+        </div>
+        <span className="font-['Space_Grotesk'] text-[12px] font-semibold tabular-nums text-[#444748]">
+          {usedPercent}% used
+        </span>
+      </div>
+
+      <div
+        className="mt-3.5 h-2 overflow-hidden rounded-full bg-[#EFEEE7]"
+        role="progressbar"
+        aria-label="Monthly voice credits used"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={usedPercent}
+      >
+        <div
+          className={`h-full rounded-full transition-[width] ${statusTone.bar}`}
+          style={{ width: `${usedPercent}%` }}
+        />
+      </div>
+
+      <dl className="mt-4 grid grid-cols-2 gap-2.5 rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] p-3 font-['Space_Grotesk']">
+        <div>
+          <dt className="text-[10px] font-medium text-[#747878]">Consumed</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
+            {formatNumber(used)} credits
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-medium text-[#747878]">Reserved in queue</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
+            {formatNumber(reserved)} credits
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-medium text-[#747878]">Daily call capacity</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
+            {formatNumber(callsRemainingToday)} / {formatNumber(maxCallsPerDay)} left
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-medium text-[#747878]">Cycle reset</dt>
+          <dd className="mt-0.5 truncate text-[12px] font-semibold text-[#1B1C18]">
+            {resetDate ? formatShortDate(resetDate, timezone) : "Billing cycle"}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-3.5 flex items-center justify-between gap-2">
+        <Link
+          href="/dashboard/analytics"
+          className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#565B5B] hover:text-[#1B1C18] hover:underline"
+        >
+          View usage breakdown
+        </Link>
+        {statusTone.showUpgrade ? (
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="inline-flex h-7 items-center rounded-[6px] bg-[#644ABB] px-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3]"
+          >
+            Add credits
+          </button>
+        ) : null}
       </div>
     </section>
   );
 }
+
+type HealthBadgeTone = "operational" | "attention" | "unconfigured" | "inactive";
+
+const HEALTH_TONE_CLASSES: Record<HealthBadgeTone, string> = {
+  operational: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
+  attention: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
+  unconfigured: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
+  inactive: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
+};
+
+function WorkspaceHealth({
+  data,
+  workspaceStatus,
+  onOpenRouting,
+}: {
+  data: DashboardOverviewData;
+  workspaceStatus: string | null;
+  onOpenRouting: () => void;
+}) {
+  const setupSummary =
+    data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+      ? data.setup.data.setup
+      : null;
+
+  const agentConfigured = setupSummary?.agentConfigured === true;
+  const agentName = recordText(setupSummary, "agentName");
+  const contactCount = recordNumber(setupSummary, "contactCount") ?? 0;
+  const campaignCount = recordNumber(setupSummary, "campaignCount") ?? 0;
+  const activeCampaignCount = recordNumber(setupSummary, "activeCampaignCount") ?? 0;
+  const knowledgeBaseCount = recordNumber(setupSummary, "knowledgeBaseCount") ?? 0;
+  const routingConfigured = setupSummary?.routingConfigured === true;
+  const isSuspended = workspaceStatus === "suspended" || workspaceStatus === "paused";
+
+  const rows: Array<{
+    key: string;
+    label: string;
+    meta: string;
+    statusLabel: string;
+    tone: HealthBadgeTone;
+    href?: string;
+    onClick?: () => void;
+  }> = [
+    {
+      key: "agent",
+      label: "AI Agent",
+      meta: agentConfigured ? `${agentName ?? "Persona"} · Required` : "Required for calling",
+      statusLabel: isSuspended ? "Inactive" : agentConfigured ? "Operational" : "Not configured",
+      tone: isSuspended ? "inactive" : agentConfigured ? "operational" : "unconfigured",
+      href: "/dashboard/ai-studio?tab=agent",
+    },
+    {
+      key: "contacts",
+      label: "Contacts",
+      meta: `${formatNumber(contactCount)} eligible · Required`,
+      statusLabel: contactCount > 0 ? "Operational" : "Not configured",
+      tone: contactCount > 0 ? "operational" : "unconfigured",
+      href: "/dashboard/contacts",
+    },
+    {
+      key: "campaigns",
+      label: "Campaigns",
+      meta:
+        campaignCount > 0
+          ? `${formatNumber(activeCampaignCount)} active · ${formatNumber(campaignCount)} total`
+          : "Required for outreach",
+      statusLabel:
+        activeCampaignCount > 0
+          ? "Operational"
+          : campaignCount > 0
+            ? "Needs attention"
+            : "Not configured",
+      tone:
+        activeCampaignCount > 0
+          ? "operational"
+          : campaignCount > 0
+            ? "attention"
+            : "unconfigured",
+      href: "/dashboard/campaigns",
+    },
+    {
+      key: "routing",
+      label: "Follow-up Routing",
+      meta: "Callbacks & calling hours · Required",
+      statusLabel: routingConfigured ? "Operational" : "Not configured",
+      tone: routingConfigured ? "operational" : "unconfigured",
+      onClick: onOpenRouting,
+    },
+    {
+      key: "kb",
+      label: "Knowledge Base",
+      meta:
+        knowledgeBaseCount > 0
+          ? `${formatNumber(knowledgeBaseCount)} active entries · Optional`
+          : "Optional context for Q&A",
+      statusLabel: knowledgeBaseCount > 0 ? "Operational" : "Not configured",
+      tone: knowledgeBaseCount > 0 ? "operational" : "unconfigured",
+      href: "/dashboard/ai-studio",
+    },
+  ];
+
+  return (
+    <section
+      className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+      aria-labelledby="workspace-health-heading"
+    >
+      <div>
+        <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+          OPERATIONAL READINESS
+        </p>
+        <h2
+          id="workspace-health-heading"
+          className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
+        >
+          Workspace health
+        </h2>
+      </div>
+
+      {data.setup.state === "error" ? (
+        <div className="mt-3">
+          <SectionError title="Workspace health" error={data.setup.error} />
+        </div>
+      ) : (
+        <div className="mt-3 divide-y divide-[#ECEBE5]">
+          {rows.map((row) => {
+            const inner = (
+              <>
+                <div className="min-w-0">
+                  <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] group-hover:text-[#644ABB]">
+                    {row.label}
+                  </p>
+                  <p className="truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                    {row.meta}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${HEALTH_TONE_CLASSES[row.tone]}`}
+                >
+                  {row.statusLabel}
+                </span>
+              </>
+            );
+
+            if (row.href) {
+              return (
+                <Link
+                  key={row.key}
+                  href={row.href}
+                  className="group -mx-2 flex items-center justify-between gap-3 rounded-[6px] px-2 py-3 transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                >
+                  {inner}
+                </Link>
+              );
+            }
+
+            return (
+              <button
+                key={row.key}
+                type="button"
+                onClick={row.onClick}
+                className="group -mx-2 flex w-full items-center justify-between gap-3 rounded-[6px] px-2 py-3 text-left transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+              >
+                {inner}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const OUTCOME_BADGE: Record<string, { label: string; tone: string }> = {
+  connected: { label: "Connected", tone: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]" },
+  no_answer: { label: "No answer", tone: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]" },
+  busy: { label: "Busy", tone: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]" },
+  voicemail: { label: "Voicemail", tone: "border-[#D9DDE7] bg-[#F2F4F8] text-[#59647C]" },
+  dropped_early: { label: "Dropped early", tone: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]" },
+  failed: { label: "Failed", tone: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]" },
+};
+
+function RecentCalls({
+  analytics,
+  timezone,
+  onPlaceTestCall,
+  canPlaceTestCall,
+}: {
+  analytics: AnalyticsOverview;
+  timezone: string;
+  onPlaceTestCall: () => void;
+  canPlaceTestCall: boolean;
+}) {
+  const recentCalls = analytics.recentCalls.slice(0, 5);
+
+  return (
+    <section
+      className="rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+      aria-labelledby="recent-calls-heading"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-5 py-4">
+        <div>
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+            RECENT ACTIVITY
+          </p>
+          <h2
+            id="recent-calls-heading"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
+          >
+            Recent calls
+          </h2>
+        </div>
+        <Link
+          href="/dashboard/calls"
+          className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+        >
+          View all calls
+          <Icon kind="arrow" className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {recentCalls.length === 0 ? (
+        <div className="flex flex-col items-center px-6 py-9 text-center">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EFEAFB] text-[#644ABB]">
+            <Icon kind="calls" className="h-5 w-5" />
+          </span>
+          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+            No calls yet.
+          </p>
+          <p className="mt-1 max-w-[340px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
+            Your call activity will appear here once your AI agent starts making calls.
+          </p>
+          <button
+            type="button"
+            onClick={onPlaceTestCall}
+            disabled={!canPlaceTestCall}
+            title={!canPlaceTestCall ? "Set up your AI agent and import contacts first." : undefined}
+            className="mt-4 inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:bg-[#E9E8E1] disabled:text-[#929493]"
+          >
+            Place a test call
+            <Icon kind="arrow" className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#ECEBE5]">
+          {recentCalls.map((call, index) => {
+            const callId = recordText(call, "id");
+            const outcome = recordText(call, "outcome") ?? "unknown";
+            const connected = outcome === "connected";
+            const outcomeInfo = OUTCOME_BADGE[outcome] ?? {
+              label: outcome.replaceAll("_", " "),
+              tone: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
+            };
+            const contactName = recordText(call, "contactName");
+            const phoneNumber = recordText(call, "phoneNumber");
+            const primaryLabel = contactName ?? phoneNumber ?? "Unknown contact";
+            const summary = recordText(call, "summary");
+            const interestLevel = recordText(call, "interestLevel");
+            const duration = formatDuration(recordNumber(call, "durationSeconds"));
+            const startedAt = formatDate(call.startedAt, timezone);
+
+            const content = (
+              <div className="flex flex-col gap-2.5 px-5 py-3.5 transition-colors hover:bg-[#FAF9F5] sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] ${
+                      connected ? "bg-[#EFF8F1] text-[#34734B]" : "bg-[#F3F2EC] text-[#666A68]"
+                    }`}
+                  >
+                    <Icon kind={connected ? "conversation" : "calls"} className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {primaryLabel}
+                      </p>
+                      {contactName && phoneNumber ? (
+                        <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          {phoneNumber}
+                        </span>
+                      ) : null}
+                      {interestLevel === "high" ? (
+                        <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
+                          High intent
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-0.5 line-clamp-1 font-['Space_Grotesk'] text-[12px] text-[#565B5B]">
+                      {summary ?? "No conversation summary recorded for this call."}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
+                  <span
+                    className={`rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${outcomeInfo.tone}`}
+                  >
+                    {outcomeInfo.label}
+                  </span>
+                  <span className="font-['Space_Grotesk'] text-[11px] tabular-nums text-[#747878]">
+                    {duration} · {startedAt}
+                  </span>
+                </div>
+              </div>
+            );
+
+            return callId ? (
+              <Link
+                key={callId}
+                href={`/dashboard/calls/${encodeURIComponent(callId)}`}
+                className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7852D6]"
+              >
+                {content}
+              </Link>
+            ) : (
+              <div key={`${outcome}-${index}`}>{content}</div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+const TIMEFRAME_OPTIONS: Array<{ value: OverviewTimeframe; label: string }> = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "all", label: "All time" },
+];
 
 export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const profile = useDashboardProfile();
   const router = useRouter();
   const { requestedSetupAction, clearRequestedSetupAction } = useDashboardNavigation();
   const firstName = profile.displayName.trim().split(/\s+/)[0] || "there";
-  const [analyticsResult, setAnalyticsResult] = useState<LoadResult<AnalyticsOverview>>(data.analytics);
-  useEffect(() => {
-    if (data.analytics.state === "ready" || data.analytics.state === "error") {
-      setAnalyticsResult(data.analytics);
-      return;
-    }
 
-    let active = true;
-    getOverviewAnalyticsAction().then((result) => {
-      if (!active) return;
-      if (!result.ok) {
-        setAnalyticsResult({ state: "error", error: result.error, status: result.status });
-        return;
-      }
-      const payload = result.data?.analytics;
-      if (!isJsonRecord(payload)) {
-        setAnalyticsResult({ state: "error", error: "The analytics response was invalid." });
-        return;
-      }
-      const isRecordValue = (value: unknown): value is JsonRecord => isJsonRecord(value);
-      if (!isRecordValue(payload.quota) || !isRecordValue(payload.callMetrics) || !isRecordValue(payload.pipeline)) {
-        setAnalyticsResult({ state: "error", error: "The analytics response is missing required workspace metrics." });
-        return;
-      }
-      setAnalyticsResult({
-        state: "ready",
-        data: {
-          timeframe: typeof payload.timeframe === "string" ? payload.timeframe : "30d",
-          client: isRecordValue(payload.client) ? payload.client : {},
-          quota: payload.quota,
-          callMetrics: payload.callMetrics,
-          leadIntelligence: isRecordValue(payload.leadIntelligence) ? payload.leadIntelligence : {},
-          pipeline: payload.pipeline,
-          costs: isRecordValue(payload.costs) ? payload.costs : {},
-          recentCalls: Array.isArray(payload.recentCalls) ? payload.recentCalls.filter(isRecordValue) : [],
-        },
-      });
-    }).catch((error) => {
-      if (active) setAnalyticsResult({ state: "error", error: error instanceof Error ? error.message : "Unable to load workspace analytics." });
-    });
-
-    return () => { active = false; };
-  }, [data.analytics]);
-
-  const analytics = analyticsResult.state === "ready" ? analyticsResult.data : null;
-  const callMetrics = analytics?.callMetrics;
-  const pipeline = analytics?.pipeline;
-  const leadIntelligence = analytics?.leadIntelligence;
-  const timezone = profile.timezone || "Asia/Kolkata";
-  const telemetryLabel = analytics ? `LAST ${analytics.timeframe.toUpperCase()}` : analyticsResult.state === "loading" ? "LOADING METRICS" : "ANALYTICS UNAVAILABLE";
-  const setupSummary = data.setup.state === "ready" && isJsonRecord(data.setup.data.setup) ? data.setup.data.setup : null;
-  const canPlaceTestCall = setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
+  const [timeframe, setTimeframe] = useState<OverviewTimeframe>("30d");
+  const [analyticsResult, setAnalyticsResult] = useState<LoadResult<AnalyticsOverview>>(
+    data.analytics,
+  );
+  const [completionBannerDismissed, setCompletionBannerDismissed] = useState(false);
   const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
+
+  const loadAnalytics = useCallback((selectedTimeframe: OverviewTimeframe, isMounted = () => true) => {
+    setAnalyticsResult({ state: "loading" });
+    getOverviewAnalyticsAction(selectedTimeframe)
+      .then((result) => {
+        if (!isMounted()) return;
+        if (!result.ok) {
+          setAnalyticsResult({ state: "error", error: result.error, status: result.status });
+          return;
+        }
+        const payload = result.data?.analytics;
+        if (!isJsonRecord(payload)) {
+          setAnalyticsResult({ state: "error", error: "The analytics response was invalid." });
+          return;
+        }
+        if (
+          !isJsonRecord(payload.quota) ||
+          !isJsonRecord(payload.callMetrics) ||
+          !isJsonRecord(payload.pipeline)
+        ) {
+          setAnalyticsResult({
+            state: "error",
+            error: "The analytics response is missing required workspace metrics.",
+          });
+          return;
+        }
+        setAnalyticsResult({
+          state: "ready",
+          data: {
+            timeframe: typeof payload.timeframe === "string" ? payload.timeframe : selectedTimeframe,
+            client: isJsonRecord(payload.client) ? payload.client : {},
+            quota: payload.quota,
+            callMetrics: payload.callMetrics,
+            leadIntelligence: isJsonRecord(payload.leadIntelligence)
+              ? payload.leadIntelligence
+              : {},
+            pipeline: payload.pipeline,
+            costs: isJsonRecord(payload.costs) ? payload.costs : {},
+            recentCalls: Array.isArray(payload.recentCalls)
+              ? payload.recentCalls.filter(isJsonRecord)
+              : [],
+            dailyTrend: Array.isArray(payload.dailyTrend)
+              ? payload.dailyTrend.filter(isJsonRecord)
+              : [],
+            campaignPerformance: Array.isArray(payload.campaignPerformance)
+              ? payload.campaignPerformance.filter(isJsonRecord)
+              : [],
+          },
+        });
+      })
+      .catch((error) => {
+        if (isMounted()) {
+          setAnalyticsResult({
+            state: "error",
+            error: error instanceof Error ? error.message : "Unable to load workspace analytics.",
+          });
+        }
+      });
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadAnalytics(timeframe, () => active);
+    return () => {
+      active = false;
+    };
+  }, [timeframe, loadAnalytics]);
+
+  const setupState = useMemo(() => evaluateWorkspaceSetup(data), [data]);
+  const setupSummary =
+    data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
+      ? data.setup.data.setup
+      : null;
+
+  const canPlaceTestCall =
+    setupSummary?.agentConfigured === true && setupSummary?.contactsImported === true;
 
   const searchParams = useSearchParams();
   const setupParam = searchParams?.get("setup") as SetupAction | null;
 
   useEffect(() => {
-    if (setupParam && ["voice", "contacts", "test-call", "campaign", "routing", "launch"].includes(setupParam)) {
+    if (
+      setupParam &&
+      ["voice", "contacts", "test-call", "campaign", "routing", "launch"].includes(setupParam)
+    ) {
       setActiveAction(setupParam);
     }
   }, [setupParam]);
@@ -615,78 +1665,414 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     }
   }, [requestedSetupAction, clearRequestedSetupAction]);
 
+  const handleSetupAction = useCallback(
+    (action: SetupAction) => {
+      if (action === "campaign") {
+        router.push("/dashboard/campaigns");
+        return;
+      }
+      if (action === "contacts") {
+        router.push("/dashboard/contacts?import=1");
+        return;
+      }
+      setActiveAction(action);
+    },
+    [router],
+  );
+
+  const analytics = analyticsResult.state === "ready" ? analyticsResult.data : null;
+  const callMetrics = analytics?.callMetrics;
+  const pipeline = analytics?.pipeline;
+  const leadIntelligence = analytics?.leadIntelligence;
+  const timezone = profile.timezone || "Asia/Kolkata";
+  const workspaceStatus =
+    recordText(analytics?.client, "status") ?? (profile.isTrial ? "trialing" : "active");
+
+  const timeframeLabel =
+    TIMEFRAME_OPTIONS.find((item) => item.value === timeframe)?.label ?? "Last 30 days";
+
+  const headerPrimaryAction = useMemo(() => {
+    if (!setupState.isComplete && setupState.nextRequiredStep) {
+      return {
+        label: setupState.nextRequiredStep.action,
+        onClick: () => handleSetupAction(setupState.nextRequiredStep!.actionKey),
+      };
+    }
+    return {
+      label: "Create campaign",
+      onClick: () => router.push("/dashboard/campaigns"),
+    };
+  }, [setupState.isComplete, setupState.nextRequiredStep, handleSetupAction, router]);
+
+  const actionCenterItems = useMemo<WorkspaceActionItem[]>(() => {
+    const items: WorkspaceActionItem[] = [];
+    const allowance = recordNumber(analytics?.quota, "monthlyCreditsAllowance") ?? 0;
+    const remaining = recordNumber(analytics?.quota, "creditsRemaining") ?? 0;
+    const openFollowUps = recordNumber(pipeline, "openFollowUps") ?? 0;
+    const knowledgeBaseCount = recordNumber(setupSummary, "knowledgeBaseCount") ?? 0;
+    const campaignCount = recordNumber(setupSummary, "campaignCount") ?? 0;
+    const activeCampaignCount = recordNumber(setupSummary, "activeCampaignCount") ?? 0;
+    const testCallComplete = setupSummary?.testCallComplete === true;
+
+    if (workspaceStatus === "suspended" || workspaceStatus === "paused") {
+      items.push({
+        id: "workspace-paused",
+        priority: "critical",
+        title: `Workspace calling is ${workspaceStatus}`,
+        description: "Outbound calls are currently blocked until your workspace status is active.",
+        ctaLabel: "Review settings",
+        icon: "alert",
+        onTrigger: () => router.push("/dashboard/settings"),
+      });
+    }
+
+    if (analytics && allowance > 0 && remaining === 0) {
+      items.push({
+        id: "credits-exhausted",
+        priority: "critical",
+        title: "Monthly voice credits exhausted",
+        description: "New outbound calls cannot be placed until your cycle resets or you upgrade.",
+        ctaLabel: "View billing",
+        icon: "credit",
+        onTrigger: () => router.push("/dashboard/settings"),
+      });
+    } else if (analytics && allowance > 0 && remaining / allowance <= 0.2) {
+      items.push({
+        id: "credits-low",
+        priority: "important",
+        title: `Voice credits running low (${formatNumber(remaining)} left)`,
+        description: "Top up or upgrade your plan before active campaigns pause mid-run.",
+        ctaLabel: "Manage plan",
+        icon: "credit",
+        onTrigger: () => router.push("/dashboard/settings"),
+      });
+    }
+
+    if (openFollowUps > 0) {
+      items.push({
+        id: "open-followups",
+        priority: "important",
+        title: `${formatNumber(openFollowUps)} open ${openFollowUps === 1 ? "follow-up" : "follow-ups"} awaiting action`,
+        description: "Review requested callbacks and high-intent leads that need human follow-up.",
+        ctaLabel: "Open follow-ups",
+        icon: "followup",
+        onTrigger: () => router.push("/dashboard/follow-ups"),
+      });
+    }
+
+    if (setupState.isComplete && campaignCount > 0 && activeCampaignCount === 0) {
+      items.push({
+        id: "no-active-campaign",
+        priority: "important",
+        title: "No active campaign running",
+        description: "You have saved campaigns in draft or paused state ready to resume or launch.",
+        ctaLabel: "View campaigns",
+        icon: "campaign",
+        onTrigger: () => router.push("/dashboard/campaigns"),
+      });
+    }
+
+    if (data.setup.state === "ready" && knowledgeBaseCount === 0) {
+      items.push({
+        id: "missing-kb",
+        priority: "recommended",
+        title: "Add knowledge base entries",
+        description:
+          "Upload FAQs, pricing, and policies so your AI agent answers caller questions accurately.",
+        ctaLabel: "Configure KB",
+        icon: "knowledge",
+        onTrigger: () => router.push("/dashboard/ai-studio"),
+      });
+    }
+
+    if (setupState.isComplete && !testCallComplete && canPlaceTestCall) {
+      items.push({
+        id: "optional-test-call",
+        priority: "informational",
+        title: "Run an optional voice test call",
+        description:
+          "Call your own number to verify pacing, pronunciation, and greeting changes.",
+        ctaLabel: "Place test call",
+        icon: "voice",
+        onTrigger: () => setActiveAction("test-call"),
+      });
+    }
+
+    return items;
+  }, [
+    analytics,
+    pipeline,
+    setupSummary,
+    workspaceStatus,
+    setupState.isComplete,
+    data.setup.state,
+    canPlaceTestCall,
+    router,
+  ]);
+
+  const totalCalls = recordNumber(callMetrics, "totalCalls");
+  const connectedCalls = recordNumber(callMetrics, "connectedCalls");
+  const connectionRate = recordNumber(callMetrics, "connectionRatePercent");
+  const highInterestCount = recordNumber(leadIntelligence, "highInterestCount");
+  const openFollowUpsCount = recordNumber(pipeline, "openFollowUps");
+
   return (
-    <div className="flex flex-col">
-      <header className="pb-6">
-        <div className="mb-3">
-          <span className="rounded-[2px] bg-[rgba(231,222,255,0.65)] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.1em] text-[#644ABB]">WORKSPACE OVERVIEW</span>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col justify-between gap-4 border-b border-[#ECEBE5] pb-5 lg:flex-row lg:items-end">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-[4px] bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#644ABB]">
+              WORKSPACE OVERVIEW
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${
+                workspaceStatus === "active" || workspaceStatus === "trialing"
+                  ? "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]"
+                  : "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]"
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {workspaceStatus}
+            </span>
+          </div>
+
+          <h1 className="mt-2 font-['Newsreader'] text-[30px] font-normal leading-[1.15] tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
+            {profile.greeting}, {firstName}
+          </h1>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-[12px] text-[#565B5B] sm:text-[13px]">
+            <span>Here&apos;s what&apos;s happening in your workspace.</span>
+            <span className="h-1 w-1 rounded-full bg-[#C4C7C7]" aria-hidden="true" />
+            <span className="font-semibold text-[#1B1C18]">{profile.workspaceName}</span>
+            <span className="h-1 w-1 rounded-full bg-[#C4C7C7]" aria-hidden="true" />
+            <span>{timezone}</span>
+          </div>
         </div>
-        <h1 className="font-['Newsreader'] text-[34px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[40px]">{profile.greeting}, {firstName}</h1>
-        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-[12px] leading-[22px] text-[#444748] sm:text-[13px]">
-          <span>Welcome to your Foolioo workspace</span><span className="h-1 w-1 rounded-full bg-[#C4C7C7]" /><span className="font-medium text-[#1B1C18]">{profile.workspaceName}</span><span className="h-1 w-1 rounded-full bg-[#C4C7C7]" /><span>{timezone}</span>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <label className="sr-only" htmlFor="overview-timeframe-select">
+            Metrics date range
+          </label>
+          <select
+            id="overview-timeframe-select"
+            value={timeframe}
+            onChange={(event) => setTimeframe(event.target.value as OverviewTimeframe)}
+            className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#C5C6BE] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
+          >
+            {TIMEFRAME_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={headerPrimaryAction.onClick}
+            className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+          >
+            <span>{headerPrimaryAction.label}</span>
+            <Icon kind="arrow" className="h-3.5 w-3.5" />
+          </button>
         </div>
       </header>
 
-      <section className="pb-6" aria-labelledby="metrics-heading">
-        <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
-          <h2 id="metrics-heading" className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.08em] text-[#747878]">WORKSPACE METRICS</h2>
-          <span className="font-['Space_Grotesk'] text-[10px] font-semibold tracking-[0.06em] text-[#747878]">{telemetryLabel}</span>
+      {setupState.isComplete && !completionBannerDismissed ? (
+        <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[#CDE5D4] bg-[#F4FBF6] px-4 py-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E1F3E6] text-[#25633A]">
+              <Icon kind="check" className="h-3.5 w-3.5" />
+            </span>
+            <p className="truncate font-['Space_Grotesk'] text-[12px] text-[#214D30]">
+              <span className="font-semibold">Workspace setup complete.</span> Your command center
+              is now tracking live operations.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCompletionBannerDismissed(true)}
+            className="shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#25633A] hover:underline"
+          >
+            Dismiss
+          </button>
         </div>
+      ) : null}
+
+      <section aria-labelledby="metrics-heading">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2
+            id="metrics-heading"
+            className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]"
+          >
+            KEY PERFORMANCE METRICS
+          </h2>
+          <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+            {timeframeLabel}
+          </span>
+        </div>
+
         {analyticsResult.state === "loading" ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {[0, 1, 2, 3].map((item) => <div key={item} className="h-[106px] rounded-[8px] border border-[#E9E8E1] bg-white p-4"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-4 h-8 w-16 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-3 h-2.5 w-32 rounded bg-[#F1F0EB]" /></div>)}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true">
+            {[0, 1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-[126px] rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F4] p-4 sm:p-5"
+              >
+                <div className="h-3 w-24 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+                <div className="mt-4 h-8 w-16 animate-pulse motion-reduce:animate-none rounded bg-[#E7E5DE]" />
+                <div className="mt-3 h-2.5 w-32 animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
+              </div>
+            ))}
           </div>
         ) : analyticsResult.state === "error" ? (
-          <SectionError title="Workspace analytics" error={analyticsResult.error} />
+          <SectionError
+            title="Workspace analytics"
+            error={analyticsResult.error}
+            onRetry={() => loadAnalytics(timeframe)}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Calls placed" value={recordNumber(callMetrics, "totalCalls")} helper="Calls in the selected period" icon="calls" />
-            <MetricCard label="Connected calls" value={recordNumber(callMetrics, "connectedCalls")} helper={recordNumber(callMetrics, "totalCalls") ? `${recordNumber(callMetrics, "connectionRatePercent") ?? 0}% connection rate` : "No calls yet"} icon="conversation" />
-            <MetricCard label="High-intent leads" value={recordNumber(leadIntelligence, "highInterestCount")} helper="Contacts showing strong interest" icon="contacts" />
-            <MetricCard label="Open follow-ups" value={recordNumber(pipeline, "openFollowUps")} helper="Follow-up records awaiting action" icon="followup" />
+            <MetricCard
+              label="Total calls"
+              value={formatNumber(totalCalls)}
+              subtext={
+                totalCalls && totalCalls > 0
+                  ? `${formatNumber(connectedCalls)} connected · no prior baseline`
+                  : "No calls in selected period"
+              }
+              icon="calls"
+              href="/dashboard/calls"
+            />
+            <MetricCard
+              label="Connection rate"
+              value={
+                totalCalls && totalCalls > 0
+                  ? `${(connectionRate ?? 0).toFixed(1)}%`
+                  : "0%"
+              }
+              badge={
+                totalCalls && totalCalls > 0
+                  ? `${formatNumber(connectedCalls)}/${formatNumber(totalCalls)}`
+                  : undefined
+              }
+              subtext={
+                totalCalls && totalCalls > 0
+                  ? `${formatNumber(connectedCalls)} of ${formatNumber(totalCalls)} calls connected`
+                  : "Requires at least 1 call"
+              }
+              icon="activity"
+              href="/dashboard/calls?outcome=connected"
+            />
+            <MetricCard
+              label="Interested leads"
+              value={formatNumber(highInterestCount)}
+              subtext="Calls marked high interest"
+              icon="contacts"
+              href="/dashboard/calls?interestLevel=high"
+            />
+            <MetricCard
+              label="Follow-ups due"
+              value={formatNumber(openFollowUpsCount)}
+              subtext="Open follow-up tasks awaiting action"
+              icon="followup"
+              href="/dashboard/follow-ups?status=open"
+            />
           </div>
         )}
       </section>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-8">
-          <SetupChecklist
-            data={data}
-            onAction={(action) => {
-              if (action === "campaign") {
-                router.push("/dashboard/campaigns");
-                return;
-              }
+          {!setupState.isComplete ? (
+            <SetupChecklist
+              setupState={setupState}
+              setupError={data.setup.state === "error" ? data.setup.error : null}
+              onAction={handleSetupAction}
+            />
+          ) : null}
 
-              if (action === "contacts") {
-                router.push("/dashboard/contacts?import=1");
-                return;
-              }
-
-              setActiveAction(action);
-            }}
+          <ActionCenter
+            items={actionCenterItems}
+            loading={analyticsResult.state === "loading" && data.setup.state === "loading"}
           />
+
           {analytics ? (
-            <RecentCalls analytics={analytics} timezone={timezone} onPlaceTestCall={() => setActiveAction("test-call")} canPlaceTestCall={canPlaceTestCall} />
+            <PerformanceAnalytics
+              analytics={analytics}
+              timeframeLabel={timeframeLabel}
+              onPlaceTestCall={() => setActiveAction("test-call")}
+              canPlaceTestCall={canPlaceTestCall}
+            />
           ) : analyticsResult.state === "loading" ? (
-            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3.5 w-32 rounded bg-[#ECEBE5]" /><div className="mt-5 space-y-4">{[0, 1, 2].map((item) => <div key={item} className="flex gap-3"><div className="animate-pulse motion-reduce:animate-none h-9 w-9 rounded-full bg-[#ECEBE5]" /><div className="flex-1 space-y-2"><div className="animate-pulse motion-reduce:animate-none h-3 w-40 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none h-2.5 w-56 rounded bg-[#F1F0EB]" /></div></div>)}</div></div>
-          ) : (
-            <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5"><p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">Recent calls are unavailable.</p></div>
-          )}
+            <div
+              className="rounded-[12px] border border-[#E9E8E1] bg-white p-5"
+              aria-busy="true"
+            >
+              <div className="h-3.5 w-36 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+              <div className="mt-5 h-40 animate-pulse motion-reduce:animate-none rounded-[8px] bg-[#F5F4ED]" />
+            </div>
+          ) : null}
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-5 lg:col-span-4" aria-label="Workspace resources">
-          {analytics ? <QuotaPanel analytics={analytics} /> : analyticsResult.state === "loading" ? <div className="rounded-[8px] border border-[#E9E8E1] bg-white p-5" aria-busy="true"><div className="animate-pulse motion-reduce:animate-none h-3 w-24 rounded bg-[#ECEBE5]" /><div className="animate-pulse motion-reduce:animate-none mt-6 h-10 w-28 rounded bg-[#E7E5DE]" /><div className="animate-pulse motion-reduce:animate-none mt-5 h-2.5 w-full rounded bg-[#F1F0EB]" /></div> : null}
-          <WorkspaceSnapshot data={data} />
+        <aside className="flex min-w-0 flex-col gap-5 lg:col-span-4" aria-label="Workspace capacity and health">
+          {analytics ? (
+            <QuotaPanel
+              analytics={analytics}
+              timezone={timezone}
+              onUpgrade={() => router.push("/dashboard/settings")}
+            />
+          ) : analyticsResult.state === "loading" ? (
+            <div
+              className="rounded-[12px] border border-[#E9E8E1] bg-white p-5"
+              aria-busy="true"
+            >
+              <div className="h-3 w-24 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+              <div className="mt-5 h-9 w-28 animate-pulse motion-reduce:animate-none rounded bg-[#E7E5DE]" />
+              <div className="mt-4 h-2.5 w-full animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
+            </div>
+          ) : null}
+
+          <WorkspaceHealth
+            data={data}
+            workspaceStatus={workspaceStatus}
+            onOpenRouting={() => setActiveAction("routing")}
+          />
         </aside>
       </div>
+
+      {analytics ? (
+        <RecentCalls
+          analytics={analytics}
+          timezone={timezone}
+          onPlaceTestCall={() => setActiveAction("test-call")}
+          canPlaceTestCall={canPlaceTestCall}
+        />
+      ) : analyticsResult.state === "loading" ? (
+        <div className="rounded-[12px] border border-[#E9E8E1] bg-white p-5" aria-busy="true">
+          <div className="h-3.5 w-32 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+          <div className="mt-4 space-y-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="flex items-center gap-3">
+                <div className="h-8 w-8 animate-pulse motion-reduce:animate-none rounded-[6px] bg-[#ECEBE5]" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-40 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
+                  <div className="h-2.5 w-60 animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {activeAction ? (
         <SetupWizardModal
           action={activeAction}
           data={data}
           onClose={() => setActiveAction(null)}
-          onComplete={() => { setActiveAction(null); router.refresh(); }}
+          onComplete={() => {
+            setActiveAction(null);
+            router.refresh();
+          }}
           onSwitchAction={(nextAction) => setActiveAction(nextAction)}
         />
       ) : null}
