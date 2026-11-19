@@ -11,7 +11,11 @@ type Campaign = {
   type: string;
   status: string;
   primaryObjective: string;
+  targetAudience?: string | null;
+  language?: string | null;
+  maxDurationSeconds?: number | null;
   createdAt: string | null;
+  updatedAt?: string | null;
   stats: {
     totalCalls?: number;
     connectedCalls?: number;
@@ -31,6 +35,10 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -44,7 +52,11 @@ function toCampaign(value: unknown): Campaign | null {
     type: asString(value.type, "outreach_sales"),
     status: asString(value.status, "draft"),
     primaryObjective: asString(value.primaryObjective),
+    targetAudience: asNullableString(value.targetAudience),
+    language: asNullableString(value.language),
+    maxDurationSeconds: asNumber(value.maxDurationSeconds) ?? null,
     createdAt: typeof value.createdAt === "string" ? value.createdAt : null,
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
     stats: {
       totalCalls: asNumber(stats.totalCalls),
       connectedCalls: asNumber(stats.connectedCalls),
@@ -81,10 +93,20 @@ async function CampaignsPageContent() {
     }
 
     const rows = Array.isArray(payload.campaigns) ? payload.campaigns : [];
-    return <CampaignsDashboard initialCampaigns={rows.map(toCampaign).filter((item): item is Campaign => item !== null)} initialError={null} />;
+    return (
+      <CampaignsDashboard
+        initialCampaigns={rows.map(toCampaign).filter((item): item is Campaign => item !== null)}
+        initialError={null}
+      />
+    );
   } catch (cause) {
     console.error("[dashboard/campaigns] Unable to load campaigns:", cause);
-    return <CampaignsDashboard initialCampaigns={[]} initialError={cause instanceof Error ? cause.message : "Unable to load campaigns."} />;
+    return (
+      <CampaignsDashboard
+        initialCampaigns={[]}
+        initialError={cause instanceof Error ? cause.message : "Unable to load campaigns."}
+      />
+    );
   }
 }
 

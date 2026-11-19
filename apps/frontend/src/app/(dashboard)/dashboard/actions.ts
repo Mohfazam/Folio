@@ -200,6 +200,19 @@ export async function updateCampaignStatusAction(campaignId: string, status: "ac
   return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", { status });
 }
 
+export async function updateCampaignDetailsAction(
+  campaignId: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", input);
+}
+
+export async function deleteDraftCampaignAction(campaignId: string): Promise<ActionResult> {
+  if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "DELETE");
+}
+
 export async function createFollowUpAction(input: {
   contactId: string;
   callId?: string;
@@ -378,29 +391,18 @@ export async function getSetupWizardDataAction(): Promise<ActionResult> {
 }
 
 
-export type OverviewTimeframe = "7d" | "30d" | "90d" | "all";
-
 /** Fetch Overview analytics after the workspace shell has rendered. */
-export async function getOverviewAnalyticsAction(
-  timeframe: OverviewTimeframe = "30d",
-): Promise<ActionResult> {
+export async function getOverviewAnalyticsAction(): Promise<ActionResult> {
   try {
     const auth = await getDashboardAuthContext();
     if (!auth) return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
 
-    const validTimeframe: OverviewTimeframe = ["7d", "30d", "90d", "all"].includes(timeframe)
-      ? timeframe
-      : "30d";
-
     const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
-    const response = await fetch(
-      `${baseUrl}/api/analytics/overview?timeframe=${encodeURIComponent(validTimeframe)}`,
-      {
-        method: "GET",
-        headers: { Authorization: `Bearer ${auth.accessToken}` },
-        cache: "no-store",
-      },
-    );
+    const response = await fetch(`${baseUrl}/api/analytics/overview?timeframe=30d`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      cache: "no-store",
+    });
     const payload: unknown = await response.json().catch(() => null);
     const record = typeof payload === "object" && payload !== null && !Array.isArray(payload)
       ? payload as Record<string, unknown>
