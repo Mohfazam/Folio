@@ -106,7 +106,11 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 function cleanDisplayTitle(raw: string): string {
-  return raw.replace(/\\+/g, " · ").replace(/\s{2,}/g, " ").trim();
+  return raw
+    .replace(/\\+\s*\|?/g, " · ")
+    .replace(/\s*·\s*·\s*/g, " · ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 function formatNumber(value: number | undefined) {
@@ -796,205 +800,367 @@ function EditCampaignModal({
   );
 }
 
-function CampaignDetailDrawer({
+function formatDurationLabel(seconds: number | null | undefined): string {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+    return "Default (5 mins)";
+  }
+  const mins = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem > 0 ? `${mins}m ${rem}s` : `${mins} ${mins === 1 ? "minute" : "minutes"}`;
+}
+
+function formatLanguageLabel(code: string | null | undefined): string {
+  if (!code || code === "auto") return "Ask customer (Multi-language)";
+  const map: Record<string, string> = {
+    "en-IN": "English (India)",
+    "hi-IN": "Hindi",
+    "te-IN": "Telugu",
+    "ta-IN": "Tamil",
+    "kn-IN": "Kannada",
+    "ml-IN": "Malayalam",
+  };
+  return map[code] ?? code;
+}
+
+function CampaignDetailView({
   campaign,
-  onClose,
+  onBack,
   onLaunch,
   onStatusChange,
   onEdit,
   onDuplicate,
+  onDeleteDraft,
 }: {
   campaign: Campaign;
-  onClose: () => void;
+  onBack: () => void;
   onLaunch: (campaign: Campaign) => void;
   onStatusChange: (campaign: Campaign, next: "active" | "paused") => void;
   onEdit: (campaign: Campaign) => void;
   onDuplicate: (campaign: Campaign) => void;
+  onDeleteDraft: (campaign: Campaign) => void;
 }) {
   const stats = campaign.stats;
   const totalCalls = stats.totalCalls ?? 0;
   const connectedCalls = stats.connectedCalls ?? 0;
-  const rate = totalCalls > 0 ? `${((connectedCalls / totalCalls) * 100).toFixed(1)}%` : "0%";
+  const highIntentCalls = stats.highInterestCalls ?? 0;
+  const connectionRate =
+    totalCalls > 0 ? `${((connectedCalls / totalCalls) * 100).toFixed(1)}%` : "0%";
+  const progress = computeExecutionProgress(campaign);
   const displayName = cleanDisplayTitle(campaign.name);
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex justify-end bg-[#171812]/40"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="campaign-drawer-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="flex h-full w-full max-w-[480px] flex-col justify-between overflow-y-auto border-l border-[#E9E8E1] bg-white p-5 shadow-2xl sm:p-6">
-        <div className="space-y-5">
-          <div className="flex items-start justify-between gap-3 border-b border-[#ECEBE5] pb-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={campaign.status} />
-                <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
-                  {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
-                </span>
-              </div>
-              <h2
-                id="campaign-drawer-title"
-                className="mt-2 font-['Newsreader'] text-[28px] leading-tight text-[#1B1C18]"
-              >
-                {displayName}
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close drawer"
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] hover:bg-[#F5F4ED]"
-            >
-              <Icon kind="close" className="h-4 w-4" />
-            </button>
-          </div>
+  const visibleTalkingPoints = useMemo(() => {
+    if (!campaign.keyTalkingPoints?.length) return [];
+    return campaign.keyTalkingPoints.filter(
+      (line) =>
+        line.trim().length > 0 &&
+        !line.startsWith("At the beginning of the call, ask the customer which language"),
+    );
+  }, [campaign.keyTalkingPoints]);
 
-          <div>
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
-              OBJECTIVE
-            </p>
-            <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#252620]">
+  return (
+    <div className="mx-auto max-w-[1160px] space-y-6">
+      {/* Top Breadcrumb, Title & Contextual Primary Actions */}
+      <div className="border-b border-[#ECEBE5] pb-5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-3 inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:text-[#4F369A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] rounded"
+        >
+          <span aria-hidden="true">←</span> Back to campaigns
+        </button>
+
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={campaign.status} />
+              <span className="rounded-[5px] bg-[#F5F4ED] px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
+                {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
+              </span>
+              <span className="font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+                Created {formatDate(campaign.createdAt)}
+              </span>
+            </div>
+            <h1 className="mt-2 font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[38px]">
+              {displayName}
+            </h1>
+            <p className="mt-1 max-w-[680px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#5C5F5C]">
               {campaign.primaryObjective || "No campaign objective recorded."}
             </p>
           </div>
 
-          {campaign.targetAudience ? (
-            <div>
-              <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
-                TARGET AUDIENCE
-              </p>
-              <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#3B3E3B]">
-                {campaign.targetAudience}
-              </p>
-            </div>
-          ) : null}
-
-          <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5">
-            <div>
-              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">Calls placed</p>
-              <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
-                {formatNumber(totalCalls)}
-              </p>
-            </div>
-            <div>
-              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">Connected</p>
-              <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
-                {formatNumber(connectedCalls)}
-              </p>
-              <p className="mt-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
-                {rate}
-              </p>
-            </div>
-            <div>
-              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">High intent</p>
-              <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
-                {formatNumber(stats.highInterestCalls)}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-[10px] border border-[#ECEBE5] bg-white p-3.5">
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
-              EXECUTION QUEUE
-            </p>
-            <dl className="mt-3 grid grid-cols-2 gap-2.5 font-['Space_Grotesk'] text-[12px]">
-              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
-                <dt className="text-[#666A68]">Calling</dt>
-                <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.inProgressCalls)}</dd>
-              </div>
-              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
-                <dt className="text-[#666A68]">Pending</dt>
-                <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</dd>
-              </div>
-              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
-                <dt className="text-[#666A68]">Completed</dt>
-                <dd className="font-semibold text-[#1B1C18]">
-                  {formatNumber(stats.completedQueueCalls)}
-                </dd>
-              </div>
-              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
-                <dt className="text-[#666A68]">Failed</dt>
-                <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.failedCalls)}</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div className="flex flex-wrap gap-4 border-t border-[#F0EFE9] pt-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
-            <span>Created {formatDate(campaign.createdAt)}</span>
-            {campaign.updatedAt ? <span>Updated {formatDate(campaign.updatedAt)}</span> : null}
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#ECEBE5] pt-4">
-          <Link
-            href="/dashboard/calls"
-            className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:underline"
-          >
-            View call logs →
-          </Link>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                onDuplicate(campaign);
-              }}
-              className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
-            >
-              Duplicate
-            </button>
-            {campaign.status !== "completed" ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onEdit(campaign);
-                }}
-                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
-              >
-                Edit
-              </button>
-            ) : null}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {campaign.status === "draft" ? (
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  onLaunch(campaign);
-                }}
-                className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                onClick={() => onLaunch(campaign)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
               >
+                <Icon kind="rocket" className="h-3.5 w-3.5" />
                 Launch campaign
               </button>
             ) : campaign.status === "paused" ? (
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  onStatusChange(campaign, "active");
-                }}
-                className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                onClick={() => onStatusChange(campaign, "active")}
+                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
               >
+                <Icon kind="play" className="h-3.5 w-3.5" />
                 Resume campaign
               </button>
             ) : campaign.status === "active" ? (
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  onStatusChange(campaign, "paused");
-                }}
-                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+                onClick={() => onStatusChange(campaign, "paused")}
+                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
               >
-                Pause
+                <Icon kind="pause" className="h-3.5 w-3.5" />
+                Pause campaign
+              </button>
+            ) : null}
+
+            {campaign.status !== "completed" ? (
+              <button
+                type="button"
+                onClick={() => onEdit(campaign)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED]"
+              >
+                <Icon kind="edit" className="h-3.5 w-3.5 text-[#5C5F5C]" />
+                Edit
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => onDuplicate(campaign)}
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
+            >
+              <Icon kind="copy" className="h-3.5 w-3.5 text-[#5C5F5C]" />
+              Duplicate
+            </button>
+
+            {campaign.status === "draft" ? (
+              <button
+                type="button"
+                onClick={() => onDeleteDraft(campaign)}
+                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FBE8E6]"
+              >
+                <Icon kind="trash" className="h-3.5 w-3.5" />
+                Delete draft
               </button>
             ) : null}
           </div>
+        </div>
+      </div>
+
+      {/* Horizontal KPI Strip */}
+      <section aria-label="Campaign performance summary" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#666A68]">Calls placed</p>
+          <p className="mt-2 font-['Newsreader'] text-[30px] leading-none text-[#1B1C18]">
+            {formatNumber(totalCalls)}
+          </p>
+          <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+            Total campaign dial attempts
+          </p>
+        </div>
+
+        <div className="rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#666A68]">Connected calls</p>
+          <p className="mt-2 font-['Newsreader'] text-[30px] leading-none text-[#1B1C18]">
+            {formatNumber(connectedCalls)}
+          </p>
+          <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">
+            {connectionRate} connection rate
+          </p>
+        </div>
+
+        <div className="rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#666A68]">High-intent leads</p>
+          <p className="mt-2 font-['Newsreader'] text-[30px] leading-none text-[#1B1C18]">
+            {formatNumber(highIntentCalls)}
+          </p>
+          <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+            Qualified high-interest calls
+          </p>
+        </div>
+
+        <div className="rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#666A68]">Queue execution</p>
+          <p className="mt-2 font-['Newsreader'] text-[30px] leading-none text-[#1B1C18]">
+            {progress.percent}%
+          </p>
+          <p className="mt-1.5 truncate font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+            {progress.label}
+          </p>
+        </div>
+      </section>
+
+      {/* Two-Column Builder-Style Detail Grid */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(290px,0.85fr)] lg:items-start">
+        {/* Left Column: Conversation Plan */}
+        <div className="space-y-4">
+          <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
+            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              Conversation plan
+            </h2>
+            <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+              How your AI voice agent opens, guides, and closes the call.
+            </p>
+
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+                  PRIMARY OBJECTIVE
+                </p>
+                <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#1B1C18]">
+                  {campaign.primaryObjective || "—"}
+                </p>
+              </div>
+
+              {campaign.callOpeningHook ? (
+                <div className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5">
+                  <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#644ABB]">
+                    OPENING HOOK
+                  </p>
+                  <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#1B1C18]">
+                    &ldquo;{campaign.callOpeningHook}&rdquo;
+                  </p>
+                </div>
+              ) : null}
+
+              {visibleTalkingPoints.length > 0 ? (
+                <div>
+                  <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+                    KEY TALKING POINTS
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {visibleTalkingPoints.map((point, idx) => (
+                      <li
+                        key={`${idx}-${point.slice(0, 24)}`}
+                        className="flex items-start gap-2.5 font-['Space_Grotesk'] text-[12.5px] leading-5 text-[#3B3E3B]"
+                      >
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#644ABB]" />
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {campaign.callToAction || campaign.fallbackOffer ? (
+                <div className="grid gap-3 border-t border-[#F0EFE9] pt-4 sm:grid-cols-2">
+                  {campaign.callToAction ? (
+                    <div>
+                      <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+                        CALL TO ACTION
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#1B1C18]">
+                        {campaign.callToAction}
+                      </p>
+                    </div>
+                  ) : null}
+                  {campaign.fallbackOffer ? (
+                    <div>
+                      <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+                        FALLBACK OFFER
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[12.5px] text-[#3B3E3B]">
+                        {campaign.fallbackOffer}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column: Audience, Queue Breakdown & Call Settings */}
+        <div className="space-y-4">
+          <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
+            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              Queue breakdown
+            </h2>
+            <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+              Live call queue counters for this campaign.
+            </p>
+
+            <dl className="mt-4 grid grid-cols-2 gap-2.5 font-['Space_Grotesk'] text-[12px]">
+              <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] px-3 py-2.5">
+                <dt className="text-[10px] text-[#747878]">Calling now</dt>
+                <dd className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
+                  {formatNumber(stats.inProgressCalls)}
+                </dd>
+              </div>
+              <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] px-3 py-2.5">
+                <dt className="text-[10px] text-[#747878]">Pending</dt>
+                <dd className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
+                  {formatNumber(stats.pendingCalls)}
+                </dd>
+              </div>
+              <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] px-3 py-2.5">
+                <dt className="text-[10px] text-[#747878]">Completed</dt>
+                <dd className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
+                  {formatNumber(stats.completedQueueCalls)}
+                </dd>
+              </div>
+              <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] px-3 py-2.5">
+                <dt className="text-[10px] text-[#747878]">Failed</dt>
+                <dd className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
+                  {formatNumber(stats.failedCalls)}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
+            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              Audience &amp; call settings
+            </h2>
+
+            <dl className="mt-3.5 divide-y divide-[#F0EFE9] font-['Space_Grotesk'] text-[12px]">
+              <div className="py-2.5">
+                <dt className="text-[10px] font-bold uppercase tracking-[0.06em] text-[#747878]">
+                  Target audience
+                </dt>
+                <dd className="mt-1 text-[#1B1C18]">
+                  {campaign.targetAudience || "Selected at launch"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-[#666A68]">Language</dt>
+                <dd className="font-medium text-[#1B1C18]">
+                  {formatLanguageLabel(campaign.language)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-[#666A68]">Max duration</dt>
+                <dd className="font-medium text-[#1B1C18]">
+                  {formatDurationLabel(campaign.maxDurationSeconds)}
+                </dd>
+              </div>
+              {campaign.updatedAt ? (
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <dt className="text-[#666A68]">Last updated</dt>
+                  <dd className="font-medium text-[#1B1C18]">
+                    {formatDate(campaign.updatedAt)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+
+            <div className="mt-4 flex items-center justify-between border-t border-[#F0EFE9] pt-3.5 font-['Space_Grotesk'] text-[12px]">
+              <Link href="/dashboard/calls" className="font-semibold text-[#644ABB] hover:underline">
+                Open call logs →
+              </Link>
+              <Link
+                href="/dashboard/analytics"
+                className="font-semibold text-[#444748] hover:text-[#1B1C18] hover:underline"
+              >
+                Analytics →
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -1504,6 +1670,35 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
     );
   }
 
+  if (selectedDetailCampaign) {
+    return (
+      <CampaignDetailView
+        campaign={selectedDetailCampaign}
+        onBack={() => setSelectedDetailCampaign(null)}
+        onLaunch={(c) => {
+          setSelectedDetailCampaign(null);
+          void openLaunch(c);
+        }}
+        onStatusChange={(c, nextStatus) => {
+          setSelectedDetailCampaign(null);
+          void changeCampaignStatus(c, nextStatus);
+        }}
+        onEdit={(c) => {
+          setSelectedDetailCampaign(null);
+          setEditingCampaign(c);
+        }}
+        onDuplicate={(c) => {
+          setSelectedDetailCampaign(null);
+          setDuplicateSource(c);
+        }}
+        onDeleteDraft={(c) => {
+          setSelectedDetailCampaign(null);
+          setDeletingDraft(c);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Launch Campaign Modal */}
@@ -1963,17 +2158,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         />
       ) : null}
 
-      {/* Campaign Detail Drawer */}
-      {selectedDetailCampaign ? (
-        <CampaignDetailDrawer
-          campaign={selectedDetailCampaign}
-          onClose={() => setSelectedDetailCampaign(null)}
-          onLaunch={openLaunch}
-          onStatusChange={changeCampaignStatus}
-          onEdit={(c) => setEditingCampaign(c)}
-          onDuplicate={(c) => setDuplicateSource(c)}
-        />
-      ) : null}
+
 
       {/* Delete Draft Confirmation Modal */}
       {deletingDraft ? (
