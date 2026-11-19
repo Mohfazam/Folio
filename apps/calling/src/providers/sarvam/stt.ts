@@ -64,7 +64,11 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
   socket.on("error", (err) => handlers.onError?.(err.message));
 
   // NOTE: do NOT call socket.connect() here. The SDK already opens the connection.
-  await socket.waitForOpen();
+  const openTimeout = new Promise<never>((_, reject) => {
+    const t = setTimeout(() => reject(new Error("Sarvam STT connect timeout (3500ms)")), 3500);
+    t.unref();
+  });
+  await Promise.race([socket.waitForOpen(), openTimeout]);
 
   return {
     sendAudio: (chunk) => {

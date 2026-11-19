@@ -102,7 +102,11 @@ export async function openSarvamTtsStream(
     if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
   });
 
-  await socket.waitForOpen();
+  const openTimeout = new Promise<never>((_, reject) => {
+    const t = setTimeout(() => reject(new Error("Sarvam TTS WebSocket connect timeout (2500ms)")), 2500);
+    t.unref();
+  });
+  await Promise.race([socket.waitForOpen(), openTimeout]);
   if (options?.signal?.aborted) {
     socket.close();
     throw new Error("TTS stream aborted");
@@ -174,9 +178,9 @@ export async function openSarvamTtsStream(
           resolveCompletion();
         }
       }
-      // Safety timeout: don't hang longer than 5 seconds waiting for TTS final flush
+      // Safety timeout: don't hang longer than 800ms waiting for TTS final flush
       const timeoutPromise = new Promise<void>((resolve) => {
-        setTimeout(resolve, 5000).unref();
+        setTimeout(resolve, 800).unref();
       });
       await Promise.race([completion, timeoutPromise]);
     },
