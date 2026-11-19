@@ -913,8 +913,8 @@ function CampaignDetailView({
           <span aria-hidden="true">←</span> Campaigns
         </button>
 
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <StatusBadge status={campaign.status} />
               <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
@@ -925,57 +925,64 @@ function CampaignDetailView({
                 Created {formatDate(campaign.createdAt)}
               </span>
             </div>
-            <h1 className="font-['Newsreader'] text-[32px] font-normal leading-[1.15] tracking-[-0.5px] text-[#1B1C18] sm:text-[38px]">
+            <h1 className="font-['Newsreader'] text-[30px] font-normal leading-[1.15] tracking-[-0.5px] text-[#1B1C18] sm:text-[34px]">
               {displayName}
             </h1>
+            <p className="font-['Space_Grotesk'] text-[12px] text-[#666A68]">
+              {campaign.callToAction
+                ? `Goal: ${campaign.callToAction}`
+                : "Campaign overview, AI conversation script, and live execution metrics."}
+            </p>
           </div>
 
-          {/* Direct Campaign Calls & Analytics Links + Primary CTA + Overflow Menu */}
+          {/* Balanced Action Group: Calls & Analytics segmented pill + Lifecycle Action + Edit + Overflow */}
           <div
             className="flex flex-wrap shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            <Link
-              href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
-              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-            >
-              <Icon kind="phone" className="h-3.5 w-3.5 text-[#644ABB]" />
-              <span>Campaign calls</span>
-            </Link>
+            <div className="inline-flex items-center rounded-[8px] border border-[#E2E0D8] bg-[#FAF9F5] p-0.5">
+              <Link
+                href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-[6px] px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#3B3E3B] transition-colors hover:bg-white hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+              >
+                <Icon kind="phone" className="h-3.5 w-3.5 text-[#644ABB]" />
+                <span>Calls</span>
+              </Link>
+              <Link
+                href="/dashboard/analytics"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[6px] px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#3B3E3B] transition-colors hover:bg-white hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+              >
+                <Icon kind="chart" className="h-3.5 w-3.5 text-[#644ABB]" />
+                <span>Analytics</span>
+              </Link>
+            </div>
 
-            <Link
-              href="/dashboard/analytics"
-              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-            >
-              <Icon kind="chart" className="h-3.5 w-3.5 text-[#644ABB]" />
-              <span>Analytics</span>
-            </Link>
             {campaign.status === "draft" ? (
               <button
                 type="button"
                 onClick={() => onLaunch(campaign)}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12.5px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
               >
                 <Icon kind="rocket" className="h-3.5 w-3.5" />
-                Launch campaign
+                Launch
               </button>
             ) : campaign.status === "paused" ? (
               <button
                 type="button"
                 onClick={() => onStatusChange(campaign, "active")}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12.5px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
               >
                 <Icon kind="play" className="h-3.5 w-3.5" />
-                Resume campaign
+                Resume
               </button>
             ) : campaign.status === "active" ? (
               <button
                 type="button"
                 onClick={() => onStatusChange(campaign, "paused")}
-                className="inline-flex h-10 items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED]"
               >
                 <Icon kind="pause" className="h-3.5 w-3.5" />
-                Pause campaign
+                Pause
               </button>
             ) : null}
 
@@ -983,8 +990,9 @@ function CampaignDetailView({
               <button
                 type="button"
                 onClick={() => onEdit(campaign)}
-                className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5]"
               >
+                <Icon kind="edit" className="h-3.5 w-3.5 text-[#666A68]" />
                 Edit
               </button>
             ) : null}
