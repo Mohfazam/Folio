@@ -930,11 +930,26 @@ function CampaignDetailView({
             </h1>
           </div>
 
-          {/* Single Primary CTA + Clean Overflow Menu */}
+          {/* Direct Campaign Calls & Analytics Links + Primary CTA + Overflow Menu */}
           <div
-            className="flex shrink-0 items-center gap-2"
+            className="flex flex-wrap shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
+            <Link
+              href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            >
+              <Icon kind="phone" className="h-3.5 w-3.5 text-[#644ABB]" />
+              <span>Campaign calls</span>
+            </Link>
+
+            <Link
+              href="/dashboard/analytics"
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            >
+              <Icon kind="chart" className="h-3.5 w-3.5 text-[#644ABB]" />
+              <span>Analytics</span>
+            </Link>
             {campaign.status === "draft" ? (
               <button
                 type="button"
@@ -1004,13 +1019,13 @@ function CampaignDetailView({
                     Duplicate campaign
                   </button>
                   <Link
-                    href="/dashboard/calls"
+                    href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
                     role="menuitem"
                     onClick={() => setActionsOpen(false)}
                     className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                   >
                     <Icon kind="phone" className="h-3.5 w-3.5 text-[#747878]" />
-                    View call logs
+                    View campaign calls
                   </Link>
                   <Link
                     href="/dashboard/analytics"
@@ -2778,6 +2793,15 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                               <Icon kind="copy" className="h-3.5 w-3.5 text-[#747878]" />
                               Duplicate campaign
                             </button>
+                            <Link
+                              href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
+                              role="menuitem"
+                              onClick={() => setOpenMenuId(null)}
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                            >
+                              <Icon kind="phone" className="h-3.5 w-3.5 text-[#747878]" />
+                              View campaign calls
+                            </Link>
                             <Link
                               href="/dashboard/analytics"
                               role="menuitem"
