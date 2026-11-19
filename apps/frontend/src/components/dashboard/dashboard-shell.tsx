@@ -27,7 +27,6 @@ type IconName =
   | "settings"
   | "arrow"
   | "close"
-  | "chevrons"
   | "sparkles";
 
 export type DashboardProfile = {
@@ -139,9 +138,6 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
     case "close":
       artwork = <><path d="m6 6 12 12M18 6 6 18" /></>;
       break;
-    case "chevrons":
-      artwork = <><path d="m7 15 5 5 5-5" /><path d="m7 9 5-5 5 5" /></>;
-      break;
     case "sparkles":
       artwork = <><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z" /><path d="M19 16v4M17 18h4" /></>;
       break;
@@ -154,22 +150,20 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
   );
 }
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
+function BrandMark() {
   return (
     <span className="flex h-8 items-center gap-2.5 whitespace-nowrap" aria-label="Foolioo">
       <Image
         src="/Foolioo.svg"
         alt=""
-        width={24}
-        height={24}
+        width={26}
+        height={26}
         priority
-        className="h-6 w-6 shrink-0"
+        className="h-[26px] w-[26px] shrink-0"
       />
-      {!compact ? (
-        <span className="font-['Newsreader'] text-[23px] font-semibold italic leading-none tracking-[-0.6px] text-[#1B1C18]">
-          Foolioo
-        </span>
-      ) : null}
+      <span className="hidden font-['Newsreader'] text-[25px] font-semibold italic leading-none tracking-[-0.7px] text-[#1B1C18] lg:inline">
+        Foolioo
+      </span>
     </span>
   );
 }
@@ -337,14 +331,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   };
 
   const trialDays = profile.trialDaysLeft;
-  const planSubtitle = profile.isTrial
-    ? profile.trialExpired
-      ? "Trial expired"
-      : trialDays !== null
-        ? `Free Trial · ${trialDays}d left`
-        : "Free Trial"
-    : profile.planName ?? "Workspace";
-
   const upgradeCardHeadline = profile.trialExpired
     ? "Your trial has ended. Select a plan to continue."
     : trialDays !== null && trialDays <= 3
@@ -379,135 +365,19 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     <DashboardProfileContext.Provider value={profile}>
       <DashboardNavigationContext.Provider value={{ requestedSetupAction, clearRequestedSetupAction }}>
         <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
-          {/* Fixed Desktop & Tablet Sidebar matching structured SaaS reference */}
-          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-4 md:flex lg:w-[236px] lg:px-3.5">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              {/* Top Workspace / Brand Card (modeled on reference top workspace card) */}
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setUserMenuOpen((open) => !open)}
-                  aria-expanded={userMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Workspace and account options"
-                  title={`${profile.workspaceName} (${planSubtitle})`}
-                  className="flex w-full items-center gap-2.5 rounded-[10px] border border-[#E6E4DC] bg-white p-2 text-left shadow-[0_1px_2px_rgba(27,28,24,0.03)] transition-colors hover:border-[#D5D3C9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-between lg:px-2.5 lg:py-2"
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#1B1C18]">
-                      <Image
-                        src="/Foolioo.svg"
-                        alt="Foolioo"
-                        width={18}
-                        height={18}
-                        priority
-                        className="h-[18px] w-[18px] brightness-0 invert"
-                      />
-                    </span>
-                    <span className="hidden min-w-0 lg:block">
-                      <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold leading-tight text-[#1B1C18]">
-                        {profile.workspaceName}
-                      </span>
-                      <span className="mt-0.5 block truncate font-['Space_Grotesk'] text-[11px] leading-tight text-[#747878]">
-                        {planSubtitle}
-                      </span>
-                    </span>
-                  </span>
-                  <Icon name="chevrons" className="hidden h-3.5 w-3.5 shrink-0 text-[#747878] lg:block" />
-                </button>
+          {/* Fixed Desktop & Tablet Sidebar */}
+          <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-4 md:flex lg:w-[232px] lg:px-3.5">
+            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+              {/* Original Foolioo Branding at the top as before */}
+              <Link
+                href="/dashboard"
+                className="flex min-h-8 items-center gap-2.5 rounded-[6px] px-2 md:justify-center lg:justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                aria-label="Foolioo overview"
+              >
+                <BrandMark />
+              </Link>
 
-                {/* Account & Workspace Popover Menu */}
-                {userMenuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute left-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white p-1.5 shadow-[0_12px_36px_rgba(27,28,24,0.14)] md:left-full md:top-0 md:ml-2.5 md:mt-0 lg:left-0 lg:top-full lg:ml-0 lg:mt-2"
-                  >
-                    <div className="flex items-center gap-2.5 border-b border-[#F0EFEA] px-2.5 py-2">
-                      {profile.avatarUrl ? (
-                        <Image
-                          src={profile.avatarUrl}
-                          alt={profile.displayName}
-                          width={30}
-                          height={30}
-                          unoptimized
-                          className="h-[30px] w-[30px] shrink-0 rounded-[7px] object-cover"
-                        />
-                      ) : (
-                        <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
-                          {initials(profile.displayName)}
-                        </span>
-                      )}
-                      <div className="min-w-0">
-                        <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
-                          {profile.displayName}
-                        </p>
-                        <p className="truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                          {profile.email}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="py-1">
-                      <Link
-                        href="/dashboard/profile"
-                        role="menuitem"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
-                      >
-                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="8" cy="5" r="3" />
-                          <path d="M2.5 14c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" />
-                        </svg>
-                        Your Profile
-                      </Link>
-
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          setSettingsSection("workspace");
-                          setSettingsOpen(true);
-                        }}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
-                      >
-                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="2" y="2" width="12" height="12" rx="2" />
-                          <path d="M2 6h12M6 2v12" />
-                        </svg>
-                        Workspace Info & Plan
-                      </button>
-                    </div>
-
-                    <div className="border-t border-[#F0EFEA] pt-1">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          handleSignOut();
-                        }}
-                        disabled={signingOut}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:opacity-50"
-                      >
-                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
-                          <path d="M11 11l3-3-3-3" />
-                          <path d="M14 8H6" />
-                        </svg>
-                        {signingOut ? "Signing out..." : "Log out"}
-                      </button>
-                      {signOutError ? (
-                        <p className="px-2.5 py-1 font-['Space_Grotesk'] text-[10px] text-[#A33A32]">
-                          {signOutError}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Primary Navigation + Quick Search + Settings (matches reference top section) */}
+              {/* Grouped Navigation Tabs */}
               <nav aria-label="Main navigation" className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                   {primaryItems.map((item) => (
@@ -555,7 +425,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   </Link>
                 </div>
 
-                {/* Operations Group (RECORDS / OPERATIONS equivalent) */}
+                {/* Operations Group */}
                 <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
                   <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
                     OPERATIONS
@@ -571,7 +441,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   ))}
                 </div>
 
-                {/* Intelligence Group (WORKSPACE equivalent) */}
+                {/* Intelligence Group */}
                 <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
                   <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
                     INTELLIGENCE
@@ -589,7 +459,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               </nav>
             </div>
 
-            {/* Bottom Sidebar Upgrade Card (matches reference bottom-left Upgrade card) + User Footer */}
+            {/* Bottom Section: Upgrade Foolioo Card + User Profile Switcher below it */}
             <div className="flex flex-col gap-2.5 pt-3">
               {profile.isTrial ? (
                 <div
@@ -634,7 +504,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       setSettingsSection("plan");
                       setSettingsOpen(true);
                     }}
-                    className={`mt-2 hidden items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] rounded lg:inline-flex ${
+                    className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
                       profile.trialExpired
                         ? "text-[#A33A32] hover:text-[#852F29]"
                         : "text-[#644ABB] hover:text-[#4C30A2]"
@@ -644,7 +514,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     <span aria-hidden="true">›</span>
                   </button>
 
-                  {/* Compact icon-only trigger for tablet collapsed rail (md) */}
+                  {/* Compact trigger for collapsed tablet sidebar */}
                   <button
                     type="button"
                     onClick={() => {
@@ -660,41 +530,137 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 </div>
               ) : null}
 
-              <Link
-                href="/dashboard/profile"
-                title={`${profile.displayName} (${profile.email})`}
-                className={`flex items-center gap-2.5 rounded-[9px] px-2.5 py-2 transition-colors hover:bg-[#ECEBE4] md:justify-center lg:justify-start ${
-                  isRouteActive("/dashboard/profile") ? "bg-[#E9E8E1]" : ""
-                }`}
-              >
-                {profile.avatarUrl ? (
-                  <Image
-                    src={profile.avatarUrl}
-                    alt={profile.displayName}
-                    width={28}
-                    height={28}
-                    unoptimized
-                    className="h-7 w-7 shrink-0 rounded-[7px] object-cover"
-                  />
-                ) : (
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[#1B1C18] font-['Space_Grotesk'] text-[10px] font-semibold text-white">
-                    {initials(profile.displayName)}
+              {/* User Profile Card & Account Menu moved below Upgrade Foolioo */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setUserMenuOpen((open) => !open)}
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open user menu"
+                  title="Your profile & options"
+                  className={`flex w-full items-center gap-2.5 rounded-[10px] border border-[#E6E4DC] px-2.5 py-2.5 text-left transition-colors hover:bg-[#ECEBE4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-start ${
+                    userMenuOpen || isRouteActive("/dashboard/profile")
+                      ? "bg-[#E9E8E1]"
+                      : "bg-white/80"
+                  }`}
+                >
+                  {profile.avatarUrl ? (
+                    <Image
+                      src={profile.avatarUrl}
+                      alt={profile.displayName}
+                      width={30}
+                      height={30}
+                      unoptimized
+                      className="h-[30px] w-[30px] shrink-0 rounded-[7px] object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
+                      {initials(profile.displayName)}
+                    </span>
+                  )}
+                  <span className="hidden min-w-0 flex-1 lg:block">
+                    <span className="block truncate font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18]">
+                      {profile.displayName}
+                    </span>
+                    <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      {profile.email}
+                    </span>
                   </span>
+                  <svg
+                    viewBox="0 0 16 16"
+                    className={`hidden h-3.5 w-3.5 shrink-0 text-[#747878] transition-transform lg:block ${
+                      userMenuOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 10l4-4 4 4" />
+                  </svg>
+                </button>
+
+                {/* Popover Menu opening upward above User Profile */}
+                {userMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white p-1.5 shadow-[0_12px_36px_rgba(27,28,24,0.14)] md:left-full md:bottom-0 md:mb-0 md:ml-2.5 lg:bottom-full lg:left-0 lg:mb-2 lg:ml-0"
+                  >
+                    <div className="border-b border-[#F0EFEA] px-3 py-2">
+                      <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                        {profile.displayName}
+                      </p>
+                      <p className="truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                        {profile.email}
+                      </p>
+                    </div>
+
+                    <div className="py-1">
+                      <Link
+                        href="/dashboard/profile"
+                        role="menuitem"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                      >
+                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="8" cy="5" r="3" />
+                          <path d="M2.5 14c0-2.8 2.5-4.5 5.5-4.5s5.5 1.7 5.5 4.5" />
+                        </svg>
+                        Your Profile
+                      </Link>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          setSettingsSection("workspace");
+                          setSettingsOpen(true);
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                      >
+                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="2" y="2" width="12" height="12" rx="2" />
+                          <path d="M2 6h12M6 2v12" />
+                        </svg>
+                        Workspace Settings
+                      </button>
+                    </div>
+
+                    <div className="border-t border-[#F0EFEA] pt-1">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          handleSignOut();
+                        }}
+                        disabled={signingOut}
+                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:opacity-50"
+                      >
+                        <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
+                          <path d="M11 11l3-3-3-3" />
+                          <path d="M14 8H6" />
+                        </svg>
+                        {signingOut ? "Signing out..." : "Log out"}
+                      </button>
+                      {signOutError ? (
+                        <p className="px-3 py-1 font-['Space_Grotesk'] text-[10px] text-[#A33A32]">
+                          {signOutError}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
                 )}
-                <span className="hidden min-w-0 flex-1 lg:block">
-                  <span className="block truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
-                    {profile.displayName}
-                  </span>
-                  <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                    {profile.email}
-                  </span>
-                </span>
-              </Link>
+              </div>
             </div>
           </aside>
 
-          {/* Main Workspace Area (no bulky top trial bar cluttering the viewport) */}
-          <main className="min-h-screen pb-24 md:pb-10 md:pl-[72px] lg:pl-[236px]">
+          {/* Main Workspace Area */}
+          <main className="min-h-screen pb-24 md:pb-10 md:pl-[72px] lg:pl-[232px]">
             <div className="mx-auto w-full max-w-[1380px] px-4 pb-8 pt-5 sm:px-6 sm:pt-7 lg:px-8 lg:pt-8">
               <div className="rounded-[12px] border border-[#E9E8E1]/80 bg-white p-4 shadow-[0_1px_4px_rgba(27,28,24,0.03)] sm:p-6 lg:p-8">
                 {children}
@@ -745,7 +711,18 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               >
                 <div>
                   <div className="flex items-center justify-between border-b border-[#E6E5DD] pb-3">
-                    <BrandMark />
+                    <span className="flex h-8 items-center gap-2.5 whitespace-nowrap">
+                      <Image
+                        src="/Foolioo.svg"
+                        alt=""
+                        width={24}
+                        height={24}
+                        className="h-6 w-6 shrink-0"
+                      />
+                      <span className="font-['Newsreader'] text-[23px] font-semibold italic leading-none tracking-[-0.6px] text-[#1B1C18]">
+                        Foolioo
+                      </span>
+                    </span>
                     <button
                       type="button"
                       onClick={() => setMobileDrawerOpen(false)}
@@ -853,7 +830,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         {profile.displayName}
                       </span>
                       <span className="block truncate font-['Space_Grotesk'] text-[11px] text-[#666A68]">
-                        {profile.workspaceName}
+                        {profile.email}
                       </span>
                     </span>
                   </Link>
