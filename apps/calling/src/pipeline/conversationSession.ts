@@ -57,10 +57,15 @@ export function createConversationSession(
   let closed = false;
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
   let activeTurn: AbortController | null = null;
-  let interruptionHandled = false;
   let turnInProgress = false; // serialize turns to prevent history corruption
   let queuedTurn: { text: string; language?: string } | null = null;
   let sttReconnectAttempts = 0;
+  let greetingStarted = false;
+  let greetingDelivered = false;
+  let silenceTimer: NodeJS.Timeout | null = null;
+  let silencePromptCount = 0;
+  const SILENCE_TIMEOUT_MS = 10000; // 10 seconds of silence before gentle prompt
+
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
 
@@ -74,6 +79,50 @@ export function createConversationSession(
     : options?.sessionState?.speechRate ?? 1;
 
   const sessionStartTime = performance.now();
+
+  function resetSilenceTimer() {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    if (closed) return;
+    silenceTimer = setTimeout(async () => {
+      if (closed || turnInProgress) return;
+      silencePromptCount++;
+      if (silencePromptCount === 1) {
+        console.log(`${tag} ⏱️ Caller silence detected (10s) — checking in`);
+        const promptText = "Hello? Can you hear me okay?";
+        try {
+          const audio = await convertTextToSpeech(promptText, {
+            speaker,
+            languageCode: currentLanguage,
+            pace: speechRate,
+          });
+          if (!closed && !turnInProgress) {
+            callbacks.playAudio(audio);
+            history.push({ role: "assistant", content: promptText });
+            resetSilenceTimer();
+          }
+        } catch (e: any) {
+          console.warn(`${tag} Silence prompt TTS error:`, e?.message ?? e);
+        }
+      } else if (silencePromptCount >= 2) {
+        console.log(`${tag} ⏱️ Persistent caller silence — ending call gracefully`);
+        const exitText = "It seems we have an audio issue. I will follow up later. Thank you, goodbye!";
+        try {
+          const audio = await convertTextToSpeech(exitText, {
+            speaker,
+            languageCode: currentLanguage,
+            pace: speechRate,
+          });
+          if (!closed) {
+            callbacks.playAudio(audio);
+          }
+        } catch {}
+        setTimeout(() => {
+          if (!closed) callbacks.hangup?.("Call ended due to persistent caller silence");
+        }, 2500);
+      }
+    }, SILENCE_TIMEOUT_MS);
+    silenceTimer.unref();
+  }
 
   // ── Safety: max call duration timer ─────────────────────────────
   // If auto-hangup never triggers (edge case), force-terminate the call
@@ -90,8 +139,15 @@ export function createConversationSession(
 
   // Plays a welcome greeting when the call connects
   async function speakGreeting() {
-    const greetingText =
-      options?.greetingText || (options?.sessionState?.contactName ? `Hello, is this ${options.sessionState.contactName}?` : "Hello! Can you hear me okay?");
+    if (greetingStarted || closed) return;
+    greetingStarted = true;
+
+    // Contact name gets top priority for natural outbound greeting
+    const contactName = options?.sessionState?.contactName?.trim();
+    const greetingText = contactName
+      ? `Hello, is this ${contactName}?`
+      : options?.greetingText || "Hello! Can you hear me okay?";
+
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
     options?.sessionState?.addAssistantTurn(greetingText);
@@ -104,8 +160,8 @@ export function createConversationSession(
         pace: speechRate,
       });
 
-      if (closed || generationId !== currentGen) {
-        // If caller already spoke or interrupted, remove this unplayed greeting from history
+      if (closed || (generationId !== currentGen && greetingDelivered)) {
+        // If caller already spoke and greeting was superseded, clean up
         if (history.length > 0 && history[history.length - 1]?.content === greetingText) {
           history.pop();
         }
@@ -114,6 +170,8 @@ export function createConversationSession(
 
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
+      greetingDelivered = true;
+      resetSilenceTimer();
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
@@ -125,6 +183,7 @@ export function createConversationSession(
   async function handleCallerTurn(userText: string, language?: string) {
     const trimmed = userText.trim();
     if (!trimmed) return;
+    resetSilenceTimer();
 
     // ── Turn serialization & fresh interrupt handling ──
     // If a turn is currently in progress and the caller speaks again,
@@ -207,9 +266,15 @@ export function createConversationSession(
       );
       void replyPromise.catch(() => {});
 
-      tts = await ttsPromise;
-      console.log(`${tag} ⏱️ TTS ready: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
-      for (const sentence of pendingSentences) tts.sendText(sentence);
+      try {
+        tts = await ttsPromise;
+        console.log(`${tag} ⏱️ TTS ready: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+        for (const sentence of pendingSentences) tts.sendText(sentence);
+      } catch (ttsErr: any) {
+        console.warn(`${tag} ⚠️ Streaming TTS unavailable (${ttsErr?.message}), using batch TTS fallback`);
+        tts = null;
+      }
+
       const reply = await replyPromise;
 
       if (closed || generationId !== currentGen) return;
@@ -232,7 +297,25 @@ export function createConversationSession(
         return;
       }
 
-      await tts.finish();
+      // If streaming TTS was unavailable, synthesize reply via batch TTS
+      if (!tts && reply.trim()) {
+        const cleanForAudio = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
+        if (cleanForAudio) {
+          const fallbackAudio = await convertTextToSpeech(cleanForAudio, {
+            speaker,
+            languageCode: activeLanguage,
+            pace: speechRate,
+          });
+          if (!closed && generationId === currentGen) {
+            callbacks.playAudio(fallbackAudio);
+            turnAudioBytes += fallbackAudio.length;
+          }
+        }
+      }
+
+      if (tts) {
+        await tts.finish();
+      }
       if (closed || generationId !== currentGen) return;
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
@@ -246,6 +329,7 @@ export function createConversationSession(
       console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
+      resetSilenceTimer();
 
       // If call is concluded, wait for audio playback to reach the phone and hang up
       if (shouldHangup && callbacks.hangup) {
@@ -266,6 +350,18 @@ export function createConversationSession(
       if (!wasAborted) {
         console.error(`${tag} Pipeline error:`, err?.message ?? err);
         options?.sessionState?.recordError("model", "model_request", err?.message ?? "Pipeline error");
+        // Safety audio fallback so caller never experiences dead air
+        try {
+          const fallbackAudio = await convertTextToSpeech(EMPTY_REPLY_FALLBACK, {
+            speaker,
+            languageCode: activeLanguage,
+            pace: speechRate,
+          });
+          if (!closed && generationId === currentGen) {
+            callbacks.playAudio(fallbackAudio);
+            history.push({ role: "assistant", content: EMPTY_REPLY_FALLBACK });
+          }
+        } catch {}
       }
     } finally {
       tts?.close();
@@ -303,13 +399,17 @@ export function createConversationSession(
     try {
       const session = await openSttSession({
         onSpeechStart: () => {
+          resetSilenceTimer();
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
+          // Do not barge-in before the opening greeting has actually played to caller
+          if (!greetingDelivered) return;
           const trimmed = text?.trim();
           if (!trimmed || isNoiseOrFiller(trimmed)) return;
           // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
           if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
+            resetSilenceTimer();
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
               console.log(`${tag} ... ${trimmed}`);
@@ -317,12 +417,14 @@ export function createConversationSession(
           }
         },
         onFinal: (text, language) => {
+          resetSilenceTimer();
           const finalTrimmed = text?.trim() || "";
           if (!finalTrimmed) return;
           if (isNoiseOrFiller(finalTrimmed)) {
             console.log(`${tag} 🔇 Ignored background noise/filler: "${finalTrimmed}"`);
             return;
           }
+          greetingDelivered = true;
           interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);
         },
@@ -331,7 +433,6 @@ export function createConversationSession(
           options?.sessionState?.recordError("stt", "stt_stream", message);
         },
       });
-
 
       if (closed) {
         session.close();
@@ -344,9 +445,6 @@ export function createConversationSession(
       console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
       for (const chunk of pending) session.sendAudio(chunk);
       pending.length = 0;
-
-      // Speak greeting as soon as connection is ready
-      speakGreeting();
     } catch (err: any) {
       console.error(`${tag} could not open STT:`, err?.message ?? err);
       options?.sessionState?.recordError("stt", "stt_connection", err?.message ?? "STT connection failed");
@@ -366,7 +464,8 @@ export function createConversationSession(
     }
   }
 
-  // Start the STT connection
+  // Parallel initialization: deliver opening greeting AND connect STT immediately
+  speakGreeting();
   connectStt();
 
   return {
@@ -381,6 +480,7 @@ export function createConversationSession(
       if (closed) return; // idempotent
       closed = true;
       clearTimeout(maxDurationTimer);
+      if (silenceTimer) clearTimeout(silenceTimer);
       generationId++;
       activeTurn?.abort();
       callbacks.clearAudio();
