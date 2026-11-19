@@ -11,6 +11,10 @@ type Campaign = {
   type: string;
   status: string;
   primaryObjective: string;
+  callOpeningHook?: string;
+  keyTalkingPoints?: string[];
+  callToAction?: string;
+  fallbackOffer?: string | null;
   targetAudience?: string | null;
   language?: string | null;
   maxDurationSeconds?: number | null;
@@ -43,6 +47,11 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function asStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 function toCampaign(value: unknown): Campaign | null {
   if (!isRecord(value) || typeof value.id !== "string") return null;
   const stats = isRecord(value.stats) ? value.stats : {};
@@ -52,6 +61,10 @@ function toCampaign(value: unknown): Campaign | null {
     type: asString(value.type, "outreach_sales"),
     status: asString(value.status, "draft"),
     primaryObjective: asString(value.primaryObjective),
+    callOpeningHook: asString(value.callOpeningHook) || undefined,
+    keyTalkingPoints: asStringArray(value.keyTalkingPoints),
+    callToAction: asString(value.callToAction) || undefined,
+    fallbackOffer: asNullableString(value.fallbackOffer),
     targetAudience: asNullableString(value.targetAudience),
     language: asNullableString(value.language),
     maxDurationSeconds: asNumber(value.maxDurationSeconds) ?? null,
@@ -76,7 +89,11 @@ async function CampaignsPageContent() {
   if (!auth) redirect("/sign-in");
   const accessToken = auth.accessToken;
 
-  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
+  const baseUrl = (
+    process.env.BACKEND_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    "http://localhost:4000"
+  ).replace(/\/+$/, "");
 
   try {
     const response = await fetch(`${baseUrl}/api/campaigns`, {
@@ -86,9 +103,10 @@ async function CampaignsPageContent() {
     });
     const payload: unknown = await response.json().catch(() => null);
     if (!response.ok || !isRecord(payload) || payload.ok !== true) {
-      const message = isRecord(payload) && typeof payload.error === "string"
-        ? payload.error
-        : `Campaign request failed (${response.status}).`;
+      const message =
+        isRecord(payload) && typeof payload.error === "string"
+          ? payload.error
+          : `Campaign request failed (${response.status}).`;
       return <CampaignsDashboard initialCampaigns={[]} initialError={message} />;
     }
 

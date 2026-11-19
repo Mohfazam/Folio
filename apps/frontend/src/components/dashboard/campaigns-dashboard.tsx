@@ -31,6 +31,10 @@ type Campaign = {
   type: string;
   status: string;
   primaryObjective: string;
+  callOpeningHook?: string;
+  keyTalkingPoints?: string[];
+  callToAction?: string;
+  fallbackOffer?: string | null;
   targetAudience?: string | null;
   language?: string | null;
   maxDurationSeconds?: number | null;
@@ -57,6 +61,7 @@ type StatusFilter = "all" | "draft" | "active" | "paused" | "completed";
 type SortOption =
   | "newest"
   | "oldest"
+  | "updated"
   | "name_asc"
   | "most_calls"
   | "highest_connection_rate";
@@ -70,16 +75,16 @@ type CampaignType =
   | "announcement";
 
 const INPUT =
-  "mt-1.5 h-11 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
+  "mt-1.5 h-10 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
 const TEXTAREA =
-  "mt-1.5 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 py-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
-const LABEL = "block font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748]";
+  "mt-1.5 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
+const LABEL = "block font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B]";
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
-  active: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
-  paused: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
-  completed: "border-[#D9DDE7] bg-[#F2F4F8] text-[#59647C]",
+  draft: "border-[#E3E0D6] bg-[#F7F5EF] text-[#5C5E56]",
+  active: "border-[#C8E3D0] bg-[#EEF8F1] text-[#28683E]",
+  paused: "border-[#EEDBA8] bg-[#FFF9EA] text-[#84621E]",
+  completed: "border-[#D5DBE6] bg-[#F1F4F9] text-[#4D5A73]",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -94,19 +99,24 @@ const TYPE_LABELS: Record<string, string> = {
 const SORT_LABELS: Record<SortOption, string> = {
   newest: "Recently created",
   oldest: "Oldest created",
+  updated: "Recently updated",
   name_asc: "Campaign name (A–Z)",
   most_calls: "Most calls placed",
   highest_connection_rate: "Highest connection rate",
 };
+
+function cleanDisplayTitle(raw: string): string {
+  return raw.replace(/\\+/g, " · ").replace(/\s{2,}/g, " ").trim();
+}
 
 function formatNumber(value: number | undefined) {
   return new Intl.NumberFormat("en-IN").format(value ?? 0);
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) return "Date unavailable";
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Date unavailable";
+  if (Number.isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en-IN", {
     day: "numeric",
     month: "short",
@@ -114,10 +124,28 @@ function formatDate(value: string | null | undefined) {
   }).format(date);
 }
 
-type MetricIconKind = "layers" | "activity" | "file-edit" | "phone";
+type IconKind =
+  | "layers"
+  | "activity"
+  | "file-edit"
+  | "phone"
+  | "search"
+  | "sliders"
+  | "more"
+  | "play"
+  | "pause"
+  | "rocket"
+  | "eye"
+  | "edit"
+  | "copy"
+  | "trash"
+  | "chart"
+  | "close"
+  | "plus"
+  | "check";
 
-function MetricIcon({ kind, className = "h-4 w-4" }: { kind: MetricIconKind; className?: string }) {
-  const artwork: Record<MetricIconKind, ReactNode> = {
+function Icon({ kind, className = "h-4 w-4" }: { kind: IconKind; className?: string }) {
+  const artwork: Record<IconKind, ReactNode> = {
     layers: (
       <>
         <path d="m12 2 9 5-9 5-9-5 9-5Z" />
@@ -135,6 +163,83 @@ function MetricIcon({ kind, className = "h-4 w-4" }: { kind: MetricIconKind; cla
     phone: (
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92Z" />
     ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </>
+    ),
+    sliders: (
+      <>
+        <line x1="4" y1="6" x2="20" y2="6" />
+        <line x1="7" y1="12" x2="17" y2="12" />
+        <line x1="10" y1="18" x2="14" y2="18" />
+      </>
+    ),
+    more: (
+      <>
+        <circle cx="12" cy="5" r="1.25" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.25" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="19" r="1.25" fill="currentColor" stroke="none" />
+      </>
+    ),
+    play: <polygon points="6 4 20 12 6 20 6 4" />,
+    pause: (
+      <>
+        <rect x="6" y="4" width="4" height="16" rx="1" />
+        <rect x="14" y="4" width="4" height="16" rx="1" />
+      </>
+    ),
+    rocket: (
+      <>
+        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z" />
+        <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" />
+      </>
+    ),
+    eye: (
+      <>
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      </>
+    ),
+    copy: (
+      <>
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M3 6h18" />
+        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      </>
+    ),
+    chart: (
+      <>
+        <line x1="18" y1="20" x2="18" y2="10" />
+        <line x1="12" y1="20" x2="12" y2="4" />
+        <line x1="6" y1="20" x2="6" y2="14" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </>
+    ),
+    plus: (
+      <>
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+      </>
+    ),
+    check: <path d="M20 6 9 17l-5-5" />,
   };
 
   return (
@@ -158,49 +263,49 @@ function MetricCard({
   value,
   detail,
   icon,
-  active = false,
+  selected = false,
   onClick,
   href,
 }: {
   label: string;
   value: string;
   detail: string;
-  icon: MetricIconKind;
-  active?: boolean;
+  icon: IconKind;
+  selected?: boolean;
   onClick?: () => void;
   href?: string;
 }) {
-  const baseClass = `group flex min-h-[118px] w-full flex-col justify-between rounded-[10px] border px-4 py-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:px-5 ${
-    active
-      ? "border-[#7852D6] bg-[#FAF8FF] shadow-[0_1px_3px_rgba(120,82,214,0.12)]"
-      : "border-[#ECEBE5] bg-[#FFFEFB] hover:border-[#D7D5CC] hover:bg-[#FAF9F4]"
+  const baseClass = `group flex h-[112px] w-full flex-col justify-between rounded-[12px] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:px-5 ${
+    selected
+      ? "border-[#7852D6] bg-[#FAF8FF] shadow-[0_1px_2px_rgba(120,82,214,0.08)]"
+      : "border-[#E9E8E1] bg-white hover:border-[#D4D2C8] hover:bg-[#FCFBF8]"
   }`;
 
   const inner = (
     <>
       <div className="flex w-full items-center justify-between gap-2">
         <span
-          className={`font-['Space_Grotesk'] text-[11px] font-semibold ${
-            active ? "text-[#644ABB]" : "text-[#666A68]"
+          className={`font-['Space_Grotesk'] text-[12px] font-medium ${
+            selected ? "text-[#644ABB]" : "text-[#5C5F5C]"
           }`}
         >
           {label}
         </span>
         <span
           className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border transition-colors ${
-            active
+            selected
               ? "border-[#DFD5F8] bg-[#EFEAFB] text-[#644ABB]"
-              : "border-[#ECEBE5] bg-white text-[#666A68] group-hover:text-[#1B1C18]"
+              : "border-[#ECEBE5] bg-[#FAF9F5] text-[#666A68] group-hover:text-[#1B1C18]"
           }`}
         >
-          <MetricIcon kind={icon} className="h-3.5 w-3.5" />
+          <Icon kind={icon} className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="mt-3">
+      <div className="flex items-baseline justify-between gap-2">
         <p className="font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">
           {value}
         </p>
-        <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">{detail}</p>
+        <p className="truncate font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">{detail}</p>
       </div>
     </>
   );
@@ -215,7 +320,7 @@ function MetricCard({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} aria-pressed={active} className={baseClass}>
+      <button type="button" onClick={onClick} aria-pressed={selected} className={baseClass}>
         {inner}
       </button>
     );
@@ -228,11 +333,11 @@ function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-semibold capitalize ${
         STATUS_STYLES[normalized] ?? STATUS_STYLES.draft
       }`}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" aria-hidden="true" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-85" aria-hidden="true" />
       {normalized || "draft"}
     </span>
   );
@@ -248,21 +353,34 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[10px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-      <div className="mb-5 border-b border-[#F0EFE9] pb-4">
+    <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
+      <div className="mb-4 border-b border-[#F0EFE9] pb-3.5">
         <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{title}</h2>
-        <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
-          {description}
-        </p>
+        <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">{description}</p>
       </div>
       {children}
     </section>
   );
 }
 
-function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: () => void }) {
+function CampaignForm({
+  initialDraft,
+  onCancel,
+  onCreated,
+}: {
+  initialDraft?: Campaign | null;
+  onCancel: () => void;
+  onCreated: (message?: string) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const defaultTalkingPoints = useMemo(() => {
+    if (!initialDraft?.keyTalkingPoints?.length) return "";
+    return initialDraft.keyTalkingPoints
+      .filter((line) => !line.startsWith("At the beginning of the call, ask the customer which language"))
+      .join("\n");
+  }, [initialDraft]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -308,7 +426,11 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
         return;
       }
 
-      onCreated();
+      onCreated(
+        initialDraft
+          ? `Duplicated "${cleanDisplayTitle(initialDraft.name)}" as a new draft.`
+          : "Campaign draft saved. Review your audience before launching outbound calls.",
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your campaign draft could not be saved.");
     } finally {
@@ -317,29 +439,29 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
   };
 
   return (
-    <div className="mx-auto max-w-[920px]">
+    <div className="mx-auto max-w-[880px]">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <button
             type="button"
             onClick={onCancel}
-            className="mb-3 inline-flex items-center gap-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:text-[#4F369A]"
+            className="mb-2.5 inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:text-[#4F369A]"
           >
             <span aria-hidden="true">←</span> Back to campaigns
           </button>
           <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
-            Campaign builder
+            {initialDraft ? "Duplicate campaign" : "Campaign builder"}
           </p>
-          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[40px]">
-            Create a campaign
+          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18]">
+            {initialDraft ? `Copy of ${cleanDisplayTitle(initialDraft.name)}` : "Create a campaign"}
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+          <p className="mt-1.5 max-w-[600px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
             Set the goal and conversation outline. Your campaign is saved as a draft. No contacts
             are called until you review and confirm a launch.
           </p>
         </div>
-        <span className="rounded-full border border-[#E8E3F2] bg-[#F7F4FC] px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
-          DRAFT FIRST
+        <span className="rounded-full border border-[#E2D9F8] bg-[#F7F4FC] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+          Draft first
         </span>
       </div>
 
@@ -355,13 +477,20 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
                 name="name"
                 required
                 maxLength={120}
+                defaultValue={
+                  initialDraft ? `${cleanDisplayTitle(initialDraft.name)} (Copy)` : ""
+                }
                 className={INPUT}
                 placeholder="e.g. New enquiries follow-up"
               />
             </label>
             <label className={LABEL}>
               Campaign purpose
-              <select name="type" className={INPUT} defaultValue="outreach_sales">
+              <select
+                name="type"
+                className={INPUT}
+                defaultValue={initialDraft?.type || "outreach_sales"}
+              >
                 <option value="outreach_sales">Reach new enquiries</option>
                 <option value="follow_up">Follow up with leads</option>
                 <option value="reminder">Send a reminder</option>
@@ -378,6 +507,7 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
               required
               rows={3}
               maxLength={2000}
+              defaultValue={initialDraft?.primaryObjective ?? ""}
               className={TEXTAREA}
               placeholder="Describe the result you want from these conversations."
             />
@@ -386,8 +516,9 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
             Who is this campaign for? <span className="font-normal text-[#747878]">Optional</span>
             <input
               name="targetAudience"
+              defaultValue={initialDraft?.targetAudience ?? ""}
               className={INPUT}
-              placeholder="e.g. People who enquired about the admissions process this month"
+              placeholder="e.g. Business owners, founders, sales leads"
             />
           </label>
         </FormSection>
@@ -403,6 +534,7 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
               required
               rows={3}
               maxLength={2000}
+              defaultValue={initialDraft?.callOpeningHook ?? ""}
               className={TEXTAREA}
               placeholder="Write a clear, natural opening for the agent."
             />
@@ -414,6 +546,7 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
               required
               rows={5}
               maxLength={4000}
+              defaultValue={defaultTalkingPoints}
               className={TEXTAREA}
               placeholder={
                 "Introduce the reason for the call.\nAnswer common questions using approved information.\nAsk whether the customer would like the next step."
@@ -426,6 +559,7 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
               name="callToAction"
               required
               maxLength={500}
+              defaultValue={initialDraft?.callToAction ?? ""}
               className={INPUT}
               placeholder="e.g. Book a consultation"
             />
@@ -435,6 +569,7 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
             <input
               name="fallbackOffer"
               maxLength={500}
+              defaultValue={initialDraft?.fallbackOffer ?? ""}
               className={INPUT}
               placeholder="e.g. Offer to send more information by email"
             />
@@ -448,7 +583,11 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={LABEL}>
               Language preference
-              <select name="language" defaultValue="auto" className={INPUT}>
+              <select
+                name="language"
+                defaultValue={initialDraft?.language || "auto"}
+                className={INPUT}
+              >
                 <option value="auto">Ask customer (Recommended)</option>
                 <option value="en-IN">English (India)</option>
                 <option value="hi-IN">Hindi</option>
@@ -457,14 +596,14 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
                 <option value="kn-IN">Kannada</option>
                 <option value="ml-IN">Malayalam</option>
               </select>
-              <span className="mt-2 block font-['Space_Grotesk'] text-[10px] font-normal leading-4 text-[#747878]">
-                Ask customer lets the agent ask which supported language they prefer, then continue
-                the conversation in that language.
-              </span>
             </label>
             <label className={LABEL}>
               Maximum call duration
-              <select name="maxDurationSeconds" defaultValue="300" className={INPUT}>
+              <select
+                name="maxDurationSeconds"
+                defaultValue={String(initialDraft?.maxDurationSeconds ?? 300)}
+                className={INPUT}
+              >
                 <option value="120">2 minutes</option>
                 <option value="180">3 minutes</option>
                 <option value="300">5 minutes</option>
@@ -479,14 +618,14 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
         {error ? (
           <div
             role="alert"
-            className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]"
+            className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
           >
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4">
-          <p className="max-w-[500px] font-['Space_Grotesk'] text-[10px] leading-4 text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
             Saving creates a draft only. You can review the audience and approve outbound activity
             separately.
           </p>
@@ -495,14 +634,14 @@ function CampaignForm({ onCancel, onCreated }: { onCancel: () => void; onCreated
               type="button"
               onClick={onCancel}
               disabled={busy}
-              className="rounded-[6px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[6px] bg-[#1B1C18] px-5 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-10 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
             >
               {busy ? "Saving draft…" : "Save campaign draft"}
             </button>
@@ -522,7 +661,7 @@ function EditCampaignModal({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
-  const [name, setName] = useState(campaign.name);
+  const [name, setName] = useState(cleanDisplayTitle(campaign.name));
   const [type, setType] = useState<string>(campaign.type || "outreach_sales");
   const [primaryObjective, setPrimaryObjective] = useState(campaign.primaryObjective);
   const [targetAudience, setTargetAudience] = useState(campaign.targetAudience ?? "");
@@ -570,22 +709,26 @@ function EditCampaignModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-[540px] rounded-[12px] border border-[#ECEBE5] bg-[#FFFEFB] p-5 shadow-xl sm:p-6">
+      <div className="w-full max-w-[520px] rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-xl sm:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-[#F0EFE9] pb-4">
           <div>
             <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
               Edit campaign
             </p>
-            <h2 id="edit-campaign-title" className="mt-1 font-['Newsreader'] text-[28px] leading-tight text-[#1B1C18]">
-              {campaign.name}
+            <h2
+              id="edit-campaign-title"
+              className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]"
+            >
+              {cleanDisplayTitle(campaign.name)}
             </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-[6px] border border-[#E5E4DC] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]"
+            aria-label="Close modal"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] hover:bg-[#F5F4ED]"
           >
-            Close
+            <Icon kind="close" className="h-4 w-4" />
           </button>
         </div>
 
@@ -603,11 +746,7 @@ function EditCampaignModal({
             </label>
             <label className={LABEL}>
               Campaign type
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                className={INPUT}
-              >
+              <select value={type} onChange={(e) => setType(e.target.value)} className={INPUT}>
                 <option value="outreach_sales">Reach new enquiries</option>
                 <option value="follow_up">Follow up with leads</option>
                 <option value="reminder">Send a reminder</option>
@@ -654,14 +793,14 @@ function EditCampaignModal({
               type="button"
               onClick={onClose}
               disabled={busy}
-              className="rounded-[6px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+              className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="rounded-[6px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
+              className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
             >
               {busy ? "Saving…" : "Save changes"}
             </button>
@@ -678,17 +817,20 @@ function CampaignDetailDrawer({
   onLaunch,
   onStatusChange,
   onEdit,
+  onDuplicate,
 }: {
   campaign: Campaign;
   onClose: () => void;
   onLaunch: (campaign: Campaign) => void;
   onStatusChange: (campaign: Campaign, next: "active" | "paused") => void;
   onEdit: (campaign: Campaign) => void;
+  onDuplicate: (campaign: Campaign) => void;
 }) {
   const stats = campaign.stats;
   const totalCalls = stats.totalCalls ?? 0;
   const connectedCalls = stats.connectedCalls ?? 0;
   const rate = totalCalls > 0 ? `${((connectedCalls / totalCalls) * 100).toFixed(1)}%` : "0%";
+  const displayName = cleanDisplayTitle(campaign.name);
 
   return (
     <div
@@ -700,13 +842,13 @@ function CampaignDetailDrawer({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="flex h-full w-full max-w-[500px] flex-col justify-between overflow-y-auto border-l border-[#E9E8E1] bg-[#FFFEFB] p-5 shadow-2xl sm:p-6">
+      <div className="flex h-full w-full max-w-[480px] flex-col justify-between overflow-y-auto border-l border-[#E9E8E1] bg-white p-5 shadow-2xl sm:p-6">
         <div className="space-y-5">
           <div className="flex items-start justify-between gap-3 border-b border-[#ECEBE5] pb-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={campaign.status} />
-                <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+                <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
                   {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
                 </span>
               </div>
@@ -714,15 +856,16 @@ function CampaignDetailDrawer({
                 id="campaign-drawer-title"
                 className="mt-2 font-['Newsreader'] text-[28px] leading-tight text-[#1B1C18]"
               >
-                {campaign.name}
+                {displayName}
               </h2>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-[6px] border border-[#E5E4DC] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]"
+              aria-label="Close drawer"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] hover:bg-[#F5F4ED]"
             >
-              Close
+              <Icon kind="close" className="h-4 w-4" />
             </button>
           </div>
 
@@ -740,28 +883,30 @@ function CampaignDetailDrawer({
               <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
                 TARGET AUDIENCE
               </p>
-              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#444748]">
+              <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#3B3E3B]">
                 {campaign.targetAudience}
               </p>
             </div>
           ) : null}
 
-          <div className="grid grid-cols-3 gap-2.5 rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5">
+          <div className="grid grid-cols-3 gap-3 rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5">
             <div>
-              <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">Calls placed</p>
+              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">Calls placed</p>
               <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
                 {formatNumber(totalCalls)}
               </p>
             </div>
             <div>
-              <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">Connected</p>
+              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">Connected</p>
               <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
                 {formatNumber(connectedCalls)}
               </p>
-              <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#644ABB]">{rate}</p>
+              <p className="mt-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
+                {rate}
+              </p>
             </div>
             <div>
-              <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">High intent</p>
+              <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">High intent</p>
               <p className="mt-1 font-['Newsreader'] text-[24px] leading-none text-[#1B1C18]">
                 {formatNumber(stats.highInterestCalls)}
               </p>
@@ -770,33 +915,33 @@ function CampaignDetailDrawer({
 
           <div className="rounded-[10px] border border-[#ECEBE5] bg-white p-3.5">
             <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
-              QUEUE EXECUTION COUNTS
+              EXECUTION QUEUE
             </p>
-            <dl className="mt-3 grid grid-cols-2 gap-3 font-['Space_Grotesk'] text-[12px]">
-              <div className="flex justify-between">
-                <dt className="text-[#747878]">Calling now</dt>
+            <dl className="mt-3 grid grid-cols-2 gap-2.5 font-['Space_Grotesk'] text-[12px]">
+              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
+                <dt className="text-[#666A68]">Calling</dt>
                 <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.inProgressCalls)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-[#747878]">Pending</dt>
+              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
+                <dt className="text-[#666A68]">Pending</dt>
                 <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-[#747878]">Completed</dt>
+              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
+                <dt className="text-[#666A68]">Completed</dt>
                 <dd className="font-semibold text-[#1B1C18]">
                   {formatNumber(stats.completedQueueCalls)}
                 </dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-[#747878]">Failed</dt>
+              <div className="flex justify-between rounded-[6px] bg-[#FAF9F5] px-2.5 py-1.5">
+                <dt className="text-[#666A68]">Failed</dt>
                 <dd className="font-semibold text-[#1B1C18]">{formatNumber(stats.failedCalls)}</dd>
               </div>
             </dl>
           </div>
 
-          <div className="space-y-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">
-            <p>Created: {formatDate(campaign.createdAt)}</p>
-            {campaign.updatedAt ? <p>Last updated: {formatDate(campaign.updatedAt)}</p> : null}
+          <div className="flex flex-wrap gap-4 border-t border-[#F0EFE9] pt-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+            <span>Created {formatDate(campaign.createdAt)}</span>
+            {campaign.updatedAt ? <span>Updated {formatDate(campaign.updatedAt)}</span> : null}
           </div>
         </div>
 
@@ -808,6 +953,16 @@ function CampaignDetailDrawer({
             View call logs →
           </Link>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onDuplicate(campaign);
+              }}
+              className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+            >
+              Duplicate
+            </button>
             {campaign.status !== "completed" ? (
               <button
                 type="button"
@@ -815,7 +970,7 @@ function CampaignDetailDrawer({
                   onClose();
                   onEdit(campaign);
                 }}
-                className="rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
+                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
               >
                 Edit
               </button>
@@ -827,9 +982,9 @@ function CampaignDetailDrawer({
                   onClose();
                   onLaunch(campaign);
                 }}
-                className="rounded-[6px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
               >
-                Start campaign
+                Launch campaign
               </button>
             ) : campaign.status === "paused" ? (
               <button
@@ -838,7 +993,7 @@ function CampaignDetailDrawer({
                   onClose();
                   onStatusChange(campaign, "active");
                 }}
-                className="rounded-[6px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
               >
                 Resume campaign
               </button>
@@ -849,7 +1004,7 @@ function CampaignDetailDrawer({
                   onClose();
                   onStatusChange(campaign, "paused");
                 }}
-                className="rounded-[6px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
               >
                 Pause
               </button>
@@ -869,6 +1024,8 @@ type LiveCampaignSnapshot = {
 function computeExecutionProgress(campaign: Campaign): {
   percent: number;
   label: string;
+  hasQueueData: boolean;
+  totalQueue: number;
 } {
   const stats = campaign.stats;
   const pending = Math.max(0, stats.pendingCalls ?? 0);
@@ -877,21 +1034,23 @@ function computeExecutionProgress(campaign: Campaign): {
   const failed = Math.max(0, stats.failedCalls ?? 0);
   const totalQueue = pending + inProgress + completed + failed;
 
-  if (campaign.status === "draft" && totalQueue === 0) {
-    return { percent: 0, label: "Not started (Draft)" };
-  }
   if (totalQueue === 0) {
     if (campaign.status === "completed") {
-      return { percent: 100, label: "Completed" };
+      return { percent: 100, label: "Completed", hasQueueData: false, totalQueue: 0 };
     }
-    return { percent: 0, label: "No queued calls yet" };
+    if (campaign.status === "draft") {
+      return { percent: 0, label: "Awaiting launch", hasQueueData: false, totalQueue: 0 };
+    }
+    return { percent: 0, label: "No calls queued yet", hasQueueData: false, totalQueue: 0 };
   }
 
   const finished = completed + failed;
   const percent = Math.min(100, Math.max(0, Math.round((finished / totalQueue) * 100)));
   return {
     percent,
-    label: `${percent}% queue processed (${finished}/${totalQueue})`,
+    label: `${finished} of ${totalQueue} queued calls processed (${percent}%)`,
+    hasQueueData: true,
+    totalQueue,
   };
 }
 
@@ -904,9 +1063,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
     () =>
       initialCampaigns.map((campaign) => {
         const live = liveCampaigns[campaign.id];
-        return live
-          ? { ...campaign, status: live.status, stats: live.stats }
-          : campaign;
+        return live ? { ...campaign, status: live.status, stats: live.stats } : campaign;
       }),
     [initialCampaigns, liveCampaigns],
   );
@@ -987,7 +1144,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [queryInput, setQueryInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
+
   const [creating, setCreating] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<Campaign | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedDetailCampaign, setSelectedDetailCampaign] = useState<Campaign | null>(null);
@@ -1019,10 +1179,16 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   }, [queryInput]);
 
   useEffect(() => {
-    if (!openMenuId) return;
-    const handleDocClick = () => setOpenMenuId(null);
+    if (!openMenuId && !filterPopoverOpen) return;
+    const handleDocClick = () => {
+      setOpenMenuId(null);
+      setFilterPopoverOpen(false);
+    };
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenMenuId(null);
+      if (event.key === "Escape") {
+        setOpenMenuId(null);
+        setFilterPopoverOpen(false);
+      }
     };
     document.addEventListener("click", handleDocClick);
     document.addEventListener("keydown", handleEsc);
@@ -1030,7 +1196,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       document.removeEventListener("click", handleDocClick);
       document.removeEventListener("keydown", handleEsc);
     };
-  }, [openMenuId]);
+  }, [openMenuId, filterPopoverOpen]);
 
   const refreshEligibleContacts = async (selectNewContacts = false): Promise<LaunchContact[]> => {
     const previousIds = new Set(eligibleContacts.map((contact) => contact.id));
@@ -1247,7 +1413,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       setDeletingDraft(null);
       return;
     }
-    const deletedName = deletingDraft.name;
+    const deletedName = cleanDisplayTitle(deletingDraft.name);
     setDeletingDraft(null);
     setNotice(`Deleted draft campaign "${deletedName}".`);
     router.refresh();
@@ -1282,16 +1448,18 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       const matchesType = typeFilter === "all" || campaign.type === typeFilter;
       const matchesQuery =
         !normalizedQuery ||
-        `${campaign.name} ${campaign.primaryObjective} ${campaign.targetAudience ?? ""} ${
-          TYPE_LABELS[campaign.type] ?? campaign.type
-        }`
+        `${cleanDisplayTitle(campaign.name)} ${campaign.name} ${campaign.primaryObjective} ${
+          campaign.targetAudience ?? ""
+        } ${TYPE_LABELS[campaign.type] ?? campaign.type}`
           .toLowerCase()
           .includes(normalizedQuery);
       return matchesStatus && matchesType && matchesQuery;
     });
 
     return [...list].sort((a, b) => {
-      if (sortBy === "name_asc") return a.name.localeCompare(b.name);
+      if (sortBy === "name_asc") {
+        return cleanDisplayTitle(a.name).localeCompare(cleanDisplayTitle(b.name));
+      }
       if (sortBy === "most_calls") {
         return (b.stats.totalCalls ?? 0) - (a.stats.totalCalls ?? 0);
       }
@@ -1301,6 +1469,11 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         const aRate = aTotal > 0 ? (a.stats.connectedCalls ?? 0) / aTotal : -1;
         const bRate = bTotal > 0 ? (b.stats.connectedCalls ?? 0) / bTotal : -1;
         return bRate - aRate;
+      }
+      if (sortBy === "updated") {
+        const aTime = (a.updatedAt ?? a.createdAt) ? new Date(a.updatedAt ?? a.createdAt!).getTime() : 0;
+        const bTime = (b.updatedAt ?? b.createdAt) ? new Date(b.updatedAt ?? b.createdAt!).getTime() : 0;
+        return bTime - aTime;
       }
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -1312,6 +1485,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const draftCount = statusCounts.draft;
   const totalCalls = campaigns.reduce((sum, campaign) => sum + (campaign.stats.totalCalls ?? 0), 0);
 
+  const secondaryFilterCount = (typeFilter !== "all" ? 1 : 0) + (sortBy !== "newest" ? 1 : 0);
   const hasActiveFilters =
     statusFilter !== "all" || typeFilter !== "all" || queryInput.trim().length > 0;
 
@@ -1323,14 +1497,26 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
     setSortBy("newest");
   };
 
-  const handleCreated = () => {
+  const handleCreated = (message?: string) => {
     setCreating(false);
-    setNotice("Campaign draft saved. Review your audience before launching outbound calls.");
+    setDuplicateSource(null);
+    setNotice(
+      message ?? "Campaign draft saved. Review your audience before launching outbound calls.",
+    );
     router.refresh();
   };
 
-  if (creating) {
-    return <CampaignForm onCancel={() => setCreating(false)} onCreated={handleCreated} />;
+  if (creating || duplicateSource) {
+    return (
+      <CampaignForm
+        initialDraft={duplicateSource}
+        onCancel={() => {
+          setCreating(false);
+          setDuplicateSource(null);
+        }}
+        onCreated={handleCreated}
+      />
+    );
   }
 
   return (
@@ -1356,7 +1542,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                   id="launch-campaign-title"
                   className="mt-1 font-['Newsreader'] text-[30px] text-[#1B1C18]"
                 >
-                  Launch {launchingCampaign.name}
+                  Launch {cleanDisplayTitle(launchingCampaign.name)}
                 </h2>
                 <p className="mt-1 font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
                   Choose who to call and when the agent is allowed to place calls.
@@ -1365,9 +1551,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               <button
                 type="button"
                 onClick={() => setLaunchingCampaign(null)}
-                className="rounded-[6px] border border-[#E5E4DC] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[12px] text-[#444748] hover:bg-[#F5F4ED]"
+                aria-label="Close launch window"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] hover:bg-[#F5F4ED]"
               >
-                Close
+                <Icon kind="close" className="h-4 w-4" />
               </button>
             </div>
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -1765,7 +1952,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                 type="button"
                 disabled={launchBusy || loadingAudience || !selectedContactIds.length}
                 onClick={submitLaunch}
-                className="rounded-[6px] bg-[#1B1C18] px-5 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
+                className="rounded-[8px] bg-[#1B1C18] px-5 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
               >
                 {launchBusy
                   ? "Queuing campaign…"
@@ -1799,6 +1986,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           onLaunch={openLaunch}
           onStatusChange={changeCampaignStatus}
           onEdit={(c) => setEditingCampaign(c)}
+          onDuplicate={(c) => setDuplicateSource(c)}
         />
       ) : null}
 
@@ -1821,7 +2009,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               id="delete-draft-title"
               className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]"
             >
-              Delete &ldquo;{deletingDraft.name}&rdquo;?
+              Delete &ldquo;{cleanDisplayTitle(deletingDraft.name)}&rdquo;?
             </h2>
             <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
               This draft campaign will be permanently removed from your workspace. Only draft
@@ -1832,7 +2020,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                 type="button"
                 onClick={() => setDeletingDraft(null)}
                 disabled={deleteBusy}
-                className="rounded-[6px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
               >
                 Cancel
               </button>
@@ -1840,7 +2028,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                 type="button"
                 onClick={confirmDeleteDraft}
                 disabled={deleteBusy}
-                className="rounded-[6px] bg-[#A33A32] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#8A2E27] disabled:opacity-50"
+                className="h-9 rounded-[8px] bg-[#A33A32] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#8A2E27] disabled:opacity-50"
               >
                 {deleteBusy ? "Deleting…" : "Delete draft"}
               </button>
@@ -1849,16 +2037,16 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         </div>
       ) : null}
 
-      {/* Page Header */}
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#ECEBE5] pb-5">
+      {/* Compact Page Header */}
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ECEBE5] pb-5">
         <div>
           <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
             Workspace / Outbound
           </p>
-          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[40px]">
+          <h1 className="mt-1 font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
             Campaigns
           </h1>
-          <p className="mt-1.5 max-w-[640px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
+          <p className="mt-1 max-w-[640px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
             Manage your voice outreach campaigns, monitor performance, and organize your calling
             operations.
           </p>
@@ -1869,11 +2057,9 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
             setNotice(null);
             setCreating(true);
           }}
-          className="inline-flex h-10 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+          className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
         >
-          <span className="text-[16px] leading-none" aria-hidden="true">
-            +
-          </span>
+          <Icon kind="plus" className="h-3.5 w-3.5" />
           New campaign
         </button>
       </header>
@@ -1902,21 +2088,21 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           <button
             type="button"
             onClick={() => router.refresh()}
-            className="rounded-[6px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028] hover:bg-[#FDF2F1]"
+            className="rounded-[6px] border border-[#E5C7C3] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028] hover:bg-[#FDF2F1]"
           >
             Retry
           </button>
         </div>
       ) : null}
 
-      {/* Four Campaign Metric Cards */}
+      {/* 4 Uniform Metric Cards */}
       <section aria-label="Campaign metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Total campaigns"
           value={formatNumber(campaigns.length)}
-          detail="Saved in this workspace"
+          detail="Saved in workspace"
           icon="layers"
-          active={statusFilter === "all"}
+          selected={statusFilter === "all"}
           onClick={() => setStatusFilter("all")}
         />
         <MetricCard
@@ -1924,7 +2110,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(activeCount)}
           detail="Currently running"
           icon="activity"
-          active={statusFilter === "active"}
+          selected={statusFilter === "active"}
           onClick={() =>
             setStatusFilter((current) => (current === "active" ? "all" : "active"))
           }
@@ -1934,7 +2120,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(draftCount)}
           detail="Awaiting launch"
           icon="file-edit"
-          active={statusFilter === "draft"}
+          selected={statusFilter === "draft"}
           onClick={() =>
             setStatusFilter((current) => (current === "draft" ? "all" : "draft"))
           }
@@ -1942,15 +2128,16 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         <MetricCard
           label="Calls placed"
           value={formatNumber(totalCalls)}
-          detail="Across all campaigns · View analytics"
+          detail="View analytics →"
           icon="phone"
           href="/dashboard/analytics"
         />
       </section>
 
-      {/* Campaign Management Section */}
-      <section className="overflow-hidden rounded-[12px] border border-[#ECEBE5] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.03)]">
-        <div className="flex flex-col gap-4 border-b border-[#ECEBE5] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+      {/* Campaign Management Card */}
+      <section className="overflow-visible rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.03)]">
+        {/* Toolbar: Title + Search + Single Filter/Sort Popover */}
+        <div className="flex flex-col gap-3 border-b border-[#ECEBE5] px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
               All campaigns
@@ -1960,25 +2147,17 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
             </p>
           </div>
 
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-            <label className="relative block w-full sm:w-64">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative block min-w-0 flex-1 sm:w-64 sm:flex-initial">
               <span className="sr-only">Search campaigns</span>
-              <svg
-                viewBox="0 0 20 20"
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747878]"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                aria-hidden="true"
-              >
-                <circle cx="8.5" cy="8.5" r="5.5" />
-                <path d="m13 13 4 4" strokeLinecap="round" />
-              </svg>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#747878]">
+                <Icon kind="search" className="h-3.5 w-3.5" />
+              </span>
               <input
                 value={queryInput}
                 onChange={(event) => setQueryInput(event.target.value)}
                 placeholder="Search campaigns..."
-                className="h-9 w-full rounded-[6px] border border-[#E5E4DC] bg-[#FFFEFB] pl-9 pr-8 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#92938C] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
+                className="h-9 w-full rounded-[8px] border border-[#E2E0D8] bg-[#FAF9F5] pl-8 pr-7 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#92938C] focus:border-[#7852D6] focus:bg-white focus:ring-2 focus:ring-[#7852D6]/15"
               />
               {queryInput ? (
                 <button
@@ -1988,67 +2167,123 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                     setDebouncedQuery("");
                   }}
                   aria-label="Clear search"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#747878] hover:bg-[#F5F4ED] hover:text-[#1B1C18]"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#747878] hover:bg-[#ECEBE5] hover:text-[#1B1C18]"
                 >
-                  ×
+                  <Icon kind="close" className="h-3 w-3" />
                 </button>
               ) : null}
             </label>
 
-            <label className="sr-only" htmlFor="campaign-type-filter">
-              Filter by campaign type
-            </label>
-            <select
-              id="campaign-type-filter"
-              value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value)}
-              className="h-9 rounded-[6px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] outline-none focus:border-[#7852D6]"
+            {/* Compact Filter & Sort Popover Trigger */}
+            <div
+              className="relative"
+              onClick={(event) => event.stopPropagation()}
             >
-              <option value="all">All types</option>
-              {Object.entries(TYPE_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <label className="sr-only" htmlFor="campaign-sort-select">
-              Sort campaigns
-            </label>
-            <select
-              id="campaign-sort-select"
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as SortOption)}
-              className="h-9 rounded-[6px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] outline-none focus:border-[#7852D6]"
-            >
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
-                <option key={option} value={option}>
-                  {SORT_LABELS[option]}
-                </option>
-              ))}
-            </select>
-
-            {hasActiveFilters ? (
               <button
                 type="button"
-                onClick={clearAllFilters}
-                className="h-9 rounded-[6px] border border-[#E5E4DC] bg-[#F8F7F2] px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:bg-[#EFEAFB]"
+                aria-expanded={filterPopoverOpen}
+                aria-haspopup="dialog"
+                onClick={() => setFilterPopoverOpen((open) => !open)}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
+                  secondaryFilterCount > 0 || filterPopoverOpen
+                    ? "border-[#D8CEF5] bg-[#F7F4FC] text-[#644ABB]"
+                    : "border-[#E2E0D8] bg-white text-[#444748] hover:bg-[#FAF9F5]"
+                }`}
               >
-                Clear filters
+                <Icon kind="sliders" className="h-3.5 w-3.5" />
+                <span>Filter &amp; Sort</span>
+                {secondaryFilterCount > 0 ? (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#644ABB] px-1 text-[10px] font-semibold text-white">
+                    {secondaryFilterCount}
+                  </span>
+                ) : null}
               </button>
-            ) : null}
+
+              {filterPopoverOpen ? (
+                <div
+                  role="dialog"
+                  aria-label="Filter and sort campaigns"
+                  className="absolute right-0 top-full z-30 mt-2 w-72 rounded-[10px] border border-[#E9E8E1] bg-white p-4 shadow-[0_12px_32px_rgba(27,28,24,0.12)]"
+                >
+                  <div className="space-y-3.5">
+                    <div>
+                      <label
+                        htmlFor="campaign-type-popover"
+                        className="block font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]"
+                      >
+                        Campaign type
+                      </label>
+                      <select
+                        id="campaign-type-popover"
+                        value={typeFilter}
+                        onChange={(e) => setTypeFilter(e.target.value)}
+                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                      >
+                        <option value="all">All types</option>
+                        {Object.entries(TYPE_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="campaign-sort-popover"
+                        className="block font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]"
+                      >
+                        Sort order
+                      </label>
+                      <select
+                        id="campaign-sort-popover"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as SortOption)}
+                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                      >
+                        {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
+                          <option key={option} value={option}>
+                            {SORT_LABELS[option]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-[#F0EFE9] pt-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTypeFilter("all");
+                          setSortBy("newest");
+                        }}
+                        className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#747878] hover:text-[#1B1C18]"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFilterPopoverOpen(false)}
+                        className="rounded-[6px] bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F]"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        {/* Status Pill Tabs */}
+        {/* Clean Segmented Status Tabs */}
         <div
           role="tablist"
           aria-label="Filter campaigns by status"
-          className="flex items-center gap-1.5 overflow-x-auto border-b border-[#ECEBE5] bg-[#FCFBF8] px-4 py-2.5 sm:px-5"
+          className="flex items-center gap-1 overflow-x-auto border-b border-[#ECEBE5] bg-[#FAF9F5] px-4 py-2 sm:px-5"
         >
           {(["all", "draft", "active", "paused", "completed"] as StatusFilter[]).map((status) => {
             const selected = statusFilter === status;
-            const label = status === "all" ? "All statuses" : status;
+            const label = status === "all" ? "All" : status;
             return (
               <button
                 key={status}
@@ -2056,16 +2291,18 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setStatusFilter(status)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[7px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
                   selected
-                    ? "bg-[#E7DEFF] text-[#4C30A2]"
-                    : "text-[#666A68] hover:bg-[#F1F0EB] hover:text-[#1B1C18]"
+                    ? "bg-white font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.06)] ring-1 ring-[#E5E3DB]"
+                    : "text-[#666A68] hover:text-[#1B1C18]"
                 }`}
               >
                 <span>{label}</span>
                 <span
                   className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums ${
-                    selected ? "bg-white/80 text-[#4C30A2]" : "bg-[#ECEBE5] text-[#666A68]"
+                    selected
+                      ? "bg-[#EFEAFB] font-semibold text-[#644ABB]"
+                      : "bg-[#ECEBE5] text-[#666A68]"
                   }`}
                 >
                   {statusCounts[status]}
@@ -2073,14 +2310,25 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               </button>
             );
           })}
-          <span className="ml-auto shrink-0 pl-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
-            Showing {filteredCampaigns.length} of {campaigns.length}
+
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="ml-2 shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:underline"
+            >
+              Clear filters
+            </button>
+          ) : null}
+
+          <span className="ml-auto shrink-0 pl-3 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+            {filteredCampaigns.length} {filteredCampaigns.length === 1 ? "campaign" : "campaigns"}
           </span>
         </div>
 
-        {/* Horizontal 3-Area Campaign Cards */}
+        {/* Clean 3-Zone Campaign Rows */}
         {filteredCampaigns.length > 0 ? (
-          <div className="divide-y divide-[#F0EFE9]">
+          <div className="divide-y divide-[#ECEBE5]">
             {filteredCampaigns.map((campaign) => {
               const stats = campaign.stats;
               const total = stats.totalCalls ?? 0;
@@ -2088,71 +2336,230 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               const highIntent = stats.highInterestCalls ?? 0;
               const progress = computeExecutionProgress(campaign);
               const menuOpen = openMenuId === campaign.id;
+              const displayName = cleanDisplayTitle(campaign.name);
 
               return (
                 <article
                   key={campaign.id}
-                  className="grid gap-4 px-4 py-4 transition-colors hover:bg-[#FAF9F5] sm:px-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(240px,1fr)_auto] lg:items-center lg:gap-6"
+                  onClick={() => setSelectedDetailCampaign(campaign)}
+                  className="group cursor-pointer px-4 py-4 transition-colors hover:bg-[#FCFBF8] sm:px-5"
                 >
-                  {/* Area A: Campaign Information */}
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDetailCampaign(campaign)}
-                        className="truncate text-left font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition-colors hover:text-[#644ABB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] rounded"
-                      >
-                        {campaign.name}
-                      </button>
-                      <StatusBadge status={campaign.status} />
-                      <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#565B5B]">
-                        {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
-                      </span>
-                    </div>
-
-                    <p className="mt-1 line-clamp-2 max-w-[600px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
-                      {campaign.primaryObjective || "No campaign objective added."}
-                    </p>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                      <span>Created {formatDate(campaign.createdAt)}</span>
-                      {campaign.updatedAt ? (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span>Updated {formatDate(campaign.updatedAt)}</span>
-                        </>
-                      ) : null}
-                      {campaign.targetAudience ? (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="truncate max-w-[240px]">
-                            Audience: {campaign.targetAudience}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    {/* Execution Status & Progress Bar */}
-                    <div className="mt-3 max-w-[440px]">
-                      <div className="flex flex-wrap items-center justify-between gap-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                        <span>{progress.label}</span>
-                        <span className="tabular-nums">
-                          <strong className="text-[#1B1C18]">{formatNumber(stats.inProgressCalls)}</strong>{" "}
-                          calling ·{" "}
-                          <strong className="text-[#1B1C18]">{formatNumber(stats.pendingCalls)}</strong>{" "}
-                          pending ·{" "}
-                          <strong className="text-[#1B1C18]">
-                            {formatNumber(stats.completedQueueCalls)}
-                          </strong>{" "}
-                          done ·{" "}
-                          <strong className="text-[#1B1C18]">{formatNumber(stats.failedCalls)}</strong>{" "}
-                          failed
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px_auto] lg:items-center lg:gap-6">
+                    {/* AREA A: Campaign Title, Status, Objective & Single Metadata Line */}
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] transition-colors group-hover:text-[#644ABB]">
+                          {displayName}
+                        </h3>
+                        <StatusBadge status={campaign.status} />
+                        <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
+                          {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
                         </span>
                       </div>
+
+                      <p className="mt-1 line-clamp-1 max-w-[640px] font-['Space_Grotesk'] text-[12.5px] text-[#5C5F5C]">
+                        {campaign.primaryObjective || "No campaign objective added."}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+                        <span>Created {formatDate(campaign.createdAt)}</span>
+                        {campaign.targetAudience ? (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="max-w-[280px] truncate">{campaign.targetAudience}</span>
+                          </>
+                        ) : null}
+                        <span aria-hidden="true">·</span>
+                        <span className="text-[#5C5F5C]">{progress.label}</span>
+                      </div>
+                    </div>
+
+                    {/* AREA B: Clean Horizontal KPI Strip (3 Metrics, No Boxes Inside Boxes) */}
+                    <div className="grid grid-cols-3 divide-x divide-[#ECEBE5] rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] py-2">
+                      <div className="px-3">
+                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                          Calls
+                        </p>
+                        <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
+                          {formatNumber(total)}
+                        </p>
+                      </div>
+                      <div className="px-3">
+                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                          Connected
+                        </p>
+                        <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
+                          {formatNumber(connected)}
+                        </p>
+                      </div>
+                      <div className="px-3">
+                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                          High intent
+                        </p>
+                        <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
+                          {formatNumber(highIntent)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* AREA C: Contextual Primary CTA + Three-Dot Actions Menu */}
+                    <div
+                      className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {campaign.status === "draft" ? (
+                        <button
+                          type="button"
+                          onClick={() => openLaunch(campaign)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                        >
+                          <Icon kind="rocket" className="h-3.5 w-3.5" />
+                          Launch
+                        </button>
+                      ) : campaign.status === "paused" ? (
+                        <button
+                          type="button"
+                          onClick={() => changeCampaignStatus(campaign, "active")}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                        >
+                          <Icon kind="play" className="h-3.5 w-3.5" />
+                          Resume
+                        </button>
+                      ) : campaign.status === "active" ? (
+                        <button
+                          type="button"
+                          onClick={() => changeCampaignStatus(campaign, "paused")}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                        >
+                          <Icon kind="pause" className="h-3.5 w-3.5" />
+                          Pause
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDetailCampaign(campaign)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
+                        >
+                          <Icon kind="eye" className="h-3.5 w-3.5" />
+                          Results
+                        </button>
+                      )}
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${displayName}`}
+                          aria-expanded={menuOpen}
+                          aria-haspopup="menu"
+                          onClick={() =>
+                            setOpenMenuId((current) => (current === campaign.id ? null : campaign.id))
+                          }
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[#E2E0D8] bg-white text-[#5C5F5C] transition-colors hover:bg-[#F5F4ED] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                        >
+                          <Icon kind="more" className="h-4 w-4" />
+                        </button>
+
+                        {menuOpen ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white p-1 shadow-[0_12px_32px_rgba(27,28,24,0.12)]"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setSelectedDetailCampaign(campaign);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                            >
+                              <Icon kind="eye" className="h-3.5 w-3.5 text-[#747878]" />
+                              View details
+                            </button>
+                            {campaign.status !== "completed" ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setEditingCampaign(campaign);
+                                }}
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              >
+                                <Icon kind="edit" className="h-3.5 w-3.5 text-[#747878]" />
+                                Edit campaign
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setDuplicateSource(campaign);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                            >
+                              <Icon kind="copy" className="h-3.5 w-3.5 text-[#747878]" />
+                              Duplicate campaign
+                            </button>
+                            <Link
+                              href="/dashboard/analytics"
+                              role="menuitem"
+                              onClick={() => setOpenMenuId(null)}
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                            >
+                              <Icon kind="chart" className="h-3.5 w-3.5 text-[#747878]" />
+                              View performance
+                            </Link>
+                            {campaign.status === "active" ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => changeCampaignStatus(campaign, "paused")}
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              >
+                                <Icon kind="pause" className="h-3.5 w-3.5 text-[#747878]" />
+                                Pause campaign
+                              </button>
+                            ) : null}
+                            {campaign.status === "paused" ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => changeCampaignStatus(campaign, "active")}
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              >
+                                <Icon kind="play" className="h-3.5 w-3.5 text-[#747878]" />
+                                Resume campaign
+                              </button>
+                            ) : null}
+                            {campaign.status === "draft" ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setDeletingDraft(campaign);
+                                }}
+                                className="mt-1 flex w-full items-center gap-2 border-t border-[#F0EFE9] rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                              >
+                                <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
+                                Delete draft
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subtle Full-Width Bottom Progress Strip only when queue has data */}
+                  {progress.hasQueueData ? (
+                    <div className="mt-3 flex items-center gap-3 pt-1">
                       <div
-                        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#ECEBE5]"
+                        className="h-1 flex-1 overflow-hidden rounded-full bg-[#ECEBE5]"
                         role="progressbar"
-                        aria-label={`${campaign.name} execution progress`}
+                        aria-label={`${displayName} progress`}
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={progress.percent}
@@ -2162,167 +2569,14 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                           style={{ width: `${progress.percent}%` }}
                         />
                       </div>
+                      <span className="shrink-0 font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">
+                        {formatNumber(stats.inProgressCalls)} calling ·{" "}
+                        {formatNumber(stats.pendingCalls)} pending ·{" "}
+                        {formatNumber(stats.completedQueueCalls)} done ·{" "}
+                        {formatNumber(stats.failedCalls)} failed
+                      </span>
                     </div>
-                  </div>
-
-                  {/* Area B: Horizontal Performance Metrics */}
-                  <div className="grid grid-cols-3 gap-3 rounded-[8px] border border-[#F0EFE9] bg-[#FCFBF8] px-3.5 py-2.5 lg:gap-4">
-                    <div>
-                      <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
-                        Calls placed
-                      </p>
-                      <p className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
-                        {formatNumber(total)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
-                        Connected
-                      </p>
-                      <p className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
-                        {formatNumber(connected)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
-                        High intent
-                      </p>
-                      <p className="mt-1 font-['Newsreader'] text-[22px] leading-none text-[#1B1C18]">
-                        {formatNumber(highIntent)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Area C: Contextual Primary Action + Actions Menu */}
-                  <div className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0">
-                    {campaign.status === "draft" ? (
-                      <button
-                        type="button"
-                        onClick={() => openLaunch(campaign)}
-                        className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-                      >
-                        Start campaign
-                      </button>
-                    ) : campaign.status === "paused" ? (
-                      <button
-                        type="button"
-                        onClick={() => changeCampaignStatus(campaign, "active")}
-                        className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-                      >
-                        Resume campaign
-                      </button>
-                    ) : campaign.status === "active" ? (
-                      <button
-                        type="button"
-                        onClick={() => changeCampaignStatus(campaign, "paused")}
-                        className="inline-flex h-9 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-                      >
-                        Pause
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setSelectedDetailCampaign(campaign)}
-                        className="inline-flex h-9 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] transition-colors hover:bg-[#F5F4ED]"
-                      >
-                        View details
-                      </button>
-                    )}
-
-                    {/* Contextual Three-Dot Menu */}
-                    <div
-                      className="relative"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        aria-label={`More actions for ${campaign.name}`}
-                        aria-expanded={menuOpen}
-                        aria-haspopup="menu"
-                        onClick={() =>
-                          setOpenMenuId((current) => (current === campaign.id ? null : campaign.id))
-                        }
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-                      >
-                        <span className="text-[14px] leading-none" aria-hidden="true">
-                          ⋮
-                        </span>
-                      </button>
-
-                      {menuOpen ? (
-                        <div
-                          role="menu"
-                          className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-[8px] border border-[#E9E8E1] bg-white p-1 shadow-[0_10px_28px_rgba(27,28,24,0.12)]"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => {
-                              setOpenMenuId(null);
-                              setSelectedDetailCampaign(campaign);
-                            }}
-                            className="flex w-full items-center rounded-[5px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
-                          >
-                            View details
-                          </button>
-                          {campaign.status !== "completed" ? (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setEditingCampaign(campaign);
-                              }}
-                              className="flex w-full items-center rounded-[5px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
-                            >
-                              Edit campaign
-                            </button>
-                          ) : null}
-                          <Link
-                            href="/dashboard/analytics"
-                            role="menuitem"
-                            onClick={() => setOpenMenuId(null)}
-                            className="flex w-full items-center rounded-[5px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
-                          >
-                            View performance
-                          </Link>
-                          {campaign.status === "active" ? (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => changeCampaignStatus(campaign, "paused")}
-                              className="flex w-full items-center rounded-[5px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
-                            >
-                              Pause campaign
-                            </button>
-                          ) : null}
-                          {campaign.status === "paused" ? (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => changeCampaignStatus(campaign, "active")}
-                              className="flex w-full items-center rounded-[5px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
-                            >
-                              Resume campaign
-                            </button>
-                          ) : null}
-                          {campaign.status === "draft" ? (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                setDeletingDraft(campaign);
-                              }}
-                              className="mt-1 flex w-full items-center border-t border-[#F0EFE9] rounded-[5px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
-                            >
-                              Delete draft
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -2330,54 +2584,55 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         ) : (
           /* Contextual Empty States */
           <div className="flex flex-col items-center px-5 py-14 text-center">
-            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F2EEFA] text-[#644ABB]">
-              <MetricIcon kind="layers" className="h-5 w-5" />
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#644ABB]">
+              <Icon kind="layers" className="h-5 w-5" />
             </span>
             {campaigns.length === 0 ? (
               <>
-                <h3 className="mt-4 font-['Newsreader'] text-[26px] text-[#1B1C18]">
+                <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No campaigns yet
                 </h3>
-                <p className="mt-1.5 max-w-[400px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
                   Create your first voice campaign to start reaching your contacts.
                 </p>
                 <button
                   type="button"
                   onClick={() => setCreating(true)}
-                  className="mt-5 inline-flex h-10 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                  className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
                 >
+                  <Icon kind="plus" className="h-3.5 w-3.5" />
                   Create campaign
                 </button>
               </>
             ) : debouncedQuery.trim() ? (
               <>
-                <h3 className="mt-4 font-['Newsreader'] text-[26px] text-[#1B1C18]">
+                <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No matching campaigns
                 </h3>
-                <p className="mt-1.5 max-w-[400px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
                   Try a different search term or clear your filters.
                 </p>
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="mt-5 inline-flex h-9 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
+                  className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
                 >
                   Clear search
                 </button>
               </>
             ) : (
               <>
-                <h3 className="mt-4 font-['Newsreader'] text-[26px] text-[#1B1C18]">
+                <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No campaigns in this category
                 </h3>
-                <p className="mt-1.5 max-w-[400px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
                   Campaigns with this status will appear here.
                 </p>
                 {hasActiveFilters ? (
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="mt-5 inline-flex h-9 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
+                    className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
                   >
                     Clear filters
                   </button>
