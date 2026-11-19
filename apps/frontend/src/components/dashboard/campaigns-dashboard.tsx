@@ -263,7 +263,6 @@ function MetricCard({
   value,
   detail,
   icon,
-  selected = false,
   onClick,
   href,
 }: {
@@ -271,33 +270,19 @@ function MetricCard({
   value: string;
   detail: string;
   icon: IconKind;
-  selected?: boolean;
   onClick?: () => void;
   href?: string;
 }) {
-  const baseClass = `group flex h-[112px] w-full flex-col justify-between rounded-[12px] border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:px-5 ${
-    selected
-      ? "border-[#7852D6] bg-[#FAF8FF] shadow-[0_1px_2px_rgba(120,82,214,0.08)]"
-      : "border-[#E9E8E1] bg-white hover:border-[#D4D2C8] hover:bg-[#FCFBF8]"
-  }`;
+  const baseClass =
+    "group flex h-[112px] w-full flex-col justify-between rounded-[12px] border border-[#E9E8E1] bg-white p-4 text-left transition-colors hover:border-[#D4D2C8] hover:bg-[#FCFBF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]/40 sm:px-5";
 
   const inner = (
     <>
       <div className="flex w-full items-center justify-between gap-2">
-        <span
-          className={`font-['Space_Grotesk'] text-[12px] font-medium ${
-            selected ? "text-[#644ABB]" : "text-[#5C5F5C]"
-          }`}
-        >
+        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#5C5F5C]">
           {label}
         </span>
-        <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border transition-colors ${
-            selected
-              ? "border-[#DFD5F8] bg-[#EFEAFB] text-[#644ABB]"
-              : "border-[#ECEBE5] bg-[#FAF9F5] text-[#666A68] group-hover:text-[#1B1C18]"
-          }`}
-        >
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border border-[#ECEBE5] bg-[#FAF9F5] text-[#666A68] transition-colors group-hover:text-[#1B1C18]">
           <Icon kind={icon} className="h-3.5 w-3.5" />
         </span>
       </div>
@@ -320,7 +305,7 @@ function MetricCard({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} aria-pressed={selected} className={baseClass}>
+      <button type="button" onClick={onClick} className={baseClass}>
         {inner}
       </button>
     );
@@ -2102,7 +2087,6 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(campaigns.length)}
           detail="Saved in workspace"
           icon="layers"
-          selected={statusFilter === "all"}
           onClick={() => setStatusFilter("all")}
         />
         <MetricCard
@@ -2110,7 +2094,6 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(activeCount)}
           detail="Currently running"
           icon="activity"
-          selected={statusFilter === "active"}
           onClick={() =>
             setStatusFilter((current) => (current === "active" ? "all" : "active"))
           }
@@ -2120,7 +2103,6 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(draftCount)}
           detail="Awaiting launch"
           icon="file-edit"
-          selected={statusFilter === "draft"}
           onClick={() =>
             setStatusFilter((current) => (current === "draft" ? "all" : "draft"))
           }
