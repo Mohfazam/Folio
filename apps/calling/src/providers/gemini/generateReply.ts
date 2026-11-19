@@ -30,12 +30,54 @@ export function shouldSearchWeb(_text: string): boolean {
   return false;
 }
 
-function formatContents(
+export function formatContents(
   conversationHistory: { role: "user" | "assistant"; content: string }[]
-) {
-  return conversationHistory.map(({ role, content }) => ({
-    role: role === "assistant" ? "model" : "user",
-    parts: [{ text: content }],
+): { role: "user" | "model"; parts: [{ text: string }] }[] {
+  if (!conversationHistory || conversationHistory.length === 0) {
+    return [{ role: "user", parts: [{ text: "Hello" }] }];
+  }
+
+  const merged: { role: "user" | "model"; text: string }[] = [];
+
+  for (const turn of conversationHistory) {
+    const role: "user" | "model" = turn.role === "assistant" ? "model" : "user";
+    const text = (turn.content || "").trim();
+    if (!text) continue;
+
+    const last = merged[merged.length - 1];
+    if (last && last.role === role) {
+      // Merge consecutive turns of the same role so Gemini never gets duplicate adjacent roles
+      last.text = `${last.text}\n${text}`.trim();
+    } else {
+      merged.push({ role, text });
+    }
+  }
+
+  if (merged.length === 0) {
+    return [{ role: "user", parts: [{ text: "Hello" }] }];
+  }
+
+  // Gemini API requires the first message in contents to be from role 'user'.
+  // If the conversation began with an assistant greeting, prepend a natural user context trigger:
+  if (merged[0]?.role === "model") {
+    merged.unshift({
+      role: "user",
+      text: "[Phone call connected - recipient answered the phone]",
+    });
+  }
+
+  // Gemini API generates the model response to the final user turn.
+  // If the last turn is somehow model (e.g. edge-case interruption), ensure a user prompt follows:
+  if (merged[merged.length - 1]?.role === "model") {
+    merged.push({
+      role: "user",
+      text: "Hello?",
+    });
+  }
+
+  return merged.map(({ role, text }) => ({
+    role,
+    parts: [{ text }],
   }));
 }
 
