@@ -402,27 +402,6 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       ⌘ K
                     </kbd>
                   </button>
-
-                  <Link
-                    href="/dashboard/settings"
-                    aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
-                      isRouteActive("/dashboard/settings")
-                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
-                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
-                    }`}
-                    title="Settings"
-                  >
-                    <Icon
-                      name="settings"
-                      className={`h-4 w-4 shrink-0 ${
-                        isRouteActive("/dashboard/settings")
-                          ? "text-[#644ABB]"
-                          : "text-[#666A68] group-hover:text-[#1B1C18]"
-                      }`}
-                    />
-                    <span className="hidden lg:inline">Settings</span>
-                  </Link>
                 </div>
 
                 {/* Operations Group */}
@@ -455,6 +434,27 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       onSetupAction={openSetupAction}
                     />
                   ))}
+
+                  <Link
+                    href="/dashboard/settings"
+                    aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                      isRouteActive("/dashboard/settings")
+                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                    }`}
+                    title="Settings"
+                  >
+                    <Icon
+                      name="settings"
+                      className={`h-4 w-4 shrink-0 ${
+                        isRouteActive("/dashboard/settings")
+                          ? "text-[#644ABB]"
+                          : "text-[#666A68] group-hover:text-[#1B1C18]"
+                      }`}
+                    />
+                    <span className="hidden lg:inline">Settings</span>
+                  </Link>
                 </div>
               </nav>
             </div>
