@@ -48,6 +48,7 @@ export type CallDetailRecord = {
   costTts: number | null;
   costTotal: number | null;
   recordingUrl: string | null;
+  initialTranscript?: unknown[];
   createdAt: string | null;
   contact: ContactDetail | null;
   campaign: CampaignDetail | null;
@@ -199,7 +200,7 @@ export function CallDetailView({
               </div>
             </div>
 
-            <CallTranscript key={call.id} callId={call.id} />
+            <CallTranscript key={call.id} callId={call.id} initialTranscript={call.initialTranscript} />
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">

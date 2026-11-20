@@ -21,9 +21,10 @@ export class AppError extends Error {
  * 404 handler for any unmapped API endpoints.
  */
 export function notFoundHandler(req: Request, res: Response) {
+  console.warn(`[backend/404] Unmapped route: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     ok: false,
-    error: `Route not found: ${req.method} ${req.originalUrl}`,
+    error: "The requested resource was not found.",
   });
 }
 

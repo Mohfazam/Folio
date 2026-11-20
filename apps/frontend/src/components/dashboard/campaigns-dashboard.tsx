@@ -25,6 +25,11 @@ type CampaignStats = {
   completedQueueCalls?: number;
 };
 
+type ObjectionHandler = {
+  objection: string;
+  response: string;
+};
+
 type Campaign = {
   id: string;
   name: string;
@@ -33,6 +38,7 @@ type Campaign = {
   primaryObjective: string;
   callOpeningHook?: string;
   keyTalkingPoints?: string[];
+  objectionHandlers?: unknown[];
   callToAction?: string;
   fallbackOffer?: string | null;
   targetAudience?: string | null;
@@ -46,6 +52,7 @@ type Campaign = {
 type Props = {
   initialCampaigns: Campaign[];
   initialError: string | null;
+  initialCampaignId?: string | null;
 };
 
 type LaunchContact = {
@@ -73,6 +80,9 @@ type CampaignType =
   | "reactivation"
   | "feedback_survey"
   | "announcement";
+
+const AUTO_LANGUAGE_PROMPT =
+  "At the beginning of the call, ask the customer which language they would prefer to speak. Offer English, Hindi, Telugu, Tamil, Kannada, and Malayalam. Continue the conversation in the language they choose. Do not assume their preferred language.";
 
 const INPUT =
   "mt-1.5 h-10 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
@@ -113,6 +123,87 @@ function cleanDisplayTitle(raw: string): string {
     .trim();
 }
 
+function cleanScriptText(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return raw
+    .replace(/\\\{/g, "{")
+    .replace(/\\\}/g, "}")
+    .replace(/\\+/g, "")
+    .trim();
+}
+
+
+function normalizeObjectionHandlers(rawHandlers: unknown[] | undefined): ObjectionHandler[] {
+  if (!Array.isArray(rawHandlers)) return [];
+  const normalized: ObjectionHandler[] = [];
+
+  for (const item of rawHandlers) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const rawObj =
+      typeof row.objection === "string"
+        ? row.objection
+        : typeof row.trigger === "string"
+          ? row.trigger
+          : typeof row.question === "string"
+            ? row.question
+            : "";
+    const rawResp =
+      typeof row.response === "string"
+        ? row.response
+        : typeof row.reply === "string"
+          ? row.reply
+          : typeof row.answer === "string"
+            ? row.answer
+            : "";
+
+    const objection = cleanScriptText(rawObj);
+    const response = cleanScriptText(rawResp);
+    if (objection || response) {
+      normalized.push({ objection, response });
+    }
+  }
+
+  return normalized;
+}
+
+function serializeObjectionHandlers(handlers: ObjectionHandler[]): ObjectionHandler[] {
+  return handlers
+    .map((h) => ({
+      objection: h.objection.trim(),
+      response: h.response.trim(),
+    }))
+    .filter((h) => h.objection.length > 0 && h.response.length > 0);
+}
+function extractEditableTalkingPoints(points: string[] | undefined): string[] {
+  if (!points?.length) return [];
+  const filtered = points
+    .map((line) => cleanScriptText(line))
+    .filter((line) => line.length > 0 && line !== AUTO_LANGUAGE_PROMPT);
+
+  const merged: string[] = [];
+  for (const item of filtered) {
+    if (merged.length > 0 && /^[a-z]/.test(item)) {
+      merged[merged.length - 1] = `${merged[merged.length - 1]} ${item}`;
+    } else {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function buildTalkingPointsPayload(language: string, rawLines: string): string[] {
+  const parsed = rawLines
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (language === "auto") {
+    return [AUTO_LANGUAGE_PROMPT, ...parsed.filter((line) => line !== AUTO_LANGUAGE_PROMPT)];
+  }
+  return parsed.filter((line) => line !== AUTO_LANGUAGE_PROMPT);
+}
+
 function formatNumber(value: number | undefined) {
   return new Intl.NumberFormat("en-IN").format(value ?? 0);
 }
@@ -145,8 +236,7 @@ type IconKind =
   | "trash"
   | "chart"
   | "close"
-  | "plus"
-  | "check";
+  | "plus";
 
 function Icon({ kind, className = "h-4 w-4" }: { kind: IconKind; className?: string }) {
   const artwork: Record<IconKind, ReactNode> = {
@@ -243,7 +333,6 @@ function Icon({ kind, className = "h-4 w-4" }: { kind: IconKind; className?: str
         <path d="M5 12h14" />
       </>
     ),
-    check: <path d="M20 6 9 17l-5-5" />,
   };
 
   return (
@@ -342,13 +431,104 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
+    <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 sm:p-6">
       <div className="mb-4 border-b border-[#F0EFE9] pb-3.5">
         <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{title}</h2>
         <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">{description}</p>
       </div>
       {children}
     </section>
+  );
+}
+
+function ObjectionHandlersEditor({
+  handlers,
+  onChange,
+}: {
+  handlers: ObjectionHandler[];
+  onChange: (next: ObjectionHandler[]) => void;
+}) {
+  const addRow = () => {
+    onChange([...handlers, { objection: "", response: "" }]);
+  };
+
+  const updateRow = (index: number, patch: Partial<ObjectionHandler>) => {
+    onChange(handlers.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
+  };
+
+  const removeRow = (index: number) => {
+    onChange(handlers.filter((_, idx) => idx !== index));
+  };
+
+  return (
+    <div className="mt-5 border-t border-[#F0EFE9] pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B]">
+            Objection handlers <span className="font-normal text-[#747878]">Optional</span>
+          </p>
+          <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+            Define how the agent responds when a contact raises a common pushback.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={addRow}
+          className="inline-flex h-8 items-center gap-1 rounded-[7px] border border-[#DCDDD6] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F2F0E8]"
+        >
+          <Icon kind="plus" className="h-3 w-3" />
+          Add objection
+        </button>
+      </div>
+
+      {handlers.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {handlers.map((item, idx) => (
+            <div
+              key={idx}
+              className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                  Objection #{idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(idx)}
+                  aria-label={`Remove objection ${idx + 1}`}
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#A33A32] hover:bg-[#FDF2F1]"
+                >
+                  <Icon kind="trash" className="h-3 w-3" />
+                  Remove
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={LABEL}>
+                  Customer says
+                  <input
+                    value={item.objection}
+                    onChange={(e) => updateRow(idx, { objection: e.target.value })}
+                    maxLength={300}
+                    className={INPUT}
+                    placeholder="e.g. I don't have time right now"
+                  />
+                </label>
+                <label className={LABEL}>
+                  Agent response
+                  <input
+                    value={item.response}
+                    onChange={(e) => updateRow(idx, { response: e.target.value })}
+                    maxLength={1000}
+                    className={INPUT}
+                    placeholder="e.g. No problem—can I send a 60-second overview?"
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -363,12 +543,12 @@ function CampaignForm({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [objectionHandlers, setObjectionHandlers] = useState<ObjectionHandler[]>(() =>
+    normalizeObjectionHandlers(initialDraft?.objectionHandlers),
+  );
 
   const defaultTalkingPoints = useMemo(() => {
-    if (!initialDraft?.keyTalkingPoints?.length) return "";
-    return initialDraft.keyTalkingPoints
-      .filter((line) => !line.startsWith("At the beginning of the call, ask the customer which language"))
-      .join("\n");
+    return extractEditableTalkingPoints(initialDraft?.keyTalkingPoints).join("\n");
   }, [initialDraft]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -376,12 +556,16 @@ function CampaignForm({
     if (busy) return;
 
     const form = new FormData(event.currentTarget);
-    const keyTalkingPoints = String(form.get("keyTalkingPoints") ?? "")
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const language = String(form.get("language") ?? "auto");
+    const rawTalkingPoints = String(form.get("keyTalkingPoints") ?? "");
+    const editablePoints = extractEditableTalkingPoints(
+      rawTalkingPoints
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
 
-    if (keyTalkingPoints.length === 0) {
+    if (editablePoints.length === 0) {
       setError("Add at least one talking point for the voice agent.");
       return;
     }
@@ -395,18 +579,12 @@ function CampaignForm({
         type: String(form.get("type") ?? "outreach_sales") as CampaignType,
         primaryObjective: String(form.get("primaryObjective") ?? "").trim(),
         callOpeningHook: String(form.get("callOpeningHook") ?? "").trim(),
-        keyTalkingPoints:
-          String(form.get("language") ?? "auto") === "auto"
-            ? [
-                "At the beginning of the call, ask the customer which language they would prefer to speak. Offer English, Hindi, Telugu, Tamil, Kannada, and Malayalam. Continue the conversation in the language they choose. Do not assume their preferred language.",
-                ...keyTalkingPoints,
-              ]
-            : keyTalkingPoints,
-        objectionHandlers: [],
+        keyTalkingPoints: buildTalkingPointsPayload(language, rawTalkingPoints),
+        objectionHandlers: serializeObjectionHandlers(objectionHandlers),
         callToAction: String(form.get("callToAction") ?? "").trim(),
         fallbackOffer: String(form.get("fallbackOffer") ?? "").trim() || undefined,
         targetAudience: String(form.get("targetAudience") ?? "").trim() || undefined,
-        language: String(form.get("language") ?? "auto"),
+        language,
         maxDurationSeconds: Number(form.get("maxDurationSeconds") ?? 300),
       });
 
@@ -428,7 +606,7 @@ function CampaignForm({
   };
 
   return (
-    <div className="mx-auto max-w-[880px]">
+    <div className="mx-auto max-w-[920px]">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <button
@@ -523,13 +701,14 @@ function CampaignForm({
               required
               rows={3}
               maxLength={2000}
-              defaultValue={initialDraft?.callOpeningHook ?? ""}
+              defaultValue={cleanScriptText(initialDraft?.callOpeningHook)}
               className={TEXTAREA}
               placeholder="Write a clear, natural opening for the agent."
             />
           </label>
           <label className={`${LABEL} mt-4`}>
-            What should the agent cover? <span className="font-normal text-[#747878]">One point per line</span>
+            What should the agent cover?{" "}
+            <span className="font-normal text-[#747878]">One point per line</span>
             <textarea
               name="keyTalkingPoints"
               required
@@ -548,21 +727,27 @@ function CampaignForm({
               name="callToAction"
               required
               maxLength={500}
-              defaultValue={initialDraft?.callToAction ?? ""}
+              defaultValue={cleanScriptText(initialDraft?.callToAction)}
               className={INPUT}
               placeholder="e.g. Book a consultation"
             />
           </label>
           <label className={`${LABEL} mt-4`}>
-            If the customer is not ready <span className="font-normal text-[#747878]">Optional</span>
+            If the customer is not ready{" "}
+            <span className="font-normal text-[#747878]">Optional</span>
             <input
               name="fallbackOffer"
               maxLength={500}
-              defaultValue={initialDraft?.fallbackOffer ?? ""}
+              defaultValue={cleanScriptText(initialDraft?.fallbackOffer)}
               className={INPUT}
               placeholder="e.g. Offer to send more information by email"
             />
           </label>
+      
+          <ObjectionHandlersEditor
+            handlers={objectionHandlers}
+            onChange={setObjectionHandlers}
+          />
         </FormSection>
 
         <FormSection
@@ -641,162 +826,325 @@ function CampaignForm({
   );
 }
 
-function EditCampaignModal({
+function CampaignFullEditor({
   campaign,
-  onClose,
+  onCancel,
   onSaved,
 }: {
   campaign: Campaign;
-  onClose: () => void;
+  onCancel: () => void;
   onSaved: (message: string) => void;
 }) {
-  const [name, setName] = useState(cleanDisplayTitle(campaign.name));
-  const [type, setType] = useState<string>(campaign.type || "outreach_sales");
-  const [primaryObjective, setPrimaryObjective] = useState(campaign.primaryObjective);
-  const [targetAudience, setTargetAudience] = useState(campaign.targetAudience ?? "");
+  const initialTalkingPointsText = useMemo(
+    () => extractEditableTalkingPoints(campaign.keyTalkingPoints).join("\n"),
+    [campaign.keyTalkingPoints],
+  );
+  const initialOpeningHook = useMemo(
+    () => cleanScriptText(campaign.callOpeningHook),
+    [campaign.callOpeningHook],
+  );
+  const initialCallToAction = useMemo(
+    () => cleanScriptText(campaign.callToAction),
+    [campaign.callToAction],
+  );
+  const initialFallbackOffer = useMemo(
+    () => cleanScriptText(campaign.fallbackOffer),
+    [campaign.fallbackOffer],
+  );
+  const initialHandlers = useMemo(
+    () => normalizeObjectionHandlers(campaign.objectionHandlers),
+    [campaign.objectionHandlers],
+  );
+  const initialLanguage = campaign.language || "auto";
+  const initialDuration = campaign.maxDurationSeconds ?? 300;
+
+  const [name, setName] = useState(() => cleanDisplayTitle(campaign.name));
+  const [type, setType] = useState<string>(() => campaign.type || "outreach_sales");
+  const [primaryObjective, setPrimaryObjective] = useState(() => campaign.primaryObjective ?? "");
+  const [targetAudience, setTargetAudience] = useState(() => campaign.targetAudience ?? "");
+  const [callOpeningHook, setCallOpeningHook] = useState(() => initialOpeningHook);
+  const [talkingPointsText, setTalkingPointsText] = useState(() => initialTalkingPointsText);
+  const [objectionHandlers, setObjectionHandlers] = useState<ObjectionHandler[]>(
+    () => initialHandlers,
+  );
+  const [callToAction, setCallToAction] = useState(() => initialCallToAction);
+  const [fallbackOffer, setFallbackOffer] = useState(() => initialFallbackOffer);
+  const [language, setLanguage] = useState<string>(() => initialLanguage);
+  const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(() => initialDuration);
+
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isDirty =
+    name !== cleanDisplayTitle(campaign.name) ||
+    type !== (campaign.type || "outreach_sales") ||
+    primaryObjective !== (campaign.primaryObjective ?? "") ||
+    targetAudience !== (campaign.targetAudience ?? "") ||
+    callOpeningHook !== initialOpeningHook ||
+    talkingPointsText !== initialTalkingPointsText ||
+    JSON.stringify(objectionHandlers) !== JSON.stringify(initialHandlers) ||
+    callToAction !== initialCallToAction ||
+    fallbackOffer !== initialFallbackOffer ||
+    language !== initialLanguage ||
+    maxDurationSeconds !== initialDuration;
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
+
     const trimmedName = name.trim();
     const trimmedObjective = primaryObjective.trim();
+    const trimmedHook = callOpeningHook.trim();
+    const trimmedCta = callToAction.trim();
+    const parsedPoints = extractEditableTalkingPoints(
+      talkingPointsText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    );
+
     if (!trimmedName || !trimmedObjective) {
       setError("Campaign name and objective are required.");
+      return;
+    }
+    if (!trimmedHook) {
+      setError("Opening greeting is required for the voice agent.");
+      return;
+    }
+    if (parsedPoints.length === 0) {
+      setError("Add at least one talking point for the voice agent.");
+      return;
+    }
+    if (!trimmedCta) {
+      setError("Next step / call to action is required.");
       return;
     }
 
     setBusy(true);
     setError(null);
+
     try {
-      const result = await updateCampaignDetailsAction(campaign.id, {
+      const payload = {
         name: trimmedName,
         type,
         primaryObjective: trimmedObjective,
         targetAudience: targetAudience.trim() || null,
-      });
+        callOpeningHook: trimmedHook,
+        keyTalkingPoints: buildTalkingPointsPayload(language, talkingPointsText),
+        objectionHandlers: serializeObjectionHandlers(objectionHandlers),
+        callToAction: trimmedCta,
+        fallbackOffer: fallbackOffer.trim() || null,
+        language,
+        maxDurationSeconds,
+      };
+
+      const result = await updateCampaignDetailsAction(campaign.id, payload);
       if (!result.ok) {
-        setError(result.error || "Unable to update campaign.");
+        setError(result.error || "Unable to update campaign details.");
         return;
       }
-      onSaved(`Updated "${trimmedName}".`);
+
+      onSaved(`Saved all changes for "${trimmedName}".`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to update campaign.");
+      setError(cause instanceof Error ? cause.message : "Unable to update campaign details.");
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#171812]/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-campaign-title"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="w-full max-w-[520px] rounded-[12px] border border-[#E9E8E1] bg-white p-5 shadow-xl sm:p-6">
-        <div className="flex items-start justify-between gap-4 border-b border-[#F0EFE9] pb-4">
-          <div>
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
-              Edit campaign
-            </p>
-            <h2
-              id="edit-campaign-title"
-              className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]"
-            >
-              {cleanDisplayTitle(campaign.name)}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close modal"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-[6px] border border-[#E5E4DC] bg-white text-[#444748] hover:bg-[#F5F4ED]"
-          >
-            <Icon kind="close" className="h-4 w-4" />
-          </button>
+    <form onSubmit={handleSave} className="mt-6 space-y-4">
+      <FormSection
+        title="Campaign basics"
+        description="Update the campaign name, purpose, objective, and intended audience."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className={LABEL}>
+            Campaign name
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={120}
+              className={INPUT}
+              placeholder="e.g. New enquiries follow-up"
+            />
+          </label>
+          <label className={LABEL}>
+            Campaign purpose
+            <select value={type} onChange={(e) => setType(e.target.value)} className={INPUT}>
+              <option value="outreach_sales">Reach new enquiries</option>
+              <option value="follow_up">Follow up with leads</option>
+              <option value="reminder">Send a reminder</option>
+              <option value="reactivation">Reconnect with past customers</option>
+              <option value="feedback_survey">Collect feedback</option>
+              <option value="announcement">Share an announcement</option>
+            </select>
+          </label>
         </div>
 
-        <form onSubmit={handleSave} className="mt-4 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className={LABEL}>
-              Campaign name
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={120}
-                className={INPUT}
-              />
-            </label>
-            <label className={LABEL}>
-              Campaign type
-              <select value={type} onChange={(e) => setType(e.target.value)} className={INPUT}>
-                <option value="outreach_sales">Reach new enquiries</option>
-                <option value="follow_up">Follow up with leads</option>
-                <option value="reminder">Send a reminder</option>
-                <option value="reactivation">Reconnect with past customers</option>
-                <option value="feedback_survey">Collect feedback</option>
-                <option value="announcement">Share an announcement</option>
-              </select>
-            </label>
-          </div>
+        <label className={`${LABEL} mt-4`}>
+          Primary objective
+          <textarea
+            value={primaryObjective}
+            onChange={(e) => setPrimaryObjective(e.target.value)}
+            required
+            rows={3}
+            maxLength={2000}
+            className={TEXTAREA}
+            placeholder="Describe what this campaign should achieve."
+          />
+        </label>
 
-          <label className={LABEL}>
-            Objective
-            <textarea
-              value={primaryObjective}
-              onChange={(e) => setPrimaryObjective(e.target.value)}
-              required
-              rows={3}
-              maxLength={2000}
-              className={TEXTAREA}
-            />
-          </label>
+        <label className={`${LABEL} mt-4`}>
+          Target audience <span className="font-normal text-[#747878]">Optional</span>
+          <input
+            value={targetAudience}
+            onChange={(e) => setTargetAudience(e.target.value)}
+            className={INPUT}
+            placeholder="e.g. Business owners, founders, sales leads"
+          />
+        </label>
+      </FormSection>
 
+      <FormSection
+        title="Conversation plan &amp; script"
+        description="Edit how the voice agent opens calls, covers talking points, and guides next steps."
+      >
+        <label className={LABEL}>
+          Opening greeting
+          <textarea
+            value={callOpeningHook}
+            onChange={(e) => setCallOpeningHook(e.target.value)}
+            required
+            rows={3}
+            maxLength={2000}
+            className={TEXTAREA}
+            placeholder="Write a clear, natural opening for the agent."
+          />
+        </label>
+
+        <label className={`${LABEL} mt-4`}>
+          Key talking points{" "}
+          <span className="font-normal text-[#747878]">One point per line</span>
+          <textarea
+            value={talkingPointsText}
+            onChange={(e) => setTalkingPointsText(e.target.value)}
+            required
+            rows={5}
+            maxLength={4000}
+            className={TEXTAREA}
+            placeholder={
+              "Introduce the reason for the call.\nAnswer common questions using approved information.\nAsk whether the customer would like the next step."
+            }
+          />
+        </label>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className={LABEL}>
-            Target audience <span className="font-normal text-[#747878]">Optional</span>
+            Next step (call to action)
             <input
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
+              value={callToAction}
+              onChange={(e) => setCallToAction(e.target.value)}
+              required
+              maxLength={500}
               className={INPUT}
-              placeholder="e.g. Warm inbound leads from last 14 days"
+              placeholder="e.g. Book a product walkthrough"
             />
           </label>
+          <label className={LABEL}>
+            Fallback offer <span className="font-normal text-[#747878]">Optional</span>
+            <input
+              value={fallbackOffer}
+              onChange={(e) => setFallbackOffer(e.target.value)}
+              maxLength={500}
+              className={INPUT}
+              placeholder="e.g. Offer to send a summary by email"
+            />
+          </label>
+        </div>
+    
+        <ObjectionHandlersEditor
+          handlers={objectionHandlers}
+          onChange={setObjectionHandlers}
+        />
+      </FormSection>
 
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-2.5 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
+      <FormSection
+        title="Call settings"
+        description="Configure language behavior and maximum allowed call duration."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className={LABEL}>
+            Language preference
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className={INPUT}
             >
-              {error}
-            </p>
-          ) : null}
+              <option value="auto">Ask customer (Multi-language)</option>
+              <option value="en-IN">English (India)</option>
+              <option value="hi-IN">Hindi</option>
+              <option value="te-IN">Telugu</option>
+              <option value="ta-IN">Tamil</option>
+              <option value="kn-IN">Kannada</option>
+              <option value="ml-IN">Malayalam</option>
+            </select>
+          </label>
+          <label className={LABEL}>
+            Maximum call duration
+            <select
+              value={String(maxDurationSeconds)}
+              onChange={(e) => setMaxDurationSeconds(Number(e.target.value))}
+              className={INPUT}
+            >
+              <option value="120">2 minutes</option>
+              <option value="180">3 minutes</option>
+              <option value="300">5 minutes</option>
+              <option value="480">8 minutes</option>
+              <option value="600">10 minutes</option>
+              <option value="900">15 minutes</option>
+            </select>
+          </label>
+        </div>
+      </FormSection>
 
-          <div className="flex justify-end gap-2 border-t border-[#F0EFE9] pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={busy}
-              className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={busy}
-              className="h-9 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
-            >
-              {busy ? "Saving…" : "Save changes"}
-            </button>
-          </div>
-        </form>
+      {error ? (
+        <div
+          role="alert"
+          className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
+        >
+          {error}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
+        <div className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
+          {isDirty ? (
+            <span className="font-semibold text-[#644ABB]">You have unsaved edits.</span>
+          ) : (
+            <span>All changes are saved.</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy || !isDirty}
+            className="h-10 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "Saving changes…" : "Save campaign"}
+          </button>
+        </div>
       </div>
-    </div>
+    </form>
   );
 }
 
@@ -824,23 +1172,29 @@ function formatLanguageLabel(code: string | null | undefined): string {
 
 function CampaignDetailView({
   campaign,
+  initialTab = "overview",
   onBack,
   onLaunch,
   onStatusChange,
-  onEdit,
   onDuplicate,
   onDeleteDraft,
+  onSaved,
 }: {
   campaign: Campaign;
+  initialTab?: "overview" | "script" | "edit";
   onBack: () => void;
   onLaunch: (campaign: Campaign) => void;
   onStatusChange: (campaign: Campaign, next: "active" | "paused") => void;
-  onEdit: (campaign: Campaign) => void;
   onDuplicate: (campaign: Campaign) => void;
   onDeleteDraft: (campaign: Campaign) => void;
+  onSaved: (message: string) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"overview" | "script">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "script" | "edit">(initialTab);
   const [actionsOpen, setActionsOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [campaign.id, initialTab]);
 
   const stats = campaign.stats;
   const totalCalls = stats.totalCalls ?? 0;
@@ -850,6 +1204,13 @@ function CampaignDetailView({
     totalCalls > 0 ? `${((connectedCalls / totalCalls) * 100).toFixed(0)}%` : "0%";
   const progress = computeExecutionProgress(campaign);
   const displayName = cleanDisplayTitle(campaign.name);
+  const canEdit = campaign.status !== "completed";
+
+  useEffect(() => {
+    if (!canEdit && activeTab === "edit") {
+      setActiveTab("overview");
+    }
+  }, [canEdit, activeTab]);
 
   useEffect(() => {
     if (!actionsOpen) return;
@@ -865,50 +1226,29 @@ function CampaignDetailView({
     };
   }, [actionsOpen]);
 
-  const cleanedOpeningHook = useMemo(() => {
-    if (!campaign.callOpeningHook) return "";
-    return campaign.callOpeningHook
-      .replace(/\\\{/g, "{")
-      .replace(/\\\}/g, "}")
-      .replace(/\\+/g, "")
-      .trim();
-  }, [campaign.callOpeningHook]);
+  const cleanedOpeningHook = useMemo(
+    () => cleanScriptText(campaign.callOpeningHook),
+    [campaign.callOpeningHook],
+  );
 
-  const visibleTalkingPoints = useMemo(() => {
-    if (!campaign.keyTalkingPoints?.length) return [];
-    const filtered = campaign.keyTalkingPoints
-      .map((line) =>
-        line
-          .replace(/\\\{/g, "{")
-          .replace(/\\\}/g, "}")
-          .replace(/\\+/g, "")
-          .trim(),
-      )
-      .filter(
-        (line) =>
-          line.length > 0 &&
-          !line.startsWith("At the beginning of the call, ask the customer which language"),
-      );
+  const visibleTalkingPoints = useMemo(
+    () => extractEditableTalkingPoints(campaign.keyTalkingPoints),
+    [campaign.keyTalkingPoints],
+  );
 
-    const merged: string[] = [];
-    for (const item of filtered) {
-      if (merged.length > 0 && /^[a-z]/.test(item)) {
-        merged[merged.length - 1] = `${merged[merged.length - 1]} ${item}`;
-      } else {
-        merged.push(item);
-      }
-    }
-    return merged;
-  }, [campaign.keyTalkingPoints]);
+  const visibleObjectionHandlers = useMemo(
+    () => serializeObjectionHandlers(normalizeObjectionHandlers(campaign.objectionHandlers)),
+    [campaign.objectionHandlers],
+  );
 
   return (
-    <div className="mx-auto max-w-[960px] space-y-8 pb-6">
-      {/* Minimal Header */}
+    <div className="mx-auto max-w-[980px] space-y-7 pb-8">
+      {/* Dedicated Campaign Page Header */}
       <div className="space-y-4">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#666A68] transition-colors hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] rounded"
+          className="inline-flex items-center gap-1.5 rounded font-['Space_Grotesk'] text-[12px] font-medium text-[#666A68] transition-colors hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
         >
           <span aria-hidden="true">←</span> Campaigns
         </button>
@@ -920,7 +1260,9 @@ function CampaignDetailView({
               <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
                 {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
               </span>
-              <span className="text-[#D4D2C8]" aria-hidden="true">•</span>
+              <span className="text-[#D4D2C8]" aria-hidden="true">
+                •
+              </span>
               <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
                 Created {formatDate(campaign.createdAt)}
               </span>
@@ -930,12 +1272,12 @@ function CampaignDetailView({
             </h1>
             <p className="font-['Space_Grotesk'] text-[12px] text-[#666A68]">
               {campaign.callToAction
-                ? `Goal: ${campaign.callToAction}`
-                : "Campaign overview, AI conversation script, and live execution metrics."}
+                ? `Goal: ${cleanScriptText(campaign.callToAction)}`
+                : "Campaign overview, AI conversation script, settings, and live execution metrics."}
             </p>
           </div>
 
-          {/* Clean Header Actions: Lifecycle CTA + Edit + Three-Dot Menu */}
+          {/* Header Actions: Lifecycle CTA + Edit Tab Switch + Overflow Menu */}
           <div
             className="flex shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
@@ -969,14 +1311,21 @@ function CampaignDetailView({
               </button>
             ) : null}
 
-            {campaign.status !== "completed" ? (
+            {canEdit ? (
               <button
                 type="button"
-                onClick={() => onEdit(campaign)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#E2E0D8] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#3B3E3B] transition-colors hover:bg-[#FAF9F5]"
+                onClick={() => setActiveTab((curr) => (curr === "edit" ? "overview" : "edit"))}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors ${
+                  activeTab === "edit"
+                    ? "border-[#D8CEF5] bg-[#F7F4FC] font-semibold text-[#644ABB]"
+                    : "border-[#E2E0D8] bg-white text-[#3B3E3B] hover:bg-[#FAF9F5]"
+                }`}
               >
-                <Icon kind="edit" className="h-3.5 w-3.5 text-[#666A68]" />
-                Edit
+                <Icon
+                  kind="edit"
+                  className={`h-3.5 w-3.5 ${activeTab === "edit" ? "text-[#644ABB]" : "text-[#666A68]"}`}
+                />
+                {activeTab === "edit" ? "View details" : "Edit campaign"}
               </button>
             ) : null}
 
@@ -1017,7 +1366,7 @@ function CampaignDetailView({
                         setActionsOpen(false);
                         onDeleteDraft(campaign);
                       }}
-                      className="mt-1 flex w-full items-center gap-2 border-t border-[#F0EFE9] rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                      className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
                     >
                       <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
                       Delete draft
@@ -1030,13 +1379,15 @@ function CampaignDetailView({
         </div>
       </div>
 
-      {/* Single Unified Performance Strip (Clean, Airy, No Redundant Cards) */}
+      {/* Unified Live Performance Strip */}
       <section
         aria-label="Campaign metrics"
         className="grid grid-cols-2 divide-y divide-[#ECEBE5] rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F5] sm:grid-cols-4 sm:divide-x sm:divide-y-0"
       >
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">Calls placed</p>
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+            Calls placed
+          </p>
           <p className="mt-1.5 font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
             {formatNumber(totalCalls)}
           </p>
@@ -1055,7 +1406,9 @@ function CampaignDetailView({
           </div>
         </div>
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">High intent</p>
+          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+            High intent
+          </p>
           <p className="mt-1.5 font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
             {formatNumber(highIntentCalls)}
           </p>
@@ -1071,11 +1424,11 @@ function CampaignDetailView({
         </div>
       </section>
 
-      {/* Clean Underline Tabs for Progressive Disclosure */}
+      {/* Dedicated Workspace Tabs: Overview | Call Script & Flow | Edit Campaign */}
       <div>
         <div
           role="tablist"
-          aria-label="Campaign sections"
+          aria-label="Campaign workspace sections"
           className="flex items-center gap-6 border-b border-[#ECEBE5]"
         >
           <button
@@ -1104,11 +1457,25 @@ function CampaignDetailView({
           >
             Call script &amp; flow
           </button>
+          {canEdit ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "edit"}
+              onClick={() => setActiveTab("edit")}
+              className={`relative pb-3 font-['Space_Grotesk'] text-[13px] font-semibold transition-colors focus-visible:outline-none ${
+                activeTab === "edit"
+                  ? "text-[#1B1C18] after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-[#644ABB]"
+                  : "text-[#747878] hover:text-[#1B1C18]"
+              }`}
+            >
+              Edit campaign
+            </button>
+          ) : null}
         </div>
 
         {activeTab === "overview" ? (
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.85fr)] lg:items-start">
-            {/* Left: Clean Summary & Conversion Goal */}
             <div className="space-y-6 rounded-[12px] border border-[#E9E8E1] bg-white p-6">
               <div>
                 <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
@@ -1125,7 +1492,7 @@ function CampaignDetailView({
                     Desired outcome
                   </p>
                   <p className="mt-1 font-['Space_Grotesk'] text-[13.5px] font-medium text-[#1B1C18]">
-                    {campaign.callToAction}
+                    {cleanScriptText(campaign.callToAction)}
                   </p>
                 </div>
               ) : null}
@@ -1142,7 +1509,6 @@ function CampaignDetailView({
               ) : null}
             </div>
 
-            {/* Right: Minimal Settings & Queue Status */}
             <div className="space-y-5">
               <div className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
                 <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
@@ -1215,8 +1581,7 @@ function CampaignDetailView({
               ) : null}
             </div>
           </div>
-        ) : (
-          /* Tab 2: Clean Voice Agent Script Preview */
+        ) : activeTab === "script" ? (
           <div className="mt-6 space-y-5 rounded-[12px] border border-[#E9E8E1] bg-white p-6">
             {cleanedOpeningHook ? (
               <div>
@@ -1258,7 +1623,7 @@ function CampaignDetailView({
                       3. Next step (when interested)
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#1B1C18]">
-                      {campaign.callToAction}
+                      {cleanScriptText(campaign.callToAction)}
                     </p>
                   </div>
                 ) : null}
@@ -1268,13 +1633,45 @@ function CampaignDetailView({
                       4. Fallback (if not ready)
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#3B3E3B]">
-                      {campaign.fallbackOffer}
+                      {cleanScriptText(campaign.fallbackOffer)}
                     </p>
                   </div>
                 ) : null}
               </div>
             ) : null}
+
+            {visibleObjectionHandlers.length > 0 ? (
+              <div className="border-t border-[#F0EFE9] pt-5">
+                <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                  5. Objection handlers
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {visibleObjectionHandlers.map((item, idx) => (
+                    <div
+                      key={`${idx}-${item.objection.slice(0, 20)}`}
+                      className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4"
+                    >
+                      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                        &ldquo;{item.objection}&rdquo;
+                      </p>
+                      <p className="mt-1.5 font-['Space_Grotesk'] text-[12.5px] leading-5 text-[#5C5E5C]">
+                        {item.response}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
+        ) : (
+          <CampaignFullEditor
+            campaign={campaign}
+            onCancel={() => setActiveTab("overview")}
+            onSaved={(msg) => {
+              setActiveTab("overview");
+              onSaved(msg);
+            }}
+          />
         )}
       </div>
     </div>
@@ -1319,7 +1716,11 @@ function computeExecutionProgress(campaign: Campaign): {
   };
 }
 
-export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
+export function CampaignsDashboard({
+  initialCampaigns,
+  initialError,
+  initialCampaignId = null,
+}: Props) {
   const router = useRouter();
   const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
   const liveStatsRequestInFlight = useRef(false);
@@ -1415,10 +1816,25 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const [duplicateSource, setDuplicateSource] = useState<Campaign | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [selectedDetailCampaign, setSelectedDetailCampaign] = useState<Campaign | null>(null);
-  const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
+  const [detailSelection, setDetailSelection] = useState<{
+    campaignId: string;
+    initialTab: "overview" | "script" | "edit";
+  } | null>(() =>
+    initialCampaignId ? { campaignId: initialCampaignId, initialTab: "overview" } : null,
+  );
   const [deletingDraft, setDeletingDraft] = useState<Campaign | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  useEffect(() => {
+    if (initialCampaignId) {
+      setDetailSelection({ campaignId: initialCampaignId, initialTab: "overview" });
+    }
+  }, [initialCampaignId]);
+
+  const selectedDetailCampaign = useMemo(() => {
+    if (!detailSelection) return null;
+    return campaigns.find((c) => c.id === detailSelection.campaignId) ?? null;
+  }, [campaigns, detailSelection]);
 
   const [launchingCampaign, setLaunchingCampaign] = useState<Campaign | null>(null);
   const [eligibleContacts, setEligibleContacts] = useState<LaunchContact[]>([]);
@@ -1736,8 +2152,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         return bRate - aRate;
       }
       if (sortBy === "updated") {
-        const aTime = (a.updatedAt ?? a.createdAt) ? new Date(a.updatedAt ?? a.createdAt!).getTime() : 0;
-        const bTime = (b.updatedAt ?? b.createdAt) ? new Date(b.updatedAt ?? b.createdAt!).getTime() : 0;
+        const aTime =
+          a.updatedAt ?? a.createdAt ? new Date(a.updatedAt ?? a.createdAt!).getTime() : 0;
+        const bTime =
+          b.updatedAt ?? b.createdAt ? new Date(b.updatedAt ?? b.createdAt!).getTime() : 0;
         return bTime - aTime;
       }
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -1784,30 +2202,35 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
     );
   }
 
-  if (selectedDetailCampaign) {
+  if (selectedDetailCampaign && detailSelection) {
     return (
       <CampaignDetailView
         campaign={selectedDetailCampaign}
-        onBack={() => setSelectedDetailCampaign(null)}
+        initialTab={detailSelection.initialTab}
+        onBack={() => {
+          setDetailSelection(null);
+          if (initialCampaignId) {
+            router.push("/dashboard/campaigns");
+          }
+        }}
         onLaunch={(c) => {
-          setSelectedDetailCampaign(null);
+          setDetailSelection(null);
           void openLaunch(c);
         }}
         onStatusChange={(c, nextStatus) => {
-          setSelectedDetailCampaign(null);
           void changeCampaignStatus(c, nextStatus);
         }}
-        onEdit={(c) => {
-          setSelectedDetailCampaign(null);
-          setEditingCampaign(c);
-        }}
         onDuplicate={(c) => {
-          setSelectedDetailCampaign(null);
+          setDetailSelection(null);
           setDuplicateSource(c);
         }}
         onDeleteDraft={(c) => {
-          setSelectedDetailCampaign(null);
+          setDetailSelection(null);
           setDeletingDraft(c);
+        }}
+        onSaved={(msg) => {
+          setNotice(msg);
+          router.refresh();
         }}
       />
     );
@@ -2259,21 +2682,6 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
         </div>
       ) : null}
 
-      {/* Edit Campaign Modal */}
-      {editingCampaign ? (
-        <EditCampaignModal
-          campaign={editingCampaign}
-          onClose={() => setEditingCampaign(null)}
-          onSaved={(msg) => {
-            setEditingCampaign(null);
-            setNotice(msg);
-            router.refresh();
-          }}
-        />
-      ) : null}
-
-
-
       {/* Delete Draft Confirmation Modal */}
       {deletingDraft ? (
         <div
@@ -2380,7 +2788,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       ) : null}
 
       {/* 4 Uniform Metric Cards */}
-      <section aria-label="Campaign metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <section
+        aria-label="Campaign metrics"
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
+      >
         <MetricCard
           label="Total campaigns"
           value={formatNumber(campaigns.length)}
@@ -2393,18 +2804,14 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
           value={formatNumber(activeCount)}
           detail="Currently running"
           icon="activity"
-          onClick={() =>
-            setStatusFilter((current) => (current === "active" ? "all" : "active"))
-          }
+          onClick={() => setStatusFilter((current) => (current === "active" ? "all" : "active"))}
         />
         <MetricCard
           label="Draft campaigns"
           value={formatNumber(draftCount)}
           detail="Awaiting launch"
           icon="file-edit"
-          onClick={() =>
-            setStatusFilter((current) => (current === "draft" ? "all" : "draft"))
-          }
+          onClick={() => setStatusFilter((current) => (current === "draft" ? "all" : "draft"))}
         />
         <MetricCard
           label="Calls placed"
@@ -2456,10 +2863,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
             </label>
 
             {/* Compact Filter & Sort Popover Trigger */}
-            <div
-              className="relative"
-              onClick={(event) => event.stopPropagation()}
-            >
+            <div className="relative" onClick={(event) => event.stopPropagation()}>
               <button
                 type="button"
                 aria-expanded={filterPopoverOpen}
@@ -2622,7 +3026,9 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
               return (
                 <article
                   key={campaign.id}
-                  onClick={() => setSelectedDetailCampaign(campaign)}
+                  onClick={() =>
+                    setDetailSelection({ campaignId: campaign.id, initialTab: "overview" })
+                  }
                   className="group cursor-pointer px-4 py-4 transition-colors hover:bg-[#FCFBF8] sm:px-5"
                 >
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px_auto] lg:items-center lg:gap-6">
@@ -2655,7 +3061,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                       </div>
                     </div>
 
-                    {/* AREA B: Clean Horizontal KPI Strip (3 Metrics, No Boxes Inside Boxes) */}
+                    {/* AREA B: Clean Horizontal KPI Strip */}
                     <div className="grid grid-cols-3 divide-x divide-[#ECEBE5] rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] py-2">
                       <div className="px-3">
                         <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
@@ -2718,7 +3124,9 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => setSelectedDetailCampaign(campaign)}
+                          onClick={() =>
+                            setDetailSelection({ campaignId: campaign.id, initialTab: "overview" })
+                          }
                           className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
                         >
                           <Icon kind="eye" className="h-3.5 w-3.5" />
@@ -2750,7 +3158,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                               role="menuitem"
                               onClick={() => {
                                 setOpenMenuId(null);
-                                setSelectedDetailCampaign(campaign);
+                                setDetailSelection({
+                                  campaignId: campaign.id,
+                                  initialTab: "overview",
+                                });
                               }}
                               className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
@@ -2763,7 +3174,10 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                                 role="menuitem"
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  setEditingCampaign(campaign);
+                                  setDetailSelection({
+                                    campaignId: campaign.id,
+                                    initialTab: "edit",
+                                  });
                                 }}
                                 className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                               >
@@ -2831,7 +3245,7 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
                                   setOpenMenuId(null);
                                   setDeletingDraft(campaign);
                                 }}
-                                className="mt-1 flex w-full items-center gap-2 border-t border-[#F0EFE9] rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                                className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
                               >
                                 <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
                                 Delete draft

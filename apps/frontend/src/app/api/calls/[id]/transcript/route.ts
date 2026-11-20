@@ -12,6 +12,34 @@ function backendBaseUrl() {
   ).replace(/\/+$/, "");
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeTranscriptItems(raw: unknown): Array<{
+  speaker: "assistant" | "user";
+  text: string;
+  timestamp: string | null;
+}> {
+  if (!Array.isArray(raw)) return [];
+  const items: Array<{ speaker: "assistant" | "user"; text: string; timestamp: string | null }> = [];
+  for (const entry of raw) {
+    if (!isRecord(entry)) continue;
+    const speaker = entry.speaker === "assistant" || entry.speaker === "user" ? entry.speaker : null;
+    const text = typeof entry.text === "string" ? entry.text : null;
+    const timestamp =
+      entry.timestamp === null || entry.timestamp === undefined
+        ? null
+        : typeof entry.timestamp === "string"
+          ? entry.timestamp
+          : null;
+    if (speaker && text !== null) {
+      items.push({ speaker, text, timestamp });
+    }
+  }
+  return items;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -48,17 +76,59 @@ export async function GET(
       },
     );
     const payload: unknown = await response.json().catch(() => null);
-    if (payload === null) {
+
+    // Fallback: if the deployed backend does not yet expose /api/calls/:id/transcript (404 Route not found),
+    // fetch the call record from GET /api/calls/:id and paginate its transcript array cleanly.
+    if (response.status === 404) {
+      const fallbackRes = await fetch(
+        `${backendBaseUrl()}/api/calls/${encodeURIComponent(id)}`,
+        {
+          headers: { Authorization: `Bearer ${auth.accessToken}` },
+          cache: "no-store",
+        },
+      );
+      const fallbackPayload: unknown = await fallbackRes.json().catch(() => null);
+      if (
+        fallbackRes.ok &&
+        isRecord(fallbackPayload) &&
+        fallbackPayload.ok === true &&
+        isRecord(fallbackPayload.call)
+      ) {
+        const allItems = normalizeTranscriptItems(fallbackPayload.call.transcript);
+        const sliced = allItems.slice(offset, offset + limit);
+        return NextResponse.json(
+          {
+            ok: true,
+            transcript: sliced,
+            total: allItems.length,
+            offset,
+            limit,
+          },
+          { status: 200 },
+        );
+      }
+
+      if (fallbackRes.status === 404) {
+        return NextResponse.json(
+          { ok: false, error: "Transcript is not available for this call." },
+          { status: 404 },
+        );
+      }
+    }
+
+    if (!response.ok || !isRecord(payload) || payload.ok !== true) {
+      console.error("[api/calls/transcript] Upstream error:", response.status, payload);
       return NextResponse.json(
-        { ok: false, error: "The workspace service returned an invalid transcript response." },
-        { status: 502 },
+        { ok: false, error: "Transcript is currently unavailable. Please try again shortly." },
+        { status: response.status >= 400 && response.status < 500 ? response.status : 502 },
       );
     }
-    return NextResponse.json(payload, { status: response.status });
+
+    return NextResponse.json(payload, { status: 200 });
   } catch (error) {
     console.error("[api/calls/transcript] Proxy error:", error);
     return NextResponse.json(
-      { ok: false, error: "Foolioo could not reach the workspace service. Please try again." },
+      { ok: false, error: "Unable to load the transcript right now. Please try again." },
       { status: 502 },
     );
   }

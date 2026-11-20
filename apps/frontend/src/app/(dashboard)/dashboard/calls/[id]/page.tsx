@@ -55,6 +55,7 @@ function toCallDetail(value: unknown): CallDetailRecord | null {
     costTts: number(value.costTts),
     costTotal: number(value.costTotal),
     recordingUrl: text(value.recordingUrl),
+    initialTranscript: Array.isArray(value.transcript) ? value.transcript : undefined,
     createdAt: text(value.createdAt),
     contact: contact
       ? {
@@ -95,7 +96,7 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
 
   try {
     const response = await fetch(
-      `${baseUrl}/api/calls/${encodeURIComponent(id)}?includeTranscript=false`,
+      `${baseUrl}/api/calls/${encodeURIComponent(id)}`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${accessToken}` },

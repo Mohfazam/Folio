@@ -13,13 +13,12 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             period: "",
             description: "Test the platform and validate your first automated voice workflows.",
             credits: "360 credits",
-            estimate: "60 min connected talk time",
-            effectiveRate: "n/a",
+            estimate: "~60 min connected talk time",
             roughlyCalls: "~30 calls",
             features: [
                 "360 included credits",
-                "60 minutes of connected talk time",
-                "1 credit = 10 seconds of conversation",
+                "~60 minutes of connected talk time",
+                "~1 credit = 10 seconds of conversation",
                 "Standard voice agents",
                 "Community support",
             ],
@@ -28,17 +27,17 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
         },
         {
             name: "Starter",
+            originalPrice: "₹6,000",
             price: "₹4,200",
             period: "/month",
             description: "For small teams validating outbound & inbound AI voice operations.",
             credits: "6,000 credits",
-            estimate: "1,000 min (16h 40m)",
-            effectiveRate: "₹4.20/min",
+            estimate: "~1,000 min (16h 40m)",
             roughlyCalls: "~500 calls",
             features: [
                 "6,000 included credits",
-                "1,000 minutes of connected talk time",
-                "1 credit = 10 seconds of conversation",
+                "~1,000 minutes of connected talk time",
+                "~1 credit = 10 seconds of conversation",
                 "Finite state machine builder",
                 "Standard CRM sync (HubSpot, Salesforce)",
                 "Email support (24hr SLA)",
@@ -49,17 +48,17 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
         {
             name: "Growth",
             badge: "RECOMMENDED",
+            originalPrice: "₹12,000",
             price: "₹8,300",
             period: "/month",
             description: "For scaling teams that require high-throughput voice operations.",
             credits: "12,000 credits",
-            estimate: "2,000 min (33h 20m)",
-            effectiveRate: "₹4.15/min",
+            estimate: "~2,000 min (33h 20m)",
             roughlyCalls: "~1,000 calls",
             features: [
                 "12,000 included credits",
-                "2,000 minutes of connected talk time",
-                "1 credit = 10 seconds of conversation",
+                "~2,000 minutes of connected talk time",
+                "~1 credit = 10 seconds of conversation",
                 "Advanced state machine & branching",
                 "Real-time automated QA grading",
                 "Custom webhooks & API access",
@@ -74,13 +73,12 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             period: "/month",
             description: "For established teams managing high-volume outbound operations.",
             credits: "18,000 credits",
-            estimate: "3,000 min (50h)",
-            effectiveRate: "₹4.17/min",
+            estimate: "~3,000 min (50h)",
             roughlyCalls: "~1,500 calls",
             features: [
                 "18,000 included credits",
-                "3,000 minutes of connected talk time",
-                "1 credit = 10 seconds of conversation",
+                "~3,000 minutes of connected talk time",
+                "~1 credit = 10 seconds of conversation",
                 "Advanced state machine & branching",
                 "Real-time automated QA grading",
                 "Custom webhooks & API access",
@@ -95,13 +93,12 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             period: "/month",
             description: "For operations with maximum volume and custom routing requirements.",
             credits: "24,000 credits",
-            estimate: "4,000 min (66h 40m)",
-            effectiveRate: "₹4.18/min",
+            estimate: "~4,000 min (66h 40m)",
             roughlyCalls: "~2,000 calls",
             features: [
                 "24,000 included credits",
-                "4,000 minutes of connected talk time",
-                "1 credit = 10 seconds of conversation",
+                "~4,000 minutes of connected talk time",
+                "~1 credit = 10 seconds of conversation",
                 "Dedicated carrier trunking & BYO SIP",
                 "Dedicated account manager & SLA",
                 "SOC-2 Type II & HIPAA compliance",
@@ -126,7 +123,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                         </span>
                     </h2>
                     <p className="mt-4 max-w-[540px] font-['Space_Grotesk'] text-[14px] font-normal leading-[22px] tracking-[0.1px] text-[#747878] md:text-[15px]">
-                        Fair and transparent pricing that scales with your team. You pay in credits — not fixed minutes — so talk time flexes with real usage. No hidden platform surcharges or surprise overages.
+                        Fair and transparent pricing that scales with your team. You pay in credits (~1 credit = 10 secs) — not fixed minutes — so talk time flexes with real usage. No hidden platform surcharges or surprise overages.
                     </p>
                 </div>
 
@@ -157,13 +154,20 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                 </p>
 
                                 <div className="my-6 border-t border-[#E9E8E1] pt-6">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="font-['Space_Grotesk'] text-[38px] font-bold text-[#1B1C18] tracking-[-1px]">
-                                            {plan.price}
-                                        </span>
-                                        <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
-                                            {plan.period}
-                                        </span>
+                                    <div className="flex flex-wrap items-baseline gap-2">
+                                        {plan.originalPrice && (
+                                            <span className="font-['Space_Grotesk'] text-[20px] font-medium text-[#8C8F8E] line-through">
+                                                {plan.originalPrice}
+                                            </span>
+                                        )}
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="font-['Space_Grotesk'] text-[38px] font-bold text-[#1B1C18] tracking-[-1px]">
+                                                {plan.price}
+                                            </span>
+                                            <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
+                                                {plan.period}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div className="mt-4 flex flex-col gap-1.5">
@@ -174,15 +178,9 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                             {plan.estimate}
                                         </span>
                                         
-                                        <div className="mt-2 flex items-center gap-2">
-                                            <div className="flex flex-1 items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-2.5 py-1.5">
-                                                <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Rate</span>
-                                                <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{plan.effectiveRate}</span>
-                                            </div>
-                                            <div className="flex flex-1 items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-2.5 py-1.5">
-                                                <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Vol</span>
-                                                <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{plan.roughlyCalls}</span>
-                                            </div>
+                                        <div className="mt-2 flex items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-3 py-1.5">
+                                            <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Vol</span>
+                                            <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{plan.roughlyCalls}</span>
                                         </div>
                                     </div>
                                 </div>
