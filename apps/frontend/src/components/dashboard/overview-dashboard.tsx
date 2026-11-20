@@ -1818,62 +1818,88 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col justify-between gap-4 border-b border-[#ECEBE5] pb-5 lg:flex-row lg:items-end">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-[4px] bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#644ABB]">
-              WORKSPACE OVERVIEW
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${
-                workspaceStatus === "active" || workspaceStatus === "trialing"
-                  ? "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]"
-                  : "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]"
-              }`}
+      <header className="mb-4 sm:mb-6 border-b border-[#ECEBE5] pb-6 sm:pb-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          
+          {/* Left Side: Overline, Greeting, Metadata */}
+          <div className="flex flex-col gap-4">
+            
+            {/* Top Row: Overline & Status */}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.1em] text-[#8E918B]">
+                Workspace Overview
+              </span>
+
+              {profile.isTrial ? (
+                <>
+                  <span className="h-3 w-px bg-[#D8D8D1]" />
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold tracking-wide ${
+                      profile.trialExpired
+                        ? "bg-[#FBE8E6] text-[#A33A32]"
+                        : profile.trialDaysLeft !== null && profile.trialDaysLeft <= 3
+                          ? "bg-[#FFFAEC] text-[#8A6826]"
+                          : "bg-[#EFEAFB] text-[#644ABB]"
+                    }`}
+                  >
+                    {profile.trialExpired
+                      ? "Trial Expired"
+                      : `Trialing · ${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"} left`}
+                  </span>
+                </>
+              ) : workspaceStatus !== "active" ? (
+                <>
+                  <span className="h-3 w-px bg-[#D8D8D1]" />
+                  <span className="inline-flex items-center rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize text-[#A33A32]">
+                    {workspaceStatus}
+                  </span>
+                </>
+              ) : null}
+            </div>
+
+            {/* Bottom Row: Greeting & Metadata */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between lg:block">
+              <h1 className="font-['Newsreader'] text-[34px] leading-[1.1] tracking-[-0.5px] text-[#1B1C18] sm:text-[42px]">
+                {profile.greeting},{" "}
+                <span className="italic">{firstName}</span>
+              </h1>
+
+              {/* Metadata (Placed below greeting) */}
+              <div className="mt-2 flex flex-wrap items-center gap-2.5 font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                <span className="font-medium text-[#1B1C18]">{profile.workspaceName}</span>
+                <span className="text-[#D8D8D1]">&bull;</span>
+                <span>{timezone}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <label className="sr-only" htmlFor="overview-timeframe-select">
+              Metrics date range
+            </label>
+            <select
+              id="overview-timeframe-select"
+              value={timeframe}
+              onChange={(event) => setTimeframe(event.target.value as OverviewTimeframe)}
+              className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#C5C6BE] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
             >
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              {workspaceStatus}
-            </span>
+              {TIMEFRAME_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={headerPrimaryAction.onClick}
+              className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+            >
+              <span>{headerPrimaryAction.label}</span>
+              <Icon kind="arrow" className="h-3.5 w-3.5" />
+            </button>
           </div>
-
-          <h1 className="mt-2 font-['Newsreader'] text-[30px] font-normal leading-[1.15] tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
-            {profile.greeting}, {firstName}
-          </h1>
-
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-[12px] text-[#565B5B] sm:text-[13px]">
-            <span>Here&apos;s what&apos;s happening in your workspace.</span>
-            <span className="h-1 w-1 rounded-full bg-[#C4C7C7]" aria-hidden="true" />
-            <span className="font-semibold text-[#1B1C18]">{profile.workspaceName}</span>
-            <span className="h-1 w-1 rounded-full bg-[#C4C7C7]" aria-hidden="true" />
-            <span>{timezone}</span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <label className="sr-only" htmlFor="overview-timeframe-select">
-            Metrics date range
-          </label>
-          <select
-            id="overview-timeframe-select"
-            value={timeframe}
-            onChange={(event) => setTimeframe(event.target.value as OverviewTimeframe)}
-            className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#C5C6BE] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
-          >
-            {TIMEFRAME_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            onClick={headerPrimaryAction.onClick}
-            className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
-          >
-            <span>{headerPrimaryAction.label}</span>
-            <Icon kind="arrow" className="h-3.5 w-3.5" />
-          </button>
         </div>
       </header>
 
