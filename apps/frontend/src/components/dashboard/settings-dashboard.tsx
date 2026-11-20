@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
 
 type Section = "general" | "account" | "ai" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+const AUTO_SAVE_DELAY_MS = 1000;
+
 const NAV: { id: Section; label: string; group: string; description: string }[] = [
   { id: "general", label: "General & workspace", group: "WORKSPACE", description: "Institution identity and workspace details" },
   { id: "account", label: "Account & profile", group: "WORKSPACE", description: "Your personal account information" },
@@ -37,32 +41,181 @@ export function SettingsDashboard({ account, initialSettings }: {
   const [agent, setAgent] = useState<RecordValue>(initialSettings.agent);
   const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSettings.error ? "error" : "idle");
   const [error, setError] = useState<string | null>(initialSettings.error);
   const [success, setSuccess] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [voices] = useState<string[]>(initialSettings.voices);
   const [languages] = useState<string[]>(initialSettings.languages);
 
-  const active = NAV.find((item) => item.id === section)!;
-  const updateProfile = (key: string, value: string) => { setProfile((current) => ({ ...current, [key]: value })); setDirty(true); setSuccess(null); };
-  const updateAgent = (key: string, value: string) => { setAgent((current) => ({ ...current, [key]: value })); setDirty(true); setSuccess(null); };
-  const save = async () => {
-    setSaving(true); setError(null); setSuccess(null);
-    const result = section === "ai"
-      ? await saveAgentSettingsAction({ industry: profile.industry, displayName: profile.displayName, description: profile.description, agentName: agent.agentName ?? profile.aiPersonaName, tone: agent.tone ?? profile.toneOfVoice, language: agent.language ?? "en-IN", speechRate: Number(agent.speechRate ?? 1), voiceId: agent.voiceId ?? "", greeting: agent.greeting, primaryObjective: agent.primaryObjective, handoffInstructions: agent.handoffInstructions ?? "", pronunciationNotes: agent.pronunciationNotes ?? "", complianceNotes: profile.complianceNotes ?? "", guardrails: Array.isArray(profile.guardrails) && profile.guardrails.length ? profile.guardrails : ["Do not invent institutional policies, fees or deadlines."] })
-      : await saveWorkspaceSettingsAction({ industry: profile.industry ?? "education", displayName: profile.displayName, description: profile.description, tagline: profile.tagline, website: profile.website, address: profile.address, operatingHours: profile.operatingHours, supportPhone: profile.supportPhone });
+  const profileRef = useRef<RecordValue>(profile);
+  const agentRef = useRef<RecordValue>(agent);
+  profileRef.current = profile;
+  agentRef.current = agent;
+
+  const dirtyRef = useRef<boolean>(dirty);
+  dirtyRef.current = dirty;
+
+  const savingRef = useRef<boolean>(false);
+  const queuedSectionRef = useRef<"general" | "ai" | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearDebounceTimer = useCallback(() => {
+    if (debounceTimerRef.current !== null) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+  }, []);
+
+  const performSave = useCallback(async (targetSection: "general" | "ai") => {
+    if (savingRef.current) {
+      queuedSectionRef.current = targetSection;
+      return;
+    }
+
+    savingRef.current = true;
+    setSaving(true);
+    setSaveStatus("saving");
+    setError(null);
+
+    const currentProfile = profileRef.current;
+    const currentAgent = agentRef.current;
+    const rawSpeed = Number(currentAgent.speechRate ?? 1);
+    const speechRate = Number.isFinite(rawSpeed) && rawSpeed > 0 ? rawSpeed : 1;
+
+    const result = targetSection === "ai"
+      ? await saveAgentSettingsAction({
+          industry: currentProfile.industry,
+          displayName: currentProfile.displayName,
+          description: currentProfile.description,
+          agentName: currentAgent.agentName ?? currentProfile.aiPersonaName,
+          tone: currentAgent.tone ?? currentProfile.toneOfVoice,
+          language: currentAgent.language ?? "en-IN",
+          speechRate,
+          voiceId: currentAgent.voiceId ?? "",
+          greeting: currentAgent.greeting,
+          primaryObjective: currentAgent.primaryObjective,
+          handoffInstructions: currentAgent.handoffInstructions ?? "",
+          pronunciationNotes: currentAgent.pronunciationNotes ?? "",
+          complianceNotes: currentProfile.complianceNotes ?? "",
+          guardrails: Array.isArray(currentProfile.guardrails) && currentProfile.guardrails.length
+            ? currentProfile.guardrails
+            : ["Do not invent institutional policies, fees or deadlines."],
+        })
+      : await saveWorkspaceSettingsAction({
+          industry: currentProfile.industry ?? "education",
+          displayName: currentProfile.displayName,
+          description: currentProfile.description,
+          tagline: currentProfile.tagline,
+          website: currentProfile.website,
+          address: currentProfile.address,
+          operatingHours: currentProfile.operatingHours,
+          supportPhone: currentProfile.supportPhone,
+        });
+
+    savingRef.current = false;
     setSaving(false);
-    if (!result.ok) { setError(result.error); return; }
-    setDirty(false); setSuccess("Your changes have been saved.");
+
+    if (!result.ok) {
+      setSaveStatus("error");
+      setError(result.error);
+      queuedSectionRef.current = null;
+      return;
+    }
+
+    const queued = queuedSectionRef.current;
+    queuedSectionRef.current = null;
+
+    if (queued && dirtyRef.current) {
+      void performSave(queued);
+      return;
+    }
+
+    setDirty(false);
+    setSaveStatus("saved");
+    setSuccess("Changes saved automatically.");
+  }, []);
+
+  const scheduleAutoSave = useCallback((targetSection: "general" | "ai") => {
+    clearDebounceTimer();
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      if (dirtyRef.current) {
+        void performSave(targetSection);
+      }
+    }, AUTO_SAVE_DELAY_MS);
+  }, [clearDebounceTimer, performSave]);
+
+  useEffect(() => {
+    return () => {
+      clearDebounceTimer();
+    };
+  }, [clearDebounceTimer]);
+
+  const updateProfile = (key: string, value: string) => {
+    setProfile((current) => ({ ...current, [key]: value }));
+    setDirty(true);
+    setSuccess(null);
+    setError(null);
+    setSaveStatus("idle");
+    if (section === "general" || section === "ai") {
+      scheduleAutoSave(section);
+    }
+  };
+
+  const updateAgent = (key: string, value: string) => {
+    setAgent((current) => ({ ...current, [key]: value }));
+    setDirty(true);
+    setSuccess(null);
+    setError(null);
+    setSaveStatus("idle");
+    if (section === "general" || section === "ai") {
+      scheduleAutoSave(section);
+    }
+  };
+
+  const saveNow = () => {
+    clearDebounceTimer();
+    if (section === "general" || section === "ai") {
+      void performSave(section);
+    }
   };
 
   const groups = useMemo(() => [...new Set(NAV.map((item) => item.group))], []);
+  const isEditableSection = section === "general" || section === "ai";
+
   return <div className="min-h-full bg-[#FBFAF6] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
     <div className="mx-auto max-w-[1320px]">
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4"><div><p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p><h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1><p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, AI agent and account preferences.</p></div><div className="text-right"><p className="text-[11px] text-[#777970]">Workspace</p><p className="text-[13px] font-semibold text-[#34352F]">{str(profile.displayName, "Your institution")}</p></div></div>
+      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p>
+          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1>
+          <p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, AI agent and account preferences.</p>
+        </div>
+        <div className="flex items-center gap-3 text-right">
+          {isEditableSection && saveStatus !== "idle" ? (
+            <span
+              role="status"
+              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                saveStatus === "saving"
+                  ? "bg-[#F1F0E8] text-[#65675F]"
+                  : saveStatus === "saved"
+                    ? "bg-[#EDF5EC] text-[#356B3D]"
+                    : "bg-[#FBECE9] text-[#A33A32]"
+              }`}
+            >
+              {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save failed"}
+            </span>
+          ) : null}
+          <div>
+            <p className="text-[11px] text-[#777970]">Workspace</p>
+            <p className="text-[13px] font-semibold text-[#34352F]">{str(profile.displayName, "Your institution")}</p>
+          </div>
+        </div>
+      </div>
       <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
         <aside className="h-fit rounded-lg border border-[#E9E8E1] bg-white p-2">
-          {groups.map((group) => <div key={group} className="mb-3 last:mb-0"><p className="px-3 pb-1 pt-3 text-[9px] font-bold tracking-[0.12em] text-[#A09F96]">{group}</p>{NAV.filter((item) => item.group === group).map((item) => <button key={item.id} onClick={() => { setSection(item.id); setError(null); setSuccess(null); }} className={`mb-0.5 flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-[12px] transition ${section === item.id ? "bg-[#F1F0E8] font-semibold text-[#252620]" : "text-[#65675F] hover:bg-[#F8F7F2]"}`}><span>{item.label}</span>{section === item.id ? <span className="h-1.5 w-1.5 rounded-full bg-[#8A806D]" /> : null}</button>)}</div>)}
+          {groups.map((group) => <div key={group} className="mb-3 last:mb-0"><p className="px-3 pb-1 pt-3 text-[9px] font-bold tracking-[0.12em] text-[#A09F96]">{group}</p>{NAV.filter((item) => item.group === group).map((item) => <button key={item.id} onClick={() => { clearDebounceTimer(); setSection(item.id); setError(null); setSuccess(null); setSaveStatus("idle"); }} className={`mb-0.5 flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-[12px] transition ${section === item.id ? "bg-[#F1F0E8] font-semibold text-[#252620]" : "text-[#65675F] hover:bg-[#F8F7F2]"}`}><span>{item.label}</span>{section === item.id ? <span className="h-1.5 w-1.5 rounded-full bg-[#8A806D]" /> : null}</button>)}</div>)}
         </aside>
         <main className="min-w-0 rounded-lg border border-[#E9E8E1] bg-white p-5 sm:p-7">
           {loading ? <div className="py-16 text-center text-[13px] text-[#777970]">Loading your workspace settings...</div> : <>
@@ -117,38 +270,40 @@ export function SettingsDashboard({ account, initialSettings }: {
         </main>
       </div>
     </div>
-      {(section === "general" || section === "ai") && dirty ? (
-        <div
-          role="region"
-          aria-label="Unsaved settings changes"
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-[#DFDDD2] bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_rgba(27,28,24,0.14)] backdrop-blur-sm transition-all"
+    {isEditableSection && dirty ? (
+      <div
+        role="region"
+        aria-label="Unsaved settings changes"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-[#DFDDD2] bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_rgba(27,28,24,0.14)] backdrop-blur-sm transition-all"
+      >
+        <span className="hidden text-[12px] font-medium text-[#5C5E56] sm:inline">
+          Auto-saving shortly...
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            clearDebounceTimer();
+            setProfile(initialSettings.profile);
+            setAgent(initialSettings.agent);
+            setDirty(false);
+            setSaveStatus("idle");
+            setError(null);
+            setSuccess(null);
+          }}
+          disabled={saving}
+          className="rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 py-2 text-[12px] font-medium text-[#444748] transition hover:bg-[#F1F0E8] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <span className="hidden text-[12px] font-medium text-[#5C5E56] sm:inline">
-            Unsaved changes
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              setProfile(initialSettings.profile);
-              setAgent(initialSettings.agent);
-              setDirty(false);
-              setError(null);
-              setSuccess(null);
-            }}
-            disabled={saving}
-            className="rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 py-2 text-[12px] font-medium text-[#444748] transition hover:bg-[#F1F0E8] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-[#1B1C18] px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save changes"}
-          </button>
-        </div>
-      ) : null}
+          Discard
+        </button>
+        <button
+          type="button"
+          onClick={saveNow}
+          disabled={saving}
+          className="rounded-lg bg-[#1B1C18] px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save now"}
+        </button>
+      </div>
+    ) : null}
   </div>;
 }
