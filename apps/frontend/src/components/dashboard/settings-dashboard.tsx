@@ -113,10 +113,42 @@ export function SettingsDashboard({ account, initialSettings }: {
             {section === "integrations" ? <Placeholder title="Integrations" description="Connect external tools to your Foolioo workspace." items={["CRM integrations", "Webhook endpoints and delivery logs", "API keys and access scopes", "Telephony provider status", "Speech provider status"]}/> : null}
             {error ? <p role="alert" className="mt-5 rounded-md bg-[#FBECE9] px-3 py-2.5 text-[12px] text-[#A33A32]">{error}</p> : null}
             {success ? <p role="status" className="mt-5 rounded-md bg-[#EDF5EC] px-3 py-2.5 text-[12px] text-[#356B3D]">{success}</p> : null}
-            {(section === "general" || section === "ai") ? <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#F0EFE9] pt-5"><span className="text-[11px] text-[#92938B]">{dirty ? "You have unsaved changes." : "Your settings are up to date."}</span><button onClick={save} disabled={saving || !dirty} className="rounded-md bg-[#1B1C18] px-4 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40">{saving ? "Saving..." : "Save changes"}</button></div> : null}
           </>}
         </main>
       </div>
     </div>
+      {(section === "general" || section === "ai") && dirty ? (
+        <div
+          role="region"
+          aria-label="Unsaved settings changes"
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-[#DFDDD2] bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_rgba(27,28,24,0.14)] backdrop-blur-sm transition-all"
+        >
+          <span className="hidden text-[12px] font-medium text-[#5C5E56] sm:inline">
+            Unsaved changes
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setProfile(initialSettings.profile);
+              setAgent(initialSettings.agent);
+              setDirty(false);
+              setError(null);
+              setSuccess(null);
+            }}
+            disabled={saving}
+            className="rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 py-2 text-[12px] font-medium text-[#444748] transition hover:bg-[#F1F0E8] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="rounded-lg bg-[#1B1C18] px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save changes"}
+          </button>
+        </div>
+      ) : null}
   </div>;
 }
