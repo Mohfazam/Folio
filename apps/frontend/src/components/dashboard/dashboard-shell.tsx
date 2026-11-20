@@ -26,8 +26,7 @@ type IconName =
   | "search"
   | "settings"
   | "arrow"
-  | "close"
-  | "sparkles";
+  | "close";
 
 export type DashboardProfile = {
   displayName: string;
@@ -137,9 +136,6 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
       break;
     case "close":
       artwork = <><path d="m6 6 12 12M18 6 6 18" /></>;
-      break;
-    case "sparkles":
-      artwork = <><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z" /><path d="M19 16v4M17 18h4" /></>;
       break;
   }
 
@@ -469,15 +465,13 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       : "border-[#E6E4DC] bg-white"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 md:justify-center lg:justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] ${
-                        profile.trialExpired
-                          ? "bg-[#FBE8E6] text-[#A33A32]"
-                          : "bg-[#644ABB] text-white"
+                      className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] ${
+                        profile.trialExpired ? "text-[#A33A32]" : "text-[#8E918B]"
                       }`}
                     >
-                      <Icon name="sparkles" className="h-3.5 w-3.5" />
+                      {profile.trialExpired ? "Trial Expired" : "Trial Status"}
                     </span>
                     {trialDays !== null ? (
                       <span
@@ -494,7 +488,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     ) : null}
                   </div>
 
-                  <p className="mt-2.5 hidden font-['Space_Grotesk'] text-[12px] font-medium leading-[1.35] text-[#1B1C18] lg:block">
+                  <p className="mt-2 hidden font-['Space_Grotesk'] text-[12px] font-medium leading-[1.35] text-[#1B1C18] lg:block">
                     {upgradeCardHeadline}
                   </p>
 
@@ -760,11 +754,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   {profile.isTrial ? (
                     <div className="rounded-[10px] border border-[#E6E4DC] bg-white p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-[#644ABB] text-white">
-                          <Icon name="sparkles" className="h-3.5 w-3.5" />
+                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] ${profile.trialExpired ? "text-[#A33A32]" : "text-[#8E918B]"}`}>
+                          {profile.trialExpired ? "Trial Expired" : "Trial Status"}
                         </span>
                         {trialDays !== null ? (
-                          <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
+                          <span className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${profile.trialExpired ? "bg-[#FBE8E6] text-[#A33A32]" : trialDays <= 3 ? "bg-[#FFFAEC] text-[#8A6826]" : "bg-[#EFEAFB] text-[#644ABB]"}`}>
                             {profile.trialExpired ? "Expired" : `${trialDays}d left`}
                           </span>
                         ) : null}
