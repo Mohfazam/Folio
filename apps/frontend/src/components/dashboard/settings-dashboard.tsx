@@ -67,7 +67,43 @@ export function SettingsDashboard({ account, initialSettings }: {
         <main className="min-w-0 rounded-lg border border-[#E9E8E1] bg-white p-5 sm:p-7">
           {loading ? <div className="py-16 text-center text-[13px] text-[#777970]">Loading your workspace settings...</div> : <>
             {section === "general" ? <><SectionHeading title="General & workspace" description="Update the institution details used across your Foolioo workspace."/><div className="grid gap-5 sm:grid-cols-2"><Field label="Institution name" value={str(profile.displayName)} onChange={(v) => updateProfile("displayName", v)} placeholder="Your institution name"/><SelectField label="Industry" value={str(profile.industry, "education")} options={["education", "general", "healthcare", "professional_services", "retail"]} onChange={(v) => updateProfile("industry", v)}/><Field label="Tagline" value={str(profile.tagline)} onChange={(v) => updateProfile("tagline", v)} placeholder="A short description of your institution"/><Field label="Website" value={str(profile.website)} onChange={(v) => updateProfile("website", v)} placeholder="https://example.edu"/><div className="sm:col-span-2"><Field label="Institution description" value={str(profile.description)} onChange={(v) => updateProfile("description", v)} multiline placeholder="Describe your institution, courses and services."/></div><div className="sm:col-span-2"><Field label="Address" value={str(profile.address)} onChange={(v) => updateProfile("address", v)} placeholder="Institution address"/></div><Field label="Support phone" value={str(profile.supportPhone)} onChange={(v) => updateProfile("supportPhone", v)} placeholder="+91..."/><Field label="Operating hours" value={str(profile.operatingHours)} onChange={(v) => updateProfile("operatingHours", v)} placeholder="Monday to Saturday, 9 AM to 6 PM"/></div><p className="mt-5 text-[11px] text-[#92938B]">Workspace ID: {str(profile.clientId, "Managed by Foolioo")}</p></> : null}
-            {section === "account" ? <><SectionHeading title="Account & profile" description="Your signed-in identity. Authentication changes are managed securely through your account provider."/><div className="grid gap-5 sm:grid-cols-2"><Field label="Display name" value={account.name || "Not set"} /><Field label="Email address" value={account.email} /><Field label="Authentication" value="Supabase Auth"/><Field label="Account ID" value="Hidden for security"/></div><div className="mt-6 rounded-md bg-[#F8F7F2] p-4 text-[12px] text-[#65675F]">To change your email or password, use the account recovery flow. Profile editing and session management will be added with the account API.</div></> : null}
+            {section === "account" ? <>
+              <SectionHeading title="Account & profile" description="Read-only details for your signed-in identity and workspace session." />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
+                  <p className={labelClass}>Display name</p>
+                  <p className="mt-2 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">{account.name || "Not set"}</p>
+                  <p className="mt-1 text-[11px] text-[#858782]">Synced from your signed-in profile</p>
+                </div>
+                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={labelClass}>Email address</p>
+                    <span className="rounded-full bg-[#ECEBE4] px-2 py-0.5 text-[10px] font-semibold text-[#55574F]">Read-only</span>
+                  </div>
+                  <p className="mt-2 break-all font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">{account.email || "Not available"}</p>
+                  <p className="mt-1 text-[11px] text-[#858782]">Email address cannot be changed</p>
+                </div>
+                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={labelClass}>Authentication</p>
+                    <span className="rounded-full bg-[#E7F2E8] px-2 py-0.5 text-[10px] font-semibold text-[#31613B]">Active</span>
+                  </div>
+                  <p className="mt-2 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">Supabase Auth</p>
+                  <p className="mt-1 text-[11px] text-[#858782]">Managed securely by your sign-in provider</p>
+                </div>
+                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={labelClass}>Account ID</p>
+                    <span className="rounded-full bg-[#ECEBE4] px-2 py-0.5 text-[10px] font-semibold text-[#55574F]">Protected</span>
+                  </div>
+                  <p className="mt-2 font-mono text-[13px] text-[#34352F]">Hidden for security</p>
+                  <p className="mt-1 text-[11px] text-[#858782]">Internal account identifier</p>
+                </div>
+              </div>
+              <div className="mt-5 rounded-md border border-[#ECEBE4] bg-[#F8F7F2] px-4 py-3 text-[12px] text-[#65675F]">
+                Account identity fields are read-only and managed through your authentication provider.
+              </div>
+            </> : null}
             {section === "ai" ? <><SectionHeading title="AI calling preferences" description="Control how your AI agent introduces itself and handles conversations."/><div className="grid gap-5 sm:grid-cols-2"><Field label="Agent name" value={str(agent.agentName, str(profile.aiPersonaName))} onChange={(v) => updateAgent("agentName", v)} placeholder="e.g. Aisha"/><Field label="Speaking style" value={str(agent.tone, str(profile.toneOfVoice))} onChange={(v) => updateAgent("tone", v)} placeholder="Warm, professional and concise"/><SelectField label="Default language" value={str(agent.language, languages[0] ?? "en-IN")} options={languages.length ? languages : ["en-IN"]} onChange={(v) => updateAgent("language", v)}/><SelectField label="Voice" value={str(agent.voiceId)} options={["", ...voices]} onChange={(v) => updateAgent("voiceId", v)}/><Field label="Speaking speed" value={str(agent.speechRate, "1")} onChange={(v) => updateAgent("speechRate", v)} hint="Use a value between 0.8 and 1.2."/><div className="sm:col-span-2"><Field label="Opening greeting" value={str(agent.greeting)} onChange={(v) => updateAgent("greeting", v)} multiline placeholder="Your agent's first words on a call"/></div><div className="sm:col-span-2"><Field label="Primary objective" value={str(agent.primaryObjective)} onChange={(v) => updateAgent("primaryObjective", v)} multiline placeholder="What should the agent achieve?"/></div><div className="sm:col-span-2"><Field label="Handoff instructions" value={str(agent.handoffInstructions)} onChange={(v) => updateAgent("handoffInstructions", v)} multiline/></div><div className="sm:col-span-2"><Field label="Pronunciation notes" value={str(agent.pronunciationNotes)} onChange={(v) => updateAgent("pronunciationNotes", v)} multiline/></div></div></> : null}
             {section === "calling" ? <Placeholder title="Calling configuration" description="Set the operational rules for outbound calls." items={["Default caller ID and verified numbers", "Allowed calling days and time window", "Timezone for scheduled campaigns", "Retry attempts and retry interval", "Call recording and retention preferences", "Consent and do-not-call handling"]}/> : null}
             {section === "notifications" ? <Placeholder title="Notifications" description="Choose which workspace events should notify you." items={["Campaign completed or paused", "Calls failed or could not connect", "Low credit balance", "New follow-up created or overdue", "Daily performance summary"]}/> : null}
