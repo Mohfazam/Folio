@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type TranscriptLine = {
   speaker: "assistant" | "user";
@@ -18,6 +18,28 @@ const PAGE_SIZE = 20;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeInitialTranscript(raw: unknown[] | undefined): TranscriptLine[] | null {
+  if (!Array.isArray(raw)) return null;
+  const lines: TranscriptLine[] = [];
+  for (const item of raw) {
+    if (!isRecord(item)) continue;
+    if (item.speaker !== "assistant" && item.speaker !== "user") continue;
+    if (typeof item.text !== "string") continue;
+    const timestamp =
+      item.timestamp === null || item.timestamp === undefined
+        ? null
+        : typeof item.timestamp === "string"
+          ? item.timestamp
+          : null;
+    lines.push({
+      speaker: item.speaker,
+      text: item.text,
+      timestamp,
+    });
+  }
+  return lines;
 }
 
 function parseTranscriptPayload(value: unknown): TranscriptPayload | null {
@@ -61,14 +83,33 @@ function formatTimestamp(value: string): string {
     : new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-export function CallTranscript({ callId }: { callId: string }) {
-  const [lines, setLines] = useState<TranscriptLine[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function CallTranscript({
+  callId,
+  initialTranscript,
+}: {
+  callId: string;
+  initialTranscript?: unknown[];
+}) {
+  const preloaded = useMemo(
+    () => normalizeInitialTranscript(initialTranscript),
+    [initialTranscript],
+  );
+
+  const [lines, setLines] = useState<TranscriptLine[]>(() => preloaded ?? []);
+  const [total, setTotal] = useState<number | null>(() => (preloaded ? preloaded.length : null));
+  const [loading, setLoading] = useState<boolean>(() => preloaded === null);
+  const [unavailable, setUnavailable] = useState(false);
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    if (preloaded !== null && retry === 0) {
+      setLines(preloaded);
+      setTotal(preloaded.length);
+      setLoading(false);
+      setUnavailable(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadTranscript() {
@@ -83,13 +124,10 @@ export function CallTranscript({ callId }: { callId: string }) {
           const payload = await response.json().catch(() => null);
           const page = parseTranscriptPayload(payload);
           if (!response.ok || !page) {
-            const message = isRecord(payload) && typeof payload.error === "string"
-              ? payload.error
-              : `Transcript request failed (${response.status}).`;
-            throw new Error(message);
+            throw new Error("Transcript unavailable");
           }
           if (page.transcript.length === 0 && offset < page.total) {
-            throw new Error("The transcript response ended before all entries were loaded.");
+            throw new Error("Transcript incomplete");
           }
 
           loaded = loaded.concat(page.transcript);
@@ -97,12 +135,15 @@ export function CallTranscript({ callId }: { callId: string }) {
           if (!cancelled) {
             setLines(loaded);
             setTotal(page.total);
+            setUnavailable(false);
           }
           if (offset >= page.total || page.transcript.length === 0) break;
         }
       } catch (loadError) {
+        console.error("[CallTranscript] Failed to load transcript:", loadError);
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Unable to load the transcript.");
+          setTotal((current) => current ?? 0);
+          setUnavailable(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -113,7 +154,7 @@ export function CallTranscript({ callId }: { callId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [callId, retry]);
+  }, [callId, preloaded, retry]);
 
   return (
     <div>
@@ -148,26 +189,22 @@ export function CallTranscript({ callId }: { callId: string }) {
         </p>
       ) : null}
 
-      {error ? (
-        <div className="mt-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
-          <p className="font-['Space_Grotesk'] text-[11px] text-[#A33A32]">{error}</p>
-          <button
-            type="button"
-            onClick={() => {
-              setLoading(true);
-              setError(null);
-              setRetry((current) => current + 1);
-            }}
-            className="mt-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6] hover:underline"
-          >
-            Retry transcript
-          </button>
-        </div>
-      ) : null}
-
-      {!loading && !error && lines.length === 0 ? (
+      {!loading && lines.length === 0 ? (
         <div className="rounded-[6px] bg-[#FBFAF6] px-4 py-8 text-center font-['Space_Grotesk'] text-[11px] text-[#85877F]">
-          No transcript is available for this call.
+          <p>No transcript is available for this call.</p>
+          {unavailable ? (
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setUnavailable(false);
+                setRetry((current) => current + 1);
+              }}
+              className="mt-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6] hover:underline"
+            >
+              Refresh
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
