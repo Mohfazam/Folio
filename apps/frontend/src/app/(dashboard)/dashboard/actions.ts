@@ -200,6 +200,19 @@ export async function updateCampaignStatusAction(campaignId: string, status: "ac
   return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", { status });
 }
 
+export async function updateCampaignDetailsAction(
+  campaignId: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", input);
+}
+
+export async function deleteDraftCampaignAction(campaignId: string): Promise<ActionResult> {
+  if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "DELETE");
+}
+
 export async function createFollowUpAction(input: {
   contactId: string;
   callId?: string;

@@ -31,17 +31,6 @@ function toCallDetail(value: unknown): CallDetailRecord | null {
 
   const contact = isRecord(value.contact) ? value.contact : null;
   const campaign = isRecord(value.campaign) ? value.campaign : null;
-  const transcript = Array.isArray(value.transcript)
-    ? value.transcript
-        .filter(isRecord)
-        .map((line) => ({
-          speaker: line.speaker === "assistant" ? "assistant" as const : "user" as const,
-          text: text(line.text) ?? "",
-          timestamp: text(line.timestamp),
-          isComplete: line.isComplete !== false,
-        }))
-    : [];
-
   return {
     id: value.id,
     contactId: text(value.contactId),
@@ -66,7 +55,6 @@ function toCallDetail(value: unknown): CallDetailRecord | null {
     costTts: number(value.costTts),
     costTotal: number(value.costTotal),
     recordingUrl: text(value.recordingUrl),
-    transcript,
     createdAt: text(value.createdAt),
     contact: contact
       ? {
@@ -107,7 +95,7 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
 
   try {
     const response = await fetch(
-      `${baseUrl}/api/calls/${encodeURIComponent(id)}`,
+      `${baseUrl}/api/calls/${encodeURIComponent(id)}?includeTranscript=false`,
       {
         method: "GET",
         headers: { Authorization: `Bearer ${accessToken}` },

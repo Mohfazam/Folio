@@ -125,6 +125,10 @@ async function CallsPageContent({
   await connection();
 
   const params = await searchParams;
+  const requestedCampaignId = first(params.campaignId).trim();
+  const validCampaignId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedCampaignId)
+    ? requestedCampaignId
+    : "";
   const requestedOutcome = first(params.outcome);
   const requestedSentiment = first(params.sentiment);
   const requestedInterest = first(params.interestLevel);
@@ -149,6 +153,7 @@ async function CallsPageContent({
     limit: String(filters.limit),
     offset: String(filters.offset),
   });
+  if (validCampaignId) callsQuery.set("campaignId", validCampaignId);
   if (filters.search) callsQuery.set("search", filters.search);
   if (filters.outcome) callsQuery.set("outcome", filters.outcome);
   if (filters.sentiment) callsQuery.set("sentiment", filters.sentiment);

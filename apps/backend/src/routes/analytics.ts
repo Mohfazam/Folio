@@ -26,8 +26,8 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
     if (!targetClientId) {
       return res.status(400).json({ ok: false, error: "clientId is required" });
     }
-    if (!["today", "7d", "30d", "all"].includes(timeframe)) {
-      return res.status(400).json({ ok: false, error: "timeframe must be today, 7d, 30d, or all" });
+    if (!["today", "7d", "30d", "90d", "all"].includes(timeframe)) {
+      return res.status(400).json({ ok: false, error: "timeframe must be today, 7d, 30d, 90d, or all" });
     }
 
     // 1. Fetch Client Profile & Quota info
@@ -66,6 +66,8 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
       startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     } else if (timeframe === "30d") {
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    } else if (timeframe === "90d") {
+      startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
     }
 
     const conditions = [eq(calls.clientId, targetClientId)];
@@ -191,6 +193,7 @@ export async function getAnalyticsOverviewRoute(req: Request, res: Response) {
         maxCallsPerDay: client.maxCallsPerDay,
         callsMadeToday: client.callsMadeToday,
         callsRemainingToday,
+        nextBillingResetAt: client.nextBillingResetAt ? client.nextBillingResetAt.toISOString() : null,
       },
       callMetrics: {
         totalCalls: total,
