@@ -363,7 +363,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
         <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
           {/* Fixed Desktop & Tablet Sidebar */}
           <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-4 md:flex lg:w-[232px] lg:px-3.5">
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto">
+            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
               {/* Original Foolioo Branding at the top as before */}
               <Link
                 href="/dashboard"
