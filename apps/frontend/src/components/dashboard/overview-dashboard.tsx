@@ -1570,7 +1570,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const [completionBannerDismissed, setCompletionBannerDismissed] = useState(false);
   const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
 
-  const loadAnalytics = useCallback((selectedTimeframe: OverviewTimeframe, isMounted = () => true) => {
+  const loadAnalytics = useCallback((selectedTimeframe: OverviewTimeframe, isMounted: () => boolean = () => true) => {
     setAnalyticsResult({ state: "loading" });
     getOverviewAnalyticsAction(selectedTimeframe)
       .then((result) => {

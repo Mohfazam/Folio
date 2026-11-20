@@ -392,13 +392,17 @@ export async function getSetupWizardDataAction(): Promise<ActionResult> {
 
 
 /** Fetch Overview analytics after the workspace shell has rendered. */
-export async function getOverviewAnalyticsAction(): Promise<ActionResult> {
+export type OverviewTimeframe = "7d" | "30d" | "90d" | "all";
+
+export async function getOverviewAnalyticsAction(
+  timeframe: OverviewTimeframe = "30d",
+): Promise<ActionResult> {
   try {
     const auth = await getDashboardAuthContext();
     if (!auth) return { ok: false, status: 401, error: "Your session has expired. Sign in again." };
 
     const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
-    const response = await fetch(`${baseUrl}/api/analytics/overview?timeframe=30d`, {
+    const response = await fetch(`${baseUrl}/api/analytics/overview?timeframe=${timeframe}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${auth.accessToken}` },
       cache: "no-store",
