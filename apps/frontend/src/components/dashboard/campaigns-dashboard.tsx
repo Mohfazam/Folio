@@ -25,6 +25,11 @@ type CampaignStats = {
   completedQueueCalls?: number;
 };
 
+type ObjectionHandler = {
+  objection: string;
+  response: string;
+};
+
 type Campaign = {
   id: string;
   name: string;
@@ -47,6 +52,7 @@ type Campaign = {
 type Props = {
   initialCampaigns: Campaign[];
   initialError: string | null;
+  initialCampaignId?: string | null;
 };
 
 type LaunchContact = {
@@ -126,6 +132,49 @@ function cleanScriptText(raw: string | null | undefined): string {
     .trim();
 }
 
+
+function normalizeObjectionHandlers(rawHandlers: unknown[] | undefined): ObjectionHandler[] {
+  if (!Array.isArray(rawHandlers)) return [];
+  const normalized: ObjectionHandler[] = [];
+
+  for (const item of rawHandlers) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const rawObj =
+      typeof row.objection === "string"
+        ? row.objection
+        : typeof row.trigger === "string"
+          ? row.trigger
+          : typeof row.question === "string"
+            ? row.question
+            : "";
+    const rawResp =
+      typeof row.response === "string"
+        ? row.response
+        : typeof row.reply === "string"
+          ? row.reply
+          : typeof row.answer === "string"
+            ? row.answer
+            : "";
+
+    const objection = cleanScriptText(rawObj);
+    const response = cleanScriptText(rawResp);
+    if (objection || response) {
+      normalized.push({ objection, response });
+    }
+  }
+
+  return normalized;
+}
+
+function serializeObjectionHandlers(handlers: ObjectionHandler[]): ObjectionHandler[] {
+  return handlers
+    .map((h) => ({
+      objection: h.objection.trim(),
+      response: h.response.trim(),
+    }))
+    .filter((h) => h.objection.length > 0 && h.response.length > 0);
+}
 function extractEditableTalkingPoints(points: string[] | undefined): string[] {
   if (!points?.length) return [];
   const filtered = points
@@ -392,6 +441,97 @@ function FormSection({
   );
 }
 
+function ObjectionHandlersEditor({
+  handlers,
+  onChange,
+}: {
+  handlers: ObjectionHandler[];
+  onChange: (next: ObjectionHandler[]) => void;
+}) {
+  const addRow = () => {
+    onChange([...handlers, { objection: "", response: "" }]);
+  };
+
+  const updateRow = (index: number, patch: Partial<ObjectionHandler>) => {
+    onChange(handlers.map((item, idx) => (idx === index ? { ...item, ...patch } : item)));
+  };
+
+  const removeRow = (index: number) => {
+    onChange(handlers.filter((_, idx) => idx !== index));
+  };
+
+  return (
+    <div className="mt-5 border-t border-[#F0EFE9] pt-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B]">
+            Objection handlers <span className="font-normal text-[#747878]">Optional</span>
+          </p>
+          <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+            Define how the agent responds when a contact raises a common pushback.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={addRow}
+          className="inline-flex h-8 items-center gap-1 rounded-[7px] border border-[#DCDDD6] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F2F0E8]"
+        >
+          <Icon kind="plus" className="h-3 w-3" />
+          Add objection
+        </button>
+      </div>
+
+      {handlers.length > 0 ? (
+        <div className="mt-3 space-y-3">
+          {handlers.map((item, idx) => (
+            <div
+              key={idx}
+              className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                  Objection #{idx + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeRow(idx)}
+                  aria-label={`Remove objection ${idx + 1}`}
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#A33A32] hover:bg-[#FDF2F1]"
+                >
+                  <Icon kind="trash" className="h-3 w-3" />
+                  Remove
+                </button>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className={LABEL}>
+                  Customer says
+                  <input
+                    value={item.objection}
+                    onChange={(e) => updateRow(idx, { objection: e.target.value })}
+                    maxLength={300}
+                    className={INPUT}
+                    placeholder="e.g. I don't have time right now"
+                  />
+                </label>
+                <label className={LABEL}>
+                  Agent response
+                  <input
+                    value={item.response}
+                    onChange={(e) => updateRow(idx, { response: e.target.value })}
+                    maxLength={1000}
+                    className={INPUT}
+                    placeholder="e.g. No problem—can I send a 60-second overview?"
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function CampaignForm({
   initialDraft,
   onCancel,
@@ -403,6 +543,9 @@ function CampaignForm({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [objectionHandlers, setObjectionHandlers] = useState<ObjectionHandler[]>(() =>
+    normalizeObjectionHandlers(initialDraft?.objectionHandlers),
+  );
 
   const defaultTalkingPoints = useMemo(() => {
     return extractEditableTalkingPoints(initialDraft?.keyTalkingPoints).join("\n");
@@ -437,7 +580,7 @@ function CampaignForm({
         primaryObjective: String(form.get("primaryObjective") ?? "").trim(),
         callOpeningHook: String(form.get("callOpeningHook") ?? "").trim(),
         keyTalkingPoints: buildTalkingPointsPayload(language, rawTalkingPoints),
-        objectionHandlers: initialDraft?.objectionHandlers ?? [],
+        objectionHandlers: serializeObjectionHandlers(objectionHandlers),
         callToAction: String(form.get("callToAction") ?? "").trim(),
         fallbackOffer: String(form.get("fallbackOffer") ?? "").trim() || undefined,
         targetAudience: String(form.get("targetAudience") ?? "").trim() || undefined,
@@ -600,6 +743,11 @@ function CampaignForm({
               placeholder="e.g. Offer to send more information by email"
             />
           </label>
+      
+          <ObjectionHandlersEditor
+            handlers={objectionHandlers}
+            onChange={setObjectionHandlers}
+          />
         </FormSection>
 
         <FormSection
@@ -703,6 +851,10 @@ function CampaignFullEditor({
     () => cleanScriptText(campaign.fallbackOffer),
     [campaign.fallbackOffer],
   );
+  const initialHandlers = useMemo(
+    () => normalizeObjectionHandlers(campaign.objectionHandlers),
+    [campaign.objectionHandlers],
+  );
   const initialLanguage = campaign.language || "auto";
   const initialDuration = campaign.maxDurationSeconds ?? 300;
 
@@ -712,6 +864,9 @@ function CampaignFullEditor({
   const [targetAudience, setTargetAudience] = useState(() => campaign.targetAudience ?? "");
   const [callOpeningHook, setCallOpeningHook] = useState(() => initialOpeningHook);
   const [talkingPointsText, setTalkingPointsText] = useState(() => initialTalkingPointsText);
+  const [objectionHandlers, setObjectionHandlers] = useState<ObjectionHandler[]>(
+    () => initialHandlers,
+  );
   const [callToAction, setCallToAction] = useState(() => initialCallToAction);
   const [fallbackOffer, setFallbackOffer] = useState(() => initialFallbackOffer);
   const [language, setLanguage] = useState<string>(() => initialLanguage);
@@ -727,6 +882,7 @@ function CampaignFullEditor({
     targetAudience !== (campaign.targetAudience ?? "") ||
     callOpeningHook !== initialOpeningHook ||
     talkingPointsText !== initialTalkingPointsText ||
+    JSON.stringify(objectionHandlers) !== JSON.stringify(initialHandlers) ||
     callToAction !== initialCallToAction ||
     fallbackOffer !== initialFallbackOffer ||
     language !== initialLanguage ||
@@ -775,7 +931,7 @@ function CampaignFullEditor({
         targetAudience: targetAudience.trim() || null,
         callOpeningHook: trimmedHook,
         keyTalkingPoints: buildTalkingPointsPayload(language, talkingPointsText),
-        objectionHandlers: campaign.objectionHandlers ?? [],
+        objectionHandlers: serializeObjectionHandlers(objectionHandlers),
         callToAction: trimmedCta,
         fallbackOffer: fallbackOffer.trim() || null,
         language,
@@ -907,6 +1063,11 @@ function CampaignFullEditor({
             />
           </label>
         </div>
+    
+        <ObjectionHandlersEditor
+          handlers={objectionHandlers}
+          onChange={setObjectionHandlers}
+        />
       </FormSection>
 
       <FormSection
@@ -1073,6 +1234,11 @@ function CampaignDetailView({
   const visibleTalkingPoints = useMemo(
     () => extractEditableTalkingPoints(campaign.keyTalkingPoints),
     [campaign.keyTalkingPoints],
+  );
+
+  const visibleObjectionHandlers = useMemo(
+    () => serializeObjectionHandlers(normalizeObjectionHandlers(campaign.objectionHandlers)),
+    [campaign.objectionHandlers],
   );
 
   return (
@@ -1473,6 +1639,29 @@ function CampaignDetailView({
                 ) : null}
               </div>
             ) : null}
+
+            {visibleObjectionHandlers.length > 0 ? (
+              <div className="border-t border-[#F0EFE9] pt-5">
+                <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                  5. Objection handlers
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {visibleObjectionHandlers.map((item, idx) => (
+                    <div
+                      key={`${idx}-${item.objection.slice(0, 20)}`}
+                      className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4"
+                    >
+                      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                        &ldquo;{item.objection}&rdquo;
+                      </p>
+                      <p className="mt-1.5 font-['Space_Grotesk'] text-[12.5px] leading-5 text-[#5C5E5C]">
+                        {item.response}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <CampaignFullEditor
@@ -1527,7 +1716,11 @@ function computeExecutionProgress(campaign: Campaign): {
   };
 }
 
-export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
+export function CampaignsDashboard({
+  initialCampaigns,
+  initialError,
+  initialCampaignId = null,
+}: Props) {
   const router = useRouter();
   const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
   const liveStatsRequestInFlight = useRef(false);
@@ -1626,9 +1819,17 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
   const [detailSelection, setDetailSelection] = useState<{
     campaignId: string;
     initialTab: "overview" | "script" | "edit";
-  } | null>(null);
+  } | null>(() =>
+    initialCampaignId ? { campaignId: initialCampaignId, initialTab: "overview" } : null,
+  );
   const [deletingDraft, setDeletingDraft] = useState<Campaign | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
+  useEffect(() => {
+    if (initialCampaignId) {
+      setDetailSelection({ campaignId: initialCampaignId, initialTab: "overview" });
+    }
+  }, [initialCampaignId]);
 
   const selectedDetailCampaign = useMemo(() => {
     if (!detailSelection) return null;
@@ -2006,7 +2207,12 @@ export function CampaignsDashboard({ initialCampaigns, initialError }: Props) {
       <CampaignDetailView
         campaign={selectedDetailCampaign}
         initialTab={detailSelection.initialTab}
-        onBack={() => setDetailSelection(null)}
+        onBack={() => {
+          setDetailSelection(null);
+          if (initialCampaignId) {
+            router.push("/dashboard/campaigns");
+          }
+        }}
         onLaunch={(c) => {
           setDetailSelection(null);
           void openLaunch(c);

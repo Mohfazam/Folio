@@ -13,6 +13,7 @@ type Campaign = {
   primaryObjective: string;
   callOpeningHook?: string;
   keyTalkingPoints?: string[];
+  objectionHandlers?: unknown[];
   callToAction?: string;
   fallbackOffer?: string | null;
   targetAudience?: string | null;
@@ -63,6 +64,7 @@ function toCampaign(value: unknown): Campaign | null {
     primaryObjective: asString(value.primaryObjective),
     callOpeningHook: asString(value.callOpeningHook) || undefined,
     keyTalkingPoints: asStringArray(value.keyTalkingPoints),
+    objectionHandlers: Array.isArray(value.objectionHandlers) ? value.objectionHandlers : [],
     callToAction: asString(value.callToAction) || undefined,
     fallbackOffer: asNullableString(value.fallbackOffer),
     targetAudience: asNullableString(value.targetAudience),
