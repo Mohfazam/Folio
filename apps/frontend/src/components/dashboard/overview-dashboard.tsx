@@ -1843,8 +1843,10 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
                     }`}
                   >
                     {profile.trialExpired
-                      ? "Trial Expired"
-                      : `Trialing · ${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"} left`}
+                      ? "Trial expired"
+                      : profile.trialDaysLeft === 0
+                        ? "Trial ends today"
+                        : `Trial ends in ${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"}`}
                   </span>
                 </>
               ) : workspaceStatus !== "active" ? (
