@@ -209,7 +209,7 @@ export function CallDetailView({
             {recordingUrl ? (
               <audio controls preload="none" src={recordingUrl} className="mt-4 w-full">Your browser does not support audio playback.</audio>
             ) : (
-              <p className="mt-4 rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">No recording is available for this call.</p>
+              <p className="mt-4 rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Recording is not available at this moment, please check back later.</p>
             )}
           </section>
         </div>
