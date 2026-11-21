@@ -21,16 +21,16 @@ export const Hero_top_left = () => {
                     Outbound Agent #04
                 </p>
                 <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                    Strict script adherence • Inbound lead qualification
+                    Strict script adherence • Outbound lead qualification
                 </p>
             </div>
 
             <div className="flex items-center gap-1 border-t border-[#E9E8E1] pt-1.5">
                 <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#22A06B]">
-                    ✓ Zero Hallucinations
+                    ✓ Strict Guardrails
                 </span>
                 <span className="rounded bg-[#F5F3EC] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#444748]">
-                    100% Deterministic
+                    Rule-Bound Flow
                 </span>
             </div>
         </div>
