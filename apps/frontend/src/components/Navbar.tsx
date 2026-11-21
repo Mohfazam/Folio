@@ -110,6 +110,12 @@ const Navbar = () => {
             </Link>
           )}
 
+          {!isLoading && user && (
+            <Link href="/live-demo" className={navItem}>
+              Do a Trial Call
+            </Link>
+          )}
+
           <a href="mailto:sales@foolioo.app?subject=Sales%20Inquiry" className={navItem}>
             Contact Sales
           </a>
@@ -121,7 +127,7 @@ const Navbar = () => {
               </Link>
             ) : (
               <Link href="/live-demo" target="_self" className={primaryButton}>
-                Experience Live Demo
+                Do a Trial Call
                 <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
                   →
                 </span>
@@ -211,6 +217,16 @@ const Navbar = () => {
               Contact Sales
             </a>
 
+            {!isLoading && user && (
+              <Link
+                href="/live-demo"
+                onClick={handleNavClick}
+                className={`${navItem} text-left text-[14px]`}
+              >
+                Do a Trial Call
+              </Link>
+            )}
+
             {!isLoading &&
               (user ? (
                 <Link
@@ -227,7 +243,7 @@ const Navbar = () => {
                   onClick={handleNavClick}
                   className={`${primaryButton} w-full`}
                 >
-                  Experience Live Demo
+                  Do a Trial Call
                   <span aria-hidden="true" className="ml-2 text-[15px] leading-none">
                     →
                   </span>
