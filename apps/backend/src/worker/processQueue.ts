@@ -70,6 +70,20 @@ export function isWithinCallingHours(currentTime: string, start: string | null, 
   return currentTime >= s && currentTime <= e;
 }
 
+export function isCampaignWithinSchedule(metadata: unknown, localClock: string, instant = new Date()): boolean {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return false;
+  const schedule = (metadata as Record<string, unknown>).campaignSchedule;
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) return false;
+  const scheduleRecord = schedule as Record<string, unknown>;
+  const startsAt = typeof scheduleRecord.startAt === "string" ? new Date(scheduleRecord.startAt).getTime() : 0;
+  const dailyStart = typeof scheduleRecord.dailyStart === "string" ? scheduleRecord.dailyStart : "09:00";
+  const dailyEnd = typeof scheduleRecord.dailyEnd === "string" ? scheduleRecord.dailyEnd : "18:00";
+  if (!Number.isFinite(startsAt) || instant.getTime() < startsAt) return false;
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(dailyStart) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(dailyEnd)) return false;
+  if (dailyStart >= dailyEnd) return false;
+  return localClock >= `${dailyStart}:00` && localClock < `${dailyEnd}:00`;
+}
+
 export function isCallingHoursExemptSystemCall(campaignId: string | null, customFields: unknown): boolean {
   if (campaignId !== null || typeof customFields !== "object" || customFields === null || Array.isArray(customFields)) {
     return false;
@@ -254,14 +268,10 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           ? campaign.metadata as Record<string, unknown> : {};
         const schedule = metadata.campaignSchedule && typeof metadata.campaignSchedule === "object" && !Array.isArray(metadata.campaignSchedule)
           ? metadata.campaignSchedule as Record<string, unknown> : null;
-        if (!schedule) return [campaign.id];
-        const startsAt = typeof schedule.startAt === "string" ? new Date(schedule.startAt).getTime() : 0;
-        const dailyStart = typeof schedule.dailyStart === "string" ? schedule.dailyStart : "09:00";
-        const dailyEnd = typeof schedule.dailyEnd === "string" ? schedule.dailyEnd : "18:00";
-        const localClock = clientLocal.time.slice(0, 5);
-        const inDailyWindow = /^([01]\d|2[0-3]):[0-5]\d$/.test(dailyStart) && /^([01]\d|2[0-3]):[0-5]\d$/.test(dailyEnd)
-          && localClock >= dailyStart && localClock < dailyEnd;
-        return Number.isFinite(startsAt) && Date.now() >= startsAt && inDailyWindow ? [campaign.id] : [];
+        if (!schedule) {
+          return withinCallingHours ? [campaign.id] : [];
+        }
+        return isCampaignWithinSchedule(metadata, clientLocal.time) ? [campaign.id] : [];
       });
 
       // ── Check 3: Daily call cap ────────────────────────────────
@@ -279,7 +289,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       // ── All checks passed — pick the highest priority & oldest pending entry ──
       // On weekends or outside calling hours, only system calls (test/demo)
       // are eligible. During business hours on weekdays, campaign calls run too.
-      const campaignCallsAllowed = withinCallingHours && !isWeekend;
+      const campaignCallsAllowed = !isWeekend;
       const [queueEntry] = await db
         .select()
         .from(callQueue)
@@ -329,12 +339,6 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         : {};
       const isPublicDemo = contactCustomFields._fooliooSystem === "public_demo";
       const isTestCall = queueEntry.campaignId === null && systemContact;
-      if (!withinCallingHours && !isCallingHoursExemptSystemCall(queueEntry.campaignId, contact.customFields)) {
-        console.log(
-          `[worker] ⏰ Client ${client.id.slice(0, 8)} outside calling hours (${clientLocal.time} not in ${client.callingHoursStart}–${client.callingHoursEnd} ${client.timezone})`
-        );
-        continue;
-      }
       // campaign_id=NULL is reserved for isolated Foolioo system calls: dashboard
       // test calls and the fixed public showcase demo. Never let arbitrary unlinked
       // queue rows become live outbound calls.
