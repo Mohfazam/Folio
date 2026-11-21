@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { getUtcDateForTimezone, parseClockTime } from "../utils/retrySchedule.js";
+import { nextAllowedCampaignTime } from "../utils/retrySchedule.js";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 import {
   auditLog,
@@ -86,40 +86,6 @@ function isValidLanguageTag(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-function nextAllowedCallingTime(
-  now: Date,
-  timezone: string,
-  startClock: string,
-  endClock: string,
-): Date {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric", month: "numeric", day: "numeric",
-    hour: "numeric", minute: "numeric", hourCycle: "h23",
-  }).formatToParts(now);
-  const part = (name: string) => Number(parts.find((item) => item.type === name)?.value);
-  const year = part("year");
-  const month = part("month");
-  const day = part("day");
-  const localMinutes = part("hour") * 60 + part("minute");
-  const start = parseClockTime(startClock);
-  const end = parseClockTime(endClock);
-  const startMinutes = start.hour * 60 + start.minute;
-  const endMinutes = end.hour * 60 + end.minute;
-
-  if (localMinutes >= startMinutes && localMinutes < endMinutes) return now;
-
-  if (localMinutes < startMinutes) {
-    return getUtcDateForTimezone(year, month, day, start.hour, start.minute, 0, timezone);
-  }
-
-  const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
-  return getUtcDateForTimezone(
-    tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(),
-    start.hour, start.minute, 0, timezone,
-  );
 }
 
 /**
@@ -557,14 +523,15 @@ export async function launchCampaignRoute(req: Request, res: Response) {
     const schedule = isRecord(body.schedule) ? body.schedule : {};
     const dailyStart = typeof schedule.dailyStart === "string" ? schedule.dailyStart : "09:00";
     const dailyEnd = typeof schedule.dailyEnd === "string" ? schedule.dailyEnd : "18:00";
+    const startDate = typeof schedule.startDate === "string" ? schedule.startDate : undefined;
     const startAt = typeof schedule.startAt === "string" ? new Date(schedule.startAt) : new Date();
     const validClock = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
     if (!validClock(dailyStart) || !validClock(dailyEnd) || dailyStart >= dailyEnd) {
       return res.status(400).json({ ok: false, error: "Choose a valid daily calling window. The end time must be later than the start time." });
     }
-    if (Number.isNaN(startAt.getTime()) || startAt.getTime() < Date.now() - 60_000) {
-      return res.status(400).json({ ok: false, error: "Choose a valid launch time in the future." });
+    if (Number.isNaN(startAt.getTime())) {
+      return res.status(400).json({ ok: false, error: "Choose a valid launch time." });
     }
 
     if (body.confirm !== true) {
@@ -628,16 +595,25 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       const creditsRemaining = Math.max(0, client.monthlyCreditsAllowance - client.creditsUsedThisCycle - client.creditsReservedThisCycle);
       const callsRemainingToday = Math.max(0, client.maxCallsPerDay - client.callsMadeToday);
       if (creditsRemaining <= 0) return { error: "No voice credits are available. Review your workspace plan before launching.", status: 409 as const };
-      if (callsRemainingToday <= 0) return { error: "Your workspace has reached today's calling limit. You can launch when the daily allowance resets.", status: 409 as const };
 
       let scheduledFor: Date;
       try {
-        const workspaceStart = nextAllowedCallingTime(
-          startAt, client.timezone, client.callingHoursStart ?? "09:00:00", client.callingHoursEnd ?? "18:00:00",
+        const workspaceStart = nextAllowedCampaignTime(
+          launchNow,
+          client.timezone,
+          dailyStart,
+          dailyEnd,
+          startDate,
         );
         scheduledFor = workspaceStart;
-      } catch {
+      } catch (error) {
+        if (error instanceof RangeError) {
+          return { error: error.message, status: 400 as const };
+        }
         return { error: "Your workspace timezone or calling hours are invalid. Fix them in follow-up and team handling setup.", status: 409 as const };
+      }
+      if (callsRemainingToday <= 0 && scheduledFor.getTime() <= launchNow.getTime() + 60_000) {
+        return { error: "Your workspace has reached today's calling limit. You can launch when the daily allowance resets.", status: 409 as const };
       }
 
       const queueRows = eligible.map((contact) => ({
@@ -658,7 +634,8 @@ export async function launchCampaignRoute(req: Request, res: Response) {
         .where(and(eq(contacts.clientId, req.clientId!), inArray(contacts.id, eligible.map((item) => item.id))));
       const existingCampaignMetadata = metadataRecord(campaign.metadata);
       const campaignSchedule = {
-        startAt: startAt.toISOString(),
+        startAt: scheduledFor.toISOString(),
+        ...(startDate ? { startDate } : {}),
         dailyStart,
         dailyEnd,
         timezone: client.timezone || "Asia/Kolkata",

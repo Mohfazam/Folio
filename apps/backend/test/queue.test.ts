@@ -9,6 +9,7 @@ const {
   isWithinCallingHours,
   isCallingHoursExemptSystemCall,
   getClientLocalTimeAndDate,
+  isCampaignWithinSchedule,
 } = await import("../src/worker/processQueue.js");
 
 test("normalizeTime standardizes time strings to HH:MM:SS", () => {
@@ -43,6 +44,19 @@ test("only dashboard test calls and public demo calls bypass calling hours", () 
   assert.equal(isCallingHoursExemptSystemCall("campaign-1", { _fooliooSystem: "test_call" }), false);
   assert.equal(isCallingHoursExemptSystemCall(null, {}), false);
   assert.equal(isCallingHoursExemptSystemCall(null, null), false);
+});
+
+test("campaign queue eligibility follows the campaign-specific daily window", () => {
+  const metadata = {
+    campaignSchedule: {
+      startAt: "2026-11-21T14:51:00.000Z",
+      dailyStart: "20:21",
+      dailyEnd: "22:00",
+    },
+  };
+  const instant = new Date("2026-11-21T14:52:00.000Z");
+  assert.equal(isCampaignWithinSchedule(metadata, "20:22:00", instant), true);
+  assert.equal(isCampaignWithinSchedule(metadata, "22:01:00", instant), false);
 });
 
 test("getClientLocalTimeAndDate parses timezone offsets accurately", () => {

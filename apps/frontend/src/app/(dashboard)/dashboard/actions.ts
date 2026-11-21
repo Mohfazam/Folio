@@ -152,7 +152,7 @@ export async function getCampaignLiveStatsAction(): Promise<ActionResult> {
 export async function launchCampaignAction(
   campaignId: string,
   contactIds: string[],
-  schedule: { startAt: string; dailyStart: string; dailyEnd: string },
+  schedule: { startAt: string; startDate?: string; dailyStart: string; dailyEnd: string },
 ): Promise<ActionResult> {
   return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}/launch`, "POST", {
     contactIds,

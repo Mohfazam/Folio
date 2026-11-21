@@ -58,6 +58,81 @@ export function parseClockTime(value: string): { hour: number; minute: number } 
   };
 }
 
+export function nextAllowedCampaignTime(
+  now: Date,
+  timezone: string,
+  startClock: string,
+  endClock: string,
+  startDate?: string,
+): Date {
+  const start = parseClockTime(startClock);
+  const end = parseClockTime(endClock);
+  if (start.hour * 60 + start.minute >= end.hour * 60 + end.minute) {
+    throw new RangeError("Daily calling start must be before calling end");
+  }
+
+  let year: number;
+  let month: number;
+  let day: number;
+
+  if (startDate) {
+    if (!/^([12]\d{3})-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(startDate)) {
+      throw new RangeError("Invalid campaign start date");
+    }
+    const dateParts = startDate.split("-").map(Number);
+    year = dateParts[0]!;
+    month = dateParts[1]!;
+    day = dateParts[2]!;
+  } else {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).formatToParts(now);
+    const getPart = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+    year = getPart("year");
+    month = getPart("month");
+    day = getPart("day");
+  }
+
+  const nowParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const getNowPart = (type: string) => Number(nowParts.find((part) => part.type === type)?.value);
+  const nowYear = getNowPart("year");
+  const nowMonth = getNowPart("month");
+  const nowDay = getNowPart("day");
+  const nowMinutes = getNowPart("hour") * 60 + getNowPart("minute");
+  const startMinutes = start.hour * 60 + start.minute;
+  const endMinutes = end.hour * 60 + end.minute;
+
+  if (Date.UTC(year, month - 1, day) < Date.UTC(nowYear, nowMonth - 1, nowDay)) {
+    throw new RangeError("Campaign start date cannot be in the past");
+  }
+
+  const requestedIsToday = year === nowYear && month === nowMonth && day === nowDay;
+  if (requestedIsToday && nowMinutes >= endMinutes) {
+    const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+    return getUtcDateForTimezone(
+      tomorrow.getUTCFullYear(), tomorrow.getUTCMonth() + 1, tomorrow.getUTCDate(),
+      start.hour, start.minute, 0, timezone,
+    );
+  }
+
+  if (requestedIsToday && nowMinutes < startMinutes) {
+    return getUtcDateForTimezone(year, month, day, start.hour, start.minute, 0, timezone);
+  }
+
+  return getUtcDateForTimezone(year, month, day, start.hour, start.minute, 0, timezone);
+}
+
 /**
  * Calculates the next retry schedule for an unanswered/failed call.
  * - Adds delayHours (default: 2h) to current time.

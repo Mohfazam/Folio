@@ -2039,10 +2039,7 @@ export function CampaignsDashboard({
     }
     const scheduled = startDate ? new Date(`${startDate}T${dailyStart}:00`) : new Date();
 
-    if (
-      Number.isNaN(scheduled.getTime()) ||
-      (startDate && scheduled.getTime() < Date.now() - 60_000)
-    ) {
+    if (Number.isNaN(scheduled.getTime())) {
       setLaunchError(
         "Choose a future launch date, or leave it empty to start as soon as possible.",
       );
@@ -2052,6 +2049,7 @@ export function CampaignsDashboard({
     setLaunchError(null);
     const result = await launchCampaignAction(launchingCampaign.id, selectedContactIds, {
       startAt: scheduled.toISOString(),
+      startDate: startDate || undefined,
       dailyStart,
       dailyEnd,
     });
