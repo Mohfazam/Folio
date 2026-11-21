@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 
-
 type WorkflowStepId =
     | "greeting"
     | "intent"
@@ -19,6 +18,38 @@ type WorkflowStep = {
     action: string;
     evidence: string;
 };
+
+type CampaignContact = {
+    name: string;
+    role: string;
+    phone: string;
+    status: "Connected" | "Ringing" | "Voicemail";
+    detail: string;
+};
+
+const campaignQueue: CampaignContact[] = [
+    {
+        name: "Ananya Mehta",
+        role: "VP Operations · Guild Real Estate",
+        phone: "+91 98200 45192",
+        status: "Connected",
+        detail: "02:44 · Qualifying 1,800 tenant leads",
+    },
+    {
+        name: "Rohan Deshmukh",
+        role: "Leasing Lead · Mumbai West",
+        phone: "+91 98201 77410",
+        status: "Ringing",
+        detail: "Line 2 · Local presence active",
+    },
+    {
+        name: "Neha Kulkarni",
+        role: "Operations Manager · Pune",
+        phone: "+91 98230 11904",
+        status: "Voicemail",
+        detail: "Retry scheduled in 2h",
+    },
+];
 
 const workflowSteps: WorkflowStep[] = [
     {
@@ -186,8 +217,8 @@ type GlassTabsProps<T extends string> = {
 };
 
 /**
- * Shared two-way segmented control. The glass highlight moves independently
- * of the content, so each option behaves like a real tab rather than a toggle.
+- Shared two-way segmented control. The glass highlight moves independently
+- of the content, so each option behaves like a real tab rather than a toggle.
  */
 const GlassTabs = <T extends string,>({
     value,
@@ -893,7 +924,7 @@ export const TwoProducts = () => {
             idPrefix="product"
             className="mx-auto mt-8 max-w-[430px]"
             options={[
-              { value: "campaigns", label: "Folio Campaigns" },
+              { value: "campaigns", label: "Foolioo Campaigns" },
               { value: "agent", label: "Deterministic Agent" },
             ]}
           />
@@ -909,7 +940,7 @@ export const TwoProducts = () => {
                 <DeterministicAgentPanel />
               </div>
             ) : (
-              /* Existing Campaigns dashboard */
+              /* Campaign orchestration view */
               <div key="campaigns-product" className="foolioo-glass-panel">
                 <div className="mt-10 overflow-hidden rounded-xl border border-[#E9E8E1] bg-white shadow-[0px_8px_30px_rgba(0,0,0,0.06)]">
                   {/* Mac Browser Chrome */}
@@ -923,19 +954,19 @@ export const TwoProducts = () => {
                     <div className="flex h-7 items-center rounded-md border border-[#E9E8E1] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#747878] shadow-2xs">
                       <span className="text-[#A1A1AA]">https://</span>
                       <span className="font-medium text-[#1B1C18]">
-                        app.foolioo.ai/campaigns/q4-renewal-outreach
+                        foolioo.app/campaigns/
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
                       <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#22A06B]">
-                        Live Session
+                        Sample Queue
                       </span>
                     </div>
                   </div>
 
-                  {/* Campaign dashboard content */}
+                  {/* Campaign orchestration content */}
                   <div className="grid grid-cols-1 lg:grid-cols-12">
                     <div className="flex flex-col gap-4 border-b border-[#E9E8E1] bg-[#FCFBF8] p-6 lg:col-span-4 lg:border-b-0 lg:border-r">
                       {/* Connection rate */}
@@ -945,19 +976,19 @@ export const TwoProducts = () => {
                             CONNECTION RATE
                           </span>
                           <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#22A06B]">
-                            +12.3%
+                            +24.5%
                           </span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
                           <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18]">
-                            74.9%
+                            48.5%
                           </span>
                           <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
                             vs industry avg 24%
                           </span>
                         </div>
                         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#F5F3EC]">
-                          <div className="h-full w-[74.9%] rounded-full bg-[#22A06B]" />
+                          <div className="h-full w-[48.5%] rounded-full bg-[#22A06B]" />
                         </div>
                       </div>
 
@@ -985,7 +1016,6 @@ export const TwoProducts = () => {
                       </div>
 
                       {/* Effective cost */}
-
                       <div className="flex flex-col justify-between rounded-lg border border-[#E9E8E1] bg-white p-4 shadow-2xs">
                         <div className="flex items-center justify-between">
                           <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#747878]">
@@ -1009,92 +1039,111 @@ export const TwoProducts = () => {
                       </div>
                     </div>
 
-                    {/* Live conversation transcript */}
+                    {/* Campaign queue & pacing */}
                     <div className="flex flex-col justify-between p-6 lg:col-span-8">
-                      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E9E8E1] pb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#E9E8E1] font-['Space_Grotesk'] text-[12px] font-bold text-[#1B1C18]">
-                            AM
-                          </div>
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E9E8E1] pb-4">
                           <div>
-                            <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
-                              Ananya Mehta · VP Operations, Guild Real Estate
+                            <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.9px] text-[#858984]">
+                              Campaign Orchestration · Illustrative Queue
                             </p>
-                            <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
-                              +91 98200 45192 · Mumbai, MH
+                            <p className="mt-1 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+                              Inbound Tenant Callback Batch (1,800 Leads)
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <StatusPill tone="purple">4 Lines Concurrent</StatusPill>
+                            <StatusPill tone="success">Pacing Active</StatusPill>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                              Queued
+                            </p>
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
+                              1,800
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                              Dialed Today
+                            </p>
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
+                              642
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                              Qualified &amp; Synced
+                            </p>
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#23835D]">
+                              214
                             </p>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-[#EDE9FE] px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#6D28D9]">
-                            ACTIVE CALL (02:44)
-                          </span>
-                          <button className="rounded-md border border-[#E9E8E1] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#EF4444] hover:bg-[#FEE2E2]">
-                            End Call
-                          </button>
+                        <div className="mt-4 divide-y divide-[#E9E8E1] rounded-lg border border-[#E9E8E1] bg-[#FCFBF8]">
+                          {campaignQueue.map((contact) => {
+                            const initials = contact.name
+                              .split(" ")
+                              .map((part) => part[0])
+                              .join("");
+
+                            return (
+                              <div
+                                key={contact.phone}
+                                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#E9E8E1] font-['Space_Grotesk'] text-[10px] font-bold text-[#1B1C18]">
+                                    {initials}
+                                  </span>
+                                  <div>
+                                    <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                                      {contact.name}
+                                      <span className="ml-1.5 font-normal text-[#747878]">
+                                        · {contact.role}
+                                      </span>
+                                    </p>
+                                    <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                                      {contact.phone} · {contact.detail}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <StatusPill
+                                  tone={
+                                    contact.status === "Connected"
+                                      ? "success"
+                                      : contact.status === "Ringing"
+                                        ? "purple"
+                                        : "warning"
+                                  }
+                                >
+                                  {contact.status}
+                                </StatusPill>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      <div className="my-6 flex flex-col gap-4">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1B1C18]">
-                            <span className="font-['Space_Grotesk'] text-[10px] font-bold text-white">
-                              AI
-                            </span>
-                          </div>
-                          <div className="rounded-lg rounded-tl-none border border-[#E9E8E1] bg-[#F5F3EC] p-3.5 shadow-2xs">
-                            <p className="font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#1B1C18]">
-                              &ldquo;Hello Ananya, thank you for taking the time to speak with
-                              Foolioo. I&apos;m following up on your team&apos;s inquiry regarding
-                              our automated outbound dialer and deterministic voice agent. Is now
-                              still a good time for a quick 3-minute discussion?&rdquo;
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start justify-end gap-3">
-                          <div className="max-w-[85%] rounded-lg rounded-tr-none border border-[#E9E8E1] bg-white p-3.5 shadow-2xs">
-                            <p className="font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#1B1C18]">
-                              &ldquo;Hey Aarav. Yeah, I have a few minutes. We&apos;re currently
-                              handling about 1,800 inquiries manually and we&apos;re looking to
-                              automate the qualification step.&rdquo;
-                            </p>
-                          </div>
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E9E8E1]">
-                            <span className="font-['Space_Grotesk'] text-[10px] font-bold text-[#1B1C18]">
-                              AM
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1B1C18]">
-                            <span className="font-['Space_Grotesk'] text-[10px] font-bold text-white">
-                              AI
-                            </span>
-                          </div>
-                          <div className="rounded-lg rounded-tl-none border border-[#DDD6FE] bg-[#F5F3FF] p-3.5 shadow-2xs">
-                            <p className="font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#4338CA]">
-                              &ldquo;That&apos;s exactly what we specialize in. Foolioo can qualify
-                              those 1,800 prospective tenants in under two hours with strict
-                              adherence to your compliance script and zero hallucinations. Would you
-                              like me to trigger an automated demo run to your phone right
-                              now?&rdquo;
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E9E8E1] bg-[#FBF9F2] p-3">
+                      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E9E8E1] bg-[#FBF9F2] p-3">
                         <div className="flex items-center gap-2">
-                          <span className="text-[14px]">⚡</span>
-                          <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18]">
-                            Guardrail active: Compliance disclosure delivered and acknowledged.
+                          <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
+                          <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18]">
+                            Disclosure &amp; retry rules enforced automatically per campaign batch.
                           </span>
                         </div>
-                        <button className="rounded bg-[#1B1C18] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-medium text-white hover:bg-[#3A3B37]">
-                          Inspect Telemetry
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("agent")}
+                          className="rounded bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-medium text-white transition-colors hover:bg-[#3A3B37]"
+                        >
+                          Inspect Agent Flow
                         </button>
                       </div>
                     </div>
