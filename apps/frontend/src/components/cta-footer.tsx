@@ -86,9 +86,12 @@ export const CtaFooter = () => {
                         )}
 
                         {/* Secondary Button */}
-                        <ComingSoonButton className="flex h-11 w-full items-center justify-center rounded-md border border-[#E9E8E1] bg-[#F5F3EC] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#E9E8E1] sm:w-auto">
-                            Schedule a demo
-                        </ComingSoonButton>
+                        <Link
+                            href="/live-demo"
+                            className="flex h-11 w-full items-center justify-center rounded-md border border-[#E9E8E1] bg-[#F5F3EC] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#E9E8E1] sm:w-auto"
+                        >
+                            Do a Trial Call
+                        </Link>
                     </div>
 
                     {/* Sub-text guarantee (Hide if logged in) */}
