@@ -215,7 +215,7 @@ function CallComposer({
         <div className="flex items-start justify-between gap-4 border-b border-[#ECEBE5] px-5 py-4 sm:px-6">
           <div>
             <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">OUTBOUND CALL</p>
-            <h2 id="make-call-title" className="mt-1 font-['Newsreader'] text-[27px] leading-tight text-[#1B1C18]">Make a call</h2>
+            <h2 id="make-call-title" className="mt-1 font-['Newsreader'] text-[27px] leading-tight text-[#1B1C18]">Make a test call</h2>
             <p className="mt-1 max-w-[400px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
               Enter any phone number in international format. You do not need to create a contact or launch a campaign.
             </p>
@@ -502,7 +502,7 @@ export function CallsDashboard({
             className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]"
           >
             <span aria-hidden="true" className="text-[15px]">＋</span>
-            Make a call
+            Make a test call
           </button>
         </div>
       </header>
