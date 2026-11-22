@@ -553,6 +553,13 @@ export function createConversationSession(
             return;
           }
 
+          if (action.type === "transfer_agent") {
+            console.log(`${tag} 👤 Caller requested human transfer: "${finalTrimmed}"`);
+            options?.sessionState?.markHumanTransfer();
+            speakImmediateResponse(action.replyText, activeLang, true);
+            return;
+          }
+
           // Passthrough to conversational LLM pipeline
           interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);

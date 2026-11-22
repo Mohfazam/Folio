@@ -123,6 +123,7 @@ export class CallSessionState {
   }
 
   private _optOutRequested = false;
+  private _humanTransferRequested = false;
 
   get isTerminated(): boolean {
     return this._terminated;
@@ -134,6 +135,14 @@ export class CallSessionState {
 
   markOptOut(): void {
     this._optOutRequested = true;
+  }
+
+  get humanTransferRequested(): boolean {
+    return this._humanTransferRequested;
+  }
+
+  markHumanTransfer(): void {
+    this._humanTransferRequested = true;
   }
 
   get status(): CallStatus {
