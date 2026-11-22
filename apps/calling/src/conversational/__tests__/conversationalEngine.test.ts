@@ -2,10 +2,15 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { isBackchannel } from "../backchannelDetector.js";
 import { isGenericGreeting, handleGenericGreeting } from "../genericGreetingTracker.js";
-import { isAudioIssueUtterance, buildAudibilityResponse } from "../audioIssueDetector.js";
-import { isBusyUtterance, buildBusyCallbackResponse } from "../busyDetector.js";
-import { isOptOutUtterance, buildOptOutResponse } from "../optOutDetector.js";
-import { isAiIdentityInquiry, buildAiIdentityResponse } from "../aiIdentityDetector.js";
+import { isAudioIssueUtterance } from "../audioIssueDetector.js";
+import { isBusyUtterance } from "../busyDetector.js";
+import { isOptOutUtterance } from "../optOutDetector.js";
+import { isAiIdentityInquiry } from "../aiIdentityDetector.js";
+import { isHoldUtterance } from "../holdDetector.js";
+import { isRepeatUtterance } from "../repeatDetector.js";
+import { isTransferUtterance } from "../transferDetector.js";
+import { isConfusionUtterance } from "../confusionDetector.js";
+import { isProfanityUtterance, buildProfanityWarning } from "../profanityDetector.js";
 import { buildOpeningIntro } from "../introManager.js";
 import { ConversationalEngine } from "../conversationalEngine.js";
 import type { CallerIntentState } from "../types.js";
@@ -73,6 +78,48 @@ describe("Conversational Edge Case Handlers", () => {
     assert.equal(isAiIdentityInquiry("Who is your founder?"), false);
   });
 
+  it("detects hold and wait requests", () => {
+    assert.equal(isHoldUtterance("Hold on a second"), true);
+    assert.equal(isHoldUtterance("Ek minute ruko"), true);
+    assert.equal(isHoldUtterance("Just a moment"), true);
+    assert.equal(isHoldUtterance("Wait wait please"), true);
+    assert.equal(isHoldUtterance("Tell me more"), false);
+  });
+
+  it("detects repeat requests", () => {
+    assert.equal(isRepeatUtterance("Can you repeat that?"), true);
+    assert.equal(isRepeatUtterance("What did you say?"), true);
+    assert.equal(isRepeatUtterance("Dobara bolo"), true);
+    assert.equal(isRepeatUtterance("Phir se batao please"), true);
+    assert.equal(isRepeatUtterance("Okay I understood"), false);
+  });
+
+  it("detects human transfer requests", () => {
+    assert.equal(isTransferUtterance("I want to talk to a human"), true);
+    assert.equal(isTransferUtterance("Connect me to a manager"), true);
+    assert.equal(isTransferUtterance("Kisi insaan se baat karvao"), true);
+    assert.equal(isTransferUtterance("I want to buy the course"), false);
+  });
+
+  it("detects confusion and clarification requests", () => {
+    assert.equal(isConfusionUtterance("I don't understand"), true);
+    assert.equal(isConfusionUtterance("Samajh nahi aaya"), true);
+    assert.equal(isConfusionUtterance("What do you mean?"), true);
+    assert.equal(isConfusionUtterance("That is very clear"), false);
+  });
+
+  it("detects profanity and handles escalation warnings", () => {
+    assert.equal(isProfanityUtterance("shut up you idiot"), true);
+    assert.equal(isProfanityUtterance("bakwas mat kar"), true);
+    assert.equal(isProfanityUtterance("hello good morning"), false);
+
+    const warn1 = buildProfanityWarning(1, "en-IN");
+    assert.equal(warn1.shouldHangup, false);
+
+    const warn2 = buildProfanityWarning(2, "en-IN");
+    assert.equal(warn2.shouldHangup, true);
+  });
+
   it("builds natural opening intro", () => {
     const introWithName = buildOpeningIntro({
       contactName: "Mubashir",
@@ -103,5 +150,29 @@ describe("Conversational Edge Case Handlers", () => {
 
     // Audio issue is caught directly
     assert.equal(engine.evaluateUtterance("Aapki aawaz nahi aa rahi").type, "audibility_check");
+
+    // Hold request
+    assert.equal(engine.evaluateUtterance("One second hold on").type, "hold_wait");
+
+    // Repeat request
+    engine.setLastAssistantReply("We have 3 plans available.");
+    const repeatAction = engine.evaluateUtterance("Can you repeat that?");
+    assert.equal(repeatAction.type, "repeat_request");
+    assert.match((repeatAction as any).replyText, /3 plans available/);
+
+    // Human transfer
+    assert.equal(engine.evaluateUtterance("Connect me to a real person").type, "transfer_agent");
+
+    // Confusion
+    assert.equal(engine.evaluateUtterance("I don't understand").type, "clarification");
+
+    // Profanity 1st warning then termination
+    const prof1 = engine.evaluateUtterance("shut up idiot");
+    assert.equal(prof1.type, "escalation_warning");
+    assert.equal((prof1 as any).shouldHangup, false);
+
+    const prof2 = engine.evaluateUtterance("you idiot");
+    assert.equal(prof2.type, "escalation_warning");
+    assert.equal((prof2 as any).shouldHangup, true);
   });
 });
