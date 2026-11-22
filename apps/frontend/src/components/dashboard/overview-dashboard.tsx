@@ -1,5 +1,5 @@
 "use client";
-
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -16,7 +16,6 @@ import {
 } from "@/app/(dashboard)/dashboard/actions";
 import { dashboardKeys } from "@/lib/query/keys";
 import { fetchDashboardApi, DashboardApiError } from "@/lib/query/fetcher";
-import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
 
 export type JsonRecord = Record<string, unknown>;

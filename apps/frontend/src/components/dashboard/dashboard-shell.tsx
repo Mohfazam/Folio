@@ -730,7 +730,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               >
                 <div>
                   <div className="flex items-center justify-between border-b border-[#E6E5DD] pb-3">
-                    <span className="flex h-8 items-center gap-2.5 whitespace-nowrap">
+                    <Link
+                      href="/"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      aria-label="Foolioo home"
+                      className="flex h-8 items-center gap-2.5 whitespace-nowrap rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                    >
                       <Image
                         src="/Foolioo.svg"
                         alt=""
@@ -741,7 +746,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       <span className="font-['Newsreader'] text-[23px] font-semibold italic leading-none tracking-[-0.6px] text-[#1B1C18]">
                         Foolioo
                       </span>
-                    </span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setMobileDrawerOpen(false)}
