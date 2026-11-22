@@ -539,7 +539,10 @@ function CampaignForm({
 }: {
   initialDraft?: Campaign | null;
   onCancel: () => void;
-  onCreated: (message?: string) => void;
+  onCreated: (
+    message?: string,
+    options?: { createdCampaignId?: string | null; launchImmediately?: boolean },
+  ) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -593,10 +596,21 @@ function CampaignForm({
         return;
       }
 
+      const launchImmediately =
+        event.currentTarget.dataset.launchAfterSave === "1";
+      event.currentTarget.dataset.launchAfterSave = "0";
+      const createdRecord =
+        result.data && typeof result.data.campaign === "object" && result.data.campaign !== null
+          ? (result.data.campaign as Record<string, unknown>)
+          : result.data;
+      const createdId =
+        createdRecord && typeof createdRecord.id === "string" ? createdRecord.id : null;
+
       onCreated(
         initialDraft
           ? `Duplicated "${cleanDisplayTitle(initialDraft.name)}" as a new draft.`
           : "Campaign draft saved. Review your audience before launching outbound calls.",
+        { createdCampaignId: createdId, launchImmediately },
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your campaign draft could not be saved.");
@@ -815,9 +829,27 @@ function CampaignForm({
             <button
               type="submit"
               disabled={busy}
-              className="h-10 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
+              onClick={(event) => {
+                if (event.currentTarget.form) {
+                  event.currentTarget.form.dataset.launchAfterSave = "0";
+                }
+              }}
+              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
             >
               {busy ? "Saving draft…" : "Save campaign draft"}
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              onClick={(event) => {
+                if (event.currentTarget.form) {
+                  event.currentTarget.form.dataset.launchAfterSave = "1";
+                }
+              }}
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
+            >
+              <Icon kind="rocket" className="h-3.5 w-3.5" />
+              {busy ? "Saving…" : "Save & launch"}
             </button>
           </div>
         </div>
@@ -1282,7 +1314,8 @@ function CampaignDetailView({
             className="flex shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            {campaign.status === "draft" ? (
+            {campaign.status === "draft" ||
+            !["active", "paused", "completed"].includes(campaign.status.toLowerCase()) ? (
               <button
                 type="button"
                 onClick={() => onLaunch(campaign)}
@@ -2178,14 +2211,32 @@ export function CampaignsDashboard({
     setSortBy("newest");
   };
 
-  const handleCreated = (message?: string) => {
+  const [pendingLaunchCampaignId, setPendingLaunchCampaignId] = useState<string | null>(null);
+
+  const handleCreated = (
+    message?: string,
+    options?: { createdCampaignId?: string | null; launchImmediately?: boolean },
+  ) => {
     setCreating(false);
     setDuplicateSource(null);
+    setStatusFilter("all");
     setNotice(
       message ?? "Campaign draft saved. Review your audience before launching outbound calls.",
     );
+    if (options?.launchImmediately && options.createdCampaignId) {
+      setPendingLaunchCampaignId(options.createdCampaignId);
+    }
     router.refresh();
   };
+
+  useEffect(() => {
+    if (!pendingLaunchCampaignId) return;
+    const match = campaigns.find((item) => item.id === pendingLaunchCampaignId);
+    if (match) {
+      setPendingLaunchCampaignId(null);
+      void openLaunch(match);
+    }
+  }, [pendingLaunchCampaignId, campaigns]);
 
   if (creating || duplicateSource) {
     return (
@@ -3089,7 +3140,8 @@ export function CampaignsDashboard({
                       className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {campaign.status === "draft" ? (
+                      {campaign.status === "draft" ||
+                      !["active", "paused", "completed"].includes(campaign.status.toLowerCase()) ? (
                         <button
                           type="button"
                           onClick={() => openLaunch(campaign)}
