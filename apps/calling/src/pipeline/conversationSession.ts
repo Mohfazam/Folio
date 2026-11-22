@@ -609,6 +609,18 @@ export function createConversationSession(
           console.error(`${tag} STT error: ${message}`);
           options?.sessionState?.recordError("stt", "stt_stream", message);
         },
+        onClose: (code, reason) => {
+          console.warn(`${tag} ⚠️ STT socket closed (code=${code}, reason=${reason ?? "unknown"})`);
+          if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
+            stt = null;
+            sttReconnectAttempts++;
+            metricsCollector.recordSttReconnect();
+            console.warn(`${tag} 🔄 STT dropped unexpectedly — reconnecting (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
+            setTimeout(() => {
+              if (!closed) connectStt();
+            }, STT_RECONNECT_DELAY_MS);
+          }
+        },
       });
 
       if (closed) {
