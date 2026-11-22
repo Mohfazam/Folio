@@ -560,6 +560,18 @@ export function createConversationSession(
             return;
           }
 
+          if (action.type === "clarification") {
+            console.log(`${tag} 💡 Clarification requested: "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, false);
+            return;
+          }
+
+          if (action.type === "escalation_warning") {
+            console.warn(`${tag} ⚠️ Profanity/abuse detected (hangup: ${action.shouldHangup}): "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, action.shouldHangup);
+            return;
+          }
+
           // Passthrough to conversational LLM pipeline
           interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);
