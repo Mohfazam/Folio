@@ -99,7 +99,7 @@ export function createConversationSession(
           if (!closed && !turnInProgress) {
             callbacks.playAudio(audio);
             history.push({ role: "assistant", content: promptText });
-            silenceWatchdog?.pause(Math.max(14000, Math.round((audio.length / 8000) * 1000) + 10000));
+            silenceWatchdog?.pause(Math.round((audio.length / 8000) * 1000) + 5000);
           }
         } catch (e: any) {
           console.warn(`${tag} Silence prompt TTS error:`, e?.message ?? e);
@@ -107,7 +107,7 @@ export function createConversationSession(
       },
       onHangup: async (exitText) => {
         if (closed) return;
-        console.log(`${tag} ⏱️ Silence watchdog terminating call due to persistent silence (>60s)`);
+        console.log(`${tag} ⏱️ Silence watchdog terminating call due to persistent silence (>45s)`);
         try {
           const audio = await convertTextToSpeech(exitText, {
             speaker,
@@ -123,7 +123,7 @@ export function createConversationSession(
         }, 3000);
       },
     },
-    { nudgeTimeoutMs: 14000, language: currentLanguage }
+    { nudgeTimeoutMs: 5000, language: currentLanguage }
   );
 
   // ── Safety: max call duration timer ─────────────────────────────
@@ -181,7 +181,8 @@ export function createConversationSession(
       greetingDelivered = true;
       conversationalEngine.markIntroCompleted();
       conversationalEngine.setLastAssistantReply(greetingText);
-      silenceWatchdog?.reset();
+      const greetingDurationMs = Math.round((audio.length / 8000) * 1000);
+      silenceWatchdog?.pause(greetingDurationMs + 5000);
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
@@ -226,7 +227,8 @@ export function createConversationSession(
 
       if (!closed && generationId === currentGen) {
         callbacks.playAudio(audio);
-        silenceWatchdog?.reset();
+        const immDurationMs = Math.round((audio.length / 8000) * 1000);
+        silenceWatchdog?.pause(immDurationMs + 5000);
       }
 
       if (shouldHangup && callbacks.hangup) {
@@ -407,7 +409,8 @@ export function createConversationSession(
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
       conversationalEngine.setLastAssistantReply(cleanReply);
-      silenceWatchdog?.reset();
+      const turnPlaybackDurationMs = Math.round((turnAudioBytes / 8000) * 1000);
+      silenceWatchdog?.pause(turnPlaybackDurationMs + 5000);
 
       // If call is concluded, wait for audio playback to reach the phone and hang up
       if (shouldHangup && callbacks.hangup) {
@@ -472,10 +475,16 @@ export function createConversationSession(
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
-          // Do not barge-in before the opening greeting has actually played to caller
+          // Do not barge-in before the opening greeting has actually started playing
           if (!greetingDelivered) return;
           const trimmed = text?.trim();
           if (!trimmed || isNoiseOrFiller(trimmed)) return;
+
+          // Prevent acoustic echo: ignore if STT is hearing the AI's own recent words
+          const lastAssistant = conversationalEngine.getState().lastAssistantReply || "";
+          if (lastAssistant && lastAssistant.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length > 5) {
+            return;
+          }
 
           // Do not interrupt on passive backchannels ("haan", "hmm") or early intro greetings
           const action = conversationalEngine.evaluateUtterance(trimmed, currentLanguage);
@@ -483,14 +492,10 @@ export function createConversationSession(
             return;
           }
 
-          // Only barge-in on substantial, intentional caller utterances (at least 3 words and >=16 chars)
-          if (trimmed.length >= 16 && trimmed.split(/\s+/).length >= 3) {
-            silenceWatchdog?.reset(true);
-            interruptForCallerSpeech();
-            if (process.env.NODE_ENV !== "production") {
-              console.log(`${tag} ... ${trimmed}`);
-            }
-          }
+          // Fast conversational barge-in: any intentional caller speech stops AI speech immediately
+          silenceWatchdog?.reset(true);
+          interruptForCallerSpeech();
+          console.log(`${tag} 🛑 Caller interrupted (barge-in): "${trimmed}"`);
         },
         onFinal: (text, language) => {
           silenceWatchdog?.registerSpeech();

@@ -265,9 +265,10 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
   // 7. Hard Guardrails & Boundaries
   const guardrails: string[] = [
+    "Keep each spoken turn strictly to 1-2 short, conversational sentences (maximum 20-35 words). Never monologue or dump long paragraphs.",
     "Speak conversationally and finish your sentences completely.",
     "Never invent prices, specs, discounts, or policies not listed in this knowledge base or prompt.",
-    "Do not sound robotic or read bullet points like a script; adapt to the caller's responses and answer their questions directly.",
+    "Do not sound robotic, never read bullet points, lists, or markdown like a script; adapt to the caller's responses and answer their questions directly in short spoken turns.",
     "DO NOT HANG UP: Never end the call yourself or append [HANGUP]. The caller will hang up when they are finished. Always be available to answer any follow-up questions.",
     "If the caller explicitly asks for a human, representative, manager, or support person, acknowledge the request and follow the configured handoff procedure. This system creates a follow-up for a human representative; do not claim that a live transfer has happened unless a live-transfer feature is actually connected.",
     "If the caller says not to call or contact them again, acknowledge the opt-out politely. The system records explicit opt-out requests for suppression from future campaigns.",

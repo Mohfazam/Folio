@@ -93,3 +93,61 @@ export async function sendSupportTicketEmail(options: {
     throw err;
   }
 }
+
+/**
+ * Sends an authentication OTP code email.
+ */
+export async function sendAuthOtpEmail(options: {
+  to: string;
+  otp: string;
+}): Promise<{ ok: boolean }> {
+  const { to, otp } = options;
+  const transporter = getSupportTransporter();
+
+  if (!transporter) {
+    console.log(`[nodemailer/dev-fallback] 📧 [AUTH OTP] To: ${to} | Code: ${otp}`);
+    return { ok: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from: env.smtp.supportFrom,
+      to,
+      subject: `Your verification code: ${otp}`,
+      text: `Your Foolioo verification code is ${otp}. It will expire in 10 minutes.`,
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.error("[nodemailer/auth] Failed to send auth OTP email:", err);
+    throw err;
+  }
+}
+
+/**
+ * Sends a support OTP code email.
+ */
+export async function sendSupportOtpEmail(options: {
+  to: string;
+  otp: string;
+}): Promise<{ ok: boolean }> {
+  const { to, otp } = options;
+  const transporter = getSupportTransporter();
+
+  if (!transporter) {
+    console.log(`[nodemailer/dev-fallback] 📧 [SUPPORT OTP] To: ${to} | Code: ${otp}`);
+    return { ok: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from: env.smtp.supportFrom,
+      to,
+      subject: `Your support verification code: ${otp}`,
+      text: `Your Foolioo support verification code is ${otp}.`,
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.error("[nodemailer/support] Failed to send support OTP email:", err);
+    throw err;
+  }
+}

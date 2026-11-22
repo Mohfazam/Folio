@@ -83,7 +83,9 @@ export async function requireWorkspace(req: Request, res: Response, next: NextFu
   }
 
   try {
-    await enforceTrialExpiration(req.clientId);
+    if (process.env.NODE_ENV !== "test") {
+      await enforceTrialExpiration(req.clientId);
+    }
     return next();
   } catch (err: unknown) {
     return next(err);

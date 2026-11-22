@@ -76,9 +76,15 @@ export function isCampaignWithinSchedule(metadata: unknown, localClock: string, 
   if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) return false;
   const scheduleRecord = schedule as Record<string, unknown>;
   const startsAt = typeof scheduleRecord.startAt === "string" ? new Date(scheduleRecord.startAt).getTime() : 0;
+  if (!Number.isFinite(startsAt) || instant.getTime() < startsAt) return false;
+
+  // Manual campaign launches: once explicitly triggered by the user, allow immediate execution
+  if (scheduleRecord.mode === "manual") {
+    return true;
+  }
+
   const dailyStart = typeof scheduleRecord.dailyStart === "string" ? scheduleRecord.dailyStart : "09:00";
   const dailyEnd = typeof scheduleRecord.dailyEnd === "string" ? scheduleRecord.dailyEnd : "18:00";
-  if (!Number.isFinite(startsAt) || instant.getTime() < startsAt) return false;
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(dailyStart) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(dailyEnd)) return false;
   if (dailyStart >= dailyEnd) return false;
   return localClock >= `${dailyStart}:00` && localClock < `${dailyEnd}:00`;
@@ -118,7 +124,8 @@ async function releaseDialReservation(
 }
 
 async function recoverExpiredQueueClaims() {
-  const cutoff = new Date(Date.now() - 60 * 60 * 1000);
+  // Hard Plivo call limit is 15 minutes; claims older than 15m are abandoned
+  const cutoff = new Date(Date.now() - 15 * 60 * 1000);
   const staleEntries = await db
     .select({ id: callQueue.id, clientId: callQueue.clientId, contactId: callQueue.contactId })
     .from(callQueue)
@@ -156,6 +163,27 @@ async function recoverExpiredQueueClaims() {
         console.warn(`[worker] Recovered stale queue entry ${entry.id}`);
       }
     });
+  }
+
+  // Self-heal ghost credit reservations:
+  // Reconcile clients whose creditsReservedThisCycle doesn't match active in_progress queue entries
+  try {
+    await db.execute(sql`
+      UPDATE ${clients} c
+      SET "credits_reserved_this_cycle" = COALESCE((
+        SELECT SUM("reserved_credits")::int
+        FROM ${callQueue} q
+        WHERE q."client_id" = c."id" AND q."status" = 'in_progress'
+      ), 0)
+      WHERE c."credits_reserved_this_cycle" > 0
+        AND c."credits_reserved_this_cycle" != COALESCE((
+          SELECT SUM("reserved_credits")::int
+          FROM ${callQueue} q
+          WHERE q."client_id" = c."id" AND q."status" = 'in_progress'
+        ), 0)
+    `);
+  } catch (reconcileErr) {
+    console.warn("[worker] Ghost credit reservation reconciliation notice:", reconcileErr);
   }
 }
 
@@ -221,6 +249,8 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       if (client.status === "paused" || client.status === "suspended") continue;
 
       const clientLocal = getClientLocalTimeAndDate(client.timezone);
+      const clientLocalDay = new Date(`${clientLocal.date}T00:00:00`).getDay();
+      const isWeekend = clientLocalDay === 0 || clientLocalDay === 6;
 
       // ── Check 1: Reset callsMadeToday if calendar date changed ────
       const resetDate = client.callsMadeTodayResetAt
@@ -253,13 +283,6 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         }
       }
 
-      // ── Check 2a: Day-of-week guard ────────────────────────────────
-      // Skip calling on weekends (Saturday = 6, Sunday = 0) for regular
-      // campaign calls. System calls (test calls, public demos) are allowed
-      // on any day so the owner can test their agent whenever they want.
-      const clientLocalDay = new Date(`${clientLocal.date}T00:00:00`).getDay(); // 0=Sun … 6=Sat
-      const isWeekend = clientLocalDay === 0 || clientLocalDay === 6;
-
       const withinCallingHours = isWithinCallingHours(clientLocal.time, client.callingHoursStart, client.callingHoursEnd);
       const activeCampaignRows = await db.select({ id: campaigns.id, metadata: campaigns.metadata })
         .from(campaigns).where(and(eq(campaigns.clientId, client.id), eq(campaigns.status, "active")));
@@ -287,9 +310,16 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
       }
 
       // ── All checks passed — pick the highest priority & oldest pending entry ──
-      // On weekends or outside calling hours, only system calls (test/demo)
-      // are eligible. During business hours on weekdays, campaign calls run too.
-      const campaignCallsAllowed = !isWeekend;
+      // On weekends, manual campaign launches and system calls (test/demo)
+      // are allowed. Scheduled automated batch campaigns respect weekend restrictions.
+      const hasManualCampaign = activeCampaignRows.some((c) => {
+        const metadata = c.metadata && typeof c.metadata === "object" && !Array.isArray(c.metadata) ? (c.metadata as Record<string, unknown>) : null;
+        const schedule = metadata?.campaignSchedule && typeof metadata.campaignSchedule === "object" && !Array.isArray(metadata.campaignSchedule)
+          ? (metadata.campaignSchedule as Record<string, unknown>)
+          : null;
+        return schedule?.mode === "manual";
+      });
+      const campaignCallsAllowed = !isWeekend || hasManualCampaign;
       const [queueEntry] = await db
         .select()
         .from(callQueue)
@@ -297,12 +327,15 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
           and(
             eq(callQueue.clientId, client.id),
             eq(callQueue.status, "pending"),
-            campaignCallsAllowed
-              ? or(
-                  and(inArray(callQueue.campaignId, campaignIdsWithinWindow.length ? campaignIdsWithinWindow : ["00000000-0000-0000-0000-000000000000"]), lte(callQueue.scheduledFor, new Date())),
-                  systemCallQueueEntry,
-                )
-              : systemCallQueueEntry
+            or(
+              and(
+                campaignCallsAllowed
+                  ? inArray(callQueue.campaignId, campaignIdsWithinWindow.length ? campaignIdsWithinWindow : ["00000000-0000-0000-0000-000000000000"])
+                  : sql`FALSE`,
+                lte(callQueue.scheduledFor, new Date())
+              ),
+              systemCallQueueEntry,
+            )
           )
         )
         .orderBy(asc(callQueue.scheduledFor), sql`${callQueue.priority} DESC`, asc(callQueue.createdAt))
