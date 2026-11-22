@@ -234,6 +234,7 @@ export function createConversationSession(
       }
     } catch (err: any) {
       console.error(`${tag} Immediate speech error:`, err?.message ?? err);
+      options?.sessionState?.recordError("tts", "tts_synthesis", err?.message ?? "Immediate speech error");
     } finally {
       turnInProgress = false;
     }
