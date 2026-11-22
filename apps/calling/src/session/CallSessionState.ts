@@ -122,8 +122,18 @@ export class CallSessionState {
     this.startedAt = new Date();
   }
 
+  private _optOutRequested = false;
+
   get isTerminated(): boolean {
     return this._terminated;
+  }
+
+  get optOutRequested(): boolean {
+    return this._optOutRequested;
+  }
+
+  markOptOut(): void {
+    this._optOutRequested = true;
   }
 
   get status(): CallStatus {

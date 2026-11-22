@@ -502,6 +502,7 @@ export function createConversationSession(
 
           if (action.type === "opt_out") {
             console.log(`${tag} 🛑 Caller requested opt-out: "${finalTrimmed}"`);
+            options?.sessionState?.markOptOut();
             speakImmediateResponse(action.replyText, activeLang, true);
             return;
           }
