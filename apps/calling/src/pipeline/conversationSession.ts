@@ -5,6 +5,7 @@ import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tt
 import { metricsCollector } from "../monitoring/metricsCollector.js";
 import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
+import { buildOpeningIntro } from "../conversational/introManager.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -132,16 +133,22 @@ export function createConversationSession(
   }, MAX_CALL_DURATION_MS);
   maxDurationTimer.unref();
 
-  // Plays a welcome greeting when the call connects
+  // Plays a welcome greeting and introduction when the call connects
   async function speakGreeting() {
     if (greetingStarted || closed) return;
     greetingStarted = true;
 
-    // Contact name gets top priority for natural outbound greeting
     const contactName = options?.sessionState?.contactName?.trim();
-    const greetingText = contactName
-      ? `Hello, is this ${contactName}?`
-      : options?.greetingText || "Hello! Can you hear me okay?";
+    const persona = options?.sessionState?.context?.business?.aiPersonaName || "Aarohi";
+    const businessName = options?.sessionState?.context?.business?.displayName || "Foolioo";
+
+    const greetingText = buildOpeningIntro({
+      contactName,
+      persona,
+      businessName,
+      customGreeting: options?.greetingText,
+      language: currentLanguage,
+    });
 
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
