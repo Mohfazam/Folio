@@ -462,8 +462,7 @@ export function createConversationSession(
         history.filter((h) => h.role === "assistant").length;
 
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const shouldHangup =
-        (isExplicitCallerExit || (hasHangupToken && assistantTurns >= 3)) && !isLanguageSwitch;
+      const shouldHangup = (isExplicitCallerExit || hasHangupToken) && !isLanguageSwitch;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
