@@ -1085,10 +1085,14 @@ function PerformanceAnalytics({
 function QuotaPanel({
   analytics,
   timezone,
+  isTrial,
+  trialEndsAt,
   onUpgrade,
 }: {
   analytics: AnalyticsOverview;
   timezone: string;
+  isTrial: boolean;
+  trialEndsAt: string | null;
   onUpgrade: () => void;
 }) {
   const allowance = Math.max(0, recordNumber(analytics.quota, "monthlyCreditsAllowance") ?? 0);
@@ -1112,22 +1116,15 @@ function QuotaPanel({
       ? {
           label: "Exhausted",
           badge: "bg-[#FBE8E6] text-[#A33A32]",
-          bar: "bg-[#B84339]",
           showUpgrade: true,
         }
       : allowance > 0 && remainingRatio <= 0.2
         ? {
             label: "Low balance",
             badge: "bg-[#FFFAEC] text-[#8A6826]",
-            bar: "bg-[#C98A2C]",
             showUpgrade: true,
           }
-        : {
-            label: "Healthy",
-            badge: "bg-[#EFEAFB] text-[#644ABB]",
-            bar: "bg-[#7852D6]",
-            showUpgrade: false,
-          };
+        : null;
 
   return (
     <section
@@ -1146,11 +1143,13 @@ function QuotaPanel({
             Voice capacity
           </h2>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${statusTone.badge}`}
-        >
-          {statusTone.label}
-        </span>
+        {statusTone ? (
+          <span
+            className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${statusTone.badge}`}
+          >
+            {statusTone.label}
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-4 flex items-baseline justify-between gap-3">
@@ -1159,26 +1158,14 @@ function QuotaPanel({
             {formatNumber(remaining)}
           </p>
           <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
-            credits remaining of {formatNumber(allowance)} monthly allowance
+            {isTrial
+              ? `credits remaining of ${formatNumber(allowance)} trial allowance`
+              : `credits remaining of ${formatNumber(allowance)} monthly allowance`}
           </p>
         </div>
         <span className="font-['Space_Grotesk'] text-[12px] font-semibold tabular-nums text-[#444748]">
           {usedPercent}% used
         </span>
-      </div>
-
-      <div
-        className="mt-3.5 h-2 overflow-hidden rounded-full bg-[#EFEEE7]"
-        role="progressbar"
-        aria-label="Monthly voice credits used"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={usedPercent}
-      >
-        <div
-          className={`h-full rounded-full transition-[width] ${statusTone.bar}`}
-          style={{ width: `${usedPercent}%` }}
-        />
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-2.5 rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] p-3 font-['Space_Grotesk']">
@@ -1201,9 +1188,17 @@ function QuotaPanel({
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] font-medium text-[#747878]">Cycle reset</dt>
+          <dt className="text-[10px] font-medium text-[#747878]">
+            {isTrial ? "Trial period" : "Cycle reset"}
+          </dt>
           <dd className="mt-0.5 truncate text-[12px] font-semibold text-[#1B1C18]">
-            {resetDate ? formatShortDate(resetDate, timezone) : "Billing cycle"}
+            {isTrial
+              ? trialEndsAt
+                ? `Ends ${formatShortDate(trialEndsAt, timezone)}`
+                : "7-day trial"
+              : resetDate
+                ? formatShortDate(resetDate, timezone)
+                : "Billing cycle"}
           </dd>
         </div>
       </dl>
@@ -1215,7 +1210,7 @@ function QuotaPanel({
         >
           View usage breakdown
         </Link>
-        {statusTone.showUpgrade ? (
+        {statusTone?.showUpgrade ? (
           <button
             type="button"
             onClick={onUpgrade}
@@ -1727,11 +1722,14 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     }
 
     if (analytics && allowance > 0 && remaining === 0) {
+      const isTrialWorkspace = workspaceStatus === "trialing" || profile.isTrial;
       items.push({
         id: "credits-exhausted",
         priority: "critical",
-        title: "Monthly voice credits exhausted",
-        description: "New outbound calls cannot be placed until your cycle resets or you upgrade.",
+        title: isTrialWorkspace ? "Trial voice credits exhausted" : "Monthly voice credits exhausted",
+        description: isTrialWorkspace
+          ? "New outbound calls cannot be placed until you upgrade to a paid plan."
+          : "New outbound calls cannot be placed until your cycle resets or you upgrade.",
         ctaLabel: "View billing",
         icon: "credit",
         onTrigger: () => router.push("/dashboard/settings"),
@@ -1804,6 +1802,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     pipeline,
     setupSummary,
     workspaceStatus,
+    profile.isTrial,
     setupState.isComplete,
     data.setup.state,
     canPlaceTestCall,
@@ -2047,6 +2046,8 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
             <QuotaPanel
               analytics={analytics}
               timezone={timezone}
+              isTrial={workspaceStatus === "trialing" || profile.isTrial}
+              trialEndsAt={profile.trialEndsAt}
               onUpgrade={() => router.push("/dashboard/settings")}
             />
           ) : analyticsResult.state === "loading" ? (
@@ -2056,7 +2057,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
             >
               <div className="h-3 w-24 animate-pulse motion-reduce:animate-none rounded bg-[#ECEBE5]" />
               <div className="mt-5 h-9 w-28 animate-pulse motion-reduce:animate-none rounded bg-[#E7E5DE]" />
-              <div className="mt-4 h-2.5 w-full animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
+              <div className="mt-4 h-20 w-full animate-pulse motion-reduce:animate-none rounded bg-[#F1F0EB]" />
             </div>
           ) : null}
 
