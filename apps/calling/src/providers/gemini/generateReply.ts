@@ -170,20 +170,34 @@ export async function generateReplyStream(
     }
 
     // Ultra-low latency early clause dispatch:
-    // For the very first chunk of a turn, dispatch as soon as buffer has >= 12 chars (3-4 words)
+    // For the very first chunk of a turn, dispatch as soon as buffer has >= 10 chars (2-3 words)
     // and hits ANY natural pause (, ; : — - \n).
-    // For subsequent chunks, split when buffer reaches >= 35 chars.
-    const clauseMinThreshold = isFirstSentence ? 12 : 35;
+    // For subsequent chunks, split when buffer reaches >= 30 chars.
+    const clauseMinThreshold = isFirstSentence ? 10 : 30;
     if (buffer.length >= clauseMinThreshold) {
       const clauseMatch = /([,;:\n—\-]+)\s+/.exec(buffer);
       const delimiter = clauseMatch?.[1];
-      if (clauseMatch && delimiter && clauseMatch.index >= 8) {
+      if (clauseMatch && delimiter && clauseMatch.index >= 6) {
         const clauseEnd = clauseMatch.index + delimiter.length;
         const clause = buffer.slice(0, clauseEnd).trim();
         if (clause) {
           dispatchSentence(clause);
         }
         buffer = buffer.slice(clauseEnd).trimStart();
+      }
+    }
+
+    // Pipelining fallback: if no punctuation occurs, split on word boundary (space)
+    // after 25 chars for the first chunk (or 45 for later chunks) so TTS doesn't wait for sentence end
+    const wordSplitThreshold = isFirstSentence ? 25 : 45;
+    if (buffer.length >= wordSplitThreshold) {
+      const lastSpaceIndex = buffer.lastIndexOf(" ");
+      if (lastSpaceIndex >= 15) {
+        const chunk = buffer.slice(0, lastSpaceIndex).trim();
+        if (chunk) {
+          dispatchSentence(chunk);
+        }
+        buffer = buffer.slice(lastSpaceIndex).trimStart();
       }
     }
   };
