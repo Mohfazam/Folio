@@ -205,6 +205,47 @@ function NavEntry({
         queryFn: () => fetchDashboardApi(`/analytics/overview?timeframe=${timeframe}`),
         staleTime: 45_000,
       });
+    } else if (item.href === "/dashboard/campaigns") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.campaigns(),
+        queryFn: () => fetchDashboardApi("/campaigns"),
+        staleTime: 45_000,
+      });
+    } else if (item.href === "/dashboard/contacts") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.contacts({ query: "limit=25&offset=0" }),
+        queryFn: () => fetchDashboardApi("/contacts?limit=25&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/calls") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.calls({ query: "limit=25&offset=0" }),
+        queryFn: () => fetchDashboardApi("/calls?limit=25&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/follow-ups") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.followUps({ limit: 100, offset: 0 }),
+        queryFn: () => fetchDashboardApi("/follow-ups?limit=100&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/ai-studio") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.knowledgeBase(),
+        queryFn: () => fetchDashboardApi("/knowledge-base?limit=100&offset=0"),
+        staleTime: 60_000,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.agentSettings(),
+        queryFn: () => fetchDashboardApi("/agent-settings"),
+        staleTime: 60_000,
+      });
+    } else if (item.href === "/dashboard/analytics") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.overviewAnalytics("30d"),
+        queryFn: () => fetchDashboardApi("/analytics/overview?timeframe=30d"),
+        staleTime: 45_000,
+      });
     }
   };
 

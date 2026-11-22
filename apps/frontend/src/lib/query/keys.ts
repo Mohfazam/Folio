@@ -1,4 +1,4 @@
-export type OverviewTimeframeKey = "7d" | "30d" | "90d" | "all";
+export type OverviewTimeframeKey = "today" | "7d" | "30d" | "90d" | "all";
 
 export const dashboardKeys = {
   all: ["dashboard"] as const,
