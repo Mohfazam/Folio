@@ -293,23 +293,14 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
  */
 export function buildPersonalizedGreeting(ctx?: PromptContext): string {
   const contactName = ctx?.contact?.fullName?.trim();
-  const businessName = ctx?.business?.displayName?.trim();
-  const persona = ctx?.business?.aiPersonaName?.trim();
+  const businessName = ctx?.business?.displayName?.trim() || "Foolioo";
+  const persona = ctx?.business?.aiPersonaName?.trim() || "Aarohi";
 
-  // 1. If we know the person's name, greet them directly and verify identity like a real human caller:
+  // 1. If we know the person's name, greet them and deliver intro naturally:
   if (contactName && !/^(unknown|test|user|contact|lead)$/i.test(contactName)) {
-    return `Hello, is this ${contactName}?`;
+    return `Hello ${contactName}! This is ${persona} calling from ${businessName}. How are you doing today?`;
   }
 
   // 2. If business / persona is known:
-  if (businessName && persona) {
-    return `Hello! This is ${persona} from ${businessName}. Can you hear me okay?`;
-  }
-
-  if (businessName) {
-    return `Hello! I'm calling from ${businessName}. Can you hear me okay?`;
-  }
-
-  // 3. Natural human fallback:
-  return "Hello! Can you hear me okay?";
+  return `Hello! This is ${persona} calling from ${businessName}. Can you hear me okay?`;
 }
