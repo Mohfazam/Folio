@@ -426,12 +426,7 @@ export function SettingsQueryContainer() {
     staleTime: 60_000,
   });
 
-  if (
-    (profileQuery.isPending && !profileQuery.data) ||
-    (agentQuery.isPending && !agentQuery.data)
-  ) {
-    return <DashboardPageSkeleton variant="editor" />;
-  }
+  // Render Settings immediately with zero skeleton delay; cached/fetched profile data hydrates seamlessly.
 
   const businessProfile = isJsonRecord(profileQuery.data?.businessProfile)
     ? profileQuery.data.businessProfile

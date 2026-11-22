@@ -1,25 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
+import { dashboardKeys } from "@/lib/query/keys";
 
-type Section = "general" | "account" | "ai" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
+type Section = "general" | "account" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 const AUTO_SAVE_DELAY_MS = 1000;
 
-const NAV: { id: Section; label: string; group: string; description: string }[] = [
-  { id: "general", label: "General & workspace", group: "WORKSPACE", description: "Institution identity and workspace details" },
-  { id: "account", label: "Account & profile", group: "WORKSPACE", description: "Your personal account information" },
-  { id: "ai", label: "AI calling preferences", group: "AI & CALLING", description: "Configure your voice agent" },
-  { id: "calling", label: "Calling configuration", group: "AI & CALLING", description: "Calling hours, retries and recording" },
-  { id: "notifications", label: "Notifications", group: "PREFERENCES", description: "Choose which updates matter to you" },
-  { id: "team", label: "Team & permissions", group: "PREFERENCES", description: "Workspace members and access roles" },
-  { id: "plan", label: "Plan & usage", group: "BILLING", description: "Subscription, credits and usage" },
-  { id: "security", label: "Security & privacy", group: "BILLING", description: "Sessions, data and privacy controls" },
-  { id: "integrations", label: "Integrations", group: "DEVELOPER", description: "Connected services and API access" },
+const TABS: { id: Section; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "account", label: "Account" },
+  { id: "calling", label: "Calling" },
+  { id: "notifications", label: "Notifications" },
+  { id: "team", label: "Team" },
+  { id: "plan", label: "Plan & usage" },
+  { id: "security", label: "Security" },
+  { id: "integrations", label: "Integrations" },
 ];
+
 const inputClass = "mt-1.5 w-full rounded-md border border-[#E5E4DC] bg-white px-3 py-2.5 text-[13px] text-[#252620] outline-none transition focus:border-[#8B806A] focus:ring-2 focus:ring-[#8B806A]/10";
 const labelClass = "text-[11px] font-semibold uppercase tracking-[0.07em] text-[#777970]";
 function str(value: unknown, fallback = "") { return typeof value === "string" ? value : fallback; }
@@ -36,17 +38,15 @@ export function SettingsDashboard({ account, initialSettings }: {
   account: { name: string; email: string };
   initialSettings: { profile: RecordValue; agent: RecordValue; voices: string[]; languages: string[]; error: string | null };
 }) {
+  const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>("general");
   const [profile, setProfile] = useState<RecordValue>(initialSettings.profile);
   const [agent, setAgent] = useState<RecordValue>(initialSettings.agent);
-  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(initialSettings.error ? "error" : "idle");
   const [error, setError] = useState<string | null>(initialSettings.error);
   const [success, setSuccess] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
-  const [voices] = useState<string[]>(initialSettings.voices);
-  const [languages] = useState<string[]>(initialSettings.languages);
 
   const profileRef = useRef<RecordValue>(profile);
   const agentRef = useRef<RecordValue>(agent);
@@ -56,8 +56,26 @@ export function SettingsDashboard({ account, initialSettings }: {
   const dirtyRef = useRef<boolean>(dirty);
   dirtyRef.current = dirty;
 
+  // Hydrate form fields as soon as cached/background query data arrives without blocking page render
+  useEffect(() => {
+    if (!dirtyRef.current && Object.keys(initialSettings.profile).length > 0) {
+      setProfile(initialSettings.profile);
+    }
+  }, [initialSettings.profile]);
+
+  useEffect(() => {
+    if (!dirtyRef.current && Object.keys(initialSettings.agent).length > 0) {
+      setAgent(initialSettings.agent);
+    }
+  }, [initialSettings.agent]);
+
+  useEffect(() => {
+    if (initialSettings.error) {
+      setError(initialSettings.error);
+    }
+  }, [initialSettings.error]);
+
   const savingRef = useRef<boolean>(false);
-  const queuedSectionRef = useRef<"general" | "ai" | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearDebounceTimer = useCallback(() => {
@@ -67,11 +85,8 @@ export function SettingsDashboard({ account, initialSettings }: {
     }
   }, []);
 
-  const performSave = useCallback(async (targetSection: "general" | "ai") => {
-    if (savingRef.current) {
-      queuedSectionRef.current = targetSection;
-      return;
-    }
+  const performSave = useCallback(async () => {
+    if (savingRef.current) return;
 
     savingRef.current = true;
     setSaving(true);
@@ -79,39 +94,17 @@ export function SettingsDashboard({ account, initialSettings }: {
     setError(null);
 
     const currentProfile = profileRef.current;
-    const currentAgent = agentRef.current;
-    const rawSpeed = Number(currentAgent.speechRate ?? 1);
-    const speechRate = Number.isFinite(rawSpeed) && rawSpeed > 0 ? rawSpeed : 1;
 
-    const result = targetSection === "ai"
-      ? await saveAgentSettingsAction({
-          industry: currentProfile.industry,
-          displayName: currentProfile.displayName,
-          description: currentProfile.description,
-          agentName: currentAgent.agentName ?? currentProfile.aiPersonaName,
-          tone: currentAgent.tone ?? currentProfile.toneOfVoice,
-          language: currentAgent.language ?? "en-IN",
-          speechRate,
-          voiceId: currentAgent.voiceId ?? "",
-          greeting: currentAgent.greeting,
-          primaryObjective: currentAgent.primaryObjective,
-          handoffInstructions: currentAgent.handoffInstructions ?? "",
-          pronunciationNotes: currentAgent.pronunciationNotes ?? "",
-          complianceNotes: currentProfile.complianceNotes ?? "",
-          guardrails: Array.isArray(currentProfile.guardrails) && currentProfile.guardrails.length
-            ? currentProfile.guardrails
-            : ["Do not invent institutional policies, fees or deadlines."],
-        })
-      : await saveWorkspaceSettingsAction({
-          industry: currentProfile.industry ?? "education",
-          displayName: currentProfile.displayName,
-          description: currentProfile.description,
-          tagline: currentProfile.tagline,
-          website: currentProfile.website,
-          address: currentProfile.address,
-          operatingHours: currentProfile.operatingHours,
-          supportPhone: currentProfile.supportPhone,
-        });
+    const result = await saveWorkspaceSettingsAction({
+      industry: currentProfile.industry ?? "education",
+      displayName: currentProfile.displayName,
+      description: currentProfile.description,
+      tagline: currentProfile.tagline,
+      website: currentProfile.website,
+      address: currentProfile.address,
+      operatingHours: currentProfile.operatingHours,
+      supportPhone: currentProfile.supportPhone,
+    });
 
     savingRef.current = false;
     setSaving(false);
@@ -119,29 +112,22 @@ export function SettingsDashboard({ account, initialSettings }: {
     if (!result.ok) {
       setSaveStatus("error");
       setError(result.error);
-      queuedSectionRef.current = null;
-      return;
-    }
-
-    const queued = queuedSectionRef.current;
-    queuedSectionRef.current = null;
-
-    if (queued && dirtyRef.current) {
-      void performSave(queued);
       return;
     }
 
     setDirty(false);
     setSaveStatus("saved");
     setSuccess("Changes saved automatically.");
-  }, []);
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.businessProfile() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
+  }, [queryClient]);
 
-  const scheduleAutoSave = useCallback((targetSection: "general" | "ai") => {
+  const scheduleAutoSave = useCallback(() => {
     clearDebounceTimer();
     debounceTimerRef.current = setTimeout(() => {
       debounceTimerRef.current = null;
       if (dirtyRef.current) {
-        void performSave(targetSection);
+        void performSave();
       }
     }, AUTO_SAVE_DELAY_MS);
   }, [clearDebounceTimer, performSave]);
@@ -158,69 +144,104 @@ export function SettingsDashboard({ account, initialSettings }: {
     setSuccess(null);
     setError(null);
     setSaveStatus("idle");
-    if (section === "general" || section === "ai") {
-      scheduleAutoSave(section);
-    }
-  };
-
-  const updateAgent = (key: string, value: string) => {
-    setAgent((current) => ({ ...current, [key]: value }));
-    setDirty(true);
-    setSuccess(null);
-    setError(null);
-    setSaveStatus("idle");
-    if (section === "general" || section === "ai") {
-      scheduleAutoSave(section);
-    }
+    scheduleAutoSave();
   };
 
   const saveNow = () => {
     clearDebounceTimer();
-    if (section === "general" || section === "ai") {
-      void performSave(section);
-    }
+    void performSave();
   };
 
-  const groups = useMemo(() => [...new Set(NAV.map((item) => item.group))], []);
-  const isEditableSection = section === "general" || section === "ai";
+  const isEditableSection = section === "general";
 
-  return <div className="min-h-full bg-[#FBFAF6] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
-    <div className="mx-auto max-w-[1320px]">
-      <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p>
-          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1>
-          <p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, AI agent and account preferences.</p>
-        </div>
-        <div className="flex items-center gap-3 text-right">
-          {isEditableSection && saveStatus !== "idle" ? (
-            <span
-              role="status"
-              className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                saveStatus === "saving"
-                  ? "bg-[#F1F0E8] text-[#65675F]"
-                  : saveStatus === "saved"
-                    ? "bg-[#EDF5EC] text-[#356B3D]"
-                    : "bg-[#FBECE9] text-[#A33A32]"
-              }`}
-            >
-              {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save failed"}
-            </span>
-          ) : null}
+  return (
+    <div className="min-h-full bg-[#FBFAF6] px-4 py-6 sm:px-7 sm:py-8 lg:px-9">
+      <div className="mx-auto max-w-[1180px]">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] text-[#777970]">Workspace</p>
-            <p className="text-[13px] font-semibold text-[#34352F]">{str(profile.displayName, "Your institution")}</p>
+            <p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p>
+            <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1>
+            <p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, account and operational preferences.</p>
+          </div>
+          <div className="flex items-center gap-3 text-right">
+            {isEditableSection && saveStatus !== "idle" ? (
+              <span
+                role="status"
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                  saveStatus === "saving"
+                    ? "bg-[#F1F0E8] text-[#65675F]"
+                    : saveStatus === "saved"
+                      ? "bg-[#EDF5EC] text-[#356B3D]"
+                      : "bg-[#FBECE9] text-[#A33A32]"
+                }`}
+              >
+                {saveStatus === "saving" ? "Saving..." : saveStatus === "saved" ? "Saved" : "Save failed"}
+              </span>
+            ) : null}
+            <div>
+              <p className="text-[11px] text-[#777970]">Workspace</p>
+              <p className="text-[13px] font-semibold text-[#34352F]">{str(profile.displayName, "Your institution")}</p>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="h-fit rounded-lg border border-[#E9E8E1] bg-white p-2">
-          {groups.map((group) => <div key={group} className="mb-3 last:mb-0"><p className="px-3 pb-1 pt-3 text-[9px] font-bold tracking-[0.12em] text-[#A09F96]">{group}</p>{NAV.filter((item) => item.group === group).map((item) => <button key={item.id} onClick={() => { clearDebounceTimer(); setSection(item.id); setError(null); setSuccess(null); setSaveStatus("idle"); }} className={`mb-0.5 flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-[12px] transition ${section === item.id ? "bg-[#F1F0E8] font-semibold text-[#252620]" : "text-[#65675F] hover:bg-[#F8F7F2]"}`}><span>{item.label}</span>{section === item.id ? <span className="h-1.5 w-1.5 rounded-full bg-[#8A806D]" /> : null}</button>)}</div>)}
-        </aside>
+
+        {/* Clean horizontal section tabs (no duplicate vertical sidebar) */}
+        <div
+          role="tablist"
+          aria-label="Settings sections"
+          className="mb-6 flex flex-wrap gap-1.5 border-b border-[#E9E8E1] pb-3"
+        >
+          {TABS.map((tab) => {
+            const active = section === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  clearDebounceTimer();
+                  setSection(tab.id);
+                  setError(null);
+                  setSuccess(null);
+                  setSaveStatus("idle");
+                }}
+                className={`rounded-md px-3.5 py-2 font-['Space_Grotesk'] text-[12px] transition ${
+                  active
+                    ? "bg-[#1B1C18] font-semibold text-white"
+                    : "bg-white text-[#565B5B] border border-[#E9E8E1] hover:bg-[#F5F4ED] hover:text-[#1B1C18]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
         <main className="min-w-0 rounded-lg border border-[#E9E8E1] bg-white p-5 sm:p-7">
-          {loading ? <div className="py-16 text-center text-[13px] text-[#777970]">Loading your workspace settings...</div> : <>
-            {section === "general" ? <><SectionHeading title="General & workspace" description="Update the institution details used across your Foolioo workspace."/><div className="grid gap-5 sm:grid-cols-2"><Field label="Institution name" value={str(profile.displayName)} onChange={(v) => updateProfile("displayName", v)} placeholder="Your institution name"/><SelectField label="Industry" value={str(profile.industry, "education")} options={["education", "general", "healthcare", "professional_services", "retail"]} onChange={(v) => updateProfile("industry", v)}/><Field label="Tagline" value={str(profile.tagline)} onChange={(v) => updateProfile("tagline", v)} placeholder="A short description of your institution"/><Field label="Website" value={str(profile.website)} onChange={(v) => updateProfile("website", v)} placeholder="https://example.edu"/><div className="sm:col-span-2"><Field label="Institution description" value={str(profile.description)} onChange={(v) => updateProfile("description", v)} multiline placeholder="Describe your institution, courses and services."/></div><div className="sm:col-span-2"><Field label="Address" value={str(profile.address)} onChange={(v) => updateProfile("address", v)} placeholder="Institution address"/></div><Field label="Support phone" value={str(profile.supportPhone)} onChange={(v) => updateProfile("supportPhone", v)} placeholder="+91..."/><Field label="Operating hours" value={str(profile.operatingHours)} onChange={(v) => updateProfile("operatingHours", v)} placeholder="Monday to Saturday, 9 AM to 6 PM"/></div><p className="mt-5 text-[11px] text-[#92938B]">Workspace ID: {str(profile.clientId, "Managed by Foolioo")}</p></> : null}
-            {section === "account" ? <>
+          {section === "general" ? (
+            <>
+              <SectionHeading title="General & workspace" description="Update the institution details used across your Foolioo workspace." />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label="Institution name" value={str(profile.displayName)} onChange={(v) => updateProfile("displayName", v)} placeholder="Your institution name" />
+                <SelectField label="Industry" value={str(profile.industry, "education")} options={["education", "general", "healthcare", "professional_services", "retail"]} onChange={(v) => updateProfile("industry", v)} />
+                <Field label="Tagline" value={str(profile.tagline)} onChange={(v) => updateProfile("tagline", v)} placeholder="A short description of your institution" />
+                <Field label="Website" value={str(profile.website)} onChange={(v) => updateProfile("website", v)} placeholder="https://example.edu" />
+                <div className="sm:col-span-2">
+                  <Field label="Institution description" value={str(profile.description)} onChange={(v) => updateProfile("description", v)} multiline placeholder="Describe your institution, courses and services." />
+                </div>
+                <div className="sm:col-span-2">
+                  <Field label="Address" value={str(profile.address)} onChange={(v) => updateProfile("address", v)} placeholder="Institution address" />
+                </div>
+                <Field label="Support phone" value={str(profile.supportPhone)} onChange={(v) => updateProfile("supportPhone", v)} placeholder="+91..." />
+                <Field label="Operating hours" value={str(profile.operatingHours)} onChange={(v) => updateProfile("operatingHours", v)} placeholder="Monday to Saturday, 9 AM to 6 PM" />
+              </div>
+              <p className="mt-5 text-[11px] text-[#92938B]">Workspace ID: {str(profile.clientId, "Managed by Foolioo")}</p>
+            </>
+          ) : null}
+
+          {section === "account" ? (
+            <>
               <SectionHeading title="Account & profile" description="Read-only details for your signed-in identity and workspace session." />
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
@@ -256,54 +277,73 @@ export function SettingsDashboard({ account, initialSettings }: {
               <div className="mt-5 rounded-md border border-[#ECEBE4] bg-[#F8F7F2] px-4 py-3 text-[12px] text-[#65675F]">
                 Account identity fields are read-only and managed through your authentication provider.
               </div>
-            </> : null}
-            {section === "ai" ? <><SectionHeading title="AI calling preferences" description="Control how your AI agent introduces itself and handles conversations."/><div className="grid gap-5 sm:grid-cols-2"><Field label="Agent name" value={str(agent.agentName, str(profile.aiPersonaName))} onChange={(v) => updateAgent("agentName", v)} placeholder="e.g. Aisha"/><Field label="Speaking style" value={str(agent.tone, str(profile.toneOfVoice))} onChange={(v) => updateAgent("tone", v)} placeholder="Warm, professional and concise"/><SelectField label="Default language" value={str(agent.language, languages[0] ?? "en-IN")} options={languages.length ? languages : ["en-IN"]} onChange={(v) => updateAgent("language", v)}/><SelectField label="Voice" value={str(agent.voiceId)} options={["", ...voices]} onChange={(v) => updateAgent("voiceId", v)}/><Field label="Speaking speed" value={str(agent.speechRate, "1")} onChange={(v) => updateAgent("speechRate", v)} hint="Use a value between 0.8 and 1.2."/><div className="sm:col-span-2"><Field label="Opening greeting" value={str(agent.greeting)} onChange={(v) => updateAgent("greeting", v)} multiline placeholder="Your agent's first words on a call"/></div><div className="sm:col-span-2"><Field label="Primary objective" value={str(agent.primaryObjective)} onChange={(v) => updateAgent("primaryObjective", v)} multiline placeholder="What should the agent achieve?"/></div><div className="sm:col-span-2"><Field label="Handoff instructions" value={str(agent.handoffInstructions)} onChange={(v) => updateAgent("handoffInstructions", v)} multiline/></div><div className="sm:col-span-2"><Field label="Pronunciation notes" value={str(agent.pronunciationNotes)} onChange={(v) => updateAgent("pronunciationNotes", v)} multiline/></div></div></> : null}
-            {section === "calling" ? <Placeholder title="Calling configuration" description="Set the operational rules for outbound calls." items={["Default caller ID and verified numbers", "Allowed calling days and time window", "Timezone for scheduled campaigns", "Retry attempts and retry interval", "Call recording and retention preferences", "Consent and do-not-call handling"]}/> : null}
-            {section === "notifications" ? <Placeholder title="Notifications" description="Choose which workspace events should notify you." items={["Campaign completed or paused", "Calls failed or could not connect", "Low credit balance", "New follow-up created or overdue", "Daily performance summary"]}/> : null}
-            {section === "team" ? <Placeholder title="Team & permissions" description="Manage who can access this institution's workspace." items={["Invite team members", "Assign owner, admin and member roles", "Review pending invitations", "Revoke workspace access"]}/> : null}
-            {section === "plan" ? <><SectionHeading title="Plan & usage" description="Review your subscription and usage. Billing actions are not yet connected."/><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-md border border-[#E9E8E1] p-4"><p className={labelClass}>Current plan</p><p className="mt-2 font-['Newsreader'] text-[25px] text-[#252620]">Workspace plan</p><p className="mt-1 text-[11px] text-[#777970]">Plan details are managed by your workspace administrator.</p></div><div className="rounded-md border border-[#E9E8E1] p-4"><p className={labelClass}>Credits</p><p className="mt-2 font-['Newsreader'] text-[25px] text-[#252620]">Usage dashboard</p><p className="mt-1 text-[11px] text-[#777970]">See current consumption in Analytics.</p></div></div><div className="mt-4 rounded-md bg-[#F8F7F2] p-4 text-[12px] text-[#65675F]">Self-service upgrades, invoices and payment methods are not connected yet. No billing controls are shown as active.</div></> : null}
-            {section === "security" ? <Placeholder title="Security & privacy" description="Review account security and workspace data controls." items={["Active sessions and sign out everywhere", "Password and multi-factor authentication", "Call recording retention period", "Workspace data export", "Account deletion and data removal"]}/> : null}
-            {section === "integrations" ? <Placeholder title="Integrations" description="Connect external tools to your Foolioo workspace." items={["CRM integrations", "Webhook endpoints and delivery logs", "API keys and access scopes", "Telephony provider status", "Speech provider status"]}/> : null}
-            {error ? <p role="alert" className="mt-5 rounded-md bg-[#FBECE9] px-3 py-2.5 text-[12px] text-[#A33A32]">{error}</p> : null}
-            {success ? <p role="status" className="mt-5 rounded-md bg-[#EDF5EC] px-3 py-2.5 text-[12px] text-[#356B3D]">{success}</p> : null}
-          </>}
+            </>
+          ) : null}
+
+          {section === "calling" ? <Placeholder title="Calling configuration" description="Set the operational rules for outbound calls." items={["Default caller ID and verified numbers", "Allowed calling days and time window", "Timezone for scheduled campaigns", "Retry attempts and retry interval", "Call recording and retention preferences", "Consent and do-not-call handling"]} /> : null}
+          {section === "notifications" ? <Placeholder title="Notifications" description="Choose which workspace events should notify you." items={["Campaign completed or paused", "Calls failed or could not connect", "Low credit balance", "New follow-up created or overdue", "Daily performance summary"]} /> : null}
+          {section === "team" ? <Placeholder title="Team & permissions" description="Manage who can access this institution's workspace." items={["Invite team members", "Assign owner, admin and member roles", "Review pending invitations", "Revoke workspace access"]} /> : null}
+          {section === "plan" ? (
+            <>
+              <SectionHeading title="Plan & usage" description="Review your subscription and usage. Billing actions are not yet connected." />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-[#E9E8E1] p-4">
+                  <p className={labelClass}>Current plan</p>
+                  <p className="mt-2 font-['Newsreader'] text-[25px] text-[#252620]">Workspace plan</p>
+                  <p className="mt-1 text-[11px] text-[#777970]">Plan details are managed by your workspace administrator.</p>
+                </div>
+                <div className="rounded-md border border-[#E9E8E1] p-4">
+                  <p className={labelClass}>Credits</p>
+                  <p className="mt-2 font-['Newsreader'] text-[25px] text-[#252620]">Usage dashboard</p>
+                  <p className="mt-1 text-[11px] text-[#777970]">See current consumption in Analytics.</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-md bg-[#F8F7F2] p-4 text-[12px] text-[#65675F]">Self-service upgrades, invoices and payment methods are not connected yet. No billing controls are shown as active.</div>
+            </>
+          ) : null}
+          {section === "security" ? <Placeholder title="Security & privacy" description="Review account security and workspace data controls." items={["Active sessions and sign out everywhere", "Password and multi-factor authentication", "Call recording retention period", "Workspace data export", "Account deletion and data removal"]} /> : null}
+          {section === "integrations" ? <Placeholder title="Integrations" description="Connect external tools to your Foolioo workspace." items={["CRM integrations", "Webhook endpoints and delivery logs", "API keys and access scopes", "Telephony provider status", "Speech provider status"]} /> : null}
+
+          {error ? <p role="alert" className="mt-5 rounded-md bg-[#FBECE9] px-3 py-2.5 text-[12px] text-[#A33A32]">{error}</p> : null}
+          {success ? <p role="status" className="mt-5 rounded-md bg-[#EDF5EC] px-3 py-2.5 text-[12px] text-[#356B3D]">{success}</p> : null}
         </main>
       </div>
+
+      {isEditableSection && dirty ? (
+        <div
+          role="region"
+          aria-label="Unsaved settings changes"
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-[#DFDDD2] bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_rgba(27,28,24,0.14)] backdrop-blur-sm transition-all"
+        >
+          <span className="hidden text-[12px] font-medium text-[#5C5E56] sm:inline">
+            Auto-saving shortly...
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              clearDebounceTimer();
+              setProfile(initialSettings.profile);
+              setAgent(initialSettings.agent);
+              setDirty(false);
+              setSaveStatus("idle");
+              setError(null);
+              setSuccess(null);
+            }}
+            disabled={saving}
+            className="rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 py-2 text-[12px] font-medium text-[#444748] transition hover:bg-[#F1F0E8] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={saveNow}
+            disabled={saving}
+            className="rounded-lg bg-[#1B1C18] px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save now"}
+          </button>
+        </div>
+      ) : null}
     </div>
-    {isEditableSection && dirty ? (
-      <div
-        role="region"
-        aria-label="Unsaved settings changes"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-3 rounded-xl border border-[#DFDDD2] bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_rgba(27,28,24,0.14)] backdrop-blur-sm transition-all"
-      >
-        <span className="hidden text-[12px] font-medium text-[#5C5E56] sm:inline">
-          Auto-saving shortly...
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            clearDebounceTimer();
-            setProfile(initialSettings.profile);
-            setAgent(initialSettings.agent);
-            setDirty(false);
-            setSaveStatus("idle");
-            setError(null);
-            setSuccess(null);
-          }}
-          disabled={saving}
-          className="rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 py-2 text-[12px] font-medium text-[#444748] transition hover:bg-[#F1F0E8] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Discard
-        </button>
-        <button
-          type="button"
-          onClick={saveNow}
-          disabled={saving}
-          className="rounded-lg bg-[#1B1C18] px-4 py-2 text-[12px] font-semibold text-white shadow-sm transition hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {saving ? "Saving..." : "Save now"}
-        </button>
-      </div>
-    ) : null}
-  </div>;
+  );
 }

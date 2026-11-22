@@ -1289,6 +1289,13 @@ export function ContactsDashboard({
     [syncUrlWithoutReload],
   );
 
+  useEffect(() => {
+    setActiveFilters(filters);
+    setSearchInput(filters.search);
+    setStatusInput(filters.status);
+    setLifecycleInput(filters.lifecycleStage);
+  }, [filters]);
+
   // Independent live search: runs automatically as the user types (debounced) without needing Apply filter
   useEffect(() => {
     if (isInitialMountRef.current) {
@@ -1340,6 +1347,17 @@ export function ContactsDashboard({
     [displayedContacts],
   );
 
+  const hasPendingFilterInput = Boolean(
+    searchInput.trim() || statusInput || lifecycleInput,
+  );
+
+  const hasFilterChanges =
+    searchInput.trim() !== activeFilters.search ||
+    statusInput !== activeFilters.status ||
+    lifecycleInput !== activeFilters.lifecycleStage;
+
+  const canApplyFilter = hasPendingFilterInput && hasFilterChanges;
+
   const hasActiveFilters = Boolean(
     searchInput.trim() || statusInput || lifecycleInput || activeFilters.search || activeFilters.status || activeFilters.lifecycleStage,
   );
@@ -1374,16 +1392,18 @@ export function ContactsDashboard({
   }
 
   function handleClearFilters() {
-    setSearchInput("");
-    setStatusInput("");
-    setLifecycleInput("");
-    void executeQuery({
+    const cleared: ContactFilters = {
       search: "",
       status: "",
       lifecycleStage: "",
       limit: activeFilters.limit,
       offset: 0,
-    });
+    };
+    setSearchInput("");
+    setStatusInput("");
+    setLifecycleInput("");
+    setActiveFilters(cleared);
+    void executeQuery(cleared);
   }
 
   async function handleDelete(contact: ContactRecord) {
@@ -1654,8 +1674,8 @@ export function ContactsDashboard({
             <div className="flex gap-2 sm:col-span-2 xl:col-span-1">
               <button
                 type="submit"
-                disabled={filtering}
-                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-60"
+                disabled={filtering || !canApplyFilter}
+                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {filtering ? "Filtering…" : "Apply filter"}
               </button>

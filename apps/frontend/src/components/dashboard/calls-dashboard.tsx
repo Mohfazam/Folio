@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { cancelQueuedCallAction, createTestCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
@@ -289,6 +290,77 @@ export function CallsDashboard({
   filters: CallFilters;
   initialError: string | null;
 }) {
+  const router = useRouter();
+  const [searchInput, setSearchInput] = useState(filters.search);
+  const [outcomeInput, setOutcomeInput] = useState(filters.outcome);
+  const [sentimentInput, setSentimentInput] = useState(filters.sentiment);
+  const [interestInput, setInterestInput] = useState(filters.interestLevel);
+  const [startDateInput, setStartDateInput] = useState(filters.startDate);
+  const [endDateInput, setEndDateInput] = useState(filters.endDate);
+
+  useEffect(() => {
+    setSearchInput(filters.search);
+    setOutcomeInput(filters.outcome);
+    setSentimentInput(filters.sentiment);
+    setInterestInput(filters.interestLevel);
+    setStartDateInput(filters.startDate);
+    setEndDateInput(filters.endDate);
+  }, [filters]);
+
+  const hasSelectedCallFilter = Boolean(
+    searchInput.trim() ||
+      outcomeInput ||
+      sentimentInput ||
+      interestInput ||
+      startDateInput ||
+      endDateInput,
+  );
+
+  const hasCallFilterChanges =
+    searchInput.trim() !== filters.search ||
+    outcomeInput !== filters.outcome ||
+    sentimentInput !== filters.sentiment ||
+    interestInput !== filters.interestLevel ||
+    startDateInput !== filters.startDate ||
+    endDateInput !== filters.endDate;
+
+  const canApplyCallFilter = hasSelectedCallFilter && hasCallFilterChanges;
+  const hasAnyAppliedOrSelectedCallFilter = Boolean(
+    hasSelectedCallFilter ||
+      filters.search ||
+      filters.outcome ||
+      filters.sentiment ||
+      filters.interestLevel ||
+      filters.startDate ||
+      filters.endDate,
+  );
+
+  const handleApplyCallFilters = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canApplyCallFilter) return;
+    router.push(
+      filterHref(filters, {
+        search: searchInput.trim(),
+        outcome: outcomeInput,
+        sentiment: sentimentInput,
+        interestLevel: interestInput,
+        startDate: startDateInput,
+        endDate: endDateInput,
+        offset: 0,
+      }),
+    );
+  };
+
+  const handleClearCallFilters = () => {
+    setSearchInput("");
+    setOutcomeInput("");
+    setSentimentInput("");
+    setInterestInput("");
+    setStartDateInput("");
+    setEndDateInput("");
+    router.push("/dashboard/calls");
+  };
+
   const [liveRefreshKey, setLiveRefreshKey] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveCallStatus>({
     pendingCount: 0,
@@ -515,13 +587,14 @@ export function CallsDashboard({
             </p>
           </div>
 
-          <form action="/dashboard/calls" method="get" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <form onSubmit={handleApplyCallFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <label className="sm:col-span-2 xl:col-span-2">
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SEARCH</span>
               <input
                 type="search"
                 name="search"
-                defaultValue={filters.search}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Contact, phone or summary"
                 maxLength={200}
                 className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
@@ -530,7 +603,7 @@ export function CallsDashboard({
 
             <label>
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">OUTCOME</span>
-              <select name="outcome" defaultValue={filters.outcome} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All outcomes</option>
                 <option value="connected">Connected</option>
                 <option value="no_answer">No answer</option>
@@ -543,7 +616,7 @@ export function CallsDashboard({
 
             <label>
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SENTIMENT</span>
-              <select name="sentiment" defaultValue={filters.sentiment} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All sentiments</option>
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
@@ -553,7 +626,7 @@ export function CallsDashboard({
 
             <label>
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">INTEREST</span>
-              <select name="interestLevel" defaultValue={filters.interestLevel} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All levels</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
@@ -564,22 +637,30 @@ export function CallsDashboard({
 
             <label>
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">FROM</span>
-              <input type="date" name="startDate" defaultValue={filters.startDate} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <label>
               <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">TO</span>
-              <input type="date" name="endDate" defaultValue={filters.endDate} min={filters.startDate || undefined} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
-            <input type="hidden" name="limit" value={filters.limit} />
             <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-6">
-              <button type="submit" className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F]">
+              <button
+                type="submit"
+                disabled={!canApplyCallFilter}
+                className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
+              >
                 Apply filters
               </button>
-              <Link href="/dashboard/calls" className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] hover:bg-[#F7F6F1]">
+              <button
+                type="button"
+                onClick={handleClearCallFilters}
+                disabled={!hasAnyAppliedOrSelectedCallFilter}
+                className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
+              >
                 Clear
-              </Link>
+              </button>
             </div>
           </form>
         </div>
