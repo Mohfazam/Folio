@@ -364,11 +364,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
           {/* Fixed Desktop & Tablet Sidebar */}
           <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-4 md:flex lg:w-[232px] lg:px-3.5">
             <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-              {/* Original Foolioo Branding at the top as before */}
+              {/* Foolioo Branding at the top links back to landing page */}
               <Link
-                href="/dashboard"
+                href="/"
                 className="flex min-h-8 items-center gap-2.5 rounded-[6px] px-2 md:justify-center lg:justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
-                aria-label="Foolioo overview"
+                aria-label="Foolioo home"
               >
                 <BrandMark />
               </Link>
@@ -705,7 +705,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               >
                 <div>
                   <div className="flex items-center justify-between border-b border-[#E6E5DD] pb-3">
-                    <span className="flex h-8 items-center gap-2.5 whitespace-nowrap">
+                    <Link
+                      href="/"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      aria-label="Foolioo home"
+                      className="flex h-8 items-center gap-2.5 whitespace-nowrap rounded-[6px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                    >
                       <Image
                         src="/Foolioo.svg"
                         alt=""
@@ -716,7 +721,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       <span className="font-['Newsreader'] text-[23px] font-semibold italic leading-none tracking-[-0.6px] text-[#1B1C18]">
                         Foolioo
                       </span>
-                    </span>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setMobileDrawerOpen(false)}
