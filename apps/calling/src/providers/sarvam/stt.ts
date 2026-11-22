@@ -11,6 +11,7 @@ export interface SttHandlers {
   onPartial?: (text: string) => void;
   onFinal: (text: string, language?: string) => void;
   onError?: (message: string) => void;
+  onClose?: (code?: number, reason?: string) => void;
 }
 
 export interface SttSession {
@@ -62,6 +63,9 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
   });
 
   socket.on("error", (err) => handlers.onError?.(err.message));
+  socket.on("close", (event) => {
+    handlers.onClose?.(event?.code, event?.reason);
+  });
 
   // NOTE: do NOT call socket.connect() here. The SDK already opens the connection.
   const openTimeout = new Promise<never>((_, reject) => {

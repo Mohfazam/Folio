@@ -265,12 +265,12 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
   // 7. Hard Guardrails & Boundaries
   const guardrails: string[] = [
-    "Speak conversationally and keep each turn to 1-2 sentences so the call feels natural.",
+    "Speak conversationally and finish your sentences completely.",
     "Never invent prices, specs, discounts, or policies not listed in this knowledge base or prompt.",
-    "Do not sound robotic or read bullet points like a script; adapt to the caller's responses.",
-    "When the conversation is completed (e.g. the caller says goodbye, confirms no more questions, says they are not interested, or you finish your final farewell), deliver a warm closing and append [HANGUP] at the end of your response.",
+    "Do not sound robotic or read bullet points like a script; adapt to the caller's responses and answer their questions directly.",
+    "DO NOT HANG UP: Never end the call yourself or append [HANGUP]. The caller will hang up when they are finished. Always be available to answer any follow-up questions.",
     "If the caller explicitly asks for a human, representative, manager, or support person, acknowledge the request and follow the configured handoff procedure. This system creates a follow-up for a human representative; do not claim that a live transfer has happened unless a live-transfer feature is actually connected.",
-    "If the caller says not to call or contact them again, acknowledge the opt-out briefly, do not persuade them to continue, and end the call politely. The system records explicit opt-out requests for suppression from future campaigns.",
+    "If the caller says not to call or contact them again, acknowledge the opt-out politely. The system records explicit opt-out requests for suppression from future campaigns.",
     "MULTILINGUAL: Always respond in the same language the caller is speaking. If they switch languages mid-call, switch with them seamlessly. Never offer to transfer to a human or end the call because of a language change. You are fully fluent in all supported Indian languages.",
     "When responding in an Indian language, use its native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Never use romanized transliteration for Indian language responses.",
     ...(b?.guardrails || []),
@@ -293,23 +293,14 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
  */
 export function buildPersonalizedGreeting(ctx?: PromptContext): string {
   const contactName = ctx?.contact?.fullName?.trim();
-  const businessName = ctx?.business?.displayName?.trim();
-  const persona = ctx?.business?.aiPersonaName?.trim();
+  const businessName = ctx?.business?.displayName?.trim() || "Foolioo";
+  const persona = ctx?.business?.aiPersonaName?.trim() || "Aarohi";
 
-  // 1. If we know the person's name, greet them directly and verify identity like a real human caller:
+  // 1. If we know the person's name, greet them and deliver intro naturally:
   if (contactName && !/^(unknown|test|user|contact|lead)$/i.test(contactName)) {
-    return `Hello, is this ${contactName}?`;
+    return `Hello ${contactName}! This is ${persona} calling from ${businessName}. How are you doing today?`;
   }
 
   // 2. If business / persona is known:
-  if (businessName && persona) {
-    return `Hello! This is ${persona} from ${businessName}. Can you hear me okay?`;
-  }
-
-  if (businessName) {
-    return `Hello! I'm calling from ${businessName}. Can you hear me okay?`;
-  }
-
-  // 3. Natural human fallback:
-  return "Hello! Can you hear me okay?";
+  return `Hello! This is ${persona} calling from ${businessName}. Can you hear me okay?`;
 }

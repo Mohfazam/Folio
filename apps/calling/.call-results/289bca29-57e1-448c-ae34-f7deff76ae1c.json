@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1.0",
+  "deliveryId": "289bca29-57e1-448c-ae34-f7deff76ae1c:fbe178a1-ade2-43b1-a073-96f55f4fc3c4",
+  "requestId": "289bca29-57e1-448c-ae34-f7deff76ae1c",
+  "plivoCallId": "fbe178a1-ade2-43b1-a073-96f55f4fc3c4",
+  "contactId": "admissions-9346601744",
+  "clientId": "admissions-campaign",
+  "status": "completed",
+  "failureReason": "NORMAL_CLEARING",
+  "retryable": true,
+  "startedAt": "2026-11-22T07:58:03.996Z",
+  "endedAt": "2026-11-22T08:00:41.132Z",
+  "durationSeconds": 157,
+  "transcript": [
+    {
+      "speaker": "assistant",
+      "text": "Hello! This is the admissions desk calling regarding your recent inquiry for our Intermediate MPC program. Is this a good time to speak with you or a parent for a quick minute?",
+      "timestamp": "2026-11-22T07:58:10.149Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "This call is now being recorded.",
+      "timestamp": "2026-11-22T07:58:13.295Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "Hello",
+      "timestamp": "2026-11-22T07:58:15.902Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "Hello! I can hear you clearly. As I mentioned, I am calling from the Intermediate MPC Admissions Desk regarding your interest in our two-year program. Our program is designed to provide strong foundational coaching for both board exams and competitive entrance tests. Is this a good time to discuss the program details, or would you like me to share information for you to review?",
+      "timestamp": "2026-11-22T07:58:22.538Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "um you can share me the details of fee structure and eligibility criteria for this.",
+      "timestamp": "2026-11-22T07:58:51.107Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "and send me the details on my phone too.",
+      "timestamp": "2026-11-22T07:58:53.348Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "Certainly. Our Intermediate MPC program is a two-year course, and the tuition fee is ₹45,000 per year. We provide a very transparent fee structure with no hidden charges, and we do offer flexible installment options to make the payments more manageable for you. Regarding eligibility, students who have successfully completed their 10th-grade board examinations from any recognized board are eligible to apply. Our program includes experienced faculty, dedicated doubt-clearing sessions, and a structured test series to ensure students stay on track throughout their academic journey. I would be happy to send the detailed brochure, syllabus, and fee breakdown to your number via WhatsApp right after we finish our call. Before I do that, would you be interested in visiting our campus this week to take a look at the facilities and speak with our counselors in person?",
+      "timestamp": "2026-11-22T07:59:02.634Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "Yes yes send me the details on my phone thank you",
+      "timestamp": "2026-11-22T07:59:40.863Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "You are most welcome. I will make sure to send the detailed brochure, the full syllabus, and the fee structure to your WhatsApp number immediately. Since seats for the upcoming batch are limited, reviewing these details will help you see the benefits of our early-admission process. Is there anything specific regarding the faculty or our entrance test preparation methods that you would like me to include in the message I send over to you?",
+      "timestamp": "2026-11-22T07:59:48.644Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "No no no no no thank you.",
+      "timestamp": "2026-11-22T08:00:14.047Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "No no sir, just send me the details. Thank you.",
+      "timestamp": "2026-11-22T08:00:16.745Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "I understand completely. I will send all the details, including the fee structure, syllabus, and our program highlights, to your phone right away so you can review them at your own pace. Thank you for your time today, and please feel free to reach out if you have any further questions after going through the information. Have a great day!",
+      "timestamp": "2026-11-22T08:00:21.996Z",
+      "isComplete": true
+    }
+  ],
+  "providerErrors": [],
+  "timings": {
+    "sttConnectMs": 95,
+    "greetingPlayedMs": 2451,
+    "avgFirstSentenceMs": 1094,
+    "avgFirstAudioMs": 1284
+  },
+  "analysis": {
+    "summary": "The caller inquired about the fee structure and eligibility criteria for the Intermediate MPC program, and requested the details to be sent to their phone via WhatsApp.",
+    "interestLevel": "medium",
+    "sentiment": "neutral",
+    "objectionsRaised": [],
+    "followUpRequested": true,
+    "humanRequested": false,
+    "optOutRequested": false,
+    "notes": "Send the detailed brochure, syllabus, and fee structure (₹45,000 per year) to the caller's WhatsApp number as requested."
+  },
+  "costEstimate": {
+    "credits": 16,
+    "costTelephony": 0.0393,
+    "costStt": 0.0942,
+    "costLlm": 0.0007,
+    "costTts": 0.0397,
+    "totalEstimatedCost": 0.1739
+  }
+}

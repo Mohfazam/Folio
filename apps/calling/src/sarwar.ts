@@ -8,6 +8,9 @@ import { activeCallRegistry } from "./session/ActiveCallRegistry.js";
 export function startServer() {
   const app = express();
 
+  // Trust first proxy hop (Railway, Fly.io, Cloudflare)
+  app.set("trust proxy", 1);
+
   // Middleware for cross-origin requests and webhook body parsing
   app.use(cors());
   app.use(express.urlencoded({ extended: true }));

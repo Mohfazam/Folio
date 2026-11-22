@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { buildStreamXml } from "../providers/plivo/xml.js";
 import { env } from "../config/env.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+import { plivoClient } from "../providers/plivo/client.js";
 
 // Plivo calls this the moment the recipient picks up: "what should I do with this call?"
 // Our answer: "open a live audio stream to my /media-stream WebSocket."
@@ -15,8 +16,17 @@ export function plivoVoiceRoute(req: Request, res: Response) {
   console.log(`[plivo-voice] 📞 Call picked up: CallUUID=${callUuid}, RequestUUID=${requestUuid}, To=${to}, From=${from}`);
 
   if (callUuid) {
-    activeCallRegistry.bindPlivoCall(callUuid, requestUuid, to);
+    const record = activeCallRegistry.bindPlivoCall(callUuid, requestUuid, to);
     activeCallRegistry.markInProgress(callUuid);
+
+    if (record?.sessionState?.recordCall) {
+      console.log(`[plivo-voice] ⏺️ Activating Plivo call recording for ${callUuid}...`);
+      plivoClient.calls.record(callUuid, { fileFormat: "mp3" }).then((rec: any) => {
+        console.log(`[plivo-voice] ⏺️ Recording active:`, rec?.recordingId ?? rec?.url ?? rec);
+      }).catch((err: any) => {
+        console.warn(`[plivo-voice] Plivo recording notice:`, err?.message ?? err);
+      });
+    }
   }
 
   const streamUrl = env.publicUrl.replace(/^https?:\/\//, "wss://") + "/media-stream";

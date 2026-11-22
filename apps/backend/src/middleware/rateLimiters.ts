@@ -21,6 +21,7 @@ export const globalRateLimiter = rateLimit({
   limit: 300, // 300 requests per 15 min per IP
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   handler: limitHandler,
   skip: (req) => {
     if (env.isTest) return true;
@@ -37,6 +38,7 @@ export const authRateLimiter = rateLimit({
   limit: 60, // 60 requests per 15 min per IP
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   handler: limitHandler,
   skip: () => env.isTest,
 });
@@ -49,6 +51,7 @@ export const uploadRateLimiter = rateLimit({
   limit: 30, // 30 uploads per 15 min per IP
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   handler: limitHandler,
   skip: () => env.isTest,
 });
@@ -62,6 +65,7 @@ export const publicDemoRateLimiter = rateLimit({
   limit: 5,
   standardHeaders: "draft-7",
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   keyGenerator: (req) => ipKeyGenerator(req.get("x-public-demo-ip") || req.ip || "unknown"),
   handler: (_req, res) => res.status(429).json({
     ok: false,

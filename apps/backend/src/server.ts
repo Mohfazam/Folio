@@ -16,6 +16,10 @@ export function createApp(): express.Express {
 
   const app = express();
 
+  // Trust first proxy hop (Railway, Vercel, Fly.io, Cloudflare, etc.)
+  // Required so Express and express-rate-limit correctly read client IP from X-Forwarded-For
+  app.set("trust proxy", 1);
+
   // Production-grade security headers
   app.use(
     helmet({
