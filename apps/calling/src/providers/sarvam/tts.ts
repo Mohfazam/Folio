@@ -20,6 +20,14 @@ function normalizePace(value: number | undefined): number {
   return Math.max(0.5, Math.min(2, value));
 }
 
+export function sanitizeTextForSpeech(text: string): string {
+  return text
+    .replace(/\[(?:HANGUP|END_CALL|HANG_UP|interrupted)\]/gi, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/[*_#`~]/g, "")
+    .trim();
+}
+
 /**
  * Converts text into 8kHz mu-law audio Buffer directly compatible with Plivo phone streams.
  */
@@ -27,12 +35,17 @@ export async function convertTextToSpeech(
   text: string,
   options?: TextToSpeechOptions
 ): Promise<Buffer> {
+  const cleanText = sanitizeTextForSpeech(text);
+  if (!cleanText) {
+    return Buffer.alloc(0);
+  }
+
   const speaker = options?.speaker ?? "priya";
   const languageCode = options?.languageCode ?? "en-IN";
   const pace = normalizePace(options?.pace);
 
   const response = await sarvam.textToSpeech.convert({
-    text,
+    text: cleanText,
     model: "bulbul:v3",
     language_code: languageCode as any,
     speaker: speaker as any,
@@ -143,9 +156,11 @@ export async function openSarvamTtsStream(
   return {
     sendText(text) {
       if (completed || options?.signal?.aborted) return;
+      const clean = sanitizeTextForSpeech(text);
+      if (!clean) return;
       pendingFlushes++;
       try {
-        socket.convert(text);
+        socket.convert(clean);
         socket.flush();
       } catch (error) {
         pendingFlushes = Math.max(0, pendingFlushes - 1);
