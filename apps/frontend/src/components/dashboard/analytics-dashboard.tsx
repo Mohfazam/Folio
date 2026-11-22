@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { exportAnalyticsToPdf } from "@/lib/utils/export-analytics-pdf";
 
 type Row = Record<string, unknown>;
 export type AnalyticsData = {
@@ -48,6 +50,7 @@ function BreakdownRow({ label, value, total, color = "bg-[#7655C7]" }: { label: 
 
 export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: string; data: AnalyticsData | null; error: string | null }) {
   const router = useRouter();
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const metrics = data?.callMetrics;
   const leads = data?.leadIntelligence;
   const costs = data?.costs;
@@ -63,8 +66,39 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
   return <main className="space-y-5 pb-8">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div><p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[.16em] text-[#8A7A65]">Performance intelligence</p><h1 className="mt-2 font-['Newsreader'] text-[38px] leading-none tracking-[-1px] text-[#1B1C18]">Analytics</h1><p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[12px] leading-5 text-[#777970]">Understand call activity, campaign outcomes, lead quality and operating costs.</p></div>
-      <label className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">Date range<select value={timeframe} onChange={(event) => router.push(`/dashboard/analytics?timeframe=${event.target.value}`)} className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[12px] font-medium text-[#252620] outline-none focus:border-[#7655C7]"><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option><option value="all">All time</option></select></label>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <label className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+          Date range
+          <select value={timeframe} onChange={(event) => router.push(`/dashboard/analytics?timeframe=${event.target.value}`)} className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[12px] font-medium text-[#252620] outline-none focus:border-[#7655C7]">
+            <option value="today">Today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="all">All time</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          disabled={!data}
+          onClick={() => {
+            if (!data) return;
+            setExportNotice(null);
+            const opened = exportAnalyticsToPdf(timeframe, data);
+            if (!opened) {
+              setExportNotice("Pop-up blocked by your browser. Allow pop-ups for this site to save or print the PDF report.");
+            }
+          }}
+          className="inline-flex h-10 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M10 3v9" />
+            <path d="m6.5 8.5 3.5 3.5 3.5-3.5" />
+            <path d="M4 14.5v1a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5v-1" />
+          </svg>
+          Export PDF
+        </button>
+      </div>
     </header>
+    {exportNotice ? <div role="alert" className="rounded-[8px] border border-[#F0DFB8] bg-[#FFFAEC] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#8A6826]">{exportNotice}</div> : null}
     {error ? <div className="rounded-[8px] border border-[#E9D4D0] bg-[#FFF8F6] p-4 text-[12px] text-[#984B3E]">Analytics could not be loaded. {error}</div> : null}
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total calls" value={total.toLocaleString("en-IN")} note={`${number(data?.pipeline, "pendingInQueue")} waiting in queue`} />
