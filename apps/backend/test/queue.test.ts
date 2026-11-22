@@ -57,6 +57,16 @@ test("campaign queue eligibility follows the campaign-specific daily window", ()
   const instant = new Date("2026-11-21T14:52:00.000Z");
   assert.equal(isCampaignWithinSchedule(metadata, "20:22:00", instant), true);
   assert.equal(isCampaignWithinSchedule(metadata, "22:01:00", instant), false);
+
+  // Manual campaign launches trigger immediate dialing without daily schedule restrictions
+  const manualMetadata = {
+    campaignSchedule: {
+      mode: "manual",
+      dailyStart: "09:00",
+      dailyEnd: "18:00",
+    },
+  };
+  assert.equal(isCampaignWithinSchedule(manualMetadata, "23:30:00", instant), true);
 });
 
 test("getClientLocalTimeAndDate parses timezone offsets accurately", () => {

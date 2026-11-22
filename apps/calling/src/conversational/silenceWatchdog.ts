@@ -4,7 +4,7 @@ export interface SilenceWatchdogCallbacks {
 }
 
 export interface SilenceWatchdogOptions {
-  nudgeTimeoutMs?: number; // default: 12000ms (12s)
+  nudgeTimeoutMs?: number; // default: 5000ms (5s of silence after speech ends)
   language?: string;
 }
 
@@ -18,7 +18,7 @@ export class SilenceWatchdog {
 
   constructor(callbacks: SilenceWatchdogCallbacks, options?: SilenceWatchdogOptions) {
     this.callbacks = callbacks;
-    this.nudgeTimeoutMs = options?.nudgeTimeoutMs ?? 12000;
+    this.nudgeTimeoutMs = options?.nudgeTimeoutMs ?? 5000;
     this.language = options?.language ?? "en-IN";
   }
 
@@ -39,7 +39,7 @@ export class SilenceWatchdog {
     this.reset();
   }
 
-  public pause(durationMs = 25000): void {
+  public pause(durationMs = 5000): void {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -58,25 +58,25 @@ export class SilenceWatchdog {
     const isHindi = this.language.startsWith("hi");
 
     if (this.cycle === 1) {
-      const text = isHindi ? "Hello? Kya aap sun pa rahe hain?" : "Hello? Are you still with me?";
+      const text = isHindi ? "Hello, kya aap sun pa rahe hain?" : "Hello, are you still there?";
       await this.callbacks.onNudge(text);
-      this.pause(14000);
+      this.pause(6000);
     } else if (this.cycle === 2) {
       const text = isHindi
-        ? "Line thodi shaant lag rahi hai. Kya aapko meri aawaz aa rahi hai?"
-        : "The connection seems quiet. Can you hear me okay?";
+        ? "Kya aapko meri aawaz aa rahi hai?"
+        : "Just checking in, can you hear me okay?";
       await this.callbacks.onNudge(text);
-      this.pause(16000);
+      this.pause(8000);
     } else if (this.cycle === 3) {
       const text = isHindi
-        ? "Main yahi hoon, kripya batayein agar aap sun pa rahe hain."
-        : "I'm right here, please let me know if you can hear me.";
+        ? "Main yahi hoon, jab aap tayyar hon batayein."
+        : "I'm right here whenever you're ready.";
       await this.callbacks.onNudge(text);
-      this.pause(18000);
+      this.pause(10000);
     } else if (this.cycle >= 4) {
       const text = isHindi
-        ? "Aisa lag raha hai connection me dikkat hai. Main aapko baad me call karti hoon. Namaste! [HANGUP]"
-        : "It seems we have a connection issue. I'll reach out again later. Have a great day! [HANGUP]";
+        ? "Aisa lag raha hai sampark toot gaya hai. Main baad me call karti hoon. Namaste! [HANGUP]"
+        : "Seems like we lost the connection. I'll follow up later. Have a wonderful day! [HANGUP]";
       await this.callbacks.onHangup(text);
     }
   }
