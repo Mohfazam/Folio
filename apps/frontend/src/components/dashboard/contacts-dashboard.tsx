@@ -30,7 +30,6 @@ export type ContactRecord = {
   timezone: string;
   leadScore: number | null;
   lifecycleStage: string;
-  accountTier: string;
   tags: string[];
   parentName: string;
   studentName: string;
@@ -45,7 +44,6 @@ export type ContactFilters = {
   search: string;
   status: string;
   lifecycleStage: string;
-  accountTier: string;
   limit: number;
   offset: number;
 };
@@ -82,13 +80,6 @@ const LIFECYCLE_OPTIONS = [
   { value: "sql", label: "Sales qualified" },
   { value: "customer", label: "Customer" },
   { value: "churned", label: "Churned" },
-];
-
-const ACCOUNT_TIER_OPTIONS = [
-  { value: "Enterprise", label: "Enterprise" },
-  { value: "Mid-Market", label: "Mid-market" },
-  { value: "SMB", label: "SMB" },
-  { value: "VIP", label: "VIP" },
 ];
 
 function formatNumber(value: number): string {
@@ -154,6 +145,26 @@ function MetricCard({
   );
 }
 
+const FULL_NAME_MAX_LENGTH = 128;
+const EMAIL_MAX_LENGTH = 254;
+const STANDARD_FIELD_MAX_LENGTH = 120;
+const TAGS_INPUT_MAX_LENGTH = 450;
+const MAX_TAGS_COUNT = 10;
+
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+const INDIAN_MOBILE_10_REGEX = /^[6-9]\d{9}$/;
+const SQL_INJECTION_PATTERN = /(?:--|;|\/\*|\*\/|(?:union\s+select|drop\s+table|insert\s+into|delete\s+from|update\s+\w+\s+set|exec\s*\(|xp_cmdshell))/i;
+
+function extractIndianTenDigits(raw: string): string {
+  let digits = raw.replace(/\D/g, "");
+  if (digits.startsWith("91") && digits.length > 10) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith("0") && digits.length > 10) {
+    digits = digits.slice(1);
+  }
+  return digits.slice(0, 10);
+}
+
 function ContactEditor({
   mode,
   contact,
@@ -168,31 +179,174 @@ function ContactEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [fullName, setFullName] = useState(contact?.fullName ?? "");
+  const [fullNameError, setFullNameError] = useState<string | null>(null);
+  const [phoneDigits, setPhoneDigits] = useState(() =>
+    extractIndianTenDigits(contact?.phoneNumber ?? ""),
+  );
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [email, setEmail] = useState(contact?.email ?? "");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState(contact?.companyName ?? "");
+  const [jobTitle, setJobTitle] = useState(contact?.jobTitle ?? "");
+  const [department, setDepartment] = useState(contact?.department ?? "");
+  const [industry, setIndustry] = useState(contact?.industry ?? "");
+  const [lifecycleStage, setLifecycleStage] = useState(contact?.lifecycleStage ?? "lead");
+  const [tagsInput, setTagsInput] = useState(() => contact?.tags.join(", ") ?? "");
+  const [tagsError, setTagsError] = useState<string | null>(null);
+  const [country, setCountry] = useState(contact?.country ?? "India");
+  const [state, setState] = useState(contact?.state ?? "");
+  const [city, setCity] = useState(contact?.city ?? "");
+
+  function handleFullNameChange(value: string) {
+    // Disallow numeric characters immediately
+    const withoutNumbers = value.replace(/\d+/g, "");
+    if (withoutNumbers.length > FULL_NAME_MAX_LENGTH) {
+      setFullName(withoutNumbers.slice(0, FULL_NAME_MAX_LENGTH));
+      setFullNameError(
+        `Full name cannot exceed ${FULL_NAME_MAX_LENGTH} characters (${FULL_NAME_MAX_LENGTH}/${FULL_NAME_MAX_LENGTH}).`,
+      );
+      return;
+    }
+    setFullName(withoutNumbers);
+    if (value !== withoutNumbers) {
+      setFullNameError("Numbers are not allowed in the full name field.");
+    } else if (SQL_INJECTION_PATTERN.test(withoutNumbers)) {
+      setFullNameError("Full name contains disallowed characters or SQL syntax.");
+    } else {
+      setFullNameError(null);
+    }
+  }
+
+  function handlePhoneChange(value: string) {
+    const cleanedDigits = extractIndianTenDigits(value);
+    setPhoneDigits(cleanedDigits);
+    if (!cleanedDigits) {
+      setPhoneError(null);
+    } else if (cleanedDigits.length < 10) {
+      setPhoneError("Phone number must be 10 digits.");
+    } else if (!INDIAN_MOBILE_10_REGEX.test(cleanedDigits)) {
+      setPhoneError("Enter a valid Indian mobile number starting with 6, 7, 8, or 9.");
+    } else {
+      setPhoneError(null);
+    }
+  }
+
+  function handleEmailChange(value: string) {
+    const trimmed = value.slice(0, EMAIL_MAX_LENGTH);
+    setEmail(trimmed);
+    const candidate = trimmed.trim();
+    if (!candidate) {
+      setEmailError(null);
+    } else if (!EMAIL_REGEX.test(candidate)) {
+      setEmailError("Enter a valid email address (e.g. name@company.com).");
+    } else if (SQL_INJECTION_PATTERN.test(candidate)) {
+      setEmailError("Email contains disallowed characters.");
+    } else {
+      setEmailError(null);
+    }
+  }
+
+  function handleTagsChange(value: string) {
+    const sliced = value.slice(0, TAGS_INPUT_MAX_LENGTH);
+    setTagsInput(sliced);
+    const parsed = sliced
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    if (parsed.length > MAX_TAGS_COUNT) {
+      setTagsError(`Maximum ${MAX_TAGS_COUNT} tags allowed (${parsed.length}/${MAX_TAGS_COUNT}).`);
+    } else if (parsed.some((tag) => SQL_INJECTION_PATTERN.test(tag))) {
+      setTagsError("Tags contain disallowed characters or SQL syntax.");
+    } else {
+      setTagsError(null);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
 
-    const form = new FormData(event.currentTarget);
-    const optOut = form.get("optOut") === "on";
-    const tags = String(form.get("tags") ?? "")
+    setError(null);
+
+    const cleanName = fullName.trim();
+    if (!cleanName) {
+      setFullNameError("Full name is required.");
+      setError("Please enter a valid full name.");
+      return;
+    }
+    if (/\d/.test(cleanName)) {
+      setFullNameError("Numbers are not allowed in the full name field.");
+      setError("Full name cannot contain numbers.");
+      return;
+    }
+    if (cleanName.length > FULL_NAME_MAX_LENGTH) {
+      setFullNameError(`Full name cannot exceed ${FULL_NAME_MAX_LENGTH} characters.`);
+      setError(`Full name cannot exceed ${FULL_NAME_MAX_LENGTH} characters.`);
+      return;
+    }
+
+    const cleanDigits = extractIndianTenDigits(phoneDigits);
+    if (!INDIAN_MOBILE_10_REGEX.test(cleanDigits)) {
+      setPhoneError("Enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.");
+      setError("Please enter a valid 10-digit Indian phone number.");
+      return;
+    }
+
+    const cleanEmail = email.trim();
+    if (cleanEmail && !EMAIL_REGEX.test(cleanEmail)) {
+      setEmailError("Enter a valid email address (e.g. name@company.com).");
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    const parsedTags = tagsInput
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
 
+    if (parsedTags.length > MAX_TAGS_COUNT) {
+      setTagsError(`Maximum ${MAX_TAGS_COUNT} tags allowed.`);
+      setError(`You can add a maximum of ${MAX_TAGS_COUNT} tags.`);
+      return;
+    }
+
+    const fieldsToInspect = [
+      ["Full name", cleanName],
+      ["Email", cleanEmail],
+      ["Company", companyName.trim()],
+      ["Job title", jobTitle.trim()],
+      ["Department", department.trim()],
+      ["Industry", industry.trim()],
+      ["Country", country.trim()],
+      ["State", state.trim()],
+      ["City", city.trim()],
+      ...parsedTags.map((tag): [string, string] => ["Tag", tag]),
+    ];
+
+    for (const [label, val] of fieldsToInspect) {
+      if (val && SQL_INJECTION_PATTERN.test(val)) {
+        setError(`${label} contains disallowed characters or SQL syntax.`);
+        return;
+      }
+    }
+
+    const form = new FormData(event.currentTarget);
+    const optOut = form.get("optOut") === "on";
+
     const payload: Record<string, unknown> = {
-      fullName: String(form.get("fullName") ?? "").trim(),
-      phoneNumber: String(form.get("phoneNumber") ?? "").trim(),
-      email: String(form.get("email") ?? "").trim(),
-      companyName: String(form.get("companyName") ?? "").trim(),
-      jobTitle: String(form.get("jobTitle") ?? "").trim(),
-      department: String(form.get("department") ?? "").trim(),
-      industry: String(form.get("industry") ?? "").trim(),
-      city: String(form.get("city") ?? "").trim(),
-      state: String(form.get("state") ?? "").trim(),
-      country: String(form.get("country") ?? "").trim(),
-      lifecycleStage: String(form.get("lifecycleStage") ?? "").trim(),
-      accountTier: String(form.get("accountTier") ?? "").trim(),
-      tags,
+      fullName: cleanName,
+      phoneNumber: `+91${cleanDigits}`,
+      email: cleanEmail,
+      companyName: companyName.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      jobTitle: jobTitle.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      department: department.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      industry: industry.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      country: country.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      state: state.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      city: city.trim().slice(0, STANDARD_FIELD_MAX_LENGTH),
+      lifecycleStage: lifecycleStage.trim(),
+      tags: parsedTags,
     };
 
     // The API deliberately does not allow an existing opt-out to be reversed.
@@ -200,7 +354,6 @@ function ContactEditor({
     if (optOut) payload.optOut = true;
 
     setBusy(true);
-    setError(null);
 
     try {
       const result =
@@ -240,7 +393,7 @@ function ContactEditor({
             {mode === "create" ? "Add a contact" : `Edit ${contact ? displayName(contact) : "contact"}`}
           </h2>
           <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
-            Phone number is required. Existing opt-out records cannot be opted back in through contact editing.
+            Fields marked with <span className="font-bold text-[#A33A32]">*</span> are required. Existing opt-out records cannot be opted back in through contact editing.
           </p>
         </div>
 
@@ -254,31 +407,63 @@ function ContactEditor({
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <label className={LABEL_CLASS}>
-            Full name
+            <span>
+              <span className="text-[#A33A32]" aria-hidden="true">* </span>
+              Full name
+            </span>
             <input
               name="fullName"
-              defaultValue={contact?.fullName ?? ""}
-              maxLength={180}
+              required
+              value={fullName}
+              onChange={(event) => handleFullNameChange(event.target.value)}
               className={INPUT_CLASS}
               placeholder="Contact name"
             />
+            <span className="mt-1 flex items-center justify-between text-[10px] font-normal text-[#92938C]">
+              <span>Letters only · Max {FULL_NAME_MAX_LENGTH} characters</span>
+              <span>{fullName.length}/{FULL_NAME_MAX_LENGTH}</span>
+            </span>
+            {fullNameError ? (
+              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+                {fullNameError}
+              </span>
+            ) : null}
           </label>
 
           <label className={LABEL_CLASS}>
-            Phone number
-            <input
-              name="phoneNumber"
-              type="tel"
-              required
-              defaultValue={contact?.phoneNumber ?? ""}
-              className={INPUT_CLASS}
-              placeholder="+919876543210"
-              autoComplete="tel"
-              inputMode="tel"
-            />
+            <span>
+              <span className="text-[#A33A32]" aria-hidden="true">* </span>
+              Phone number
+            </span>
+            <div className="mt-1.5 flex h-10 w-full overflow-hidden rounded-[5px] border border-[#DCDDD6] bg-white transition-colors focus-within:border-[#7852D6] focus-within:ring-2 focus-within:ring-[#7852D6]/10">
+              <span className="inline-flex select-none items-center border-r border-[#ECEBE5] bg-[#F8F7F2] px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#565B5B]">
+                +91
+              </span>
+              <input
+                name="phoneNumber"
+                type="tel"
+                required
+                value={phoneDigits}
+                onChange={(event) => handlePhoneChange(event.target.value)}
+                maxLength={14}
+                className="h-full w-full bg-white px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none placeholder:text-[#A0A19A]"
+                placeholder="9876543210"
+                autoComplete="tel-national"
+                inputMode="numeric"
+              />
+            </div>
+            <span className="mt-1 flex items-center justify-between text-[10px] font-normal text-[#92938C]">
+              <span>10-digit Indian mobile number</span>
+              <span>{phoneDigits.length}/10</span>
+            </span>
+            {phoneError ? (
+              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+                {phoneError}
+              </span>
+            ) : null}
           </label>
 
           <label className={LABEL_CLASS}>
@@ -286,18 +471,27 @@ function ContactEditor({
             <input
               name="email"
               type="email"
-              defaultValue={contact?.email ?? ""}
+              value={email}
+              onChange={(event) => handleEmailChange(event.target.value)}
+              maxLength={EMAIL_MAX_LENGTH}
               className={INPUT_CLASS}
               placeholder="name@company.com"
               autoComplete="email"
             />
+            {emailError ? (
+              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+                {emailError}
+              </span>
+            ) : null}
           </label>
 
           <label className={LABEL_CLASS}>
             Company
             <input
               name="companyName"
-              defaultValue={contact?.companyName ?? ""}
+              value={companyName}
+              onChange={(event) => setCompanyName(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
               className={INPUT_CLASS}
               placeholder="Company name"
             />
@@ -307,7 +501,9 @@ function ContactEditor({
             Job title
             <input
               name="jobTitle"
-              defaultValue={contact?.jobTitle ?? ""}
+              value={jobTitle}
+              onChange={(event) => setJobTitle(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
               className={INPUT_CLASS}
               placeholder="Job title"
             />
@@ -317,7 +513,9 @@ function ContactEditor({
             Department
             <input
               name="department"
-              defaultValue={contact?.department ?? ""}
+              value={department}
+              onChange={(event) => setDepartment(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
               className={INPUT_CLASS}
               placeholder="Department"
             />
@@ -327,39 +525,11 @@ function ContactEditor({
             Industry
             <input
               name="industry"
-              defaultValue={contact?.industry ?? ""}
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
               className={INPUT_CLASS}
               placeholder="Industry"
-            />
-          </label>
-
-          <label className={LABEL_CLASS}>
-            City
-            <input
-              name="city"
-              defaultValue={contact?.city ?? ""}
-              className={INPUT_CLASS}
-              placeholder="City"
-            />
-          </label>
-
-          <label className={LABEL_CLASS}>
-            State
-            <input
-              name="state"
-              defaultValue={contact?.state ?? ""}
-              className={INPUT_CLASS}
-              placeholder="State"
-            />
-          </label>
-
-          <label className={LABEL_CLASS}>
-            Country
-            <input
-              name="country"
-              defaultValue={contact?.country ?? "India"}
-              className={INPUT_CLASS}
-              placeholder="Country"
             />
           </label>
 
@@ -367,27 +537,12 @@ function ContactEditor({
             Lifecycle stage
             <select
               name="lifecycleStage"
-              defaultValue={contact?.lifecycleStage ?? "lead"}
+              value={lifecycleStage}
+              onChange={(event) => setLifecycleStage(event.target.value)}
               className={INPUT_CLASS}
             >
               <option value="">Not set</option>
               {LIFECYCLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className={LABEL_CLASS}>
-            Account tier
-            <select
-              name="accountTier"
-              defaultValue={contact?.accountTier ?? ""}
-              className={INPUT_CLASS}
-            >
-              <option value="">Not set</option>
-              {ACCOUNT_TIER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -400,14 +555,68 @@ function ContactEditor({
           Tags
           <input
             name="tags"
-            defaultValue={contact?.tags.join(", ") ?? ""}
+            value={tagsInput}
+            onChange={(event) => handleTagsChange(event.target.value)}
+            maxLength={TAGS_INPUT_MAX_LENGTH}
             className={INPUT_CLASS}
             placeholder="Interested, Website, Referral"
           />
-          <span className="mt-1 block font-normal text-[#92938C]">
-            Separate tags with commas.
+          <span className="mt-1 flex items-center justify-between font-normal text-[#92938C]">
+            <span>Separate tags with commas · Maximum {MAX_TAGS_COUNT} tags.</span>
+            <span>
+              {
+                tagsInput
+                  .split(",")
+                  .map((t) => t.trim())
+                  .filter(Boolean).length
+              }
+              /{MAX_TAGS_COUNT}
+            </span>
           </span>
+          {tagsError ? (
+            <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+              {tagsError}
+            </span>
+          ) : null}
         </label>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className={LABEL_CLASS}>
+            Country
+            <input
+              name="country"
+              value={country}
+              onChange={(event) => setCountry(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
+              className={INPUT_CLASS}
+              placeholder="Country"
+            />
+          </label>
+
+          <label className={LABEL_CLASS}>
+            State
+            <input
+              name="state"
+              value={state}
+              onChange={(event) => setState(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
+              className={INPUT_CLASS}
+              placeholder="State"
+            />
+          </label>
+
+          <label className={LABEL_CLASS}>
+            City
+            <input
+              name="city"
+              value={city}
+              onChange={(event) => setCity(event.target.value.slice(0, STANDARD_FIELD_MAX_LENGTH))}
+              maxLength={STANDARD_FIELD_MAX_LENGTH}
+              className={INPUT_CLASS}
+              placeholder="City"
+            />
+          </label>
+        </div>
 
         <label className="flex items-start gap-2 rounded-[5px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
           <input
@@ -816,7 +1025,6 @@ function buildPageHref(filters: ContactFilters, offset: number): string {
   if (filters.search) params.set("search", filters.search);
   if (filters.status) params.set("status", filters.status);
   if (filters.lifecycleStage) params.set("lifecycleStage", filters.lifecycleStage);
-  if (filters.accountTier) params.set("accountTier", filters.accountTier);
   params.set("limit", String(filters.limit));
   params.set("offset", String(offset));
   return `/dashboard/contacts?${params.toString()}`;
@@ -1040,7 +1248,7 @@ export function ContactsDashboard({
           <form
             method="get"
             action="/dashboard/contacts"
-            className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(130px,0.8fr))_auto]"
+            className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_repeat(2,minmax(130px,0.8fr))_auto]"
           >
             <input type="hidden" name="limit" value={filters.limit} />
             <label className="sr-only" htmlFor="contact-search">Search contacts</label>
@@ -1077,19 +1285,6 @@ export function ContactsDashboard({
             >
               <option value="">All lifecycle stages</option>
               {LIFECYCLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-
-            <label className="sr-only" htmlFor="contact-tier">Account tier</label>
-            <select
-              id="contact-tier"
-              name="accountTier"
-              defaultValue={filters.accountTier}
-              className="h-10 rounded-[5px] border border-[#E5E4DC] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#444748] outline-none focus:border-[#7852D6]"
-            >
-              <option value="">All account tiers</option>
-              {ACCOUNT_TIER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>

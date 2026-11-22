@@ -48,7 +48,6 @@ function toContact(value: unknown): ContactRecord | null {
     timezone: typeof value.timezone === "string" ? value.timezone : "",
     leadScore: typeof value.leadScore === "number" ? value.leadScore : null,
     lifecycleStage: typeof value.lifecycleStage === "string" ? value.lifecycleStage : "",
-    accountTier: typeof value.accountTier === "string" ? value.accountTier : "",
     tags,
     parentName: typeof value.parentName === "string" ? value.parentName : "",
     studentName: typeof value.studentName === "string" ? value.studentName : "",
@@ -66,7 +65,6 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   const params = await searchParams;
   const requestedStatus = first(params.status);
   const requestedLifecycle = first(params.lifecycleStage);
-  const requestedTier = first(params.accountTier);
   const allowedStatuses = new Set([
     "pending",
     "queued",
@@ -83,18 +81,11 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
     "customer",
     "churned",
   ]);
-  const allowedAccountTiers = new Set([
-    "Enterprise",
-    "Mid-Market",
-    "SMB",
-    "VIP",
-  ]);
 
   const filters: ContactFilters = {
     search: first(params.search).trim().slice(0, 200),
     status: allowedStatuses.has(requestedStatus) ? requestedStatus : "",
     lifecycleStage: allowedLifecycleStages.has(requestedLifecycle) ? requestedLifecycle : "",
-    accountTier: allowedAccountTiers.has(requestedTier) ? requestedTier : "",
     limit: numberParam(first(params.limit), 25, 1, 100),
     offset: numberParam(first(params.offset), 0, 0, 1_000_000),
   };
@@ -113,7 +104,6 @@ async function ContactsPageContent({ searchParams }: { searchParams: Promise<Sea
   if (filters.search) query.set("search", filters.search);
   if (filters.status) query.set("status", filters.status);
   if (filters.lifecycleStage) query.set("lifecycleStage", filters.lifecycleStage);
-  if (filters.accountTier) query.set("accountTier", filters.accountTier);
 
   try {
     const response = await fetch(`${baseUrl}/api/contacts?${query.toString()}`, {

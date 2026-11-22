@@ -214,7 +214,7 @@ export async function previewContactImportRoute(req: Request, res: Response, nex
     const normalizedPhones = rawRows.map((row) =>
       normalizePhoneNumber(String(row.phoneNumber ?? row.phone ?? row.phoneNumberRaw ?? "")),
     );
-    const validPhoneCandidates = [...new Set(normalizedPhones.filter((p) => /^\+\d{7,15}$/.test(p)))];
+    const validPhoneCandidates = [...new Set(normalizedPhones.filter((p) => /^\+91[6-9]\d{9}$/.test(p)))];
 
     const existingRecords = validPhoneCandidates.length
       ? await db
@@ -259,7 +259,7 @@ export async function previewContactImportRoute(req: Request, res: Response, nex
       } else if (!rawPhone) {
         status = "missing_required";
         issues.push("Missing required field: Phone Number");
-      } else if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+      } else if (!/^\+91[6-9]\d{9}$/.test(normalizedPhone)) {
         status = "invalid_phone";
         issues.push("Invalid phone number format");
       } else if (seenInFile.has(normalizedPhone)) {
