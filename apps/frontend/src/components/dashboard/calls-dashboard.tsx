@@ -1,5 +1,5 @@
 "use client";
-import { sanitizeUserError } from "@/lib/utils/sanitize-error";
+
 import { useEffect, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
@@ -186,12 +186,12 @@ function CallComposer({
     try {
       const result = await createTestCallAction(normalizedPhone, confirmed);
       if (!result.ok) {
-        setError(sanitizeUserError(result.error, "The call could not be queued."));
+        setError(result.error || "The call could not be queued.");
         return;
       }
       onQueued(`Your call to ${normalizedPhone} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`);
     } catch (cause) {
-      setError(sanitizeUserError(cause instanceof Error ? cause.message : null, "The call could not be queued."));
+      setError(cause instanceof Error ? cause.message : "The call could not be queued.");
     } finally {
       setBusy(false);
     }
@@ -313,7 +313,7 @@ export function CallsDashboard({
         if (disposed) return;
 
         if (!result.ok) {
-          setLiveStatusError(sanitizeUserError(result.error, "Live call status is temporarily unavailable."));
+          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
           timer = window.setTimeout(refreshLiveStatus, 15000);
           return;
         }
@@ -354,7 +354,7 @@ export function CallsDashboard({
         }
       } catch (error) {
         if (disposed) return;
-        setLiveStatusError(sanitizeUserError(error instanceof Error ? error.message : null, "Live call status is temporarily unavailable."));
+        setLiveStatusError(error instanceof Error ? error.message : "Live call status is temporarily unavailable.");
         timer = window.setTimeout(refreshLiveStatus, 15000);
       }
     };
@@ -389,7 +389,7 @@ export function CallsDashboard({
     setCancellingQueueId(null);
 
     if (!result.ok) {
-      setQueueActionError(sanitizeUserError(result.error, "The queued call could not be cancelled."));
+      setQueueActionError(result.error || "The queued call could not be cancelled.");
       setLiveRefreshKey((value) => value + 1);
       return;
     }
@@ -415,10 +415,7 @@ export function CallsDashboard({
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A8ABF]">
-            Workspace / Activity
-          </p>
-          <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
+          <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Calls
           </h1>
           <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
@@ -448,7 +445,7 @@ export function CallsDashboard({
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
           <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">
-            Calls could not be loaded: {sanitizeUserError(initialError, "Unable to load calls right now. Please try again.")}
+            Calls could not be loaded: {initialError}
           </p>
           <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028]">
             Try again

@@ -2730,10 +2730,7 @@ export function CampaignsDashboard({
       {/* Compact Page Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ECEBE5] pb-5">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
-            Workspace / Outbound
-          </p>
-          <h1 className="mt-1 font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
+          <h1 className="font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
             Campaigns
           </h1>
           <p className="mt-1 max-w-[640px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
