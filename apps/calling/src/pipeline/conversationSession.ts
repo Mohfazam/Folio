@@ -7,6 +7,8 @@ import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
 import { buildOpeningIntro } from "../conversational/introManager.js";
 import { ConversationalEngine } from "../conversational/conversationalEngine.js";
+import { isBackchannel } from "../conversational/backchannelDetector.js";
+import { isGenericGreeting } from "../conversational/genericGreetingTracker.js";
 import { getRandomLatencyFiller } from "../conversational/latencyFiller.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
@@ -504,7 +506,6 @@ export function createConversationSession(
         } catch {}
       }
     } finally {
-      tts?.close();
       if (activeTurn === controller) activeTurn = null;
       turnInProgress = false;
 
@@ -546,7 +547,13 @@ export function createConversationSession(
             return;
           }
 
-          // Do not interrupt on passive backchannels ("haan", "hmm") or early intro greetings
+          // Do not interrupt on passive backchannels ("haan", "hmm") or solitary greetings ("hello", "hi", "yes")
+          // If the caller accidentally says "hello" or "yeah" while the AI is talking, let the AI finish her thought!
+          if (isBackchannel(trimmed) || isGenericGreeting(trimmed)) {
+            return;
+          }
+
+          // Do not interrupt on passive backchannels or early intro greetings
           const action = conversationalEngine.evaluateUtterance(trimmed, currentLanguage);
           if (action.type === "ignore_filler" || action.type === "continue_intro") {
             return;
