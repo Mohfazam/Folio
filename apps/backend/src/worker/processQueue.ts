@@ -583,6 +583,16 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
         dialBody.campaignId = queueEntry.campaignId;
       }
 
+      const campaignGreeting = typeof campaign?.callOpeningHook === "string" && campaign.callOpeningHook.trim()
+        ? campaign.callOpeningHook.trim()
+        : (typeof agentRuntimeSettings?.greeting === "string" && agentRuntimeSettings.greeting.trim()
+            ? agentRuntimeSettings.greeting.trim()
+            : undefined);
+
+      if (campaignGreeting) {
+        dialBody.greetingText = campaignGreeting;
+      }
+
       const publicDemoScenario = typeof contactCustomFields.publicDemoScenario === "string"
         ? contactCustomFields.publicDemoScenario
         : "general-enquiry";
