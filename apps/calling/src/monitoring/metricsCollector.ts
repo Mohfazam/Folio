@@ -72,6 +72,13 @@ export class MetricsCollector {
   private sttReconnects = 0;
   private emptyReplyFallbacks = 0;
 
+  // Conversational edge case metrics
+  private audibilityChecks = 0;
+  private busyCallbacks = 0;
+  private optOutsTriggered = 0;
+  private silencePromptsTriggered = 0;
+  private backchannelsIgnored = 0;
+
   // Analytics & feedback
   private sentimentCounts = {
     positive: 0,
@@ -197,6 +204,26 @@ export class MetricsCollector {
 
   recordEmptyReplyFallback() {
     this.emptyReplyFallbacks++;
+  }
+
+  recordAudibilityCheck() {
+    this.audibilityChecks++;
+  }
+
+  recordBusyCallback() {
+    this.busyCallbacks++;
+  }
+
+  recordOptOutTriggered() {
+    this.optOutsTriggered++;
+  }
+
+  recordSilencePromptTriggered() {
+    this.silencePromptsTriggered++;
+  }
+
+  recordBackchannelIgnored() {
+    this.backchannelsIgnored++;
   }
 
   recordAutoHangup() {
@@ -373,6 +400,13 @@ export class MetricsCollector {
         speech: {
           sttReconnects: this.sttReconnects,
           emptyReplyFallbacks: this.emptyReplyFallbacks,
+        },
+        conversationalEdgeCases: {
+          audibilityChecks: this.audibilityChecks,
+          busyCallbacks: this.busyCallbacks,
+          optOutsTriggered: this.optOutsTriggered,
+          silencePromptsTriggered: this.silencePromptsTriggered,
+          backchannelsIgnored: this.backchannelsIgnored,
         },
       },
       analytics: {

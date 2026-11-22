@@ -87,6 +87,7 @@ export function createConversationSession(
     {
       onNudge: async (promptText) => {
         if (closed || turnInProgress) return;
+        metricsCollector.recordSilencePromptTriggered();
         console.log(`${tag} ⏱️ Silence watchdog nudging caller: "${promptText}"`);
         try {
           const audio = await convertTextToSpeech(promptText, {
@@ -476,6 +477,7 @@ export function createConversationSession(
           const action = conversationalEngine.evaluateUtterance(finalTrimmed, activeLang);
 
           if (action.type === "ignore_filler") {
+            metricsCollector.recordBackchannelIgnored();
             console.log(`${tag} 🔇 Ignored passive backchannel: "${finalTrimmed}"`);
             return;
           }
@@ -489,18 +491,21 @@ export function createConversationSession(
           conversationalEngine.markIntroCompleted();
 
           if (action.type === "audibility_check") {
+            metricsCollector.recordAudibilityCheck();
             console.log(`${tag} 🔍 Audibility verification triggered: "${finalTrimmed}"`);
             speakImmediateResponse(action.replyText, activeLang, false);
             return;
           }
 
           if (action.type === "busy_callback") {
+            metricsCollector.recordBusyCallback();
             console.log(`${tag} 📅 Busy / Callback requested: "${finalTrimmed}"`);
             speakImmediateResponse(action.replyText, activeLang, true);
             return;
           }
 
           if (action.type === "opt_out") {
+            metricsCollector.recordOptOutTriggered();
             console.log(`${tag} 🛑 Caller requested opt-out: "${finalTrimmed}"`);
             options?.sessionState?.markOptOut();
             speakImmediateResponse(action.replyText, activeLang, true);
