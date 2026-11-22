@@ -3,7 +3,10 @@
 import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { importContactsAction } from "@/app/(dashboard)/dashboard/actions";
+import {
+  bulkCreateContactsAction,
+  previewContactImportAction,
+} from "@/app/(dashboard)/dashboard/actions";
 import {
   createContactAction,
   deleteContactAction,
@@ -451,6 +454,18 @@ function ContactEditor({
   );
 }
 
+type ImportPreviewRow = {
+  rowNumber: number;
+  fullName: string;
+  phoneNumber: string;
+  normalizedPhone: string;
+  email: string;
+  companyName: string;
+  status: "valid" | "missing_required" | "invalid_phone" | "duplicate_in_file" | "exists_in_db";
+  issues: string[];
+  rawRow: Record<string, unknown>;
+};
+
 function ImportPanel({
   onCancel,
   onImported,
@@ -459,43 +474,97 @@ function ImportPanel({
   onImported: (message: string) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [rows, setRows] = useState<ImportPreviewRow[]>([]);
+  const [parsing, setParsing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleImport() {
-    if (!file || !confirmed || busy) return;
+  const stats = useMemo(
+    () => ({
+      valid: rows.filter((r) => r.status === "valid"),
+      duplicates: rows.filter((r) => r.status === "duplicate_in_file"),
+      existingDb: rows.filter((r) => r.status === "exists_in_db"),
+      missingOrInvalid: rows.filter(
+        (r) => r.status === "missing_required" || r.status === "invalid_phone",
+      ),
+    }),
+    [rows],
+  );
 
-    if (file.size > 5 * 1024 * 1024) {
+  async function handleFileSelect(selected: File | null) {
+    setFile(selected);
+    setRows([]);
+    setError(null);
+    if (!selected) return;
+
+    if (selected.size > 5 * 1024 * 1024) {
       setError("The selected file exceeds the 5 MB upload limit.");
       return;
     }
 
-    const extension = file.name.toLowerCase().split(".").pop();
+    const extension = selected.name.toLowerCase().split(".").pop();
     if (extension !== "csv" && extension !== "xlsx") {
       setError("Use a CSV or XLSX file. XLS files are not supported.");
       return;
     }
 
+    setParsing(true);
+    try {
+      const result = await previewContactImportAction(selected);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const previewRows = Array.isArray(result.data?.rows)
+        ? (result.data.rows as ImportPreviewRow[])
+        : [];
+      setRows(previewRows);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to inspect the selected file.",
+      );
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  function handleRemoveDuplicates() {
+    setRows((prev) => prev.filter((r) => r.status !== "duplicate_in_file"));
+  }
+
+  function handleRemoveRow(rowNumber: number) {
+    setRows((prev) => prev.filter((r) => r.rowNumber !== rowNumber));
+  }
+
+  async function handleImport() {
+    if (!file || busy || parsing || stats.valid.length === 0) return;
+
     setBusy(true);
     setError(null);
 
     try {
-      const result = await importContactsAction(file);
+      const validPayload = stats.valid.map((r) => r.rawRow);
+      const result = await bulkCreateContactsAction(file.name.slice(0, 255), validPayload);
       if (!result.ok) {
         setError(result.error);
         return;
       }
 
       const data = result.data ?? {};
-      const inserted = typeof data.inserted === "number" ? data.inserted : 0;
-      const failed = typeof data.failed === "number" ? data.failed : 0;
-      const duplicates = typeof data.duplicates === "number" ? data.duplicates : 0;
-      const total = typeof data.totalReceived === "number" ? data.totalReceived : inserted + failed;
+      const inserted = typeof data.inserted === "number" ? data.inserted : stats.valid.length;
+      const skippedParts: string[] = [];
+      if (stats.duplicates.length > 0) {
+        skippedParts.push(`${formatNumber(stats.duplicates.length)} duplicate${stats.duplicates.length === 1 ? "" : "s"} removed`);
+      }
+      if (stats.existingDb.length > 0) {
+        skippedParts.push(`${formatNumber(stats.existingDb.length)} already in database skipped`);
+      }
+      if (stats.missingOrInvalid.length > 0) {
+        skippedParts.push(`${formatNumber(stats.missingOrInvalid.length)} missing required fields skipped`);
+      }
 
-      onImported(
-        `Import processed: ${formatNumber(inserted)} added out of ${formatNumber(total)} rows, ${formatNumber(duplicates)} duplicates and ${formatNumber(failed)} rejected.`,
-      );
+      const summarySuffix = skippedParts.length > 0 ? ` (${skippedParts.join(", ")})` : "";
+      onImported(`Imported ${formatNumber(inserted)} contact${inserted === 1 ? "" : "s"}${summarySuffix}.`);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "The contact import failed.",
@@ -516,7 +585,7 @@ function ImportPanel({
             Import a contact list
           </h2>
           <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
-            Upload up to 500 contacts in CSV or XLSX format. Foolioo validates phone numbers, skips duplicates and preserves opt-out records.
+            Upload up to 500 contacts in CSV or XLSX format. Name and phone number are required; duplicates, existing database records and incomplete rows are flagged and skipped automatically.
           </p>
         </div>
 
@@ -553,9 +622,7 @@ function ImportPanel({
           accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="sr-only"
           onChange={(event) => {
-            setFile(event.target.files?.[0] ?? null);
-            setConfirmed(false);
-            setError(null);
+            void handleFileSelect(event.target.files?.[0] ?? null);
           }}
         />
       </label>
@@ -567,37 +634,147 @@ function ImportPanel({
               {file.name}
             </p>
             <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-              {(file.size / 1024).toFixed(1)} KB
+              {(file.size / 1024).toFixed(1)} KB {parsing ? "· Validating rows…" : rows.length > 0 ? `· ${formatNumber(rows.length)} rows inspected` : ""}
             </p>
           </div>
           <button
             type="button"
             onClick={() => {
               setFile(null);
-              setConfirmed(false);
+              setRows([]);
+              setError(null);
             }}
-            className="shrink-0 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FCECE9]"
           >
-            Remove
+            Remove file
           </button>
         </div>
       ) : null}
 
       <div className="mt-3 rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[10px] leading-5 text-[#565B5B]">
-        Required column: <strong>phoneNumber</strong>. Optional columns include fullName, email, companyName, jobTitle, city, state, country, lifecycleStage, accountTier, tags and optOut. Ten-digit Indian mobile numbers are normalized with +91.
+        Required columns: <strong>fullName</strong> (or name) and <strong>phoneNumber</strong>. Optional columns include email, companyName, jobTitle, city, state, country, lifecycleStage, accountTier, tags and optOut. Ten-digit Indian mobile numbers are normalized with +91.
       </div>
 
-      <label className="mt-3 flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[10px] leading-5 text-[#565B5B]">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          onChange={(event) => setConfirmed(event.target.checked)}
-          className="mt-1 accent-[#7852D6]"
-        />
-        <span>
-          I confirm that I have permission to contact the people in this file and that opt-out requests are represented correctly.
-        </span>
-      </label>
+      {rows.length > 0 ? (
+        <div className="mt-4 space-y-3 rounded-[6px] border border-[#E6E4DC] bg-white p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 font-['Space_Grotesk'] text-[10px] font-semibold">
+              <span className="rounded-full border border-[#CDE5D4] bg-[#EFF8F1] px-2.5 py-1 text-[#34734B]">
+                {formatNumber(stats.valid.length)} ready to save
+              </span>
+              {stats.duplicates.length > 0 ? (
+                <span className="rounded-full border border-[#F0DFB4] bg-[#FFFBEB] px-2.5 py-1 text-[#8D6418]">
+                  {formatNumber(stats.duplicates.length)} duplicate{stats.duplicates.length === 1 ? "" : "s"}
+                </span>
+              ) : null}
+              {stats.existingDb.length > 0 ? (
+                <span className="rounded-full border border-[#D9D0EC] bg-[#F3EFFA] px-2.5 py-1 text-[#644ABB]">
+                  {formatNumber(stats.existingDb.length)} already in database
+                </span>
+              ) : null}
+              {stats.missingOrInvalid.length > 0 ? (
+                <span className="rounded-full border border-[#F0D8D4] bg-[#FFF4F2] px-2.5 py-1 text-[#A33A32]">
+                  {formatNumber(stats.missingOrInvalid.length)} missing required / invalid
+                </span>
+              ) : null}
+            </div>
+
+            {stats.duplicates.length > 0 ? (
+              <button
+                type="button"
+                onClick={handleRemoveDuplicates}
+                className="rounded-[5px] border border-[#E5C98B] bg-[#FFFBEB] px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#8D6418] hover:bg-[#FEF3C7]"
+              >
+                Remove duplicates ({stats.duplicates.length})
+              </button>
+            ) : null}
+          </div>
+
+          <div className="max-h-[300px] overflow-auto rounded-[5px] border border-[#ECEBE5]">
+            <table className="w-full min-w-[680px] border-collapse text-left">
+              <thead className="sticky top-0 border-b border-[#ECEBE5] bg-[#FBFAF6]">
+                <tr>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Row</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Name</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Phone number</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Optional details</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Validation</th>
+                  <th className="px-3 py-2 text-right font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F0EFE9]">
+                {rows.map((row) => {
+                  const isMissing = row.status === "missing_required" || row.status === "invalid_phone";
+                  const isDuplicate = row.status === "duplicate_in_file";
+                  const isExisting = row.status === "exists_in_db";
+                  const rowBg = isMissing
+                    ? "bg-[#FFF6F5]"
+                    : isDuplicate
+                      ? "bg-[#FFFDF5]"
+                      : isExisting
+                        ? "bg-[#F9F7FD]"
+                        : "bg-white";
+
+                  return (
+                    <tr key={row.rowNumber} className={rowBg}>
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                        #{row.rowNumber}
+                      </td>
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[11px]">
+                        {row.fullName ? (
+                          <span className="font-semibold text-[#1B1C18]">{row.fullName}</span>
+                        ) : (
+                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[10px] font-semibold text-[#A33A32]">
+                            Missing name
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[11px]">
+                        {row.phoneNumber ? (
+                          <span className="text-[#1B1C18]">{row.normalizedPhone || row.phoneNumber}</span>
+                        ) : (
+                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[10px] font-semibold text-[#A33A32]">
+                            Missing phone
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                        {[row.email, row.companyName].filter(Boolean).join(" · ") || "—"}
+                      </td>
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px]">
+                        {row.status === "valid" ? (
+                          <span className="font-semibold text-[#34734B]">Ready to import</span>
+                        ) : (
+                          <span
+                            className={`font-semibold ${
+                              isMissing
+                                ? "text-[#A33A32]"
+                                : isDuplicate
+                                  ? "text-[#8D6418]"
+                                  : "text-[#644ABB]"
+                            }`}
+                          >
+                            {row.issues.join("; ")} · Will skip
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRow(row.rowNumber)}
+                          className="rounded-[4px] border border-[#EAD8D5] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-semibold text-[#A33A32] hover:bg-[#FFF8F7]"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <div
@@ -620,10 +797,14 @@ function ImportPanel({
         <button
           type="button"
           onClick={handleImport}
-          disabled={!file || !confirmed || busy}
+          disabled={!file || parsing || busy || stats.valid.length === 0}
           className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? "Importing…" : "Confirm and import"}
+          {busy
+            ? "Importing…"
+            : stats.valid.length > 0
+              ? `Import ${formatNumber(stats.valid.length)} contact${stats.valid.length === 1 ? "" : "s"}`
+              : "Import contacts"}
         </button>
       </div>
     </section>

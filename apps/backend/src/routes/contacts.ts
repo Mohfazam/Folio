@@ -7,7 +7,7 @@ import { processNextEligibleCall } from "../worker/processQueue.js";
 /**
  * Sanitizes and normalizes phone numbers.
  */
-function normalizePhoneNumber(raw: string): string {
+export function normalizePhoneNumber(raw: string): string {
   if (!raw) return "";
   let cleaned = raw.trim().replace(/[^\d+]/g, "");
   // If it's a 10-digit Indian number without country code, add +91
@@ -234,9 +234,13 @@ export async function bulkContactsRoute(req: Request, res: Response) {
     for (let i = 0; i < contactRows.length; i++) {
       const row = contactRows[i]!;
       try {
+        const rawName = String(row.fullName ?? row.name ?? "").trim();
         const rawPhone = String(row.phoneNumber || row.phone || row.phoneNumberRaw || "");
         const normalizedPhone = normalizedPhones[i]!;
 
+        if (label !== "manual-contact-entry" && !rawName) {
+          throw new Error("Contact name is required");
+        }
         if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
           throw new Error("A valid phone number is required (E.164 format, or a 10-digit Indian number)");
         }
@@ -252,7 +256,7 @@ export async function bulkContactsRoute(req: Request, res: Response) {
           .values({
             clientId,
             uploadBatchId: batch.id,
-            fullName: (row.fullName as string | undefined) ?? (row.name as string | undefined) ?? null,
+            fullName: rawName || null,
             secondaryName: (row.secondaryName as string | undefined) ?? null,
             phoneNumber: normalizedPhone,
             phoneNumberRaw: rawPhone || normalizedPhone,

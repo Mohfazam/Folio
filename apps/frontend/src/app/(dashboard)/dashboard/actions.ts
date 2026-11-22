@@ -66,6 +66,23 @@ export async function saveAgentSettingsAction(input: Record<string, unknown>): P
   });
 }
 
+export async function previewContactImportAction(file: File): Promise<ActionResult> {
+  const formData = new FormData();
+  formData.set("file", file, file.name);
+  return backendRequest("/api/contacts/import/preview", "POST", formData, true);
+}
+
+export async function bulkCreateContactsAction(
+  label: string,
+  contacts: Record<string, unknown>[],
+): Promise<ActionResult> {
+  return backendRequest("/api/contacts/bulk", "POST", {
+    label,
+    autoEnqueue: false,
+    contacts,
+  });
+}
+
 export async function importContactsAction(file: File): Promise<ActionResult> {
   const formData = new FormData();
   formData.set("file", file, file.name);

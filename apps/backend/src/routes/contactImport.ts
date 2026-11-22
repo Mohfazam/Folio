@@ -4,7 +4,10 @@ import type { NextFunction, Request, Response } from "express";
 import multer, { MulterError } from "multer";
 import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
-import { bulkContactsRoute } from "./contacts.js";
+import { eq, and, inArray } from "drizzle-orm";
+import { db } from "../config/db.js";
+import { contacts } from "@repo/db";
+import { bulkContactsRoute, normalizePhoneNumber } from "./contacts.js";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_CONTACT_ROWS = 500;
@@ -49,6 +52,9 @@ function validateHeaders(headers: unknown[]): string[] {
     return canonicalHeader(header);
   });
 
+  if (!result.some((header) => header === "fullName")) {
+    throw new ContactImportError("A fullName or name column is required");
+  }
   if (!result.some((header) => header === "phoneNumber")) {
     throw new ContactImportError("A phone, mobile, or phoneNumber column is required");
   }
@@ -175,6 +181,160 @@ export function contactImportUpload(req: Request, res: Response, next: NextFunct
     }
     return next(err);
   });
+}
+
+export type PreviewContactRow = {
+  rowNumber: number;
+  fullName: string;
+  phoneNumber: string;
+  normalizedPhone: string;
+  email: string;
+  companyName: string;
+  jobTitle: string;
+  city: string;
+  state: string;
+  country: string;
+  lifecycleStage: string;
+  accountTier: string;
+  tags: string[];
+  optOut: boolean;
+  status: "valid" | "missing_required" | "invalid_phone" | "duplicate_in_file" | "exists_in_db";
+  issues: string[];
+  rawRow: Record<string, unknown>;
+};
+
+export async function previewContactImportRoute(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "A CSV or XLSX file is required in the 'file' field" });
+    }
+    const clientId = req.clientId!;
+    const rawRows = await parseContactUpload(req.file.buffer, req.file.originalname);
+
+    const normalizedPhones = rawRows.map((row) =>
+      normalizePhoneNumber(String(row.phoneNumber ?? row.phone ?? row.phoneNumberRaw ?? "")),
+    );
+    const validPhoneCandidates = [...new Set(normalizedPhones.filter((p) => /^\+\d{7,15}$/.test(p)))];
+
+    const existingRecords = validPhoneCandidates.length
+      ? await db
+          .select({ phoneNumber: contacts.phoneNumber, fullName: contacts.fullName })
+          .from(contacts)
+          .where(and(eq(contacts.clientId, clientId), inArray(contacts.phoneNumber, validPhoneCandidates)))
+      : [];
+
+    const existingByPhone = new Map(existingRecords.map((r) => [r.phoneNumber, r.fullName ?? ""]));
+    const seenInFile = new Map<string, number>();
+
+    const previewRows: PreviewContactRow[] = rawRows.map((row, idx) => {
+      const rowNumber = idx + 2;
+      const fullName = String(row.fullName ?? row.name ?? "").trim();
+      const rawPhone = String(row.phoneNumber ?? row.phone ?? row.phoneNumberRaw ?? "").trim();
+      const normalizedPhone = normalizedPhones[idx]!;
+      const email = String(row.email ?? "").trim();
+      const companyName = String(row.companyName ?? row.company ?? "").trim();
+      const jobTitle = String(row.jobTitle ?? row.title ?? "").trim();
+      const city = String(row.city ?? "").trim();
+      const state = String(row.state ?? "").trim();
+      const country = String(row.country ?? "").trim();
+      const lifecycleStage = String(row.lifecycleStage ?? "").trim();
+      const accountTier = String(row.accountTier ?? "").trim();
+      const rawTags = row.tags;
+      const tags = Array.isArray(rawTags)
+        ? rawTags.map(String)
+        : typeof rawTags === "string" && rawTags.trim()
+          ? rawTags.split(",").map((t) => t.trim()).filter(Boolean)
+          : [];
+      const optOut = row.optOut === true;
+
+      const issues: string[] = [];
+      let status: PreviewContactRow["status"] = "valid";
+
+      if (!fullName && !rawPhone) {
+        status = "missing_required";
+        issues.push("Missing required fields: Name and Phone Number");
+      } else if (!fullName) {
+        status = "missing_required";
+        issues.push("Missing required field: Name");
+      } else if (!rawPhone) {
+        status = "missing_required";
+        issues.push("Missing required field: Phone Number");
+      } else if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+        status = "invalid_phone";
+        issues.push("Invalid phone number format");
+      } else if (seenInFile.has(normalizedPhone)) {
+        status = "duplicate_in_file";
+        const firstRow = seenInFile.get(normalizedPhone)!;
+        issues.push(`Duplicate entry in file (matches row ${firstRow})`);
+      } else if (existingByPhone.has(normalizedPhone)) {
+        status = "exists_in_db";
+        const existingName = existingByPhone.get(normalizedPhone);
+        issues.push(
+          existingName
+            ? `Already exists in database (${existingName})`
+            : "Already exists in database",
+        );
+      } else {
+        seenInFile.set(normalizedPhone, rowNumber);
+      }
+
+      const sanitizedRow: Record<string, unknown> = {
+        ...row,
+        fullName,
+        phoneNumber: normalizedPhone || rawPhone,
+        phoneNumberRaw: rawPhone || normalizedPhone,
+        email: email || undefined,
+        companyName: companyName || undefined,
+        jobTitle: jobTitle || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        country: country || undefined,
+        lifecycleStage: lifecycleStage || undefined,
+        accountTier: accountTier || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        optOut,
+      };
+
+      return {
+        rowNumber,
+        fullName,
+        phoneNumber: rawPhone,
+        normalizedPhone,
+        email,
+        companyName,
+        jobTitle,
+        city,
+        state,
+        country,
+        lifecycleStage,
+        accountTier,
+        tags,
+        optOut,
+        status,
+        issues,
+        rawRow: sanitizedRow,
+      };
+    });
+
+    return res.json({
+      ok: true,
+      filename: req.file.originalname,
+      rows: previewRows,
+      summary: {
+        totalRows: previewRows.length,
+        validCount: previewRows.filter((r) => r.status === "valid").length,
+        missingRequiredCount: previewRows.filter((r) => r.status === "missing_required").length,
+        invalidPhoneCount: previewRows.filter((r) => r.status === "invalid_phone").length,
+        duplicateInFileCount: previewRows.filter((r) => r.status === "duplicate_in_file").length,
+        existsInDbCount: previewRows.filter((r) => r.status === "exists_in_db").length,
+      },
+    });
+  } catch (err: unknown) {
+    if (err instanceof ContactImportError) {
+      return res.status(400).json({ ok: false, error: err.message });
+    }
+    return next(err);
+  }
 }
 
 export async function importContactsFileRoute(req: Request, res: Response, next: NextFunction) {

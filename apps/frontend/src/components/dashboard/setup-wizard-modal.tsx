@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createCampaignAction,
   createTestCallAction,
@@ -38,44 +38,6 @@ type ActionResult = { ok: true; data?: RecordValue } | { ok: false; error: strin
 const INPUT = "h-10 w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
 const TEXTAREA = "w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
 const LABEL = "flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]";
-
-function AutoTextarea({
-  className = "",
-  onInput,
-  defaultValue,
-  value,
-  rows = 2,
-  ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-
-  const resize = () => {
-    const element = ref.current;
-    if (!element) return;
-    element.style.height = "auto";
-    element.style.height = `${element.scrollHeight}px`;
-  };
-
-  useLayoutEffect(() => {
-    resize();
-  }, [defaultValue, value]);
-
-  return (
-    <textarea
-      {...props}
-      ref={ref}
-      rows={rows}
-      defaultValue={defaultValue}
-      value={value}
-      onInput={(event) => {
-        resize();
-        onInput?.(event);
-      }}
-      className={`${className} field-sizing-content resize-none overflow-hidden`}
-    />
-  );
-}
-
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -291,7 +253,7 @@ export function SetupWizardModal({
           ) : (
           <>
           {action === "voice" ? (
-            <form key={wizardData ? "loaded" : "initial"} className="flex flex-col gap-4" onSubmit={async (event) => {
+            <form className="flex flex-col gap-4" onSubmit={async (event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
               const guardrails = String(form.get("guardrails") ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
@@ -339,7 +301,7 @@ export function SetupWizardModal({
                 </label>
               </div>
               <label className={LABEL}>What does your business do?
-                <AutoTextarea name="description" required rows={3} defaultValue={textValue(profile, "description")} className={TEXTAREA} maxLength={5000} placeholder="Describe your products, services and the customers you help." />
+                <textarea name="description" required rows={3} defaultValue={textValue(profile, "description")} className={TEXTAREA} maxLength={5000} placeholder="Describe your products, services and the customers you help." />
               </label>
 
               <SectionLabel>02 / AGENT IDENTITY & SPEAKING STYLE</SectionLabel>
@@ -384,24 +346,24 @@ export function SetupWizardModal({
 
               <SectionLabel>03 / CONVERSATION BEHAVIOUR</SectionLabel>
               <label className={LABEL}>Opening greeting
-                <AutoTextarea name="greeting" required rows={2} defaultValue={textValue(agent, "greeting", `Hello, this is ${textValue(agent, "agentName", textValue(profile, "aiPersonaName", "your assistant"))} calling from ${textValue(profile, "displayName", textValue(client, "name", "our business"))}. Is now a good time to talk?`)} className={TEXTAREA} placeholder="A short, natural greeting for the first few seconds of a call." />
+                <textarea name="greeting" required rows={2} defaultValue={textValue(agent, "greeting", `Hello, this is ${textValue(agent, "agentName", textValue(profile, "aiPersonaName", "your assistant"))} calling from ${textValue(profile, "displayName", textValue(client, "name", "our business"))}. Is now a good time to talk?`)} className={TEXTAREA} placeholder="A short, natural greeting for the first few seconds of a call." />
               </label>
               <label className={LABEL}>What should the agent achieve during a call?
-                <AutoTextarea name="primaryObjective" required rows={2} defaultValue={textValue(agent, "primaryObjective")} className={TEXTAREA} placeholder="Explain the purpose of the call and the outcome you want." />
+                <textarea name="primaryObjective" required rows={2} defaultValue={textValue(agent, "primaryObjective")} className={TEXTAREA} placeholder="Explain the purpose of the call and the outcome you want." />
               </label>
               <label className={LABEL}>When should the agent involve a person?
-                <AutoTextarea name="handoffInstructions" rows={2} defaultValue={textValue(agent, "handoffInstructions")} className={TEXTAREA} placeholder="For example, when a customer requests a person or asks something the agent cannot answer." />
+                <textarea name="handoffInstructions" rows={2} defaultValue={textValue(agent, "handoffInstructions")} className={TEXTAREA} placeholder="For example, when a customer requests a person or asks something the agent cannot answer." />
               </label>
               <label className={LABEL}>Pronunciation notes
-                <AutoTextarea name="pronunciationNotes" rows={2} defaultValue={textValue(agent, "pronunciationNotes")} className={TEXTAREA} placeholder="Names, product terms or words that need a specific pronunciation." />
+                <textarea name="pronunciationNotes" rows={2} defaultValue={textValue(agent, "pronunciationNotes")} className={TEXTAREA} placeholder="Names, product terms or words that need a specific pronunciation." />
               </label>
 
               <SectionLabel>04 / SAFETY & COMPLIANCE</SectionLabel>
               <label className={LABEL}>Rules your agent must follow, one per line
-                <AutoTextarea name="guardrails" required rows={4} defaultValue={listValue(profile, "guardrails").length ? listValue(profile, "guardrails").join("\n") : "Never invent prices, policies or commitments.\nRespect opt-out requests immediately.\nDo not provide advice outside the approved business information.\nEscalate sensitive or uncertain requests to a person."} className={TEXTAREA} placeholder={'Never invent prices or policy details.\nRespect opt-out requests.'} />
+                <textarea name="guardrails" required rows={4} defaultValue={listValue(profile, "guardrails").length ? listValue(profile, "guardrails").join("\n") : "Never invent prices, policies or commitments.\nRespect opt-out requests immediately.\nDo not provide advice outside the approved business information.\nEscalate sensitive or uncertain requests to a person."} className={TEXTAREA} placeholder={'Never invent prices or policy details.\nRespect opt-out requests.'} />
               </label>
               <label className={LABEL}>Required disclosures or compliance notes (optional)
-                <AutoTextarea name="complianceNotes" rows={3} defaultValue={textValue(profile, "complianceNotes")} className={TEXTAREA} placeholder="Add any disclosures your business requires the agent to say during a call." />
+                <textarea name="complianceNotes" rows={3} defaultValue={textValue(profile, "complianceNotes")} className={TEXTAREA} placeholder="Add any disclosures your business requires the agent to say during a call." />
               </label>
               {renderFooter("Save agent setup")}
             </form>
@@ -419,7 +381,7 @@ export function SetupWizardModal({
                     <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">CSV or Excel · One row per contact</span>
                     <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[11px] text-[#565B5B]" onChange={(event) => { setContactFile(event.target.files?.[0] ?? null); setContactImportConfirmed(false); setError(null); }} />
                   </label>
-                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="font-['Space_Grotesk'] text-[11px] text-[#644ABB]">Remove</button></div> : null}
+                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="inline-flex shrink-0 items-center rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] hover:bg-[#FCECE9]">Remove file</button></div> : null}
                   <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">The downloadable template contains column headers only. Add at least one contact row before uploading it. A phoneNumber column is required; names and other business fields are optional. The backend validates every row before it becomes eligible for calling.</div>
                   <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" disabled={!contactFile} onClick={() => setContactImportStage("review")} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">Review import →</button></div>
                 </>
@@ -431,13 +393,9 @@ export function SetupWizardModal({
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{contactFile ? `${(contactFile.size / 1024).toFixed(1)} KB` : "No file selected"}</p>
                     <p className="mt-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Foolioo will process this file using the workspace import pipeline. The import result will report the rows accepted or rejected by the backend. Invalid phone numbers, duplicates and opted-out contacts must remain ineligible for outbound campaigns.</p>
                   </div>
-                  <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
-                    <input type="checkbox" checked={contactImportConfirmed} onChange={(event) => setContactImportConfirmed(event.target.checked)} className="mt-1 accent-[#7852D6]" />
-                    <span>I confirm that I have permission to contact the people in this file and that opt-out requests are represented correctly.</span>
-                  </label>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECEBE5] pt-4">
                     <button type="button" disabled={busy} onClick={() => setContactImportStage("select")} className="rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Back</button>
-                    <button type="button" disabled={busy || Boolean(success) || !contactFile || !contactImportConfirmed} onClick={async () => {
+                    <button type="button" disabled={busy || Boolean(success) || !contactFile} onClick={async () => {
                       if (!contactFile) return;
                       const result = await submit(() => importContactsAction(contactFile), "Your contact import has been submitted. Check the import result before using this audience in a campaign.");
                       if (!result) {
@@ -453,7 +411,7 @@ export function SetupWizardModal({
                         const invalid = payload.invalidRows ?? payload.invalid;
                         if (typeof total === "number") setSuccess(`Import submitted. ${total} rows received${typeof valid === "number" ? `, ${valid} valid` : ""}${typeof invalid === "number" ? `, ${invalid} invalid` : ""}.`);
                       }
-                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Confirm and import"}</button>
+                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Import contacts"}</button>
                   </div>
                 </>
               )}
@@ -463,7 +421,7 @@ export function SetupWizardModal({
           {action === "test-call" ? (
             <div className="flex flex-col gap-4">
               <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Enter a phone number you own to hear how your configured agent opens a conversation. No SMS verification code is needed. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
-              <form key={wizardData ? "loaded" : "initial"} className="flex flex-col gap-4" onSubmit={async (event) => {
+              <form className="flex flex-col gap-4" onSubmit={async (event) => {
                 event.preventDefault();
                 const normalizedPhone = phoneInput.trim();
                 if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
@@ -525,7 +483,7 @@ export function SetupWizardModal({
           ) : null}
 
           {action === "campaign" ? (
-            <form key={wizardData ? "loaded" : "initial"} className="flex flex-col gap-4" onSubmit={async (event) => {
+            <form className="flex flex-col gap-4" onSubmit={async (event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
               const keyTalkingPoints = String(form.get("keyTalkingPoints") ?? "").split("\n").map((item) => item.trim()).filter(Boolean);
@@ -561,13 +519,13 @@ export function SetupWizardModal({
                 </label>
               </div>
               <label className={LABEL}>What should this campaign achieve?
-                <AutoTextarea name="primaryObjective" required rows={2} className={TEXTAREA} placeholder="Describe the result you want from these conversations." />
+                <textarea name="primaryObjective" required rows={2} className={TEXTAREA} placeholder="Describe the result you want from these conversations." />
               </label>
               <label className={LABEL}>How should the call begin?
-                <AutoTextarea name="callOpeningHook" required rows={2} className={TEXTAREA} placeholder="Write a clear, natural opening for the agent." />
+                <textarea name="callOpeningHook" required rows={2} className={TEXTAREA} placeholder="Write a clear, natural opening for the agent." />
               </label>
               <label className={LABEL}>What should the agent cover? One point per line
-                <AutoTextarea name="keyTalkingPoints" required rows={3} className={TEXTAREA} placeholder={'Introduce the reason for the call.\nAnswer common questions using approved information.\nAsk whether the customer would like the next step.'} />
+                <textarea name="keyTalkingPoints" required rows={3} className={TEXTAREA} placeholder={'Introduce the reason for the call.\nAnswer common questions using approved information.\nAsk whether the customer would like the next step.'} />
               </label>
               <label className={LABEL}>What should the customer do next?
                 <input name="callToAction" required className={INPUT} placeholder="For example, book a consultation" />
@@ -598,7 +556,7 @@ export function SetupWizardModal({
           ) : null}
 
           {action === "routing" ? (
-            <form key={wizardData ? "loaded" : "initial"} className="flex flex-col gap-4" onSubmit={async (event) => {
+            <form className="flex flex-col gap-4" onSubmit={async (event) => {
               event.preventDefault();
               const form = new FormData(event.currentTarget);
               const assign = (key: string) => String(form.get(key) ?? "").trim() || null;
@@ -681,7 +639,7 @@ export function SetupWizardModal({
           ) : null}
 
           {action === "launch" ? (
-            <form key={wizardData ? "loaded" : "initial"} className="flex flex-col gap-4" onSubmit={async (event) => {
+            <form className="flex flex-col gap-4" onSubmit={async (event) => {
               event.preventDefault();
               if (!selectedCampaignId) { setError("Choose a saved campaign first."); return; }
               if (selectedContactIds.length === 0) { setError("Select at least one eligible contact."); return; }

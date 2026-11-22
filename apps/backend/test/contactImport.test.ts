@@ -15,13 +15,24 @@ test("parses CSV aliases and normalizes opt-out values", async () => {
   assert.deepEqual(contacts, [{ fullName: "Ada Lovelace", phoneNumber: "+14155550123", optOut: true }]);
 });
 
-test("rejects duplicate normalized headers and malformed opt-out values", async () => {
+test("requires both Name and Phone columns", async () => {
   await assert.rejects(
-    parseContactUpload(Buffer.from("Phone,Mobile\n+14155550123,+14155550124\n"), "contacts.csv"),
+    parseContactUpload(Buffer.from("Phone\n+14155550123\n"), "contacts.csv"),
     ContactImportError,
   );
   await assert.rejects(
-    parseContactUpload(Buffer.from("Phone,Opt Out\n+14155550123,sometimes\n"), "contacts.csv"),
+    parseContactUpload(Buffer.from("Name\nAda Lovelace\n"), "contacts.csv"),
+    ContactImportError,
+  );
+});
+
+test("rejects duplicate normalized headers and malformed opt-out values", async () => {
+  await assert.rejects(
+    parseContactUpload(Buffer.from("Name,Phone,Mobile\nAda,+14155550123,+14155550124\n"), "contacts.csv"),
+    ContactImportError,
+  );
+  await assert.rejects(
+    parseContactUpload(Buffer.from("Name,Phone,Opt Out\nAda,+14155550123,sometimes\n"), "contacts.csv"),
     ContactImportError,
   );
 });
