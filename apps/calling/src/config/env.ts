@@ -1,4 +1,6 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
+dotenv.config({ path: "apps/calling/.env" });
 
 function required(key: string): string {
   const value = process.env[key];
