@@ -13,6 +13,7 @@ import { User } from "@supabase/supabase-js";
 export const Hero = () => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [workEmail, setWorkEmail] = useState("");
     const supabase = createClient();
 
     useEffect(() => {
@@ -36,6 +37,10 @@ export const Hero = () => {
 
         return () => subscription.unsubscribe();
     }, [supabase]);
+
+    const signUpHref = workEmail.trim()
+        ? `/sign-up?email=${encodeURIComponent(workEmail.trim())}`
+        : "/sign-up";
 
     return (
         <section id="demo" className="relative mx-auto w-full max-w-7xl overflow-hidden px-6 pb-20 pt-10 md:px-10 md:pb-28 md:pt-16 lg:px-12">
@@ -66,7 +71,7 @@ export const Hero = () => {
 
             {/* Central hero content */}
             <div className="mx-auto flex max-w-210 flex-col items-center text-center">
-                
+
                 {/* Main headline */}
                 <h1 className="tracking-tight">
                     <span className="block font-['Newsreader'] text-[46px] font-normal leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
@@ -81,20 +86,19 @@ export const Hero = () => {
                 </h1>
 
                 {/* Subtitle */}
-                <p className="mt-6 max-w-[580px] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#747878] md:text-[16px]">
-                    Run voice calls with the reliability of software, not the variability of
-                    people. Foolioo combines an AI-powered dialer with a deterministic voice agent
-                    to give your team full control over every conversation.
+                <p className="mt-6 max-w-[540px] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#747878] md:text-[16px]">
+                    Run voice calls with software-grade control across parallel dialing, strict
+                    guardrails, and structured CRM outcomes.
                 </p>
 
                 {/* CTA Area (Dynamic based on Auth) */}
-                <div className="mt-8 flex w-full max-w-[460px] flex-col items-center justify-center">
+                <div className="mt-8 flex w-full max-w-[500px] flex-col items-center justify-center">
                     {!isLoading && (
                         <>
                             {user ? (
                                 // LOGGED IN STATE
-                                <Link 
-                                    href="/dashboard" 
+                                <Link
+                                    href="/dashboard"
                                     className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-medium text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37]"
                                 >
                                     Go to Dashboard
@@ -105,15 +109,24 @@ export const Hero = () => {
                                 <div className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-2">
                                     <input
                                         type="email"
+                                        value={workEmail}
+                                        onChange={(e) => setWorkEmail(e.target.value)}
                                         placeholder="Enter your work email"
+                                        aria-label="Work email"
                                         className="h-11 flex-1 rounded-md border border-[#E9E8E1] bg-white px-4 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] placeholder-[#747878] shadow-xs outline-none transition focus:border-[#1B1C18]"
                                     />
-                                    <Link 
-                                        href="/sign-up" 
+                                    <Link
+                                        href={signUpHref}
                                         className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-medium text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37]"
                                     >
                                         Start free trial
                                         <span>→</span>
+                                    </Link>
+                                    <Link
+                                        href="/trial-call"
+                                        className="flex h-11 shrink-0 items-center justify-center rounded-md border border-[#E9E8E1] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18] shadow-xs transition-colors duration-200 hover:bg-[#F5F3EC]"
+                                    >
+                                        Trial call
                                     </Link>
                                 </div>
                             )}

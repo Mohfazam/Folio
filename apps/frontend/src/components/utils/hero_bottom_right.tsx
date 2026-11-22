@@ -6,7 +6,7 @@ export const Hero_bottom_right = () => {
                     ENTERPRISE READY
                 </span>
                 <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#22A06B]">
-                    99.8% Uptime
+                    99.95% Uptime
                 </span>
             </div>
 
@@ -21,7 +21,7 @@ export const Hero_bottom_right = () => {
             </div>
 
             <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                HIPAA, TCPA & STIR/SHAKEN compliant
+                TRAI &amp; DPDP ready · Encrypted call logs
             </p>
         </div>
     );
