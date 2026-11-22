@@ -15,6 +15,7 @@ import {
   type PromptContext,
 } from "../prompts/compileSystemPrompt.js";
 import { isSarvamBulbulV3Speaker } from "../providers/sarvam/voices.js";
+import { convertTextToSpeech } from "../providers/sarvam/tts.js";
 
 /**
  * Per-call session state manager.
@@ -111,15 +112,59 @@ export class CallSessionState {
       this.instructions = request.instructions;
     }
 
+    const campaignOpening = typeof request.context?.campaign?.callOpeningHook === "string" && request.context.campaign.callOpeningHook.trim()
+      ? request.context.campaign.callOpeningHook.trim()
+      : undefined;
+
+    const agentGreeting = typeof agentSettings?.greeting === "string" && agentSettings.greeting.trim()
+      ? agentSettings.greeting.trim()
+      : undefined;
+
     const personalized = buildPersonalizedGreeting(request.context);
+
+    // Resolution priority:
+    // 1. Explicit greetingText in call request
+    // 2. Campaign callOpeningHook (client-configured campaign greeting)
+    // 3. Saved agent greeting
+    // 4. Personalized intro fallback
     this.greetingText =
-      request.greetingText ||
-      (this.contactName ? personalized : (agentSettings?.greeting || personalized));
+      (request.greetingText && request.greetingText.trim()) ||
+      campaignOpening ||
+      agentGreeting ||
+      personalized;
 
     this.callbackUrl = request.callbackUrl;
     this.recordCall = request.recordCall;
 
     this.startedAt = new Date();
+  }
+
+  private greetingAudioPromise: Promise<Buffer> | null = null;
+
+  public prewarmGreetingAudio(): void {
+    if (!this.greetingAudioPromise && this.greetingText) {
+      console.log(`[call ${this.requestId.slice(0, 8)}] ⚡ Pre-warming greeting audio during dial: "${this.greetingText.slice(0, 50)}..."`);
+      this.greetingAudioPromise = convertTextToSpeech(this.greetingText, {
+        speaker: this.voiceId,
+        languageCode: this.language,
+        pace: this.speechRate,
+      }).catch((err) => {
+        console.warn(`[call ${this.requestId.slice(0, 8)}] Pre-warm greeting audio notice:`, err?.message ?? err);
+        return Buffer.alloc(0);
+      });
+    }
+  }
+
+  public async getGreetingAudio(): Promise<Buffer> {
+    if (this.greetingAudioPromise) {
+      const buf = await this.greetingAudioPromise;
+      if (buf && buf.length > 0) return buf;
+    }
+    return convertTextToSpeech(this.greetingText, {
+      speaker: this.voiceId,
+      languageCode: this.language,
+      pace: this.speechRate,
+    });
   }
 
   private _optOutRequested = false;

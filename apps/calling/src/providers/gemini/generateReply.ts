@@ -139,6 +139,7 @@ export async function generateReplyStream(
 
   let buffer = "";
   let fullReply = "";
+  let isFirstSentence = true;
 
   const dispatchSentence = (text: string) => {
     const raw = text.trim();
@@ -148,6 +149,7 @@ export async function generateReplyStream(
     // Filter out [HANGUP] or [END_CALL] control tokens so TTS doesn't speak them
     const speechText = raw.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
     if (speechText) {
+      isFirstSentence = false;
       onSentence(speechText);
     }
   };
@@ -167,11 +169,15 @@ export async function generateReplyStream(
       match = /([.!?।]+)(?:\s+|$)/.exec(buffer);
     }
 
-    // Split long clauses (> 60 chars) on comma/semicolon for early TTS streaming
-    if (buffer.length > 60) {
-      const clauseMatch = /([,;]+)\s+/.exec(buffer);
+    // Ultra-low latency early clause dispatch:
+    // For the very first chunk of a turn, dispatch as soon as buffer has >= 12 chars (3-4 words)
+    // and hits ANY natural pause (, ; : — - \n).
+    // For subsequent chunks, split when buffer reaches >= 35 chars.
+    const clauseMinThreshold = isFirstSentence ? 12 : 35;
+    if (buffer.length >= clauseMinThreshold) {
+      const clauseMatch = /([,;:\n—\-]+)\s+/.exec(buffer);
       const delimiter = clauseMatch?.[1];
-      if (clauseMatch && delimiter && clauseMatch.index > 15) {
+      if (clauseMatch && delimiter && clauseMatch.index >= 8) {
         const clauseEnd = clauseMatch.index + delimiter.length;
         const clause = buffer.slice(0, clauseEnd).trim();
         if (clause) {

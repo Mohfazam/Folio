@@ -1,7 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/gemini/generateReply.js";
-import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
+import { convertTextToSpeech, openSarvamTtsStream, type StreamingTtsSession } from "../providers/sarvam/tts.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
 import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
@@ -139,22 +139,55 @@ export function createConversationSession(
   }, MAX_CALL_DURATION_MS);
   maxDurationTimer.unref();
 
+  // ── Warm Persistent Streaming TTS WebSocket ──────────────────────
+  // Keep an authenticated, configured TTS WebSocket alive across turns
+  // to eliminate the 400-800ms connection handshake delay on caller replies.
+  let warmTts: StreamingTtsSession | null = null;
+  let warmTtsPromise: Promise<StreamingTtsSession> | null = null;
+
+  async function getWarmTtsStream(): Promise<StreamingTtsSession> {
+    if (warmTts && warmTts.isReady()) {
+      return warmTts;
+    }
+    if (warmTtsPromise) {
+      try {
+        return await warmTtsPromise;
+      } catch {
+        // failed, retry below
+      }
+    }
+    warmTtsPromise = openSarvamTtsStream(() => {}, {
+      speaker,
+      languageCode: currentLanguage,
+      pace: speechRate,
+    });
+    try {
+      warmTts = await warmTtsPromise;
+      return warmTts;
+    } finally {
+      warmTtsPromise = null;
+    }
+  }
+
+  // Pre-connect streaming TTS WebSocket at session start alongside STT
+  void getWarmTtsStream().catch((e) => console.warn(`${tag} Warm TTS pre-connect notice:`, e?.message ?? e));
+
   // Plays a welcome greeting and introduction when the call connects
   async function speakGreeting() {
     if (greetingStarted || closed) return;
     greetingStarted = true;
 
-    const contactName = options?.sessionState?.contactName?.trim();
-    const persona = options?.sessionState?.context?.business?.aiPersonaName || "Aarohi";
-    const businessName = options?.sessionState?.context?.business?.displayName || "Foolioo";
-
-    const greetingText = buildOpeningIntro({
-      contactName,
-      persona,
-      businessName,
-      customGreeting: options?.greetingText,
-      language: currentLanguage,
-    });
+    // Highest priority: client's campaign opening greeting or configured custom greeting
+    const greetingText =
+      options?.sessionState?.greetingText?.trim() ||
+      options?.greetingText?.trim() ||
+      buildOpeningIntro({
+        contactName: options?.sessionState?.contactName?.trim(),
+        persona: options?.sessionState?.context?.business?.aiPersonaName || "Aarohi",
+        businessName: options?.sessionState?.context?.business?.displayName || "Foolioo",
+        customGreeting: options?.greetingText,
+        language: currentLanguage,
+      });
 
     const currentGen = ++generationId;
     history.push({ role: "assistant", content: greetingText });
@@ -162,11 +195,14 @@ export function createConversationSession(
 
     try {
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
-      const audio = await convertTextToSpeech(greetingText, {
-        speaker,
-        languageCode: currentLanguage,
-        pace: speechRate,
-      });
+      // Use pre-warmed audio synthesized during phone ringing for 0ms startup delay
+      const audio = options?.sessionState
+        ? await options.sessionState.getGreetingAudio()
+        : await convertTextToSpeech(greetingText, {
+            speaker,
+            languageCode: currentLanguage,
+            pace: speechRate,
+          });
 
       if (closed || (generationId !== currentGen && greetingDelivered)) {
         // If caller already spoke and greeting was superseded, clean up
@@ -286,29 +322,36 @@ export function createConversationSession(
     history.push({ role: "user", content: trimmed });
     options?.sessionState?.addUserTurn(trimmed, activeLanguage);
 
-    let tts: Awaited<ReturnType<typeof openSarvamTtsStream>> | null = null;
+    let tts: StreamingTtsSession | null = null;
     let firstSentenceLogged = false;
     let turnAudioBytes = 0;
     let sentenceCount = 0;
     try {
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
-      const ttsPromise = openSarvamTtsStream((audioChunk) => {
-        if (!firstAudioLogged) {
-          firstAudioLogged = true;
-          const audioMs = Math.round(performance.now() - turnStartedAt);
-          options?.sessionState?.recordFirstAudioTime(audioMs);
-          metricsCollector.recordTurnLatency(undefined, audioMs);
-          console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
+
+      // Acquire warm TTS stream immediately (already connected from session start — 0ms connect delay)
+      try {
+        tts = await getWarmTtsStream();
+        if (tts.setLanguage && isLanguageSwitch) {
+          tts.setLanguage(activeLanguage);
         }
-        turnAudioBytes += audioChunk.length;
-        if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
-      }, {
-        speaker,
-        languageCode: activeLanguage,
-        pace: speechRate,
-        signal: controller.signal,
-      });
+        tts.setAudioHandler((audioChunk) => {
+          if (!firstAudioLogged) {
+            firstAudioLogged = true;
+            const audioMs = Math.round(performance.now() - turnStartedAt);
+            options?.sessionState?.recordFirstAudioTime(audioMs);
+            metricsCollector.recordTurnLatency(undefined, audioMs);
+            console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
+          }
+          turnAudioBytes += audioChunk.length;
+          if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
+        });
+        console.log(`${tag} ⏱️ Warm TTS active: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+      } catch (warmErr: any) {
+        console.warn(`${tag} ⚠️ Warm TTS unavailable (${warmErr?.message}), creating fresh stream`);
+        tts = null;
+      }
 
       console.log(`${tag} 🧠 Streaming Gemini reply...`);
       const replyPromise = generateReplyStream(
@@ -333,13 +376,29 @@ export function createConversationSession(
       );
       void replyPromise.catch(() => {});
 
-      try {
-        tts = await ttsPromise;
-        console.log(`${tag} ⏱️ TTS ready: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
-        for (const sentence of pendingSentences) tts.sendText(sentence);
-      } catch (ttsErr: any) {
-        console.warn(`${tag} ⚠️ Streaming TTS unavailable (${ttsErr?.message}), using batch TTS fallback`);
-        tts = null;
+      if (!tts) {
+        try {
+          tts = await openSarvamTtsStream((audioChunk) => {
+            if (!firstAudioLogged) {
+              firstAudioLogged = true;
+              const audioMs = Math.round(performance.now() - turnStartedAt);
+              options?.sessionState?.recordFirstAudioTime(audioMs);
+              metricsCollector.recordTurnLatency(undefined, audioMs);
+              console.log(`${tag} ⏱️ First audio: ${audioMs}ms after transcript final`);
+            }
+            turnAudioBytes += audioChunk.length;
+            if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
+          }, {
+            speaker,
+            languageCode: activeLanguage,
+            pace: speechRate,
+            signal: controller.signal,
+          });
+          for (const sentence of pendingSentences) tts.sendText(sentence);
+        } catch (ttsErr: any) {
+          console.warn(`${tag} ⚠️ Streaming TTS unavailable (${ttsErr?.message}), using batch TTS fallback`);
+          tts = null;
+        }
       }
 
       const reply = await replyPromise;
@@ -464,6 +523,7 @@ export function createConversationSession(
     activeTurn?.abort();
     activeTurn = null;
     callbacks.clearAudio();
+    warmTts?.setAudioHandler(() => {});
   }
 
   // ── STT Connection with auto-reconnect ─────────────────────────
@@ -656,6 +716,7 @@ export function createConversationSession(
       generationId++;
       activeTurn?.abort();
       callbacks.clearAudio();
+      warmTts?.close();
       stt?.close();
       const durationSec = ((performance.now() - sessionStartTime) / 1000).toFixed(1);
       console.log(`${tag} session closed (duration: ${durationSec}s, turns: ${history.length})`);

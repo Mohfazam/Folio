@@ -67,6 +67,8 @@ export interface StreamingTtsSession {
   finish: () => Promise<void>;
   close: () => void;
   setLanguage?: (languageCode: string) => void;
+  setAudioHandler: (handler: (chunk: Buffer) => void) => void;
+  isReady: () => boolean;
 }
 
 export async function openSarvamTtsStream(
@@ -80,29 +82,29 @@ export async function openSarvamTtsStream(
 
   let resolveCompletion!: () => void;
   let rejectCompletion!: (error: Error) => void;
-  let completed = false;
+  let closed = false;
   let finishCalled = false;
   let pendingFlushes = 0;
+  let currentAudioHandler = onAudioChunk;
 
-  const completion = new Promise<void>((resolve, reject) => {
+  let completion = new Promise<void>((resolve, reject) => {
     resolveCompletion = resolve;
     rejectCompletion = reject;
   });
   void completion.catch(() => {});
 
   const fail = (error: Error) => {
-    if (completed) return;
-    completed = true;
+    if (closed) return;
+    closed = true;
     rejectCompletion(error);
   };
 
   socket.on("message", (message) => {
     if (message.type === "audio") {
-      onAudioChunk(Buffer.from(message.data.audio, "base64"));
+      currentAudioHandler(Buffer.from(message.data.audio, "base64"));
     } else if (message.type === "event" && message.data.event_type === "final") {
       pendingFlushes = Math.max(0, pendingFlushes - 1);
-      if (finishCalled && pendingFlushes === 0 && !completed) {
-        completed = true;
+      if (finishCalled && pendingFlushes === 0) {
         resolveCompletion();
       }
     } else if (message.type === "error") {
@@ -112,7 +114,7 @@ export async function openSarvamTtsStream(
 
   socket.on("error", (error) => fail(error));
   socket.on("close", () => {
-    if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
+    if (!closed) fail(new Error("Sarvam TTS stream closed before completion"));
   });
 
   const openTimeout = new Promise<never>((_, reject) => {
@@ -154,8 +156,14 @@ export async function openSarvamTtsStream(
   });
 
   return {
+    isReady() {
+      return !closed && (socket as any).readyState === 1;
+    },
+    setAudioHandler(handler) {
+      currentAudioHandler = handler;
+    },
     sendText(text) {
-      if (completed || options?.signal?.aborted) return;
+      if (closed || options?.signal?.aborted) return;
       const clean = sanitizeTextForSpeech(text);
       if (!clean) return;
       pendingFlushes++;
@@ -169,7 +177,7 @@ export async function openSarvamTtsStream(
       }
     },
     setLanguage(newLang: string) {
-      if (completed || options?.signal?.aborted) return;
+      if (closed || options?.signal?.aborted) return;
       try {
         (socket as any).sendJson({
           type: "config",
@@ -186,22 +194,25 @@ export async function openSarvamTtsStream(
       }
     },
     async finish() {
-      if (!finishCalled) {
-        finishCalled = true;
-        if (pendingFlushes === 0 && !completed) {
-          completed = true;
-          resolveCompletion();
-        }
-      }
-      // Safety timeout: give plenty of time (8000ms) for Sarvam TTS to finish streaming audio
+      if (pendingFlushes === 0) return;
+      finishCalled = true;
+      // Safety timeout: give up to 8000ms for Sarvam TTS to finish streaming audio
       const timeoutPromise = new Promise<void>((resolve) => {
         setTimeout(resolve, 8000).unref();
       });
       await Promise.race([completion, timeoutPromise]);
+      // Reset for next turn so socket stays warm across turns
+      finishCalled = false;
+      pendingFlushes = 0;
+      completion = new Promise<void>((resolve, reject) => {
+        resolveCompletion = resolve;
+        rejectCompletion = reject;
+      });
+      void completion.catch(() => {});
     },
     close() {
       options?.signal?.removeEventListener("abort", abort);
-      if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
+      closed = true;
       try {
         socket.close();
       } catch {

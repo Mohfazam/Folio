@@ -64,6 +64,10 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
   // Register initiation in registry to lock the phone number immediately
   const activeRecord = activeCallRegistry.registerInitiation(callRequest);
 
+  // Pre-synthesize the greeting audio in background while the phone is ringing.
+  // When the recipient answers, greeting audio plays instantly with 0ms synthesis delay.
+  activeRecord.sessionState.prewarmGreetingAudio();
+
   try {
     const answerUrl = `${env.publicUrl}/plivo-voice`;
     const hangupUrl = `${env.publicUrl}/plivo-hangup`;

@@ -17,10 +17,16 @@ export async function dialRoute(req: Request, res: Response) {
   const queueEntryId = (params.queueEntryId as string) || undefined;
   const maxDurationSeconds = params.maxDurationSeconds;
   const instructions = (params.instructions as string) || undefined;
-  const greetingText = (params.greetingText as string) || (params.greeting as string) || undefined;
+  const rawContext = params.context;
+  const greetingText =
+    (params.greetingText as string) ||
+    (params.greeting as string) ||
+    (rawContext?.campaign?.callOpeningHook as string) ||
+    (rawContext?.agentSettings?.greeting as string) ||
+    (rawContext?.business?.greeting as string) ||
+    undefined;
   const callbackUrl = process.env.CALLBACK_URL?.trim();
   const recordCall = params.recordCall !== undefined ? Boolean(params.recordCall) : false;
-  const rawContext = params.context;
   const agentSettings = rawContext && typeof rawContext === "object" && !Array.isArray(rawContext)
     ? (rawContext as Record<string, any>).agentSettings
     : undefined;
