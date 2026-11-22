@@ -1,5 +1,5 @@
 "use server";
-
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
@@ -42,7 +42,7 @@ async function backendRequest(
       return {
         ok: false,
         status: response.status,
-        error: typeof record.error === "string" ? record.error : `The request failed (${response.status}).`,
+        error: sanitizeUserError(record.error, "The request could not be completed. Please try again."),
       };
     }
 
@@ -55,7 +55,7 @@ async function backendRequest(
     return { ok: true, data: record };
   } catch (error) {
     console.error(`[dashboard/action] ${method} ${path} failed:`, error);
-    return { ok: false, error: error instanceof Error ? error.message : "The request could not be completed." };
+    return { ok: false, error: sanitizeUserError(error instanceof Error ? error.message : null, "The request could not be completed. Please try again.") };
   }
 }
 
@@ -137,14 +137,14 @@ export async function getLiveCallStatusAction(): Promise<ActionResult> {
       return {
         ok: false,
         status: response.status,
-        error: typeof record.error === "string" ? record.error : `The request failed (${response.status}).`,
+        error: sanitizeUserError(record.error, "The request could not be completed. Please try again."),
       };
     }
 
     return { ok: true, data: record };
   } catch (error) {
     console.error("[dashboard/action] GET /api/calls/live failed:", error);
-    return { ok: false, error: error instanceof Error ? error.message : "Live call status could not be loaded." };
+    return { ok: false, error: sanitizeUserError(error instanceof Error ? error.message : null, "Live call status is temporarily unavailable.") };
   }
 }
 
@@ -335,7 +335,7 @@ export async function getSetupWizardDataAction(): Promise<ActionResult> {
           : {};
         return { path, status: response.status, ok: response.ok && record.ok !== false, record };
       } catch (error) {
-        return { path, status: 0, ok: false, record: { error: error instanceof Error ? error.message : "Request failed." } };
+        return { path, status: 0, ok: false, record: { error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load setup details.") } };
       }
     }));
     const byPath = new Map(responses.map((result) => [result.path, result]));
@@ -347,7 +347,7 @@ export async function getSetupWizardDataAction(): Promise<ActionResult> {
       | { state: "error"; status: number; error: string } => {
       const result = get(path);
       if (!result.ok) {
-        return { state: "error", status: result.status, error: typeof result.record.error === "string" ? result.record.error : `Request failed (${result.status}).` };
+        return { state: "error", status: result.status, error: sanitizeUserError(result.record.error, "Unable to load setup details.") };
       }
       const rows = keys.map((key) => result.record[key]).find(Array.isArray) as unknown[] | undefined;
       const data = asRecord(result.record.data) ?? {};
@@ -404,7 +404,7 @@ export async function getSetupWizardDataAction(): Promise<ActionResult> {
     return { ok: true, data: { setupData } };
   } catch (error) {
     console.error("[dashboard/action] setup wizard data failed:", error);
-    return { ok: false, error: error instanceof Error ? error.message : "Unable to load setup details." };
+    return { ok: false, error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load setup details.") };
   }
 }
 
@@ -434,13 +434,13 @@ export async function getOverviewAnalyticsAction(
       return {
         ok: false,
         status: response.status,
-        error: typeof record.error === "string" ? record.error : `Analytics request failed (${response.status}).`,
+        error: sanitizeUserError(record.error, "Unable to load workspace analytics right now. Please try again."),
       };
     }
 
     return { ok: true, data: { analytics: record } };
   } catch (error) {
     console.error("[dashboard/action] Overview analytics failed:", error);
-    return { ok: false, error: error instanceof Error ? error.message : "Unable to load workspace analytics." };
+    return { ok: false, error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load workspace analytics right now. Please try again.") };
   }
 }

@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import "server-only";
 
 import { cache } from "react";
@@ -99,7 +100,7 @@ export const getWorkspaceAuthMe = cache(async (accessToken: string): Promise<Aut
       return {
         ok: false,
         status: response.status,
-        error: backendMessage ?? `Unable to load the Neon workspace profile (${response.status}).`,
+        error: sanitizeUserError(backendMessage, "Unable to load your workspace profile right now. Please try again."),
       };
     }
 
@@ -116,7 +117,7 @@ export const getWorkspaceAuthMe = cache(async (accessToken: string): Promise<Aut
     return {
       ok: false,
       status: 0,
-      error: error instanceof Error ? error.message : "Unable to reach the workspace backend.",
+      error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to reach the workspace service right now. Please try again."),
     };
   }
 });
@@ -162,14 +163,14 @@ export const getWorkspaceSettingsData = cache(async (accessToken: string): Promi
       return {
         ok: false,
         status: profileResponse.status,
-        error: typeof profileRecord?.error === "string" ? profileRecord.error : `Business profile request failed (${profileResponse.status}).`,
+        error: sanitizeUserError(profileRecord?.error, "Unable to load business profile settings right now. Please try again."),
       };
     }
     if (!agentResponse.ok || agentRecord?.ok !== true) {
       return {
         ok: false,
         status: agentResponse.status,
-        error: typeof agentRecord?.error === "string" ? agentRecord.error : `Agent settings request failed (${agentResponse.status}).`,
+        error: sanitizeUserError(agentRecord?.error, "Unable to load AI agent settings right now. Please try again."),
       };
     }
 
@@ -188,7 +189,7 @@ export const getWorkspaceSettingsData = cache(async (accessToken: string): Promi
     return {
       ok: false,
       status: 0,
-      error: error instanceof Error ? error.message : "Unable to load workspace settings.",
+      error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load workspace settings right now. Please try again."),
     };
   }
 });

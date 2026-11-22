@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseAuthConfigured, verifySupabaseToken } from "../config/supabase.js";
-import { db } from "../config/db.js";
+import { db, withDbRetry } from "../config/db.js";
 import { env } from "../config/env.js";
 import { users } from "@repo/db";
 import { enforceTrialExpiration } from "../services/trialExpiration.js";
@@ -45,11 +45,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   req.supabaseUser = supabaseUser;
 
   try {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.authUserId, supabaseUser.id))
-      .limit(1);
+    const [user] = await withDbRetry(() =>
+      db
+        .select()
+        .from(users)
+        .where(eq(users.authUserId, supabaseUser.id))
+        .limit(1),
+    );
 
     if (user) {
       req.user = user;
