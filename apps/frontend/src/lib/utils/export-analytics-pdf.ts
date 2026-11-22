@@ -51,15 +51,6 @@ function fmtDateTimeLabel(raw: unknown): string {
   }).format(parsed);
 }
 
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function timeframeTitle(tf: string): string {
   switch (tf) {
     case "today":
@@ -75,10 +66,58 @@ function timeframeTitle(tf: string): string {
   }
 }
 
-export function buildAnalyticsReportHtml(
-  timeframe: string,
-  data: AnalyticsData,
-): string {
+// Sanitize text to WinAnsi / ASCII safe characters so standard PDF Type1 Helvetica renders cleanly
+function toPdfText(input: string): string {
+  const normalized = input
+    .replaceAll("•", "-")
+    .replaceAll("—", "-")
+    .replaceAll("–", "-")
+    .replaceAll("…", "...")
+    .replaceAll("₹", "INR ")
+    .replaceAll("“", '"')
+    .replaceAll("”", '"')
+    .replaceAll("’", "'")
+    .replaceAll("‘", "'");
+
+  let ascii = "";
+  for (let i = 0; i < normalized.length; i++) {
+    const code = normalized.charCodeAt(i);
+    ascii += code >= 32 && code <= 126 ? normalized[i] : " ";
+  }
+  return ascii.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)");
+}
+
+function wrapLines(text: string, maxChars: number): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return [""];
+  const words = clean.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
+    } else {
+      if (current) lines.push(current);
+      current = word.length > maxChars ? word.slice(0, maxChars) : word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+/**
+ * Builds a real binary PDF (%PDF-1.4) document with multi-page layout,
+ * plain-language takeaways, KPIs, breakdowns, campaign table, daily trend, and recent calls.
+ */
+export function buildAnalyticsPdfBytes(timeframe: string, data: AnalyticsData): Uint8Array {
+  const PAGE_W = 595.28; // A4 width in pt
+  const PAGE_H = 841.89; // A4 height in pt
+  const MARGIN_X = 42;
+  const TOP_Y = PAGE_H - 46;
+  const BOTTOM_Y = 48;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
+
   const client = data.client ?? {};
   const quota = data.quota ?? {};
   const metrics = data.callMetrics ?? {};
@@ -120,486 +159,376 @@ export function buildAnalyticsReportHtml(
   const inProgress = num(pipeline, "inProgress");
   const openFollowUps = num(pipeline, "openFollowUps");
 
-  const workspaceName = escapeHtml(txt(client, "name", "Foolioo Workspace"));
-  const planTier = escapeHtml(txt(client, "planTier", "Standard").toUpperCase());
-  const workspaceStatus = escapeHtml(txt(client, "status", "active").toUpperCase());
-  const periodLabel = escapeHtml(timeframeTitle(timeframe));
-  const generatedAt = escapeHtml(
-    new Intl.DateTimeFormat("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(new Date()),
-  );
+  const workspaceName = txt(client, "name", "Foolioo Workspace");
+  const planTier = txt(client, "planTier", "Standard").toUpperCase();
+  const workspaceStatus = txt(client, "status", "active").toUpperCase();
+  const periodLabel = timeframeTitle(timeframe);
+  const generatedAt = new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date());
 
   const connectionRate = fmtPct(connectedCalls, totalCalls);
   const highIntentShare = fmtPct(highInterest, interestTotal || connectedCalls);
 
-  const insights: string[] = [];
+  const takeaways: string[] = [];
   if (totalCalls === 0) {
-    insights.push(
-      "No outbound or inbound calls were recorded during this reporting window.",
-    );
+    takeaways.push("No calls were recorded during this selected reporting window.");
   } else {
-    insights.push(
-      `Out of ${fmtInt(totalCalls)} total call attempts, ${fmtInt(connectedCalls)} connected (${connectionRate} answer rate) with an average conversation length of ${fmtDuration(avgDuration)}.`,
+    takeaways.push(
+      `${fmtInt(connectedCalls)} out of ${fmtInt(totalCalls)} calls connected (${connectionRate} answer rate) with ${fmtDuration(avgDuration)} average connected call length.`,
     );
     if (highInterest > 0) {
-      insights.push(
-        `${fmtInt(highInterest)} callers (${highIntentShare} of qualified conversations) showed high interest and ${fmtInt(followUpsRequested)} requested a follow-up.`,
+      takeaways.push(
+        `${fmtInt(highInterest)} callers (${highIntentShare}) showed high interest, and ${fmtInt(followUpsRequested)} requested follow-ups.`,
       );
     }
     if (unansweredCalls > connectedCalls) {
-      insights.push(
-        `${fmtInt(unansweredCalls)} calls went unanswered or busy — consider adjusting calling hours or retry windows to improve pickup rate.`,
+      takeaways.push(
+        `${fmtInt(unansweredCalls)} calls went unanswered or busy - consider reviewing calling hours or retry windows.`,
       );
     }
   }
   if (monthlyAllowance > 0) {
-    insights.push(
-      `${fmtInt(creditsRemaining)} of ${fmtInt(monthlyAllowance)} monthly voice credits remain available (${fmtInt(callsRemainingToday)} of ${fmtInt(maxCallsPerDay)} daily call capacity left today).`,
+    takeaways.push(
+      `${fmtInt(creditsRemaining)} of ${fmtInt(monthlyAllowance)} monthly credits remain (${fmtInt(callsRemainingToday)} of ${fmtInt(maxCallsPerDay)} daily calls left today).`,
     );
   }
 
-  const dailyTrend = Array.isArray(data.dailyTrend) ? data.dailyTrend : [];
-  const campaignRows = Array.isArray(data.campaignPerformance)
-    ? data.campaignPerformance
-    : [];
-  const recentCalls = Array.isArray(data.recentCalls) ? data.recentCalls : [];
+  const pages: string[][] = [];
+  let ops: string[] = [];
+  let y = TOP_Y;
 
-  const barRow = (label: string, count: number, denom: number, color: string) => {
-    const pct = denom > 0 ? Math.min(100, Math.round((count / denom) * 100)) : 0;
-    return `
-      <div class="bar-item">
-        <div class="bar-head">
-          <span>${escapeHtml(label)}</span>
-          <strong>${fmtInt(count)} (${fmtPct(count, denom)})</strong>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill" style="width:${pct}%;background:${color};"></div>
-        </div>
-      </div>
-    `;
+  const startNewPage = () => {
+    if (ops.length > 0) {
+      pages.push(ops);
+    }
+    ops = [];
+    y = TOP_Y;
+    // Page header bar
+    ops.push("0.39 0.29 0.73 rg");
+    ops.push(`BT /F2 8.5 Tf ${MARGIN_X} ${y} Td (${toPdfText("FOOLIOO ANALYTICS REPORT")} - ${toPdfText(workspaceName)} - ${toPdfText(periodLabel)}) Tj ET`);
+    y -= 10;
+    ops.push("0.88 0.87 0.83 RG 0.75 w");
+    ops.push(`${MARGIN_X} ${y} m ${MARGIN_X + CONTENT_W} ${y} l S`);
+    y -= 18;
   };
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Foolioo Analytics Report — ${workspaceName} (${periodLabel})</title>
-  <style>
-    @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
-      color: #1B1C18;
-      background: #FFFFFF;
-      font-size: 11.5px;
-      line-height: 1.48;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+  const ensureSpace = (neededHeight: number) => {
+    if (y - neededHeight < BOTTOM_Y) {
+      startNewPage();
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #1B1C18;
-      padding-bottom: 12px;
-      margin-bottom: 16px;
-    }
-    .brand {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #644ABB;
-    }
-    h1 {
-      margin: 4px 0 2px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #1B1C18;
-    }
-    .subtitle { color: #5E615B; font-size: 11px; }
-    .meta { text-align: right; font-size: 10.5px; color: #5E615B; }
-    .meta strong { color: #1B1C18; display: block; font-size: 12px; }
-    .pill {
-      display: inline-block;
-      margin-top: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #F3F0FA;
-      color: #5737A6;
-      font-size: 9.5px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-    }
-    .summary-box {
-      background: #F8F7F2;
-      border: 1px solid #E6E4DC;
-      border-radius: 8px;
-      padding: 12px 14px;
-      margin-bottom: 16px;
-    }
-    .summary-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #6E6B62;
-      margin: 0 0 6px;
-    }
-    .summary-box ul { margin: 0; padding-left: 16px; }
-    .summary-box li { margin-bottom: 3px; color: #262722; }
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    .kpi-card {
-      border: 1px solid #E6E4DC;
-      border-radius: 8px;
-      padding: 10px 12px;
-      background: #FFFEFB;
-    }
-    .kpi-label { font-size: 10px; color: #6E6B62; }
-    .kpi-val { font-size: 20px; font-weight: 700; margin: 4px 0 2px; color: #1B1C18; }
-    .kpi-note { font-size: 9.5px; color: #7C7E77; }
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .panel {
-      border: 1px solid #E6E4DC;
-      border-radius: 8px;
-      padding: 12px 14px;
-      break-inside: avoid;
-    }
-    .panel h2 {
-      margin: 0 0 2px;
-      font-size: 13px;
-      font-weight: 700;
-      color: #1B1C18;
-    }
-    .panel-desc {
-      margin: 0 0 10px;
-      font-size: 10px;
-      color: #747878;
-    }
-    .bar-item { margin-bottom: 9px; }
-    .bar-item:last-child { margin-bottom: 0; }
-    .bar-head {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10.5px;
-      margin-bottom: 3px;
-      color: #34352F;
-    }
-    .bar-track {
-      height: 7px;
-      border-radius: 999px;
-      background: #F0EFE9;
-      overflow: hidden;
-    }
-    .bar-fill { height: 100%; border-radius: 999px; }
-    .stat-list {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    .stat-list td {
-      padding: 5px 0;
-      border-bottom: 1px solid #F2F1EC;
-      font-size: 10.5px;
-    }
-    .stat-list tr:last-child td { border-bottom: none; }
-    .stat-list td:last-child { text-align: right; font-weight: 600; }
-    .section {
-      margin-bottom: 16px;
-      break-inside: avoid;
-    }
-    table.data-table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid #E6E4DC;
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 10.5px;
-    }
-    table.data-table th {
-      background: #F5F4ED;
-      text-align: left;
-      padding: 7px 9px;
-      font-size: 9.5px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #5E615B;
-      border-bottom: 1px solid #E6E4DC;
-    }
-    table.data-table td {
-      padding: 6px 9px;
-      border-bottom: 1px solid #F1F0EA;
-      vertical-align: top;
-    }
-    table.data-table tr:last-child td { border-bottom: none; }
-    .num { text-align: right !important; font-variant-numeric: tabular-nums; }
-    .footer {
-      margin-top: 18px;
-      padding-top: 8px;
-      border-top: 1px solid #E6E4DC;
-      display: flex;
-      justify-content: space-between;
-      font-size: 9.5px;
-      color: #7C7E77;
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <div class="brand">Foolioo Voice Operations • Analytics Report</div>
-      <h1>${workspaceName}</h1>
-      <div class="subtitle">Detailed breakdown of call activity, outcomes, lead quality, pipeline &amp; credit usage</div>
-    </div>
-    <div class="meta">
-      <strong>Period: ${periodLabel}</strong>
-      <div>Generated ${generatedAt}</div>
-      <span class="pill">${planTier} • ${workspaceStatus}</span>
-    </div>
-  </div>
+  };
 
-  <div class="summary-box">
-    <p class="summary-title">Executive Takeaways (Plain-Language Summary)</p>
-    <ul>
-      ${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
-    </ul>
-  </div>
+  const drawSectionTitle = (title: string, subtitle?: string) => {
+    ensureSpace(subtitle ? 38 : 26);
+    ops.push("0.11 0.11 0.09 rg");
+    ops.push(`BT /F2 12.5 Tf ${MARGIN_X} ${y} Td (${toPdfText(title)}) Tj ET`);
+    y -= 14;
+    if (subtitle) {
+      ops.push("0.45 0.47 0.47 rg");
+      ops.push(`BT /F1 9 Tf ${MARGIN_X} ${y} Td (${toPdfText(subtitle)}) Tj ET`);
+      y -= 14;
+    }
+  };
 
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Total Calls Attempted</div>
-      <div class="kpi-val">${fmtInt(totalCalls)}</div>
-      <div class="kpi-note">${fmtInt(pendingInQueue)} waiting in queue</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Connection Rate</div>
-      <div class="kpi-val">${connectionRate}</div>
-      <div class="kpi-val" style="font-size:11px;font-weight:500;color:#5E615B;">${fmtInt(connectedCalls)} connected calls</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Avg. Connected Duration</div>
-      <div class="kpi-val">${fmtDuration(avgDuration)}</div>
-      <div class="kpi-note">${fmtDuration(totalDuration)} total talk time</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Credits Consumed</div>
-      <div class="kpi-val">${fmtInt(creditsCharged)}</div>
-      <div class="kpi-note">${fmtInt(creditsRemaining)} credits remaining</div>
-    </div>
-  </div>
+  const drawBarRow = (label: string, count: number, denom: number, rgb: [number, number, number]) => {
+    ensureSpace(22);
+    const pctText = `${fmtInt(count)} (${fmtPct(count, denom)})`;
+    ops.push("0.20 0.21 0.18 rg");
+    ops.push(`BT /F1 9.5 Tf ${MARGIN_X} ${y} Td (${toPdfText(label)}) Tj ET`);
+    ops.push(`BT /F2 9.5 Tf ${MARGIN_X + CONTENT_W - 95} ${y} Td (${toPdfText(pctText)}) Tj ET`);
+    y -= 5;
 
-  <div class="two-col">
-    <div class="panel">
-      <h2>1. Call Outcomes Breakdown</h2>
-      <p class="panel-desc">How every attempted call concluded during ${periodLabel.toLowerCase()}.</p>
-      ${barRow("Connected (Answered & Completed)", connectedCalls, totalCalls, "#4D9469")}
-      ${barRow("Unanswered or Busy", unansweredCalls, totalCalls, "#D7A64A")}
-      ${barRow("Dropped Early (< minimum threshold)", droppedEarlyCalls, totalCalls, "#8B8D88")}
-      ${barRow("Failed / Technical Error", failedCalls, totalCalls, "#C66C5C")}
-    </div>
+    const barW = CONTENT_W;
+    const barH = 5.5;
+    ops.push("0.94 0.94 0.91 rg");
+    ops.push(`${MARGIN_X} ${y - barH} ${barW.toFixed(1)} ${barH} re f`);
 
-    <div class="panel">
-      <h2>2. Lead Interest &amp; Caller Sentiment</h2>
-      <p class="panel-desc">Intent and emotional tone detected across completed conversations.</p>
-      ${barRow("High Interest Leads", highInterest, interestTotal || totalCalls, "#4D9469")}
-      ${barRow("Medium Interest Leads", mediumInterest, interestTotal || totalCalls, "#D7A64A")}
-      ${barRow("Low Interest Leads", lowInterest, interestTotal || totalCalls, "#8B8D88")}
-      <div style="height:8px"></div>
-      ${barRow("Positive Sentiment", positiveSent, totalCalls, "#644ABB")}
-      ${barRow("Neutral Sentiment", neutralSent, totalCalls, "#9B9D96")}
-      ${barRow("Negative Sentiment", negativeSent, totalCalls, "#C66C5C")}
-    </div>
-  </div>
+    const fillRatio = denom > 0 ? Math.min(1, Math.max(0, count / denom)) : 0;
+    const fillW = barW * fillRatio;
+    if (fillW > 0) {
+      ops.push(`${rgb[0]} ${rgb[1]} ${rgb[2]} rg`);
+      ops.push(`${MARGIN_X} ${y - barH} ${fillW.toFixed(1)} ${barH} re f`);
+    }
+    y -= 16;
+  };
 
-  <div class="two-col">
-    <div class="panel">
-      <h2>3. Quota, Capacity &amp; Credit Usage</h2>
-      <p class="panel-desc">Current billing cycle allowance and daily operational limits.</p>
-      <table class="stat-list">
-        <tr><td>Monthly Credits Allowance</td><td>${fmtInt(monthlyAllowance)} credits</td></tr>
-        <tr><td>Credits Used This Cycle</td><td>${fmtInt(creditsUsedCycle)} credits</td></tr>
-        <tr><td>Credits Reserved (Active Queue)</td><td>${fmtInt(creditsReserved)} credits</td></tr>
-        <tr><td>Credits Available</td><td>${fmtInt(creditsRemaining)} credits</td></tr>
-        <tr><td>Calls Made Today / Daily Limit</td><td>${fmtInt(callsMadeToday)} / ${fmtInt(maxCallsPerDay)}</td></tr>
-        <tr><td>Remaining Daily Call Allowance</td><td>${fmtInt(callsRemainingToday)} calls</td></tr>
-        ${quota.nextBillingResetAt ? `<tr><td>Next Billing Cycle Reset</td><td>${escapeHtml(fmtDateLabel(quota.nextBillingResetAt))}</td></tr>` : ""}
-      </table>
-    </div>
+  const drawKeyValueTable = (rows: Array<[string, string]>) => {
+    for (const [k, v] of rows) {
+      ensureSpace(17);
+      ops.push("0.32 0.33 0.30 rg");
+      ops.push(`BT /F1 9.5 Tf ${MARGIN_X} ${y} Td (${toPdfText(k)}) Tj ET`);
+      ops.push("0.11 0.11 0.09 rg");
+      ops.push(`BT /F2 9.5 Tf ${MARGIN_X + CONTENT_W - 140} ${y} Td (${toPdfText(v)}) Tj ET`);
+      y -= 4;
+      ops.push("0.95 0.95 0.92 RG 0.5 w");
+      ops.push(`${MARGIN_X} ${y} m ${MARGIN_X + CONTENT_W} ${y} l S`);
+      y -= 12;
+    }
+  };
 
-    <div class="panel">
-      <h2>4. Live Pipeline &amp; Follow-Up Queue</h2>
-      <p class="panel-desc">Real-time operational queue and pending human action items.</p>
-      <table class="stat-list">
-        <tr><td>Calls Queued (Pending Dial)</td><td>${fmtInt(pendingInQueue)}</td></tr>
-        <tr><td>Calls Currently In Progress</td><td>${fmtInt(inProgress)}</td></tr>
-        <tr><td>Follow-Ups Requested in Period</td><td>${fmtInt(followUpsRequested)}</td></tr>
-        <tr><td>Open Follow-Up Tasks</td><td>${fmtInt(openFollowUps)}</td></tr>
-        <tr><td>Total Talk Time Recorded</td><td>${fmtDuration(totalDuration)}</td></tr>
-      </table>
-    </div>
-  </div>
+  // Start Page 1 with Title Block
+  ops.push("0.39 0.29 0.73 rg");
+  ops.push(`BT /F2 9 Tf ${MARGIN_X} ${y} Td (FOOLIOO VOICE OPERATIONS - DETAILED ANALYTICS REPORT) Tj ET`);
+  y -= 20;
+  ops.push("0.11 0.11 0.09 rg");
+  ops.push(`BT /F2 20 Tf ${MARGIN_X} ${y} Td (${toPdfText(workspaceName)}) Tj ET`);
+  y -= 15;
+  ops.push("0.45 0.47 0.47 rg");
+  ops.push(`BT /F1 9.5 Tf ${MARGIN_X} ${y} Td (Period: ${toPdfText(periodLabel)}  |  Plan: ${toPdfText(planTier)} (${toPdfText(workspaceStatus)})  |  Generated: ${toPdfText(generatedAt)}) Tj ET`);
+  y -= 12;
+  ops.push("0.11 0.11 0.09 RG 1.2 w");
+  ops.push(`${MARGIN_X} ${y} m ${MARGIN_X + CONTENT_W} ${y} l S`);
+  y -= 18;
 
-  <div class="section">
-    <div class="panel">
-      <h2>5. Campaign Performance Comparison</h2>
-      <p class="panel-desc">Volume, pickup efficiency, and high-intent conversion by campaign.</p>
-      ${
-        campaignRows.length
-          ? `<table class="data-table">
-              <thead>
-                <tr>
-                  <th>Campaign</th>
-                  <th>Status</th>
-                  <th class="num">Total Calls</th>
-                  <th class="num">Connected</th>
-                  <th class="num">Connection Rate</th>
-                  <th class="num">High Interest</th>
-                  <th class="num">Talk Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${campaignRows
-                  .map((row) => {
-                    const cTotal = num(row, "totalCalls");
-                    const cConn = num(row, "connectedCalls");
-                    return `<tr>
-                      <td><strong>${escapeHtml(txt(row, "campaignName", "Campaign"))}</strong></td>
-                      <td style="text-transform:capitalize">${escapeHtml(txt(row, "campaignStatus", "draft"))}</td>
-                      <td class="num">${fmtInt(cTotal)}</td>
-                      <td class="num">${fmtInt(cConn)}</td>
-                      <td class="num">${fmtPct(cConn, cTotal)}</td>
-                      <td class="num">${fmtInt(num(row, "highInterestCalls"))}</td>
-                      <td class="num">${fmtDuration(num(row, "totalDurationSeconds"))}</td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>`
-          : `<p style="margin:0;color:#747878;font-size:11px;">No campaign call activity recorded in this period.</p>`
+  // Plain-Language Takeaways Box
+  drawSectionTitle("Executive Takeaways", "Plain-language summary of performance, caller intent, and workspace capacity.");
+  for (const item of takeaways) {
+    const wrapped = wrapLines(`- ${item}`, 92);
+    for (const line of wrapped) {
+      ensureSpace(14);
+      ops.push("0.16 0.16 0.14 rg");
+      ops.push(`BT /F1 9.5 Tf ${MARGIN_X + 6} ${y} Td (${toPdfText(line)}) Tj ET`);
+      y -= 13;
+    }
+  }
+  y -= 8;
+
+  // Key Metrics Summary
+  drawSectionTitle("Key Performance Metrics");
+  drawKeyValueTable([
+    ["Total calls attempted", `${fmtInt(totalCalls)} (${fmtInt(pendingInQueue)} waiting in queue)`],
+    ["Connection rate", `${connectionRate} (${fmtInt(connectedCalls)} connected calls)`],
+    ["Average connected call duration", `${fmtDuration(avgDuration)} (${fmtDuration(totalDuration)} total talk time)`],
+    ["Credits consumed / remaining", `${fmtInt(creditsCharged)} used / ${fmtInt(creditsRemaining)} available`],
+  ]);
+  y -= 8;
+
+  // Call Outcomes
+  drawSectionTitle("Call Outcomes Breakdown", "How calls ended during the selected date range.");
+  drawBarRow("Connected", connectedCalls, totalCalls, [0.30, 0.58, 0.41]);
+  drawBarRow("Unanswered or busy", unansweredCalls, totalCalls, [0.84, 0.65, 0.29]);
+  drawBarRow("Dropped early", droppedEarlyCalls, totalCalls, [0.55, 0.55, 0.53]);
+  drawBarRow("Failed", failedCalls, totalCalls, [0.78, 0.42, 0.36]);
+  y -= 6;
+
+  // Lead Intelligence & Sentiment
+  drawSectionTitle("Lead Intelligence & Caller Sentiment", "Interest levels and sentiment captured from completed calls.");
+  drawBarRow("High interest", highInterest, interestTotal || totalCalls, [0.30, 0.58, 0.41]);
+  drawBarRow("Medium interest", mediumInterest, interestTotal || totalCalls, [0.84, 0.65, 0.29]);
+  drawBarRow("Low interest", lowInterest, interestTotal || totalCalls, [0.55, 0.55, 0.53]);
+  drawBarRow("Positive sentiment", positiveSent, totalCalls, [0.39, 0.29, 0.73]);
+  drawBarRow("Neutral sentiment", neutralSent, totalCalls, [0.61, 0.62, 0.59]);
+  drawBarRow("Negative sentiment", negativeSent, totalCalls, [0.78, 0.42, 0.36]);
+  drawKeyValueTable([
+    ["Follow-up requests in period", fmtInt(followUpsRequested)],
+    ["Open follow-up tasks", fmtInt(openFollowUps)],
+  ]);
+  y -= 6;
+
+  // Quota & Capacity
+  drawSectionTitle("Quota, Credits & Daily Capacity");
+  const quotaRows: Array<[string, string]> = [
+    ["Monthly credits allowance", `${fmtInt(monthlyAllowance)} credits`],
+    ["Credits used this billing cycle", `${fmtInt(creditsUsedCycle)} credits`],
+    ["Credits reserved in active queue", `${fmtInt(creditsReserved)} credits`],
+    ["Credits remaining", `${fmtInt(creditsRemaining)} credits`],
+    ["Calls made today / daily limit", `${fmtInt(callsMadeToday)} / ${fmtInt(maxCallsPerDay)} (${fmtInt(callsRemainingToday)} left)`],
+    ["Calls currently in progress", fmtInt(inProgress)],
+  ];
+  if (typeof quota.nextBillingResetAt === "string" && quota.nextBillingResetAt) {
+    quotaRows.push(["Next billing cycle reset", fmtDateLabel(quota.nextBillingResetAt)]);
+  }
+  drawKeyValueTable(quotaRows);
+  y -= 6;
+
+  // Campaign Performance
+  const campaignRows = Array.isArray(data.campaignPerformance) ? data.campaignPerformance : [];
+  drawSectionTitle("Campaign Performance", "Call volume, pickup rate, and high-intent leads by campaign.");
+  if (campaignRows.length === 0) {
+    ensureSpace(18);
+    ops.push("0.45 0.47 0.47 rg");
+    ops.push(`BT /F1 9.5 Tf ${MARGIN_X} ${y} Td (No campaign call activity recorded in this period.) Tj ET`);
+    y -= 18;
+  } else {
+    for (const row of campaignRows) {
+      const cName = txt(row, "campaignName", "Campaign");
+      const cStatus = txt(row, "campaignStatus", "draft");
+      const cTotal = num(row, "totalCalls");
+      const cConn = num(row, "connectedCalls");
+      const cHigh = num(row, "highInterestCalls");
+      const cDur = num(row, "totalDurationSeconds");
+      drawKeyValueTable([
+        [
+          `${cName} (${cStatus})`,
+          `${fmtInt(cTotal)} calls | ${fmtInt(cConn)} conn (${fmtPct(cConn, cTotal)}) | ${fmtInt(cHigh)} high intent | ${fmtDuration(cDur)}`,
+        ],
+      ]);
+    }
+  }
+  y -= 6;
+
+  // Daily Trend
+  const dailyTrend = Array.isArray(data.dailyTrend) ? data.dailyTrend : [];
+  if (dailyTrend.length > 0) {
+    drawSectionTitle("Daily Call Activity", "Day-by-day call attempts, connected calls, and failures.");
+    for (const row of dailyTrend) {
+      const dLabel = fmtDateLabel(row.date);
+      const dTotal = num(row, "totalCalls");
+      const dConn = num(row, "connectedCalls");
+      const dFail = num(row, "failedCalls");
+      drawKeyValueTable([
+        [
+          dLabel,
+          `${fmtInt(dTotal)} total | ${fmtInt(dConn)} connected (${fmtPct(dConn, dTotal)}) | ${fmtInt(dFail)} failed`,
+        ],
+      ]);
+    }
+    y -= 6;
+  }
+
+  // Recent Calls
+  const recentCalls = Array.isArray(data.recentCalls) ? data.recentCalls : [];
+  if (recentCalls.length > 0) {
+    drawSectionTitle("Recent Call Highlights", "Latest calls, outcomes, caller intent, and summaries.");
+    for (const row of recentCalls) {
+      const contact = txt(row, "contactName", txt(row, "phoneNumber", "Contact"));
+      const when = fmtDateTimeLabel(row.startedAt);
+      const outcome = txt(row, "outcome", "unknown").replaceAll("_", " ");
+      const interest = txt(row, "interestLevel", "unknown");
+      const sentiment = txt(row, "sentiment", "neutral");
+      const dur = fmtDuration(num(row, "durationSeconds"));
+      const summary = txt(row, "summary", "No summary recorded.");
+      const lines = wrapLines(
+        `${contact} (${when}) - ${outcome}, ${interest} interest, ${sentiment} sentiment, ${dur}. Summary: ${summary}`,
+        94,
+      );
+      for (const line of lines) {
+        ensureSpace(14);
+        ops.push("0.20 0.21 0.18 rg");
+        ops.push(`BT /F1 9 Tf ${MARGIN_X} ${y} Td (${toPdfText(line)}) Tj ET`);
+        y -= 13;
       }
-    </div>
-  </div>
-
-  ${
-    dailyTrend.length
-      ? `<div class="section">
-          <div class="panel">
-            <h2>6. Daily Call Activity Log</h2>
-            <p class="panel-desc">Day-by-day breakdown of call attempts, connected conversations, and failures.</p>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th class="num">Total Calls</th>
-                  <th class="num">Connected</th>
-                  <th class="num">Failed</th>
-                  <th class="num">Connection Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${dailyTrend
-                  .map((row) => {
-                    const dTotal = num(row, "totalCalls");
-                    const dConn = num(row, "connectedCalls");
-                    const dFail = num(row, "failedCalls");
-                    return `<tr>
-                      <td>${escapeHtml(fmtDateLabel(row.date))}</td>
-                      <td class="num">${fmtInt(dTotal)}</td>
-                      <td class="num">${fmtInt(dConn)}</td>
-                      <td class="num">${fmtInt(dFail)}</td>
-                      <td class="num">${fmtPct(dConn, dTotal)}</td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>`
-      : ""
+      y -= 4;
+    }
   }
 
-  ${
-    recentCalls.length
-      ? `<div class="section">
-          <div class="panel">
-            <h2>7. Recent Call Highlights</h2>
-            <p class="panel-desc">Latest recorded calls and AI conversation summaries.</p>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Contact</th>
-                  <th>Time</th>
-                  <th>Outcome</th>
-                  <th>Interest / Sentiment</th>
-                  <th class="num">Duration</th>
-                  <th>Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${recentCalls
-                  .map((row) => {
-                    const contactLabel = txt(row, "contactName", txt(row, "phoneNumber", "Contact"));
-                    const outcomeLabel = txt(row, "outcome", "unknown").replaceAll("_", " ");
-                    const interestLabel = txt(row, "interestLevel", "unknown");
-                    const sentimentLabel = txt(row, "sentiment", "neutral");
-                    return `<tr>
-                      <td><strong>${escapeHtml(contactLabel)}</strong></td>
-                      <td>${escapeHtml(fmtDateTimeLabel(row.startedAt))}</td>
-                      <td style="text-transform:capitalize">${escapeHtml(outcomeLabel)}</td>
-                      <td style="text-transform:capitalize">${escapeHtml(interestLabel)} / ${escapeHtml(sentimentLabel)}</td>
-                      <td class="num">${fmtDuration(num(row, "durationSeconds"))}</td>
-                      <td>${escapeHtml(txt(row, "summary", "No summary recorded."))}</td>
-                    </tr>`;
-                  })
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>`
-      : ""
+  pages.push(ops);
+
+  // Assemble valid PDF 1.4 binary document with cross-reference table
+  // Objects:
+  // 1: Catalog
+  // 2: Pages
+  // 3: Font F1 (Helvetica)
+  // 4: Font F2 (Helvetica-Bold)
+  // For each page i: Page object (5 + i*2) and Content stream object (6 + i*2)
+  const totalPages = pages.length;
+  const pageObjIds: number[] = [];
+  const pdfObjects: Array<{ id: number; body: string }> = [];
+
+  for (let i = 0; i < totalPages; i++) {
+    const pageObjId = 5 + i * 2;
+    const contentObjId = 6 + i * 2;
+    pageObjIds.push(pageObjId);
+
+    const footerLine = `Page ${i + 1} of ${totalPages}  -  Foolioo Analytics`;
+    const pageContentOps = [
+      ...pages[i],
+      "0.48 0.49 0.47 rg",
+      `BT /F1 8.5 Tf ${MARGIN_X} 28 Td (${toPdfText(footerLine)}) Tj ET`,
+    ];
+    const streamData = pageContentOps.join("\n");
+    const streamByteLen = new TextEncoder().encode(streamData).length;
+
+    pdfObjects.push({
+      id: pageObjId,
+      body: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W.toFixed(2)} ${PAGE_H.toFixed(2)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjId} 0 R >>`,
+    });
+
+    pdfObjects.push({
+      id: contentObjId,
+      body: `<< /Length ${streamByteLen} >>\nstream\n${streamData}\nendstream`,
+    });
   }
 
-  <div class="footer">
-    <span>Foolioo AI Voice Operations • Confidential Workspace Analytics</span>
-    <span>Report Scope: ${periodLabel}</span>
-  </div>
-</body>
-</html>`;
+  const catalogObj = { id: 1, body: `<< /Type /Catalog /Pages 2 0 R >>` };
+  const pagesObj = {
+    id: 2,
+    body: `<< /Type /Pages /Kids [${pageObjIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${totalPages} >>`,
+  };
+  const font1Obj = {
+    id: 3,
+    body: `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`,
+  };
+  const font2Obj = {
+    id: 4,
+    body: `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`,
+  };
+
+  const allObjects = [catalogObj, pagesObj, font1Obj, font2Obj, ...pdfObjects].sort(
+    (a, b) => a.id - b.id,
+  );
+
+  const encoder = new TextEncoder();
+  const chunks: Uint8Array[] = [];
+  const offsets: number[] = [0];
+  let byteOffset = 0;
+
+  const pushStr = (s: string) => {
+    const encoded = encoder.encode(s);
+    chunks.push(encoded);
+    byteOffset += encoded.length;
+  };
+
+  pushStr("%PDF-1.4\n");
+
+  for (const obj of allObjects) {
+    offsets[obj.id] = byteOffset;
+    pushStr(`${obj.id} 0 obj\n${obj.body}\nendobj\n`);
+  }
+
+  const xrefOffset = byteOffset;
+  const maxObjId = allObjects[allObjects.length - 1]?.id ?? 4;
+  pushStr(`xref\n0 ${maxObjId + 1}\n`);
+  pushStr("0000000000 65535 f \n");
+  for (let id = 1; id <= maxObjId; id++) {
+    const off = String(offsets[id] ?? 0).padStart(10, "0");
+    pushStr(`${off} 00000 n \n`);
+  }
+
+  pushStr(`trailer\n<< /Size ${maxObjId + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+  const totalLen = chunks.reduce((sum, arr) => sum + arr.length, 0);
+  const output = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const arr of chunks) {
+    output.set(arr, pos);
+    pos += arr.length;
+  }
+  return output;
 }
 
+/**
+ * Triggers a direct client-side `.pdf` file download in the browser.
+ */
 export function exportAnalyticsToPdf(timeframe: string, data: AnalyticsData): boolean {
-  if (typeof window === "undefined") return false;
-  const html = buildAnalyticsReportHtml(timeframe, data);
-  const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=800");
-  if (!printWindow) {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+  try {
+    const pdfBytes = buildAnalyticsPdfBytes(timeframe, data);
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeSlug = timeframe.replace(/[^a-z0-9_-]/gi, "-") || "30d";
+    link.href = url;
+    link.download = `foolioo-analytics-${safeSlug}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return true;
+  } catch (error) {
+    console.error("[analytics/export-pdf] Failed to generate PDF:", error);
     return false;
   }
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-
-  const triggerPrint = () => {
-    printWindow.focus();
-    printWindow.print();
-  };
-
-  if (printWindow.document.readyState === "complete") {
-    window.setTimeout(triggerPrint, 180);
-  } else {
-    printWindow.onload = () => window.setTimeout(triggerPrint, 180);
-  }
-  return true;
 }

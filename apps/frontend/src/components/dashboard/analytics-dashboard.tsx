@@ -82,9 +82,11 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
           onClick={() => {
             if (!data) return;
             setExportNotice(null);
-            const opened = exportAnalyticsToPdf(timeframe, data);
-            if (!opened) {
-              setExportNotice("Pop-up blocked by your browser. Allow pop-ups for this site to save or print the PDF report.");
+            const ok = exportAnalyticsToPdf(timeframe, data);
+            if (!ok) {
+              setExportNotice("Unable to generate the PDF report right now. Please try again.");
+            } else {
+              setExportNotice("Downloaded foolioo-analytics-" + (timeframe || "30d") + ".pdf");
             }
           }}
           className="inline-flex h-10 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
@@ -98,7 +100,7 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
         </button>
       </div>
     </header>
-    {exportNotice ? <div role="alert" className="rounded-[8px] border border-[#F0DFB8] bg-[#FFFAEC] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#8A6826]">{exportNotice}</div> : null}
+    {exportNotice ? <div role="status" className="rounded-[8px] border border-[#E9E8E1] bg-[#F8F7F2] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] text-[#252620]">{exportNotice}</div> : null}
     {error ? <div className="rounded-[8px] border border-[#E9D4D0] bg-[#FFF8F6] p-4 text-[12px] text-[#984B3E]">Analytics could not be loaded. {error}</div> : null}
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total calls" value={total.toLocaleString("en-IN")} note={`${number(data?.pipeline, "pendingInQueue")} waiting in queue`} />
