@@ -340,8 +340,14 @@ export function createConversationSession(
         return;
       }
 
-      // If streaming TTS was unavailable, synthesize reply via batch TTS
-      if (!tts && reply.trim()) {
+      if (tts) {
+        await tts.finish();
+      }
+      if (closed || generationId !== currentGen) return;
+
+      // If streaming TTS produced no audio bytes (or was unavailable), synthesize reply via batch TTS
+      if (turnAudioBytes === 0 && reply.trim()) {
+        console.warn(`${tag} ⚠️ Streaming TTS produced 0 audio bytes — activating batch TTS fallback`);
         const cleanForAudio = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
         if (cleanForAudio) {
           const fallbackAudio = await convertTextToSpeech(cleanForAudio, {
@@ -355,11 +361,6 @@ export function createConversationSession(
           }
         }
       }
-
-      if (tts) {
-        await tts.finish();
-      }
-      if (closed || generationId !== currentGen) return;
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
       // IMPORTANT: Do NOT treat language-switch turns as exit phrases
