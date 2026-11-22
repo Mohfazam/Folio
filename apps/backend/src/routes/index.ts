@@ -19,7 +19,7 @@ import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRo
 import { getCampaignsRoute, getCampaignLiveStatsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
-import { contactImportUpload, importContactsFileRoute } from "./contactImport.js";
+import { contactImportUpload, importContactsFileRoute, previewContactImportRoute } from "./contactImport.js";
 import { createFollowUpRoute, deleteFollowUpRoute, getFollowUpsRoute, updateFollowUpRoute } from "./followUps.js";
 import {
   createKnowledgeBaseEntryRoute,
@@ -83,6 +83,7 @@ export function registerRoutes(app: Express) {
   api.get("/contacts", getContactsRoute);
   api.get("/contacts/:id", requireOwnedResource("contacts"), getContactByIdRoute);
   api.post("/contacts/bulk", requireClientAdmin, uploadRateLimiter, bulkContactsRoute);
+  api.post("/contacts/import/preview", requireClientAdmin, uploadRateLimiter, contactImportUpload, previewContactImportRoute);
   api.post("/contacts/import", requireClientAdmin, uploadRateLimiter, contactImportUpload, importContactsFileRoute);
   api.patch("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), updateContactRoute);
   api.delete("/contacts/:id", requireClientAdmin, requireOwnedResource("contacts"), deleteContactRoute);

@@ -381,7 +381,7 @@ export function SetupWizardModal({
                     <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">CSV or Excel · One row per contact</span>
                     <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[11px] text-[#565B5B]" onChange={(event) => { setContactFile(event.target.files?.[0] ?? null); setContactImportConfirmed(false); setError(null); }} />
                   </label>
-                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="font-['Space_Grotesk'] text-[11px] text-[#644ABB]">Remove</button></div> : null}
+                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="inline-flex shrink-0 items-center rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] hover:bg-[#FCECE9]">Remove file</button></div> : null}
                   <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">The downloadable template contains column headers only. Add at least one contact row before uploading it. A phoneNumber column is required; names and other business fields are optional. The backend validates every row before it becomes eligible for calling.</div>
                   <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" disabled={!contactFile} onClick={() => setContactImportStage("review")} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">Review import →</button></div>
                 </>
@@ -393,13 +393,9 @@ export function SetupWizardModal({
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{contactFile ? `${(contactFile.size / 1024).toFixed(1)} KB` : "No file selected"}</p>
                     <p className="mt-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Foolioo will process this file using the workspace import pipeline. The import result will report the rows accepted or rejected by the backend. Invalid phone numbers, duplicates and opted-out contacts must remain ineligible for outbound campaigns.</p>
                   </div>
-                  <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
-                    <input type="checkbox" checked={contactImportConfirmed} onChange={(event) => setContactImportConfirmed(event.target.checked)} className="mt-1 accent-[#7852D6]" />
-                    <span>I confirm that I have permission to contact the people in this file and that opt-out requests are represented correctly.</span>
-                  </label>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECEBE5] pt-4">
                     <button type="button" disabled={busy} onClick={() => setContactImportStage("select")} className="rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Back</button>
-                    <button type="button" disabled={busy || Boolean(success) || !contactFile || !contactImportConfirmed} onClick={async () => {
+                    <button type="button" disabled={busy || Boolean(success) || !contactFile} onClick={async () => {
                       if (!contactFile) return;
                       const result = await submit(() => importContactsAction(contactFile), "Your contact import has been submitted. Check the import result before using this audience in a campaign.");
                       if (!result) {
@@ -415,7 +411,7 @@ export function SetupWizardModal({
                         const invalid = payload.invalidRows ?? payload.invalid;
                         if (typeof total === "number") setSuccess(`Import submitted. ${total} rows received${typeof valid === "number" ? `, ${valid} valid` : ""}${typeof invalid === "number" ? `, ${invalid} invalid` : ""}.`);
                       }
-                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Confirm and import"}</button>
+                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Import contacts"}</button>
                   </div>
                 </>
               )}
