@@ -288,27 +288,7 @@ export function createConversationSession(
     let firstSentenceLogged = false;
     let turnAudioBytes = 0;
     let sentenceCount = 0;
-    let fillerTimeout: NodeJS.Timeout | null = null;
     try {
-      fillerTimeout = setTimeout(async () => {
-        if (closed || generationId !== currentGen || firstSentenceLogged) return;
-        try {
-          const fillerText = getRandomLatencyFiller(activeLanguage);
-          console.log(`${tag} 💬 Generation delay, playing conversational filler: "${fillerText}"`);
-          const fillerAudio = await convertTextToSpeech(fillerText, {
-            speaker,
-            languageCode: activeLanguage,
-            pace: speechRate,
-          });
-          if (!closed && generationId === currentGen && !firstSentenceLogged) {
-            callbacks.playAudio(fillerAudio);
-          }
-        } catch {
-          // ignore filler synthesis error
-        }
-      }, 2000);
-      fillerTimeout.unref();
-
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
@@ -336,10 +316,6 @@ export function createConversationSession(
           sentenceCount++;
           if (!firstSentenceLogged) {
             firstSentenceLogged = true;
-            if (fillerTimeout) {
-              clearTimeout(fillerTimeout);
-              fillerTimeout = null;
-            }
             const sentenceMs = Math.round(performance.now() - turnStartedAt);
             options?.sessionState?.recordFirstSentenceTime(sentenceMs);
             metricsCollector.recordTurnLatency(sentenceMs, undefined);
@@ -408,32 +384,19 @@ export function createConversationSession(
         }
       }
 
-      // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
-      // IMPORTANT:
-      // 1. Never treat mid-sentence phrases or long statements as exit phrases.
-      // 2. Only allow caller exit if utterance is concise (<=45 chars) with explicit intent to end.
-      // 3. Prevent premature AI hallucinated [HANGUP] on early turns (require at least 3 assistant turns).
-      const isExplicitCallerExit =
-        trimmed.length <= 45 &&
-        /\b(bye|goodbye|bye bye|byee|ok bye|okay bye|thank you bye|thanks bye|disconnect|cut the call|end the call|not interested|dont call|don't call|do not call|stop calling|remove my number|unsubscribe)\b/i.test(trimmed);
-
-      const assistantTurns =
-        options?.sessionState?.transcript.filter((t) => t.speaker === "assistant").length ??
-        history.filter((h) => h.role === "assistant").length;
-
-      const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const shouldHangup =
-        (isExplicitCallerExit || (hasHangupToken && assistantTurns >= 3)) && !isLanguageSwitch;
+      // Caller-only disconnect: The AI never disconnects the call on its own.
+      // Only when the caller actually hangs up does Plivo terminate the session.
+      const shouldHangup = false;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
-      console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
+      console.log(`${tag} 🤖 AI: "${cleanReply}"`);
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
       conversationalEngine.setLastAssistantReply(cleanReply);
       silenceWatchdog?.reset();
 
-      // If call is concluded, wait for audio playback to reach the phone and hang up
+      // Audio playback continues to caller without auto-hangup
       if (shouldHangup && callbacks.hangup) {
         // 8000 bytes = 1.0s of 8kHz mu-law audio
         const audioDurationMs = Math.round((turnAudioBytes / 8000) * 1000);
@@ -466,10 +429,6 @@ export function createConversationSession(
         } catch {}
       }
     } finally {
-      if (fillerTimeout) {
-        clearTimeout(fillerTimeout);
-        fillerTimeout = null;
-      }
       tts?.close();
       if (activeTurn === controller) activeTurn = null;
       turnInProgress = false;
@@ -489,15 +448,6 @@ export function createConversationSession(
     activeTurn?.abort();
     activeTurn = null;
     callbacks.clearAudio();
-
-    // If an assistant turn was cut off mid-speech, clean up trailing assistant record
-    // so Gemini doesn't assume the caller heard the entire message
-    if (history.length > 0 && history[history.length - 1]?.role === "assistant") {
-      const last = history.pop();
-      if (last) {
-        history.push({ role: "assistant", content: `${last.content.slice(0, 40)}... [interrupted]` });
-      }
-    }
   }
 
   // ── STT Connection with auto-reconnect ─────────────────────────
@@ -520,8 +470,8 @@ export function createConversationSession(
             return;
           }
 
-          // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
-          if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
+          // Only barge-in on substantial, intentional caller utterances (at least 3 words and >=16 chars)
+          if (trimmed.length >= 16 && trimmed.split(/\s+/).length >= 3) {
             silenceWatchdog?.reset(true);
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
@@ -563,7 +513,7 @@ export function createConversationSession(
           if (action.type === "busy_callback") {
             metricsCollector.recordBusyCallback();
             console.log(`${tag} 📅 Busy / Callback requested: "${finalTrimmed}"`);
-            speakImmediateResponse(action.replyText, activeLang, true);
+            speakImmediateResponse(action.replyText, activeLang, false);
             return;
           }
 
@@ -571,7 +521,7 @@ export function createConversationSession(
             metricsCollector.recordOptOutTriggered();
             console.log(`${tag} 🛑 Caller requested opt-out: "${finalTrimmed}"`);
             options?.sessionState?.markOptOut();
-            speakImmediateResponse(action.replyText, activeLang, true);
+            speakImmediateResponse(action.replyText, activeLang, false);
             return;
           }
 

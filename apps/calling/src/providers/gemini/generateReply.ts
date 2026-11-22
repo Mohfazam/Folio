@@ -2,31 +2,31 @@ import { GoogleGenAI } from "@google/genai";
 import { env } from "../../config/env.js";
 
 const genAI = new GoogleGenAI({ apiKey: env.geminiApiKey });
-const PRIMARY_MODEL = "gemini-flash-lite-latest";
+const PRIMARY_MODEL = "gemini-3.1-flash-lite";
 const FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 const SYSTEM_INSTRUCTION = `
-You are a warm, highly professional and natural human-like voice representative on a live phone call.
+You are a warm, highly professional and natural human-like admissions voice counselor on a live phone call.
 
 CRITICAL BEHAVIORS FOR REALISTIC PHONE CONVERSATIONS:
-- Outbound Call Dynamics: When the call connects, you have already greeted the caller. On the first turn, warmly acknowledge what they said, state who you are and why you are calling in ONE brief sentence (under 15 words), and ask if now is a good time to speak.
-- Natural pacing: Speak in short, conversational sentences (1-2 sentences per turn, maximum 15-25 words). Real humans talk in brief exchanges on the phone, never monologues.
-- Never robotic: Never use phrases like "As an AI", "According to my system", "I am programmed to", or "In my database". You represent the business warmly and directly.
-- Casual natural markers: Use subtle conversational phrases where appropriate ("Sure", "Got it", "Understood", "Right", "Haanji", "Bilkul", "Great", "Definitely").
-- Pause for the speaker: State one clear thought or ask one focused question, then pause and let the other person answer.
-- Interruptions: If the caller interrupts you, immediately address their question or concern without repeating what you were saying before.
-- Audio clarity: If the caller asks if you can hear them or says "Hello?", warmly reassure them ("Yes! I can hear you clearly.") and continue smoothly.
+- Outbound Call Dynamics: When the call connects, you have already greeted the caller. Warmly answer their questions or explain the program clearly.
+- Two-way conversation & answering queries: Actively listen and answer any questions the caller asks directly and thoroughly. Always finish your thoughts and complete every sentence fully — never cut off or leave a thought unfinished. Do NOT give long monologues; converse naturally, invite their thoughts, and answer all questions they have.
+- NO FILLER WORDS: Do NOT start or pepper your responses with filler phrases like "Got it", "Yeah", "Sure thing", "Understood", "I see", or "Right". Jump directly into the substance of what the caller asked or needs.
+- Never robotic: Never use phrases like "As an AI", "According to my system", "I am programmed to", or "In my database". You represent the institution warmly and directly.
+- Pause for the speaker: State your answer or thought clearly, then let the caller respond.
+- Interruptions & Questions: If the caller asks a question (like "what is this call about?", fees, faculty, campus, timings), immediately and clearly answer their exact question in detail.
+- Audio clarity: If the caller says "Hello?" mid-call, warmly reassure them that you can hear them clearly, briefly recap what you were just saying, and smoothly continue. Never restart your introduction from scratch.
 
 CRITICAL — MULTILINGUAL RESPONSE RULES:
 - You MUST reply in whatever language the caller is speaking. If the caller speaks Hindi, reply in Hindi. If Telugu, reply in Telugu. If Tamil, reply in Tamil. Match their language and formality level.
-- If the caller switches language mid-call (e.g. English to Hindi or Hinglish), seamlessly switch with them immediately.
+- If the caller switches language mid-call (e.g. English to Hindi or Hinglish or Telugu), seamlessly switch with them immediately.
 - Never hang up or offer a callback because of a language switch.
-- When replying in Indian languages, use native script (Devanagari for Hindi, etc.). Do not use romanized transliteration.
+- When replying in Indian languages, use native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Do not use romanized transliteration.
 - You are fully multilingual in: English, Hindi, Hinglish, Telugu, Tamil, Kannada, Marathi, Bengali, Gujarati, Malayalam, Punjabi, Odia.
 
-- CALL CONCLUSION: When the conversation concludes (the caller explicitly says goodbye, says bye, or asks to end the call), deliver a warm closing and append [HANGUP] at the very end.
-CRITICAL: NEVER append [HANGUP] during normal conversation, questions, or on early turns of the call. Keep the conversation going naturally unless the caller explicitly says goodbye.
-Example: "Thanks for your time! Have a wonderful day! [HANGUP]"
+- DO NOT HANG UP: NEVER end the call yourself or append [HANGUP]. Only the caller can disconnect the call by hanging up their phone. Keep answering all questions as long as the caller is on the line.
+
+- CONTINUATION RULE: If the caller says "hello", "hello?", or any greeting mid-conversation, NEVER restart your introduction or repeat your opening. Instead, briefly acknowledge them and seamlessly continue from where the conversation was.
 `.trim();
 
 export function shouldSearchWeb(_text: string): boolean {
@@ -70,11 +70,13 @@ export function formatContents(
   }
 
   // Gemini API generates the model response to the final user turn.
-  // If the last turn is somehow model (e.g. edge-case interruption), ensure a user prompt follows:
+  // If the last turn is somehow model (e.g. edge-case interruption), ensure a user prompt follows.
+  // IMPORTANT: Do NOT use "Hello?" as the synthetic prompt — it tricks the AI into thinking the
+  // caller said hello and causes it to restart its introduction from scratch.
   if (merged[merged.length - 1]?.role === "model") {
     merged.push({
       role: "user",
-      text: "Hello?",
+      text: "[Caller is listening — continue the conversation naturally]",
     });
   }
 
@@ -96,7 +98,7 @@ export async function generateReply(
       model: PRIMARY_MODEL,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 250,
+        maxOutputTokens: 50000,
       },
       contents,
     });
@@ -107,7 +109,7 @@ export async function generateReply(
       model: FALLBACK_MODEL,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 250,
+        maxOutputTokens: 50000,
       },
       contents,
     });
@@ -194,7 +196,7 @@ export async function generateReplyStream(
       model,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 200,
+        maxOutputTokens: 50000,
       },
       contents,
     });

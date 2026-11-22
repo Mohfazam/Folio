@@ -193,9 +193,9 @@ export async function openSarvamTtsStream(
           resolveCompletion();
         }
       }
-      // Safety timeout: don't hang longer than 800ms waiting for TTS final flush
+      // Safety timeout: give plenty of time (8000ms) for Sarvam TTS to finish streaming audio
       const timeoutPromise = new Promise<void>((resolve) => {
-        setTimeout(resolve, 800).unref();
+        setTimeout(resolve, 8000).unref();
       });
       await Promise.race([completion, timeoutPromise]);
     },

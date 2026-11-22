@@ -57,19 +57,11 @@ export function handleGenericGreeting(
   state.consecutiveHelloCount++;
   state.totalHelloCount++;
 
-  // While still delivering intro, ignore up to 2 early "hello"s so she finishes her opening
+  // While still delivering intro, ignore early "hello" so she finishes her opening
   if (!state.introCompleted && state.consecutiveHelloCount <= 2) {
     return { type: "continue_intro" };
   }
 
-  // Once threshold is reached (e.g. 3 consecutive "hellos"), stop and directly check audibility
-  if (state.consecutiveHelloCount >= threshold) {
-    state.hasAudioComplaint = true;
-    return {
-      type: "audibility_check",
-      replyText: "Hello! Yes, you are audible! Can you hear me clearly?",
-    };
-  }
-
+  // Pass through to Gemini so the AI answers naturally with full conversation context
   return null;
 }

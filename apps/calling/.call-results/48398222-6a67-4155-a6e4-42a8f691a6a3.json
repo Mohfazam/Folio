@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "1.0",
+  "deliveryId": "48398222-6a67-4155-a6e4-42a8f691a6a3:aaf84962-00d3-42df-b2c4-fa38616b8d2d",
+  "requestId": "48398222-6a67-4155-a6e4-42a8f691a6a3",
+  "plivoCallId": "aaf84962-00d3-42df-b2c4-fa38616b8d2d",
+  "contactId": "admissions-9346601744",
+  "clientId": "admissions-campaign",
+  "status": "completed",
+  "failureReason": "NORMAL_CLEARING",
+  "retryable": true,
+  "startedAt": "2026-11-22T07:43:58.196Z",
+  "endedAt": "2026-11-22T07:44:36.338Z",
+  "durationSeconds": 38,
+  "transcript": [
+    {
+      "speaker": "assistant",
+      "text": "Hello! This is the admissions desk calling regarding your recent inquiry for our Intermediate MPC program. Is this a good time to speak with you or a parent for a quick minute?",
+      "timestamp": "2026-11-22T07:44:06.354Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "This call is now being recorded.",
+      "timestamp": "2026-11-22T07:44:09.699Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "Noted. We are reaching out regarding the Intermediate MPC program to assist with any questions you might have about our curriculum or the upcoming admissions process. Is this a convenient time to chat?",
+      "timestamp": "2026-11-22T07:44:11.518Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "Hello",
+      "timestamp": "2026-11-22T07:44:12.431Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "Hello! I can hear you clearly. I am calling from the Intermediate MPC admissions desk to see if you have any questions about our two-year program or if you would like to know more about our current enrollment process.",
+      "timestamp": "2026-11-22T07:44:14.260Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "user",
+      "text": "Hello",
+      "timestamp": "2026-11-22T07:44:27.819Z",
+      "isComplete": true
+    },
+    {
+      "speaker": "assistant",
+      "text": "नमस्ते, मैं इंटरमीडिएट MPC प्रोग्राम के एडमिशन डेस्क से बात कर रहा हूँ। क्या आप अभी हमारे प्रोग्राम के बारे में जानकारी लेने के लिए उपलब्ध हैं?",
+      "timestamp": "2026-11-22T07:44:29.525Z",
+      "isComplete": true
+    }
+  ],
+  "providerErrors": [],
+  "timings": {
+    "sttConnectMs": 122,
+    "greetingPlayedMs": 2462,
+    "avgFirstSentenceMs": 943,
+    "avgFirstAudioMs": 1143
+  },
+  "analysis": {
+    "summary": "The AI agent attempted to reach a prospective student or parent regarding the Intermediate MPC program, but the caller only responded with 'Hello' and did not engage in a meaningful conversation.",
+    "interestLevel": "unknown",
+    "sentiment": "neutral",
+    "objectionsRaised": [],
+    "followUpRequested": false,
+    "humanRequested": false,
+    "optOutRequested": false,
+    "notes": "The caller repeatedly said 'Hello' but did not provide any information or engage with the agent. A follow-up call may be attempted later."
+  },
+  "costEstimate": {
+    "credits": 4,
+    "costTelephony": 0.0095,
+    "costStt": 0.0228,
+    "costLlm": 0.0003,
+    "costTts": 0.0133,
+    "totalEstimatedCost": 0.0459
+  }
+}
