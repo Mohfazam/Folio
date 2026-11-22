@@ -1290,11 +1290,11 @@ export function ContactsDashboard({
   );
 
   useEffect(() => {
-    setActiveFilters(filters);
-    setSearchInput(filters.search);
-    setStatusInput(filters.status);
-    setLifecycleInput(filters.lifecycleStage);
-  }, [filters]);
+    setActiveFilters(initialFilters);
+    setSearchInput(initialFilters.search);
+    setStatusInput(initialFilters.status);
+    setLifecycleInput(initialFilters.lifecycleStage);
+  }, [initialFilters]);
 
   // Independent live search: runs automatically as the user types (debounced) without needing Apply filter
   useEffect(() => {
