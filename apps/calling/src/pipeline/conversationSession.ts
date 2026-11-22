@@ -183,6 +183,23 @@ export function createConversationSession(
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
       options?.sessionState?.recordError("tts", "tts_synthesis", err?.message ?? "Greeting error");
+      // Automatic retry with concise greeting fallback to prevent silent calls
+      try {
+        const fallbackText = "Hello! Can you hear me okay?";
+        const retryAudio = await convertTextToSpeech(fallbackText, {
+          speaker,
+          languageCode: currentLanguage,
+          pace: speechRate,
+        });
+        if (!closed) {
+          callbacks.playAudio(retryAudio);
+          greetingDelivered = true;
+          conversationalEngine.markIntroCompleted();
+          silenceWatchdog?.reset();
+        }
+      } catch (retryErr: any) {
+        console.error(`${tag} Greeting retry also failed:`, retryErr?.message ?? retryErr);
+      }
     }
   }
 
