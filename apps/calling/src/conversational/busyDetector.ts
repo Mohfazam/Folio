@@ -3,10 +3,10 @@
  * or requests a callback at a later time.
  */
 const BUSY_PATTERNS = [
-  /\b(busy right now|im busy|i am busy|in a meeting|driving|in car|at work)\b/i,
-  /\b(call (me )?later|call back later|call afterwards|not now|cant talk now)\b/i,
-  /\b(baad me (baat|call)|abhi busy|meeting me|driving kar raha|gaadi chala)\b/i,
-  /\b(bad me call|bad me baat|baad me bolo|phir call karo|baad me)\b/i,
+  /\b(busy right now|im busy|i am busy|in a meeting|currently driving|driving right now|at work right now)\b/i,
+  /\b(call (me )?later|call back later|call afterwards|not a good time|cant talk right now|cannot talk right now)\b/i,
+  /\b(baad me (baat|call|batao|karenge)|abhi busy hoon|abhi busy hu|meeting me hoon|driving kar raha hoon|gaadi chala raha)\b/i,
+  /\b(bad me call|bad me baat|phir kabhi call karo|baad me call karna|baad me call kijiye)\b/i,
 ];
 
 export function isBusyUtterance(text: string): boolean {

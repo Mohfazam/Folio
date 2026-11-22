@@ -99,6 +99,7 @@ export function createConversationSession(
           if (!closed && !turnInProgress) {
             callbacks.playAudio(audio);
             history.push({ role: "assistant", content: promptText });
+            silenceWatchdog?.pause(Math.max(14000, Math.round((audio.length / 8000) * 1000) + 10000));
           }
         } catch (e: any) {
           console.warn(`${tag} Silence prompt TTS error:`, e?.message ?? e);
@@ -106,7 +107,7 @@ export function createConversationSession(
       },
       onHangup: async (exitText) => {
         if (closed) return;
-        console.log(`${tag} ⏱️ Silence watchdog terminating call due to persistence`);
+        console.log(`${tag} ⏱️ Silence watchdog terminating call due to persistent silence (>60s)`);
         try {
           const audio = await convertTextToSpeech(exitText, {
             speaker,
@@ -119,10 +120,10 @@ export function createConversationSession(
         } catch {}
         setTimeout(() => {
           if (!closed) callbacks.hangup?.("Call ended due to persistent caller silence");
-        }, 2500);
+        }, 3000);
       },
     },
-    { nudgeTimeoutMs: 7000, language: currentLanguage }
+    { nudgeTimeoutMs: 14000, language: currentLanguage }
   );
 
   // ── Safety: max call duration timer ─────────────────────────────
@@ -408,10 +409,21 @@ export function createConversationSession(
       }
 
       // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
-      // IMPORTANT: Do NOT treat language-switch turns as exit phrases
-      const isExitPhrase = /\b(bye|goodbye|bye bye|byee|take care|have a good day|have a nice day|that's all|thats all|that is all|nothing else|hang up|disconnect|not interested|dont call|don't call|do not call|stop calling|remove me from (your )?(list|database)|unsubscribe)\b/i.test(trimmed);
+      // IMPORTANT:
+      // 1. Never treat mid-sentence phrases or long statements as exit phrases.
+      // 2. Only allow caller exit if utterance is concise (<=45 chars) with explicit intent to end.
+      // 3. Prevent premature AI hallucinated [HANGUP] on early turns (require at least 3 assistant turns).
+      const isExplicitCallerExit =
+        trimmed.length <= 45 &&
+        /\b(bye|goodbye|bye bye|byee|ok bye|okay bye|thank you bye|thanks bye|disconnect|cut the call|end the call|not interested|dont call|don't call|do not call|stop calling|remove my number|unsubscribe)\b/i.test(trimmed);
+
+      const assistantTurns =
+        options?.sessionState?.transcript.filter((t) => t.speaker === "assistant").length ??
+        history.filter((h) => h.role === "assistant").length;
+
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const shouldHangup = (hasHangupToken || isExitPhrase) && !isLanguageSwitch;
+      const shouldHangup =
+        (isExplicitCallerExit || (hasHangupToken && assistantTurns >= 3)) && !isLanguageSwitch;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
@@ -585,7 +597,7 @@ export function createConversationSession(
           if (action.type === "transfer_agent") {
             console.log(`${tag} 👤 Caller requested human transfer: "${finalTrimmed}"`);
             options?.sessionState?.markHumanTransfer();
-            speakImmediateResponse(action.replyText, activeLang, true);
+            speakImmediateResponse(action.replyText, activeLang, false);
             return;
           }
 
@@ -647,8 +659,11 @@ export function createConversationSession(
           if (!closed) connectStt();
         }, STT_RECONNECT_DELAY_MS);
       } else if (!closed) {
-        console.error(`${tag} ❌ STT reconnect attempts exhausted — hanging up call`);
-        callbacks.hangup?.("STT connection failed after retries");
+        console.warn(`${tag} ⚠️ STT reconnect attempts reached limit — cooling down and retrying in 4s (call stays connected)`);
+        sttReconnectAttempts = 0;
+        setTimeout(() => {
+          if (!closed) connectStt();
+        }, 4000);
       }
     }
   }

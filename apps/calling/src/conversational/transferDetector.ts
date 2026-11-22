@@ -15,7 +15,7 @@ export function isTransferUtterance(text: string): boolean {
 export function buildTransferResponse(language: string = "en-IN"): string {
   const isHindi = language.toLowerCase().startsWith("hi");
   if (isHindi) {
-    return "Main samajh sakti hoon. Hamari team se ek senior representative aapko jald hi call karenge. Dhanyawad.";
+    return "Main samajh sakti hoon. Main note kar leti hoon ki aap senior representative se baat karna chahte hain aur callback schedule kar deti hoon. Tab tak ke liye main aapki kya madad kar sakti hoon?";
   }
-  return "I understand. I will have a team member follow up with you directly. Thank you for your time.";
+  return "I understand. I have noted your request for a human specialist and will arrange a callback. In the meantime, what questions can I help answer for you right now?";
 }

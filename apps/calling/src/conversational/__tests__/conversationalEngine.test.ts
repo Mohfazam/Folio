@@ -62,6 +62,7 @@ describe("Conversational Edge Case Handlers", () => {
     assert.equal(isBusyUtterance("Baad me baat karo"), true);
     assert.equal(isBusyUtterance("Driving right now"), true);
     assert.equal(isBusyUtterance("I want to know the fee"), false);
+    assert.equal(isBusyUtterance("Course complete karne ke baad job milegi kya?"), false);
   });
 
   it("detects opt-outs and DND requests", () => {
