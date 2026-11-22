@@ -80,3 +80,70 @@ export async function POST(request: NextRequest) {
     return jsonError("The demo calling service is temporarily unavailable. Please try again later.", 502);
   }
 }
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function GET(request: NextRequest) {
+  const requestId = request.nextUrl.searchParams.get("requestId")?.trim() ?? "";
+  if (!UUID_REGEX.test(requestId)) {
+    return jsonError("Invalid demo reference ID.", 400);
+  }
+
+  const proxySecret = process.env.PUBLIC_DEMO_PROXY_SECRET;
+  const upstreamUrl = process.env.PUBLIC_DEMO_API_URL;
+  if (!proxySecret || !upstreamUrl) {
+    return jsonError("The public demo service is not configured yet.", 503);
+  }
+
+  try {
+    const upstream = new URL(upstreamUrl);
+    if (upstream.protocol !== "https:" && process.env.NODE_ENV === "production") {
+      return jsonError("The public demo service must use HTTPS.", 500);
+    }
+
+    const statusUrl = `${upstream.toString().replace(/\/+$/, "")}/${encodeURIComponent(requestId)}`;
+    const upstreamResponse = await fetch(statusUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "X-Public-Demo-Proxy-Secret": proxySecret,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+
+    const result: unknown = await upstreamResponse.json().catch(() => null);
+    const payload =
+      result && typeof result === "object" && !Array.isArray(result)
+        ? (result as Record<string, unknown>)
+        : {};
+
+    if (!upstreamResponse.ok || payload.ok === false) {
+      return jsonError(
+        typeof payload.error === "string"
+          ? payload.error.slice(0, 240)
+          : "Unable to check demo call status.",
+        upstreamResponse.status >= 400 && upstreamResponse.status < 500
+          ? upstreamResponse.status
+          : 502,
+      );
+    }
+
+    return NextResponse.json(
+      {
+        ok: true,
+        requestId: typeof payload.requestId === "string" ? payload.requestId : requestId,
+        status: typeof payload.status === "string" ? payload.status : "pending",
+        queueStatus: typeof payload.queueStatus === "string" ? payload.queueStatus : "pending",
+        outcome: typeof payload.outcome === "string" ? payload.outcome : null,
+        durationSeconds:
+          typeof payload.durationSeconds === "number" ? payload.durationSeconds : null,
+        completed: payload.completed === true,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+  } catch (error) {
+    console.error("[public-demo/status] Request failed:", error);
+    return jsonError("Unable to reach the demo calling service.", 502);
+  }
+}

@@ -9,7 +9,7 @@ import {
 import { requireOwnedResource } from "../middleware/tenant.js";
 import { authRateLimiter, publicDemoRateLimiter, uploadRateLimiter } from "../middleware/rateLimiters.js";
 import { getLivenessRoute, getReadinessRoute } from "./health.js";
-import { createPublicDemoRoute } from "./publicDemo.js";
+import { createPublicDemoRoute, getPublicDemoStatusRoute } from "./publicDemo.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
 import { syncAuthUserRoute, getAuthMeRoute } from "./auth.js";
 import { submitSupportTicketRoute } from "./support.js";
@@ -61,6 +61,7 @@ export function registerRoutes(app: Express) {
 
   // Anonymous public demo is isolated behind the trusted frontend proxy secret.
   api.post("/public-demo", publicDemoRateLimiter, createPublicDemoRoute);
+  api.get("/public-demo/:requestId", getPublicDemoStatusRoute);
 
   // All other API routes require a provisioned user and are scoped to that user's workspace.
   api.use(requireAuth, requireWorkspace);
