@@ -10,6 +10,7 @@ You are a warm, highly professional and natural human-like voice counselor on a 
 
 CRITICAL BEHAVIORS FOR REALISTIC PHONE CONVERSATIONS:
 - CONVERSATIONAL TURN BREVITY (STRICT): Speak in 1 to 2 short, punchy sentences per turn (around 20-35 words max). Deliver one key answer or piece of information, then naturally pass the floor back to the caller.
+- NATURAL HUMAN-FRIENDLY TONE: Speak with a calm, friendly, warm, and natural conversational melody. Avoid sounding robotic, monotone, or overly formal. Phrase your responses smoothly so they flow effortlessly when spoken aloud.
 - NEVER MONOLOGUE: Live phone calls are fast, interactive two-way dialogues. Do NOT dump long explanations, paragraphs, or multiple points at once. Let the conversation breathe.
 - ALWAYS COMPLETE YOUR SENTENCES: Speak in full, grammatically complete sentences. Never stop mid-thought or mid-sentence.
 - SPOKEN CADENCE: Write strictly for spoken audio. Never use bullet points, numbered lists, asterisks, markdown, emojis, or URLs.
@@ -19,14 +20,17 @@ CRITICAL BEHAVIORS FOR REALISTIC PHONE CONVERSATIONS:
 - Interruptions & Questions: If the caller asks a question (like "what is this call about?", fees, faculty, campus, timings), immediately and directly answer their question in 1-2 crisp sentences.
 - Audio clarity: If the caller says "Hello?" mid-call, warmly reassure them that you can hear them clearly, briefly recap what you were just saying in one sentence, and smoothly continue. Never restart your introduction from scratch.
 
+CRITICAL — CALL OUTCOME COMPLETION & DISCONNECT RULE:
+- The moment the call's outcome is achieved, or the caller agrees to the next step (e.g. campus visit scheduled, brochure or fee details to be sent on WhatsApp or email), or politely declines, or says goodbye:
+  Warmly wrap up in ONE short sentence (e.g., "Wonderful! I'll send the MPC brochure and fee breakdown to your WhatsApp right away. Thank you so much and have a great day!") AND append [HANGUP] at the very end of your response.
+- Do NOT linger on the phone or keep asking open questions once the outcome is completed. Append [HANGUP] so the call disconnects promptly and cleanly.
+
 CRITICAL — MULTILINGUAL RESPONSE RULES:
 - You MUST reply in whatever language the caller is speaking. If the caller speaks Hindi, reply in Hindi. If Telugu, reply in Telugu. If Tamil, reply in Tamil. Match their language and formality level.
 - If the caller switches language mid-call (e.g. English to Hindi or Hinglish or Telugu), seamlessly switch with them immediately.
 - Never hang up or offer a callback because of a language switch.
 - When replying in Indian languages, use native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Do not use romanized transliteration.
 - You are fully multilingual in: English, Hindi, Hinglish, Telugu, Tamil, Kannada, Marathi, Bengali, Gujarati, Malayalam, Punjabi, Odia.
-
-- DO NOT HANG UP: NEVER end the call yourself or append [HANGUP]. Only the caller can disconnect the call by hanging up their phone. Keep answering all questions as long as the caller is on the line.
 
 - CONTINUATION RULE: If the caller says "hello", "hello?", or any greeting mid-conversation, NEVER restart your introduction or repeat your opening. Instead, briefly acknowledge them and seamlessly continue from where the conversation was.
 `.trim();
@@ -169,35 +173,19 @@ export async function generateReplyStream(
       match = /([.!?।]+)(?:\s+|$)/.exec(buffer);
     }
 
-    // Ultra-low latency early clause dispatch:
-    // For the very first chunk of a turn, dispatch as soon as buffer has >= 10 chars (2-3 words)
-    // and hits ANY natural pause (, ; : — - \n).
-    // For subsequent chunks, split when buffer reaches >= 30 chars.
-    const clauseMinThreshold = isFirstSentence ? 10 : 30;
-    if (buffer.length >= clauseMinThreshold) {
+    // Natural prosody clause dispatch:
+    // Split on natural punctuation pauses (, ; : — \n) with minimum 25 characters
+    // so each spoken clause has a complete, melodious, human-friendly intonation contour
+    if (buffer.length >= 28) {
       const clauseMatch = /([,;:\n—\-]+)\s+/.exec(buffer);
       const delimiter = clauseMatch?.[1];
-      if (clauseMatch && delimiter && clauseMatch.index >= 6) {
+      if (clauseMatch && delimiter && clauseMatch.index >= 18) {
         const clauseEnd = clauseMatch.index + delimiter.length;
         const clause = buffer.slice(0, clauseEnd).trim();
         if (clause) {
           dispatchSentence(clause);
         }
         buffer = buffer.slice(clauseEnd).trimStart();
-      }
-    }
-
-    // Pipelining fallback: if no punctuation occurs, split on word boundary (space)
-    // after 25 chars for the first chunk (or 45 for later chunks) so TTS doesn't wait for sentence end
-    const wordSplitThreshold = isFirstSentence ? 25 : 45;
-    if (buffer.length >= wordSplitThreshold) {
-      const lastSpaceIndex = buffer.lastIndexOf(" ");
-      if (lastSpaceIndex >= 15) {
-        const chunk = buffer.slice(0, lastSpaceIndex).trim();
-        if (chunk) {
-          dispatchSentence(chunk);
-        }
-        buffer = buffer.slice(lastSpaceIndex).trimStart();
       }
     }
   };
