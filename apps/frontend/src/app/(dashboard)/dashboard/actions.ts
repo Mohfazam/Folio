@@ -50,6 +50,7 @@ async function backendRequest(
     if (method !== "GET") {
       revalidatePath("/dashboard");
       revalidatePath("/dashboard/campaigns");
+      revalidatePath("/dashboard/contacts");
     }
     return { ok: true, data: record };
   } catch (error) {
@@ -63,6 +64,23 @@ export async function saveAgentSettingsAction(input: Record<string, unknown>): P
   return backendRequest("/api/business-profile", "PUT", {
     industry, displayName, description, aiPersonaName: agentName, toneOfVoice: tone, guardrails, complianceNotes,
     agentSettings: { agentName, tone, language, speechRate, voiceId, greeting, primaryObjective, handoffInstructions, pronunciationNotes },
+  });
+}
+
+export async function previewContactImportAction(file: File): Promise<ActionResult> {
+  const formData = new FormData();
+  formData.set("file", file, file.name);
+  return backendRequest("/api/contacts/import/preview", "POST", formData, true);
+}
+
+export async function bulkCreateContactsAction(
+  label: string,
+  contacts: Record<string, unknown>[],
+): Promise<ActionResult> {
+  return backendRequest("/api/contacts/bulk", "POST", {
+    label,
+    autoEnqueue: false,
+    contacts,
   });
 }
 
