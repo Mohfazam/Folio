@@ -4,15 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { signInSchema, signUpSchema, resetPasswordSchema } from "@/lib/validations/auth";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { resolvePostAuthDestination } from "@/lib/auth/backend";
 
-// Keep the existing server-side rate limit. Credentials remain outside browser code.
-const ratelimit = new Ratelimit({
-  redis: Redis.fromEnv(),
-  limiter: Ratelimit.slidingWindow(5, "1 m"),
-});
+const AUTH_WINDOW_MS = 60_000;
+const AUTH_MAX_ATTEMPTS = 5;
+const authAttempts = new Map<string, number[]>();
 
 export type AuthState = {
   error?: string;
@@ -21,9 +17,33 @@ export type AuthState = {
 } | null;
 
 async function rateLimit(key: string, message: string): Promise<AuthState> {
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "127.0.0.1";
-  const { success } = await ratelimit.limit(`${key}_${ip}`);
-  return success ? null : { error: message };
+  const ip =
+    (await headers()).get("x-real-ip")?.trim() ??
+    (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "127.0.0.1";
+  const bucketKey = `${key}_${ip}`;
+  const now = Date.now();
+  const cutoff = now - AUTH_WINDOW_MS;
+
+  const recent = (authAttempts.get(bucketKey) ?? []).filter((ts) => ts > cutoff);
+  if (recent.length >= AUTH_MAX_ATTEMPTS) {
+    authAttempts.set(bucketKey, recent);
+    return { error: message };
+  }
+
+  recent.push(now);
+  authAttempts.set(bucketKey, recent);
+
+  // Bound map size in long-lived processes
+  if (authAttempts.size > 5000) {
+    for (const [k, timestamps] of authAttempts) {
+      if (!timestamps.some((ts) => ts > cutoff)) {
+        authAttempts.delete(k);
+      }
+    }
+  }
+
+  return null;
 }
 
 async function destinationOrError(accessToken: string): Promise<{ destination?: "/onboarding" | "/dashboard"; error?: string }> {

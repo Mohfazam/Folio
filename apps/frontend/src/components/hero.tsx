@@ -123,7 +123,7 @@ export const Hero = () => {
                                         <span>→</span>
                                     </Link>
                                     <Link
-                                        href="/trial-call"
+                                        href="/live-demo"
                                         className="flex h-11 shrink-0 items-center justify-center rounded-md border border-[#E9E8E1] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18] shadow-xs transition-colors duration-200 hover:bg-[#F5F3EC]"
                                     >
                                         Trial call

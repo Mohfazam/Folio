@@ -375,6 +375,14 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const queryClient = useQueryClient();
   const resetUiState = useDashboardUiStore((state) => state.resetUiState);
 
+  useEffect(() => {
+    void queryClient.prefetchQuery({
+      queryKey: dashboardKeys.businessProfile(),
+      queryFn: () => fetchDashboardApi("/business-profile"),
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
+
   const handleSignOut = async () => {
     setSigningOut(true);
     setSignOutError(null);
@@ -923,21 +931,43 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   </button>
                 </div>
                 <div className="max-h-[320px] overflow-y-auto p-2">
-                  {filteredItems.map((item) => (
-                    <div key={item.href} className="flex items-center justify-between rounded-[5px] px-3 py-2.5">
-                      <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
-                        <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
-                        {item.label}
-                      </span>
-                      {item.enabled ? (
-                        <Link href={item.href} onClick={() => setSearchOpen(false)} className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open</Link>
-                      ) : item.setupAction ? (
-                        <button type="button" onClick={() => openSetupAction(item.setupAction!)} className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open setup</button>
-                      ) : (
+                  {filteredItems.map((item) =>
+                    item.enabled ? (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex w-full items-center justify-between rounded-[5px] px-3 py-2.5 transition-colors hover:bg-[#F5F4ED]"
+                      >
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                          <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
+                          {item.label}
+                        </span>
+                        <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open</span>
+                      </Link>
+                    ) : item.setupAction ? (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => openSetupAction(item.setupAction!)}
+                        className="flex w-full items-center justify-between rounded-[5px] px-3 py-2.5 text-left transition-colors hover:bg-[#F5F4ED]"
+                      >
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                          <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
+                          {item.label}
+                        </span>
+                        <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open setup</span>
+                      </button>
+                    ) : (
+                      <div key={item.href} className="flex items-center justify-between rounded-[5px] px-3 py-2.5">
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                          <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
+                          {item.label}
+                        </span>
                         <span className="font-['Space_Grotesk'] text-[10px] text-[#929493]">Not available yet</span>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ),
+                  )}
                   {filteredItems.length === 0 ? <p className="px-3 py-5 text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">No matching sections.</p> : null}
                 </div>
                 <div className="border-t border-[#E9E8E1] px-4 py-2 font-['Space_Grotesk'] text-[10px] text-[#929493]">Navigate to sections available in this workspace</div>
