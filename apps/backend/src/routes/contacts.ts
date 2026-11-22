@@ -215,9 +215,8 @@ export async function bulkContactsRoute(req: Request, res: Response) {
       return res.status(500).json({ ok: false, error: "Failed to create upload batch" });
     }
 
-    // 2. Insert contacts
+    // 2. Validate & prepare contacts for single-query batch insert
     const failedRows: { index: number; error: string }[] = [];
-    const insertedContacts: { id: string; fullName: string | null; phoneNumber: string; optOut: boolean; index: number }[] = [];
     const normalizedPhones = contactRows.map((row) =>
       normalizePhoneNumber(String(row.phoneNumber || row.phone || row.phoneNumberRaw || "")),
     );
@@ -231,69 +230,92 @@ export async function bulkContactsRoute(req: Request, res: Response) {
     const seenPhones = new Set(existingPhones.map((contact) => contact.phoneNumber));
     let duplicateRows = 0;
 
+    type PreparedRow = {
+      index: number;
+      optOut: boolean;
+      values: typeof contacts.$inferInsert;
+    };
+    const rowsToInsert: PreparedRow[] = [];
+
     for (let i = 0; i < contactRows.length; i++) {
       const row = contactRows[i]!;
-      try {
-        const rawName = String(row.fullName ?? row.name ?? "").trim();
-        const rawPhone = String(row.phoneNumber || row.phone || row.phoneNumberRaw || "");
-        const normalizedPhone = normalizedPhones[i]!;
+      const rawName = String(row.fullName ?? row.name ?? "").trim();
+      const rawPhone = String(row.phoneNumber || row.phone || row.phoneNumberRaw || "");
+      const normalizedPhone = normalizedPhones[i]!;
 
-        if (label !== "manual-contact-entry" && !rawName) {
-          throw new Error("Contact name is required");
-        }
-        if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
-          throw new Error("A valid phone number is required (E.164 format, or a 10-digit Indian number)");
-        }
-        if (seenPhones.has(normalizedPhone)) {
-          duplicateRows++;
-          failedRows.push({ index: i, error: "Duplicate phone number in this workspace" });
-          continue;
-        }
-        seenPhones.add(normalizedPhone);
+      if (label !== "manual-contact-entry" && !rawName) {
+        failedRows.push({ index: i, error: "Contact name is required" });
+        continue;
+      }
+      if (!/^\+\d{7,15}$/.test(normalizedPhone)) {
+        failedRows.push({
+          index: i,
+          error: "A valid phone number is required (E.164 format, or a 10-digit Indian number)",
+        });
+        continue;
+      }
+      if (seenPhones.has(normalizedPhone)) {
+        duplicateRows++;
+        failedRows.push({ index: i, error: "Duplicate phone number in this workspace" });
+        continue;
+      }
+      seenPhones.add(normalizedPhone);
 
-        const [newContact] = await db
-          .insert(contacts)
-          .values({
-            clientId,
-            uploadBatchId: batch.id,
-            fullName: rawName || null,
-            secondaryName: (row.secondaryName as string | undefined) ?? null,
-            phoneNumber: normalizedPhone,
-            phoneNumberRaw: rawPhone || normalizedPhone,
-            email: (row.email as string | undefined) ?? null,
-            
-            // Enterprise & Cross-Industry Attributes
-            companyName: (row.companyName as string | undefined) ?? (row.company as string | undefined) ?? null,
-            jobTitle: (row.jobTitle as string | undefined) ?? (row.title as string | undefined) ?? null,
-            department: (row.department as string | undefined) ?? null,
-            industry: (row.industry as string | undefined) ?? null,
-            city: (row.city as string | undefined) ?? null,
-            state: (row.state as string | undefined) ?? null,
-            country: (row.country as string | undefined) ?? null,
-            timezone: (row.timezone as string | undefined) ?? null,
-            leadScore: typeof row.leadScore === "number" ? row.leadScore : null,
-            lifecycleStage: (row.lifecycleStage as string | undefined) ?? null,
-            accountTier: (row.accountTier as string | undefined) ?? null,
-            tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
+      const isOptOut = row.optOut === true;
+      rowsToInsert.push({
+        index: i,
+        optOut: isOptOut,
+        values: {
+          clientId,
+          uploadBatchId: batch.id,
+          fullName: rawName || null,
+          secondaryName: (row.secondaryName as string | undefined) ?? null,
+          phoneNumber: normalizedPhone,
+          phoneNumberRaw: rawPhone || normalizedPhone,
+          email: (row.email as string | undefined) ?? null,
 
-            // Domain / Legacy Aliases
-            parentName: (row.parentName as string | undefined) ?? null,
-            studentName: (row.studentName as string | undefined) ?? null,
-            courseOrStream: (row.courseOrStream as string | undefined) ?? null,
+          // Enterprise & Cross-Industry Attributes
+          companyName: (row.companyName as string | undefined) ?? (row.company as string | undefined) ?? null,
+          jobTitle: (row.jobTitle as string | undefined) ?? (row.title as string | undefined) ?? null,
+          department: (row.department as string | undefined) ?? null,
+          industry: (row.industry as string | undefined) ?? null,
+          city: (row.city as string | undefined) ?? null,
+          state: (row.state as string | undefined) ?? null,
+          country: (row.country as string | undefined) ?? null,
+          timezone: (row.timezone as string | undefined) ?? null,
+          leadScore: typeof row.leadScore === "number" ? row.leadScore : null,
+          lifecycleStage: (row.lifecycleStage as string | undefined) ?? null,
+          accountTier: (row.accountTier as string | undefined) ?? null,
+          tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
 
-            contextData: (row.contextData as Record<string, any>) ?? {},
-            customFields: (row.customFields as Record<string, any>) ?? {},
-            optOut: row.optOut === true,
-            status: row.optOut === true ? "do_not_call" : "pending",
-          })
-          .returning({ id: contacts.id, fullName: contacts.fullName, phoneNumber: contacts.phoneNumber });
+          // Domain / Legacy Aliases
+          parentName: (row.parentName as string | undefined) ?? null,
+          studentName: (row.studentName as string | undefined) ?? null,
+          courseOrStream: (row.courseOrStream as string | undefined) ?? null,
 
-        if (newContact) {
-          insertedContacts.push({ ...newContact, optOut: row.optOut === true, index: i });
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        failedRows.push({ index: i, error: message });
+          contextData: (row.contextData as Record<string, any>) ?? {},
+          customFields: (row.customFields as Record<string, any>) ?? {},
+          optOut: isOptOut,
+          status: isOptOut ? "do_not_call" : "pending",
+        },
+      });
+    }
+
+    const insertedContacts: { id: string; fullName: string | null; phoneNumber: string; optOut: boolean; index: number }[] = [];
+    if (rowsToInsert.length > 0) {
+      const insertedRows = await db
+        .insert(contacts)
+        .values(rowsToInsert.map((item) => item.values))
+        .returning({ id: contacts.id, fullName: contacts.fullName, phoneNumber: contacts.phoneNumber });
+
+      for (let i = 0; i < insertedRows.length; i++) {
+        const created = insertedRows[i]!;
+        const meta = rowsToInsert[i]!;
+        insertedContacts.push({
+          ...created,
+          optOut: meta.optOut,
+          index: meta.index,
+        });
       }
     }
 
@@ -309,36 +331,45 @@ export async function bulkContactsRoute(req: Request, res: Response) {
       })
       .where(eq(uploadBatches.id, batch.id));
 
-    // 4. Auto-enqueue if requested
+    // 4. Batch auto-enqueue if requested
     let enqueuedCount = 0;
     const enqueueFailures: { index: number; error: string }[] = [];
     if (autoEnqueue && insertedContacts.length > 0) {
-      for (const c of insertedContacts.filter((contact) => !contact.optOut)) {
+      const callableContacts = insertedContacts.filter((contact) => !contact.optOut);
+      if (callableContacts.length > 0) {
         try {
           await db.transaction(async (tx) => {
-            await tx.insert(callQueue).values({
-              contactId: c.id,
-              clientId,
-              campaignId,
-              contactName: c.fullName,
-              phoneNumber: c.phoneNumber,
-              scheduledFor: scheduleDate,
-              attemptNumber: 1,
-              status: "pending",
-              maxAttempts: 2,
-              priority: 0,
-            });
-            await tx.update(contacts)
+            await tx.insert(callQueue).values(
+              callableContacts.map((c) => ({
+                contactId: c.id,
+                clientId,
+                campaignId,
+                contactName: c.fullName,
+                phoneNumber: c.phoneNumber,
+                scheduledFor: scheduleDate,
+                attemptNumber: 1,
+                status: "pending" as const,
+                maxAttempts: 2,
+                priority: 0,
+              })),
+            );
+            await tx
+              .update(contacts)
               .set({ status: "queued", updatedAt: new Date() })
-              .where(and(eq(contacts.id, c.id), eq(contacts.clientId, clientId)));
+              .where(
+                and(
+                  eq(contacts.clientId, clientId),
+                  inArray(contacts.id, callableContacts.map((c) => c.id)),
+                ),
+              );
           });
-          enqueuedCount++;
+          enqueuedCount = callableContacts.length;
         } catch (enqueueErr: unknown) {
-          console.error("[contacts/bulk] Auto-enqueue error for contact:", c.id, enqueueErr);
-          enqueueFailures.push({
-            index: c.index,
-            error: enqueueErr instanceof Error ? enqueueErr.message : "Failed to enqueue contact",
-          });
+          console.error("[contacts/bulk] Batch auto-enqueue error:", enqueueErr);
+          const message = enqueueErr instanceof Error ? enqueueErr.message : "Failed to enqueue contacts";
+          for (const c of callableContacts) {
+            enqueueFailures.push({ index: c.index, error: message });
+          }
         }
       }
 

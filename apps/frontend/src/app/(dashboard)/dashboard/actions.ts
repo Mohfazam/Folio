@@ -50,6 +50,7 @@ async function backendRequest(
     if (method !== "GET") {
       revalidatePath("/dashboard");
       revalidatePath("/dashboard/campaigns");
+      revalidatePath("/dashboard/contacts");
     }
     return { ok: true, data: record };
   } catch (error) {
