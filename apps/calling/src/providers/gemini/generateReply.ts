@@ -206,13 +206,50 @@ export async function generateReplyStream(
     }
   };
 
+  const isTransientError = (err: any): boolean => {
+    const msg = (err?.message || "").toLowerCase();
+    const status = err?.status || err?.statusCode;
+    return (
+      status === 429 ||
+      status === 500 ||
+      status === 502 ||
+      status === 503 ||
+      status === 504 ||
+      msg.includes("resource_exhausted") ||
+      msg.includes("overloaded") ||
+      msg.includes("rate limit") ||
+      msg.includes("econnreset") ||
+      msg.includes("etimedout") ||
+      msg.includes("fetch failed")
+    );
+  };
+
+  const runStreamWithRetry = async (model: string, retries = 1): Promise<void> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (signal?.aborted) return;
+      try {
+        await runStream(model);
+        return;
+      } catch (err: any) {
+        if (signal?.aborted) return;
+        if (attempt < retries && isTransientError(err)) {
+          const delayMs = 350 * (attempt + 1);
+          console.warn(`[generateReplyStream] Model ${model} hit transient error (${err?.message}), retrying in ${delayMs}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        }
+        throw err;
+      }
+    }
+  };
+
   try {
-    await runStream(primaryModel);
+    await runStreamWithRetry(primaryModel, 1);
   } catch (err: any) {
     if (signal?.aborted) return fullReply.trim();
     console.warn(`[generateReplyStream] Primary model ${primaryModel} failed, trying fallback:`, err?.message ?? err);
     try {
-      await runStream(fallbackModel);
+      await runStreamWithRetry(fallbackModel, 1);
     } catch (retryErr: any) {
       console.error(`[generateReplyStream] Fallback model also failed:`, retryErr?.message ?? retryErr);
     }
