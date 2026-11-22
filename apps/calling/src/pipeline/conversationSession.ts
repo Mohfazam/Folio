@@ -384,19 +384,32 @@ export function createConversationSession(
         }
       }
 
-      // Caller-only disconnect: The AI never disconnects the call on its own.
-      // Only when the caller actually hangs up does Plivo terminate the session.
-      const shouldHangup = false;
+      // Check if conversation concluded (via [HANGUP] token or explicit exit keywords)
+      // IMPORTANT:
+      // 1. Never treat mid-sentence phrases or long statements as exit phrases.
+      // 2. Only allow caller exit if utterance is concise (<=45 chars) with explicit intent to end.
+      // 3. Prevent premature AI hallucinated [HANGUP] on early turns (require at least 3 assistant turns).
+      const isExplicitCallerExit =
+        trimmed.length <= 45 &&
+        /\b(bye|goodbye|bye bye|byee|ok bye|okay bye|thank you bye|thanks bye|disconnect|cut the call|end the call|not interested|dont call|don't call|do not call|stop calling|remove my number|unsubscribe)\b/i.test(trimmed);
+
+      const assistantTurns =
+        options?.sessionState?.transcript.filter((t) => t.speaker === "assistant").length ??
+        history.filter((h) => h.role === "assistant").length;
+
+      const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
+      const shouldHangup =
+        (isExplicitCallerExit || (hasHangupToken && assistantTurns >= 3)) && !isLanguageSwitch;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
-      console.log(`${tag} 🤖 AI: "${cleanReply}"`);
+      console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
       conversationalEngine.setLastAssistantReply(cleanReply);
       silenceWatchdog?.reset();
 
-      // Audio playback continues to caller without auto-hangup
+      // If call is concluded, wait for audio playback to reach the phone and hang up
       if (shouldHangup && callbacks.hangup) {
         // 8000 bytes = 1.0s of 8kHz mu-law audio
         const audioDurationMs = Math.round((turnAudioBytes / 8000) * 1000);
@@ -513,7 +526,7 @@ export function createConversationSession(
           if (action.type === "busy_callback") {
             metricsCollector.recordBusyCallback();
             console.log(`${tag} 📅 Busy / Callback requested: "${finalTrimmed}"`);
-            speakImmediateResponse(action.replyText, activeLang, false);
+            speakImmediateResponse(action.replyText, activeLang, true);
             return;
           }
 
@@ -521,7 +534,7 @@ export function createConversationSession(
             metricsCollector.recordOptOutTriggered();
             console.log(`${tag} 🛑 Caller requested opt-out: "${finalTrimmed}"`);
             options?.sessionState?.markOptOut();
-            speakImmediateResponse(action.replyText, activeLang, false);
+            speakImmediateResponse(action.replyText, activeLang, true);
             return;
           }
 

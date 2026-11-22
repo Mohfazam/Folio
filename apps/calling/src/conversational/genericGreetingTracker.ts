@@ -62,6 +62,15 @@ export function handleGenericGreeting(
     return { type: "continue_intro" };
   }
 
+  // Once threshold is reached (e.g. 3 consecutive "hellos"), stop and directly check audibility
+  if (state.consecutiveHelloCount >= threshold) {
+    state.hasAudioComplaint = true;
+    return {
+      type: "audibility_check",
+      replyText: "Hello! Yes, you are audible! Can you hear me clearly?",
+    };
+  }
+
   // Pass through to Gemini so the AI answers naturally with full conversation context
   return null;
 }

@@ -42,9 +42,6 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/apps/calling/dist apps/calling/dist
 COPY --from=builder /app/packages/typescript-config packages/typescript-config
 
-# Create spool directory for durable call result backups
-RUN mkdir -p /app/apps/calling/.call-results
-
 WORKDIR /app/apps/calling
 
 # Fly injects PORT automatically (default 8080)
