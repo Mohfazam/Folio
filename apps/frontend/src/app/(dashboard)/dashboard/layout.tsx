@@ -9,6 +9,7 @@ import {
   type DashboardProfile,
 } from "@/components/dashboard/dashboard-shell";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
+import { QueryProvider } from "@/components/providers/query-provider";
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -137,9 +138,11 @@ async function DashboardContent({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DashboardShell profile={profile}>
-      {children}
-    </DashboardShell>
+    <QueryProvider>
+      <DashboardShell profile={profile}>
+        {children}
+      </DashboardShell>
+    </QueryProvider>
   );
 }
 

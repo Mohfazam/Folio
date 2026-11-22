@@ -1,22 +1,9 @@
-import { sanitizeUserError } from "@/lib/utils/sanitize-error";
-import { connection } from "next/server";
-import { redirect } from "next/navigation";
-import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
-import {
-  CallsDashboard,
-  type CallRecord,
-  type CallFilters,
-} from "@/components/dashboard/calls-dashboard";
+import { Suspense } from "react";
+import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
+import { CallsQueryContainer } from "@/components/dashboard/query-containers";
+import type { CallFilters } from "@/components/dashboard/calls-dashboard";
 
-type JsonRecord = Record<string, unknown>;
 type SearchParams = Record<string, string | string[] | undefined>;
-
-type BackendGetResult = {
-  ok: boolean;
-  status: number;
-  payload: unknown;
-  error?: string;
-};
 
 const OUTCOMES = new Set([
   "connected",
@@ -28,10 +15,6 @@ const OUTCOMES = new Set([
 ]);
 const SENTIMENTS = new Set(["positive", "neutral", "negative"]);
 const INTEREST_LEVELS = new Set(["high", "medium", "low", "unknown"]);
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function first(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
@@ -51,91 +34,20 @@ function validDateParam(value: string): string {
     : value;
 }
 
-function nullableString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function nullableNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function toCall(value: unknown): CallRecord | null {
-  if (!isRecord(value) || typeof value.id !== "string") return null;
-
-  return {
-    id: value.id,
-    contactId: typeof value.contactId === "string" ? value.contactId : null,
-    campaignId: typeof value.campaignId === "string" ? value.campaignId : null,
-    contactName: nullableString(value.contactName),
-    phoneNumber: nullableString(value.phoneNumber),
-    attemptNumber: nullableNumber(value.attemptNumber) ?? 1,
-    startedAt: nullableString(value.startedAt),
-    endedAt: nullableString(value.endedAt),
-    durationSeconds: nullableNumber(value.durationSeconds),
-    outcome: typeof value.outcome === "string" ? value.outcome : "unknown",
-    isBillable: value.isBillable === true,
-    creditsCharged: nullableNumber(value.creditsCharged) ?? 0,
-    summary: nullableString(value.summary),
-    interestLevel: nullableString(value.interestLevel),
-    sentiment: nullableString(value.sentiment),
-    followUpRequested: value.followUpRequested === true,
-    costTotal: nullableNumber(value.costTotal),
-    recordingUrl: nullableString(value.recordingUrl),
-    campaignName: nullableString(value.campaignName),
-  };
-}
-
-async function getAccessToken(): Promise<string> {
-  const auth = await getDashboardAuthContext();
-  if (!auth) redirect("/sign-in");
-  return auth.accessToken;
-}
-
-async function backendGet(url: string, token: string): Promise<BackendGetResult> {
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-      cache: "no-store",
-    });
-    const payload: unknown = await response.json().catch(() => null);
-
-    if (!response.ok || !isRecord(payload) || payload.ok !== true) {
-      const rawMessage = isRecord(payload) && typeof payload.error === "string"
-        ? payload.error
-        : null;
-      const message = sanitizeUserError(rawMessage, "Unable to load calls right now. Please try again.");
-      return { ok: false, status: response.status, payload, error: message };
-    }
-
-    return { ok: true, status: response.status, payload };
-  } catch (error) {
-    return {
-      ok: false,
-      status: 0,
-      payload: null,
-      error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to reach the calling service right now. Please try again."),
-    };
-  }
-}
-
 async function CallsPageContent({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await connection();
-
   const params = await searchParams;
   const requestedCampaignId = first(params.campaignId).trim();
-  const validCampaignId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedCampaignId)
-    ? requestedCampaignId
-    : "";
+  const validCampaignId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedCampaignId)
+      ? requestedCampaignId
+      : "";
   const requestedOutcome = first(params.outcome);
   const requestedSentiment = first(params.sentiment);
   const requestedInterest = first(params.interestLevel);
-  const limit = numberParam(first(params.limit), 25, 10, 100);
-  const offset = numberParam(first(params.offset), 0, 0, 10_000_000);
 
   const filters: CallFilters = {
     search: first(params.search).trim().slice(0, 200),
@@ -144,51 +56,17 @@ async function CallsPageContent({
     interestLevel: INTEREST_LEVELS.has(requestedInterest) ? requestedInterest : "",
     startDate: validDateParam(first(params.startDate)),
     endDate: validDateParam(first(params.endDate)),
-    limit,
-    offset,
+    limit: numberParam(first(params.limit), 25, 10, 100),
+    offset: numberParam(first(params.offset), 0, 0, 10_000_000),
   };
 
-  const baseUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
-
-  const token = await getAccessToken();
-  const callsQuery = new URLSearchParams({
-    limit: String(filters.limit),
-    offset: String(filters.offset),
-  });
-  if (validCampaignId) callsQuery.set("campaignId", validCampaignId);
-  if (filters.search) callsQuery.set("search", filters.search);
-  if (filters.outcome) callsQuery.set("outcome", filters.outcome);
-  if (filters.sentiment) callsQuery.set("sentiment", filters.sentiment);
-  if (filters.interestLevel) callsQuery.set("interestLevel", filters.interestLevel);
-  if (filters.startDate) callsQuery.set("startDate", filters.startDate);
-  if (filters.endDate) callsQuery.set("endDate", `${filters.endDate}T23:59:59.999Z`);
-
-  const callsResult = await backendGet(`${baseUrl}/api/calls?${callsQuery.toString()}`, token);
-
-  let calls: CallRecord[] = [];
-  let total = 0;
-  let initialError: string | null = null;
-
-  if (callsResult.ok && isRecord(callsResult.payload)) {
-    const rows = Array.isArray(callsResult.payload.calls) ? callsResult.payload.calls : [];
-    calls = rows.map(toCall).filter((item): item is CallRecord => item !== null);
-    total = typeof callsResult.payload.total === "number"
-      ? callsResult.payload.total
-      : calls.length;
-  } else {
-    initialError = sanitizeUserError(callsResult.error, "Unable to load calls right now. Please try again.");
-  }
-
-  return (
-    <CallsDashboard
-      calls={calls}
-      total={total}
-      filters={filters}
-      initialError={initialError}
-    />
-  );
+  return <CallsQueryContainer filters={filters} campaignId={validCampaignId} />;
 }
 
 export default function CallsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <CallsPageContent searchParams={searchParams} />;
+  return (
+    <Suspense fallback={<DashboardPageSkeleton variant="table" />}>
+      <CallsPageContent searchParams={searchParams} />
+    </Suspense>
+  );
 }
