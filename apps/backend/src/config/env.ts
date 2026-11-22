@@ -39,6 +39,11 @@ export const env = {
   /** Secrets for machine-to-machine route authorization */
   webhookSecret: process.env.WEBHOOK_SECRET?.trim() || process.env.CALLING_WEBHOOK_SECRET?.trim(),
   workerSecret: process.env.BACKEND_WORKER_SECRET?.trim(),
+  /** Plivo API credentials for audio streaming & media access */
+  plivo: {
+    authId: process.env.PLIVO_AUTH_ID?.trim() || "",
+    authToken: process.env.PLIVO_AUTH_TOKEN?.trim() || "",
+  },
   /** Supabase Auth API credentials */
   supabase: {
     url: process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim(),

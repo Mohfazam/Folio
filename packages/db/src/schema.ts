@@ -305,6 +305,36 @@ export const calls = pgTable("calls", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const recordingStatusEnum = pgEnum("recording_status", [
+  "in_progress",
+  "completed",
+  "failed",
+  "deleted",
+]);
+
+export const callRecordings = pgTable(
+  "call_recordings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    callId: uuid("call_id").notNull().references(() => calls.id, { onDelete: "cascade" }),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    plivoRecordingId: text("plivo_recording_id"),
+    sourceUrl: text("source_url").notNull(),
+    durationSeconds: integer("duration_seconds"),
+    fileFormat: text("file_format").notNull().default("mp3"),
+    fileSizeBytes: integer("file_size_bytes"),
+    status: recordingStatusEnum("status").notNull().default("completed"),
+    channels: integer("channels").notNull().default(1),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("idx_call_recordings_call_id").on(table.callId),
+    index("idx_call_recordings_client_id").on(table.clientId),
+  ]
+);
+
 export const followUps = pgTable("follow_ups", {
   id: uuid("id").primaryKey().defaultRandom(),
   callId: uuid("call_id").references(() => calls.id),

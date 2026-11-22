@@ -13,11 +13,14 @@ import { drizzle } from "drizzle-orm/neon-http";
 import { migrate } from "drizzle-orm/neon-http/migrator";
 
 async function runMigrate() {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
+  const rawUrl = process.env.DATABASE_URL?.trim();
+  if (!rawUrl) {
     console.error("❌ DATABASE_URL is not set in environment");
     process.exit(1);
   }
+
+  // Strip wrapping quotes if present
+  const dbUrl = rawUrl.replace(/^['"]|['"]$/g, "");
 
   console.log("🔌 Connecting to database...");
   const sql = neon(dbUrl);
@@ -26,12 +29,29 @@ async function runMigrate() {
   const migrationsFolder = join(__dirname, "../drizzle");
   console.log(`🚀 Running migrations from ${migrationsFolder}...`);
 
-  try {
-    await migrate(db, { migrationsFolder });
-    console.log("✅ Migrations applied successfully!");
-  } catch (err: any) {
-    console.error("❌ Migration error:", err);
-    process.exit(1);
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await migrate(db, { migrationsFolder });
+      console.log("✅ Migrations applied successfully!");
+      return;
+    } catch (err: any) {
+      const isConnectionError =
+        err?.message?.includes("fetch failed") ||
+        err?.cause?.message?.includes("fetch failed") ||
+        err?.code === "ECONNRESET" ||
+        err?.code === "ETIMEDOUT";
+
+      if (isConnectionError && attempt < MAX_RETRIES) {
+        const delayMs = attempt * 2500;
+        console.warn(`⏳ Neon compute is waking up from sleep (attempt ${attempt}/${MAX_RETRIES}). Retrying in ${delayMs / 1000}s...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      console.error("❌ Migration error:", err);
+      process.exit(1);
+    }
   }
 }
 

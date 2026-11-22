@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { dialRoute, activeCallsRoute } from "./dial.js";
 import { plivoVoiceRoute } from "./plivo-voice.js";
 import { plivoHangupRoute } from "./plivo-hangup.js";
+import { plivoRecordingRoute } from "./plivo-recording.js";
 import { metricsRoute } from "./metrics.js";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
 import { requireCallingServiceAuth } from "../middleware/serviceAuth.js";
@@ -14,6 +15,10 @@ export function registerRoutes(app: Express) {
   // Hangup webhook (Plivo calls this when call ends or fails)
   app.post("/plivo-hangup", plivoHangupRoute);
   app.get("/plivo-hangup", plivoHangupRoute);
+
+  // Recording webhook (Plivo calls this when recording is processed)
+  app.post("/plivo-recording", plivoRecordingRoute);
+  app.get("/plivo-recording", plivoRecordingRoute);
 
   // Dial routes (initiate outbound calls)
   app.post("/dial", requireCallingServiceAuth, dialRoute);
