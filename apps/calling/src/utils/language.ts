@@ -66,31 +66,31 @@ export function detectLanguageFromText(text: string): SupportedLanguage | null {
   const lower = text.toLowerCase();
 
   // Telugu patterns
-  if (/\b(telugu|తెలుగు|matladu|matladandi|matladatava|telugulo)\b/i.test(lower)) return "te-IN";
+  if (/\b(telugu|తెలుగు|telugulo)\b/i.test(lower) || /\b(telugu|తెలుగు)\s*(lo)?\s*(matladu|matladandi|matladatava)\b/i.test(lower)) return "te-IN";
 
   // Hindi patterns
-  if (/\b(hindi|हिन्दी|हिंदी|baat\s*karo|baat\s*kijiye|bolo|boliye|hindime|hindimein)\b/i.test(lower)) return "hi-IN";
+  if (/\b(hindi|हिन्दी|हिंदी|hindime|hindimein)\b/i.test(lower) || /\b(hindi|हिन्दी|हिंदी)\s*(me|mein)?\s*(baat|bolo|boliye)\b/i.test(lower)) return "hi-IN";
 
   // Tamil patterns
-  if (/\b(tamil|தமிழ்|pesu|pesunga|tamilil)\b/i.test(lower)) return "ta-IN";
+  if (/\b(tamil|தமிழ்|tamilil)\b/i.test(lower) || /\b(tamil|தமிழ்)\s*(il)?\s*(pesu|pesunga)\b/i.test(lower)) return "ta-IN";
 
   // Kannada patterns
-  if (/\b(kannada|ಕನ್ನಡ|mathadi|mathadiri|kannadadalli)\b/i.test(lower)) return "kn-IN";
+  if (/\b(kannada|ಕನ್ನಡ|kannadadalli)\b/i.test(lower) || /\b(kannada|ಕನ್ನಡ)\s*(dalli)?\s*(mathadi|mathadiri)\b/i.test(lower)) return "kn-IN";
 
   // Marathi patterns
-  if (/\b(marathi|मराठी|bola|bolaa|marathit)\b/i.test(lower)) return "mr-IN";
+  if (/\b(marathi|मराठी|marathit)\b/i.test(lower) || /\b(marathi|मराठी)\s*(t|madhe)?\s*(bola|bolaa)\b/i.test(lower)) return "mr-IN";
 
   // Bengali patterns
-  if (/\b(bengali|bangla|বাংলা|kotha\s*bolun)\b/i.test(lower)) return "bn-IN";
+  if (/\b(bengali|bangla|বাংলা)\b/i.test(lower) || /\b(bengali|bangla|বাংলা)\s*(te)?\s*kotha\s*bolun\b/i.test(lower)) return "bn-IN";
 
   // Gujarati patterns
-  if (/\b(gujarati|ગુજરાતી|vaat\s*karo)\b/i.test(lower)) return "gu-IN";
+  if (/\b(gujarati|ગુજરાતી)\b/i.test(lower) || /\b(gujarati|ગુજરાતી)\s*vaat\s*karo\b/i.test(lower)) return "gu-IN";
 
   // Malayalam patterns
-  if (/\b(malayalam|മലയാളം|samsarikku|samsarikkumo)\b/i.test(lower)) return "ml-IN";
+  if (/\b(malayalam|മലയാളം)\b/i.test(lower) || /\b(malayalam|മലയാളം)\s*(il)?\s*(samsarikku|samsarikkumo)\b/i.test(lower)) return "ml-IN";
 
   // Punjabi patterns
-  if (/\b(punjabi|ਪੰਜਾਬੀ|gall\s*karo|gal\s*karo)\b/i.test(lower)) return "pa-IN";
+  if (/\b(punjabi|ਪੰਜਾਬੀ)\b/i.test(lower) || /\b(punjabi|ਪੰਜਾਬੀ)\s*(vich)?\s*(gall|gal)\s*karo\b/i.test(lower)) return "pa-IN";
 
   // Odia patterns
   if (/\b(odia|oriya|ଓଡ଼ିଆ)\b/i.test(lower)) return "od-IN";
@@ -108,5 +108,5 @@ export function detectLanguageFromText(text: string): SupportedLanguage | null {
 export function isLanguageSwitchIntent(text: string): boolean {
   if (!text) return false;
   if (detectLanguageFromText(text) !== null) return true;
-  return /\b(language|speak|talk|bhasha|bhaasha|matladu|baat\s*karo|switch\s*to)\b/i.test(text);
+  return /\b(language|bhasha|bhaasha|switch\s*to|change\s*to|speak\s+in|talk\s+in)\b/i.test(text);
 }

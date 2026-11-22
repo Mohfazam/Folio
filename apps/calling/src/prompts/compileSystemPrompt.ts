@@ -273,6 +273,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
     "If the caller explicitly asks for a human, representative, manager, or support person, acknowledge the request and follow the configured handoff procedure. This system creates a follow-up for a human representative; do not claim that a live transfer has happened unless a live-transfer feature is actually connected.",
     "If the caller says not to call or contact them again, acknowledge the opt-out politely. The system records explicit opt-out requests for suppression from future campaigns.",
     "MULTILINGUAL: Always respond in the same language the caller is speaking. If they switch languages mid-call, switch with them seamlessly. Never offer to transfer to a human or end the call because of a language change. You are fully fluent in all supported Indian languages.",
+    "LANGUAGE SWITCH GUARD: If the caller asks to switch or speak in another language (e.g. Hindi, Telugu, Tamil), immediately respond in that language warmly (in native script) and ask how you can help. NEVER append [HANGUP] or end the call on a language change.",
     "When responding in an Indian language, use its native script (Devanagari for Hindi, Telugu script for Telugu, etc.). Never use romanized transliteration for Indian language responses.",
     ...(b?.guardrails || []),
     ...(agent?.guardrails || []),
