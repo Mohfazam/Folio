@@ -1,9 +1,10 @@
 import type { Request, Response } from "express";
 import { eq, and, sql, desc, gte, lte, or, like, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { calls, callQueue, clients, contacts, followUps, campaigns, users } from "@repo/db";
+import { calls, callQueue, clients, contacts, followUps, campaigns, users, callRecordings } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 import { getWorkspaceRoutingPolicyFromClient, isFooliooSystemContact, nextWorkspaceCallingTime } from "../services/workspaceConfiguration.js";
+import { env } from "../config/env.js";
 
 /**
  * The shape posted by /apps/calling's dispatchCallCompleted.
@@ -304,6 +305,29 @@ export async function callCompleteRoute(req: Request, res: Response) {
         return { duplicate: true as const, callId: duplicate.id, creditsCharged: duplicate.creditsCharged };
       }
       throw new Error("Failed to insert call record");
+    }
+
+    // 1b. Record storage tracking in dedicated callRecordings table
+    if (!isPublicDemoContact && payload.recording?.available && payload.recording.storageKey) {
+      try {
+        await tx.insert(callRecordings).values({
+          callId: callRecord.id,
+          clientId: payload.clientId,
+          sourceUrl: payload.recording.storageKey,
+          durationSeconds: payload.recording.durationSeconds ?? payload.durationSeconds ?? null,
+          fileFormat: "mp3",
+          fileSizeBytes: payload.recording.sizeBytes ?? null,
+          status: "completed",
+          channels: 1,
+          metadata: {
+            deliveryId: payload.deliveryId,
+            plivoCallId: payload.plivoCallId,
+            mimeType: payload.recording.mimeType || "audio/mp3",
+          },
+        });
+      } catch (recErr) {
+        console.warn("[calls/complete] Failed to record callRecording metadata:", recErr);
+      }
     }
 
     // 2. Follow-up routing. Test calls are for the workspace owner and must
@@ -875,5 +899,183 @@ export async function getCallByIdRoute(req: Request, res: Response) {
     console.error("[calls/getById] Unexpected error:", err);
     const message = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ ok: false, error: message });
+  }
+}
+
+/**
+ * Returns metadata and the streaming playback URL for a call's voice recording.
+ * Enforces workspace/client ownership.
+ */
+export async function getCallRecordingRoute(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Call ID is required" });
+    }
+
+    const [rec] = await db
+      .select({
+        id: callRecordings.id,
+        callId: callRecordings.callId,
+        sourceUrl: callRecordings.sourceUrl,
+        durationSeconds: callRecordings.durationSeconds,
+        fileFormat: callRecordings.fileFormat,
+        status: callRecordings.status,
+        createdAt: callRecordings.createdAt,
+      })
+      .from(callRecordings)
+      .where(and(eq(callRecordings.callId, id), eq(callRecordings.clientId, req.clientId!)))
+      .limit(1);
+
+    if (rec) {
+      return res.json({
+        ok: true,
+        available: true,
+        recording: {
+          ...rec,
+          streamUrl: `/api/calls/${id}/recording/stream`,
+        },
+      });
+    }
+
+    // Fallback: check legacy/direct calls.recordingUrl
+    const [callItem] = await db
+      .select({
+        id: calls.id,
+        recordingUrl: calls.recordingUrl,
+        durationSeconds: calls.durationSeconds,
+        createdAt: calls.createdAt,
+      })
+      .from(calls)
+      .where(and(eq(calls.id, id), eq(calls.clientId, req.clientId!)))
+      .limit(1);
+
+    if (callItem?.recordingUrl) {
+      return res.json({
+        ok: true,
+        available: true,
+        recording: {
+          id: callItem.id,
+          callId: callItem.id,
+          sourceUrl: callItem.recordingUrl,
+          durationSeconds: callItem.durationSeconds,
+          fileFormat: "mp3",
+          status: "completed",
+          streamUrl: `/api/calls/${id}/recording/stream`,
+          createdAt: callItem.createdAt,
+        },
+      });
+    }
+
+    return res.json({
+      ok: true,
+      available: false,
+      recording: null,
+      message: "No voice recording available for this call",
+    });
+  } catch (err: unknown) {
+    console.error("[calls/recording/get] Error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ ok: false, error: message });
+  }
+}
+
+/**
+ * Streams the call's audio recording with full HTTP Range request support (HTTP 206 Partial Content).
+ * Seamlessly authenticates with Plivo using server-side credentials when media URLs are protected,
+ * allowing frontend HTML5 <audio> players to seek and stream smoothly without CORS or auth issues.
+ */
+export async function streamCallRecordingRoute(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ ok: false, error: "Call ID is required" });
+    }
+
+    // 1. Look up recording URL for this call belonging to the tenant
+    const [rec] = await db
+      .select({
+        id: callRecordings.id,
+        sourceUrl: callRecordings.sourceUrl,
+        fileFormat: callRecordings.fileFormat,
+      })
+      .from(callRecordings)
+      .where(and(eq(callRecordings.callId, id), eq(callRecordings.clientId, req.clientId!)))
+      .limit(1);
+
+    let audioUrl = rec?.sourceUrl;
+    if (!audioUrl) {
+      const [callItem] = await db
+        .select({ recordingUrl: calls.recordingUrl })
+        .from(calls)
+        .where(and(eq(calls.id, id), eq(calls.clientId, req.clientId!)))
+        .limit(1);
+      audioUrl = callItem?.recordingUrl ?? undefined;
+    }
+
+    if (!audioUrl) {
+      return res.status(404).json({ ok: false, error: "No recording available for this call" });
+    }
+
+    // 2. Prepare headers for upstream audio request
+    const upstreamHeaders: Record<string, string> = {};
+    if (req.headers.range) {
+      upstreamHeaders["Range"] = req.headers.range;
+    }
+
+    // If source is a Plivo media URL, inject server Basic Auth credentials
+    const isPlivoUrl = audioUrl.includes("plivo.com");
+    if (isPlivoUrl && env.plivo?.authId && env.plivo?.authToken) {
+      const basicAuth = Buffer.from(`${env.plivo.authId}:${env.plivo.authToken}`).toString("base64");
+      upstreamHeaders["Authorization"] = `Basic ${basicAuth}`;
+    }
+
+    // 3. Fetch audio stream from provider
+    const upstreamRes = await fetch(audioUrl, {
+      method: "GET",
+      headers: upstreamHeaders,
+    });
+
+    if (!upstreamRes.ok && upstreamRes.status !== 206) {
+      console.error(`[calls/recording/stream] Provider fetch error: ${upstreamRes.status} ${upstreamRes.statusText}`);
+      return res.status(upstreamRes.status).json({
+        ok: false,
+        error: `Provider audio stream error (${upstreamRes.status})`,
+      });
+    }
+
+    // 4. Forward audio headers to frontend client
+    res.status(upstreamRes.status);
+    const contentType = upstreamRes.headers.get("content-type") || "audio/mpeg";
+    const contentLength = upstreamRes.headers.get("content-length");
+    const contentRange = upstreamRes.headers.get("content-range");
+    const acceptRanges = upstreamRes.headers.get("accept-ranges") || "bytes";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Accept-Ranges", acceptRanges);
+    if (contentLength) res.setHeader("Content-Length", contentLength);
+    if (contentRange) res.setHeader("Content-Range", contentRange);
+
+    // Private cache-control for call security
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate");
+
+    // 5. Pipe response stream to client
+    if (!upstreamRes.body) {
+      return res.end();
+    }
+
+    const { Readable } = await import("node:stream");
+    const nodeStream = Readable.fromWeb(upstreamRes.body as any);
+    nodeStream.pipe(res);
+
+    req.on("close", () => {
+      nodeStream.destroy();
+    });
+  } catch (err: unknown) {
+    console.error("[calls/recording/stream] Streaming error:", err);
+    if (!res.headersSent) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ ok: false, error: message });
+    }
   }
 }

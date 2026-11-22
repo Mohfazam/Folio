@@ -15,7 +15,7 @@ import { syncAuthUserRoute, getAuthMeRoute } from "./auth.js";
 import { submitSupportTicketRoute } from "./support.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
-import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRoute, callCompleteRoute } from "./calls.js";
+import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRoute, getCallRecordingRoute, streamCallRecordingRoute, callCompleteRoute } from "./calls.js";
 import { getCampaignsRoute, getCampaignLiveStatsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
@@ -96,6 +96,8 @@ export function registerRoutes(app: Express) {
   api.get("/calls", getCallsRoute);
   api.get("/calls/live", getLiveCallsRoute);
   api.get("/calls/:id/transcript", requireOwnedResource("calls"), getCallTranscriptRoute);
+  api.get("/calls/:id/recording/stream", requireOwnedResource("calls"), streamCallRecordingRoute);
+  api.get("/calls/:id/recording", requireOwnedResource("calls"), getCallRecordingRoute);
   api.get("/calls/:id", requireOwnedResource("calls"), getCallByIdRoute);
 
   api.get("/follow-ups", getFollowUpsRoute);

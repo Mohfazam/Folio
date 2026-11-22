@@ -84,6 +84,8 @@ export async function initiateOutboundCall(params?: InitiateCallParams) {
     if (recordCall) {
       callCreateOptions.record = true;
       callCreateOptions.record_when_answer = true;
+      callCreateOptions.recording_callback_url = `${env.publicUrl}/plivo-recording`;
+      callCreateOptions.recording_callback_method = "POST";
     }
 
     const plivoResponse = await plivoClient.calls.create(
