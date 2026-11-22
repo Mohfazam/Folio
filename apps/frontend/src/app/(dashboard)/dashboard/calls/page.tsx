@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
@@ -100,9 +101,10 @@ async function backendGet(url: string, token: string): Promise<BackendGetResult>
     const payload: unknown = await response.json().catch(() => null);
 
     if (!response.ok || !isRecord(payload) || payload.ok !== true) {
-      const message = isRecord(payload) && typeof payload.error === "string"
+      const rawMessage = isRecord(payload) && typeof payload.error === "string"
         ? payload.error
-        : `Request failed (${response.status}).`;
+        : null;
+      const message = sanitizeUserError(rawMessage, "Unable to load calls right now. Please try again.");
       return { ok: false, status: response.status, payload, error: message };
     }
 
@@ -112,7 +114,7 @@ async function backendGet(url: string, token: string): Promise<BackendGetResult>
       ok: false,
       status: 0,
       payload: null,
-      error: error instanceof Error ? error.message : "Unable to reach the backend.",
+      error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to reach the calling service right now. Please try again."),
     };
   }
 }
@@ -174,7 +176,7 @@ async function CallsPageContent({
       ? callsResult.payload.total
       : calls.length;
   } else {
-    initialError = callsResult.error ?? "Unable to load calls.";
+    initialError = sanitizeUserError(callsResult.error, "Unable to load calls right now. Please try again.");
   }
 
   return (

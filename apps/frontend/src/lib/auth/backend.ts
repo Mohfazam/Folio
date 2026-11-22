@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 export type OnboardingSnapshot = {
   version: 1;
   status: "not_started" | "in_progress" | "completed";
@@ -45,7 +46,7 @@ export async function syncAuthenticatedUser(accessToken: string): Promise<void> 
   const payload = await parseJson<{ ok?: boolean; error?: string }>(response).catch(() => ({ ok: false } as { ok?: boolean; error?: string }));
   if (!response.ok || payload.ok !== true) {
     console.error("[auth/sync] Backend provisioning failed:", response.status, payload.error);
-    throw new Error(payload.error || "Unable to provision your Foolioo workspace");
+    throw new Error(sanitizeUserError(payload.error, "Unable to provision your Foolioo workspace"));
   }
 }
 
@@ -63,7 +64,7 @@ export async function getOnboardingState(accessToken: string): Promise<Onboardin
   const payload = await parseJson<ApiEnvelope<OnboardingSnapshot>>(response).catch(() => ({ ok: false } as ApiEnvelope<OnboardingSnapshot>));
   if (!response.ok || payload.ok !== true || !payload.onboarding) {
     console.error("[onboarding/get] Backend request failed:", response.status, payload.error);
-    throw new Error(payload.error || "Unable to read onboarding status");
+    throw new Error(sanitizeUserError(payload.error, "Unable to read onboarding status"));
   }
 
   return payload.onboarding;

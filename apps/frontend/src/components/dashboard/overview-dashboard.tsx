@@ -1,5 +1,5 @@
 "use client";
-
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -424,6 +424,11 @@ function SectionError({
   error: string;
   onRetry?: () => void;
 }) {
+  const safeError = sanitizeUserError(
+    error,
+    "A temporary connection issue prevented loading this section. Please retry.",
+  );
+
   return (
     <div
       role="alert"
@@ -434,7 +439,7 @@ function SectionError({
           {title} could not be loaded
         </p>
         <p className="mt-0.5 break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D5A55]">
-          {error}
+          {safeError}
         </p>
       </div>
       {onRetry ? (
@@ -522,7 +527,7 @@ function SetupChecklist({
 
   return (
     <div className="space-y-3">
-      {setupError ? <SectionError title="Workspace setup status" error={setupError} /> : null}
+      {setupError ? <SectionError title="Workspace setup status" error={setupError} onRetry={() => router.refresh()} /> : null}
       <section
         className="overflow-hidden rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
         aria-labelledby="setup-heading"
@@ -1342,7 +1347,7 @@ function WorkspaceHealth({
 
       {data.setup.state === "error" ? (
         <div className="mt-3">
-          <SectionError title="Workspace health" error={data.setup.error} />
+          <SectionError title="Workspace health" error={data.setup.error} onRetry={() => window.location.reload()} />
         </div>
       ) : (
         <div className="mt-3 divide-y divide-[#ECEBE5]">
@@ -1618,7 +1623,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         if (isMounted()) {
           setAnalyticsResult({
             state: "error",
-            error: error instanceof Error ? error.message : "Unable to load workspace analytics.",
+            error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load workspace analytics."),
           });
         }
       });

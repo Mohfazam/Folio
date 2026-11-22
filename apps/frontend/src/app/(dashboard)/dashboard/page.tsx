@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { Suspense } from "react";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 import { redirect } from "next/navigation";
@@ -48,20 +49,47 @@ async function loadObject(
   accessToken: string,
   _key?: string,
 ): Promise<LoadResult<JsonRecord>> {
-  try {
-    const { status, payload } = await getBackendPayload(path, accessToken);
-    if (status < 200 || status >= 300 || payload.ok !== true) {
-      return {
+  let lastResult: LoadResult<JsonRecord> = {
+    state: "error",
+    error: "Unable to load workspace setup status right now. Please retry.",
+  };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { status, payload } = await getBackendPayload(path, accessToken);
+      if (status >= 200 && status < 300 && payload.ok === true) {
+        return { state: "ready", data: payload };
+      }
+      lastResult = {
         state: "error",
         status,
-        error: typeof payload.error === "string" ? payload.error : `Request failed (${status}).`,
+        error: sanitizeUserError(
+          payload.error,
+          "Unable to load workspace setup status right now. Please retry.",
+        ),
       };
+      if (status >= 500 && attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        continue;
+      }
+      return lastResult;
+    } catch (error) {
+      console.error(`[dashboard/overview] ${path} request failed:`, error);
+      lastResult = {
+        state: "error",
+        error: sanitizeUserError(
+          error instanceof Error ? error.message : null,
+          "Unable to load workspace setup status right now. Please retry.",
+        ),
+      };
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        continue;
+      }
     }
-    return { state: "ready", data: payload };
-  } catch (error) {
-    console.error(`[dashboard/overview] ${path} request failed:`, error);
-    return { state: "error", error: error instanceof Error ? error.message : "Unable to load workspace settings." };
   }
+
+  return lastResult;
 }
 
 

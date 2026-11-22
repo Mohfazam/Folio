@@ -99,16 +99,24 @@ export function errorHandler(
     return;
   }
 
-  if (statusCode >= 500 && env.isProduction) {
-    return res.status(500).json({
+  const rawMessage = typeof err.message === "string" ? err.message : "";
+  const isDatabaseQueryError =
+    statusCode >= 500 &&
+    (/^Failed query:/i.test(rawMessage) ||
+      (typeof err.query === "string" && Array.isArray(err.params)));
+
+  if (statusCode >= 500 && (env.isProduction || isDatabaseQueryError)) {
+    return res.status(statusCode).json({
       ok: false,
-      error: "Internal server error",
+      error: isDatabaseQueryError
+        ? "A temporary database connection issue occurred. Please try again."
+        : "Internal server error",
     });
   }
 
   return res.status(statusCode).json({
     ok: false,
-    error: err.message || "An unexpected error occurred",
+    error: rawMessage || "An unexpected error occurred",
     ...(env.isProduction ? {} : { stack: err.stack }),
   });
 }

@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
@@ -51,7 +52,7 @@ async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
   const result = await getWorkspaceAuthMe(accessToken);
   if (!result.ok) {
     throw new BackendResponseError(
-      `Unable to load the Neon workspace profile (${result.status})${result.error ? `: ${result.error}` : "."}`,
+      sanitizeUserError(result.error, "Unable to load your workspace profile right now. Please try again."),
       result.status,
     );
   }
