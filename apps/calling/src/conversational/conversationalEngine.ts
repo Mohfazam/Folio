@@ -5,6 +5,11 @@ import { isAudioIssueUtterance, buildAudibilityResponse } from "./audioIssueDete
 import { isBusyUtterance, buildBusyCallbackResponse } from "./busyDetector.js";
 import { isOptOutUtterance, buildOptOutResponse } from "./optOutDetector.js";
 import { isAiIdentityInquiry, buildAiIdentityResponse } from "./aiIdentityDetector.js";
+import { isHoldUtterance, buildHoldResponse } from "./holdDetector.js";
+import { isRepeatUtterance, buildRepeatPrefix } from "./repeatDetector.js";
+import { isTransferUtterance, buildTransferResponse } from "./transferDetector.js";
+import { isConfusionUtterance, buildClarificationPrefix } from "./confusionDetector.js";
+import { isProfanityUtterance, buildProfanityWarning } from "./profanityDetector.js";
 
 export interface ConversationalEngineContext {
   persona?: string;
@@ -28,6 +33,7 @@ export class ConversationalEngine {
       introCompleted: false,
       silenceCycle: 0,
       hasAudioComplaint: false,
+      profanityCount: 0,
     };
   }
 
@@ -37,6 +43,10 @@ export class ConversationalEngine {
 
   public isIntroCompleted(): boolean {
     return this.state.introCompleted;
+  }
+
+  public setLastAssistantReply(text: string): void {
+    this.state.lastAssistantReply = text;
   }
 
   public getState(): Readonly<CallerIntentState> {
@@ -64,7 +74,18 @@ export class ConversationalEngine {
       return greetingAction;
     }
 
-    // 3. Audio / Audibility complaints ("Can't hear you", "Am I audible")
+    // 3. Profanity / Inappropriate abuse detection
+    if (isProfanityUtterance(trimmed)) {
+      this.state.profanityCount = (this.state.profanityCount || 0) + 1;
+      const warning = buildProfanityWarning(this.state.profanityCount, currentLang);
+      return {
+        type: "escalation_warning",
+        replyText: warning.replyText,
+        shouldHangup: warning.shouldHangup,
+      };
+    }
+
+    // 4. Audio / Audibility complaints ("Can't hear you", "Am I audible")
     if (isAudioIssueUtterance(trimmed)) {
       this.state.hasAudioComplaint = true;
       return {
@@ -73,7 +94,50 @@ export class ConversationalEngine {
       };
     }
 
-    // 4. Busy / In meeting / Driving / Callback requests
+    // 5. Hold / Wait requests ("Hold on", "Ek second ruko")
+    if (isHoldUtterance(trimmed)) {
+      return {
+        type: "hold_wait",
+        replyText: buildHoldResponse(currentLang),
+      };
+    }
+
+    // 6. Repeat requests ("Repeat that", "Dobara bolo")
+    if (isRepeatUtterance(trimmed)) {
+      const prev = this.state.lastAssistantReply;
+      const prefix = buildRepeatPrefix(currentLang);
+      const replay = prev ? `${prefix}${prev}` : buildAudibilityResponse(currentLang);
+      return {
+        type: "repeat_request",
+        replyText: replay,
+        previousReply: prev,
+      };
+    }
+
+    // 7. Transfer to human representative ("Talk to human", "Agent se baat karvao")
+    if (isTransferUtterance(trimmed)) {
+      return {
+        type: "transfer_agent",
+        replyText: buildTransferResponse(currentLang),
+      };
+    }
+
+    // 8. Confusion / Clarification ("I don't understand", "Samajh nahi aaya")
+    if (isConfusionUtterance(trimmed)) {
+      const prev = this.state.lastAssistantReply;
+      const prefix = buildClarificationPrefix(currentLang);
+      const clarification = prev
+        ? `${prefix}${prev}`
+        : currentLang.toLowerCase().startsWith("hi")
+          ? "Ji koi baat nahi, main batati hoon ki humne aapko is vishay par jankari dene ke liye call kiya hai."
+          : "No problem at all, I called to share quick information with you regarding our services.";
+      return {
+        type: "clarification",
+        replyText: clarification,
+      };
+    }
+
+    // 9. Busy / In meeting / Driving / Callback requests
     if (isBusyUtterance(trimmed)) {
       return {
         type: "busy_callback",
@@ -81,7 +145,7 @@ export class ConversationalEngine {
       };
     }
 
-    // 5. Opt-Out / Do Not Call requests
+    // 10. Opt-Out / Do Not Call requests
     if (isOptOutUtterance(trimmed)) {
       return {
         type: "opt_out",
@@ -89,7 +153,7 @@ export class ConversationalEngine {
       };
     }
 
-    // 6. AI Identity Inquiry ("Are you a bot?")
+    // 11. AI Identity Inquiry ("Are you a bot?")
     if (isAiIdentityInquiry(trimmed)) {
       return {
         type: "ai_disclosure",
@@ -97,7 +161,7 @@ export class ConversationalEngine {
       };
     }
 
-    // 7. Normal conversational query -> passthrough to Gemini
+    // 12. Normal conversational query -> passthrough to Gemini
     return { type: "passthrough" };
   }
 }
