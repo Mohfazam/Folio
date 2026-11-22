@@ -14,7 +14,7 @@ export const pool = new Pool({
 });
 
 // Prevent unhandled 'error' events on idle pooled WebSocket clients from crashing or poisoning state.
-pool.on("error", (err) => {
+pool.on("error", (err: unknown) => {
   console.warn("[db/pool] Idle database client error:", err instanceof Error ? err.message : err);
 });
 
