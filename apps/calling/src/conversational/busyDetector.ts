@@ -1,3 +1,5 @@
+import { isLanguageSwitchIntent } from "../utils/language.js";
+
 /**
  * Detects if the caller indicates they are busy, driving, in a meeting,
  * or requests a callback at a later time.
@@ -12,6 +14,8 @@ const BUSY_PATTERNS = [
 export function isBusyUtterance(text: string): boolean {
   const clean = text.trim();
   if (!clean) return false;
+  // If caller is requesting language change (e.g. "Hindi me bolo baad me"), do not treat as busy
+  if (isLanguageSwitchIntent(clean)) return false;
   return BUSY_PATTERNS.some((pattern) => pattern.test(clean));
 }
 

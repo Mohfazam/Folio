@@ -3,13 +3,14 @@ import { openSttSession, type SttSession } from "../providers/sarvam/stt.js";
 import { generateReplyStream } from "../providers/gemini/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream, type StreamingTtsSession } from "../providers/sarvam/tts.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
-import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
+import { normalizeLanguageCode, detectLanguageFromText, isLanguageSwitchIntent } from "../utils/language.js";
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
 import { buildOpeningIntro } from "../conversational/introManager.js";
 import { ConversationalEngine } from "../conversational/conversationalEngine.js";
 import { isBackchannel } from "../conversational/backchannelDetector.js";
 import { isGenericGreeting } from "../conversational/genericGreetingTracker.js";
 import { isCallEndIntent, buildFastFarewell } from "../conversational/callEndDetector.js";
+import { shouldBargeIn } from "../conversational/bargeInDetector.js";
 import { getRandomLatencyFiller } from "../conversational/latencyFiller.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
@@ -148,20 +149,35 @@ export function createConversationSession(
   let warmTts: StreamingTtsSession | null = null;
   let warmTtsPromise: Promise<StreamingTtsSession> | null = null;
 
-  async function getWarmTtsStream(): Promise<StreamingTtsSession> {
-    if (warmTts && warmTts.isReady()) {
+  async function getWarmTtsStream(targetLanguage?: string): Promise<StreamingTtsSession> {
+    const lang = targetLanguage || currentLanguage;
+    if (warmTts && warmTts.isReady() && warmTts.languageCode === lang) {
       return warmTts;
+    }
+    // Clean up mismatched or dead session before acquiring a new one
+    if (warmTts && (warmTts.languageCode !== lang || !warmTts.isReady())) {
+      try {
+        warmTts.close();
+      } catch {}
+      warmTts = null;
     }
     if (warmTtsPromise) {
       try {
-        return await warmTtsPromise;
+        const session = await warmTtsPromise;
+        if (session.isReady() && session.languageCode === lang) {
+          warmTts = session;
+          return warmTts;
+        }
+        try {
+          session.close();
+        } catch {}
       } catch {
         // failed, retry below
       }
     }
     warmTtsPromise = openSarvamTtsStream(() => {}, {
       speaker,
-      languageCode: currentLanguage,
+      languageCode: lang,
       pace: speechRate,
     });
     try {
@@ -335,10 +351,7 @@ export function createConversationSession(
 
       // Acquire warm TTS stream immediately (already connected from session start — 0ms connect delay)
       try {
-        tts = await getWarmTtsStream();
-        if (tts.setLanguage && isLanguageSwitch) {
-          tts.setLanguage(activeLanguage);
-        }
+        tts = await getWarmTtsStream(activeLanguage);
         tts.setAudioHandler((audioChunk) => {
           if (!firstAudioLogged) {
             firstAudioLogged = true;
@@ -350,7 +363,7 @@ export function createConversationSession(
           turnAudioBytes += audioChunk.length;
           if (!closed && generationId === currentGen) callbacks.playAudio(audioChunk);
         });
-        console.log(`${tag} ⏱️ Warm TTS active: ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
+        console.log(`${tag} ⏱️ Warm TTS active (${activeLanguage}): ${Math.round(performance.now() - turnStartedAt)}ms after transcript final`);
       } catch (warmErr: any) {
         console.warn(`${tag} ⚠️ Warm TTS unavailable (${warmErr?.message}), creating fresh stream`);
         tts = null;
@@ -462,7 +475,8 @@ export function createConversationSession(
         history.filter((h) => h.role === "assistant").length;
 
       const hasHangupToken = /\[(?:HANGUP|END_CALL|HANG_UP)\]/i.test(reply);
-      const shouldHangup = (isExplicitCallerExit || hasHangupToken) && !isLanguageSwitch;
+      const isLanguageIntent = isLanguageSwitch || isLanguageSwitchIntent(trimmed);
+      const shouldHangup = (isExplicitCallerExit || hasHangupToken) && !isLanguageIntent;
 
       const cleanReply = reply.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
 
@@ -542,33 +556,18 @@ export function createConversationSession(
           const trimmed = text?.trim();
           if (!trimmed || isNoiseOrFiller(trimmed)) return;
 
-          // Prevent acoustic echo: ignore if STT is hearing the AI's own recent words
+          // Only evaluate barge-in if the AI is actively speaking or generating audio
+          if (!turnInProgress) return;
+
+          // Robust barge-in check: filters acoustic echo, passive backchannels,
+          // ambient room chatter & TV noise, while instantly allowing genuine interruption
+          // commands, active questions, language switches, and substantive caller turns
           const lastAssistant = conversationalEngine.getState().lastAssistantReply || "";
-          if (lastAssistant && lastAssistant.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length > 5) {
+          if (!shouldBargeIn(trimmed, { lastAssistantReply: lastAssistant, currentLanguage })) {
             return;
           }
 
-          // Do not interrupt on passive backchannels ("haan", "hmm") or solitary greetings ("hello", "hi", "yes")
-          // If the caller accidentally says "hello" or "yeah" while the AI is talking, let the AI finish her thought!
-          if (isBackchannel(trimmed) || isGenericGreeting(trimmed)) {
-            return;
-          }
-
-          // Require at least 2 words or explicit stop word ("wait", "stop", "hold", "listen", "no", "ruko")
-          // to prevent brief ambient noise or mic clicks from interrupting AI speech
-          const isStopWord = /^(wait|stop|ruko|hold|listen|no|suno)\b/i.test(trimmed);
-          const wordCount = trimmed.split(/\s+/).length;
-          if (wordCount < 2 && !isStopWord) {
-            return;
-          }
-
-          // Do not interrupt on passive backchannels or early intro greetings
-          const action = conversationalEngine.evaluateUtterance(trimmed, currentLanguage);
-          if (action.type === "ignore_filler" || action.type === "continue_intro") {
-            return;
-          }
-
-          // Fast conversational barge-in: any intentional caller speech stops AI speech immediately
+          // Genuine intentional caller barge-in: stop AI speech immediately
           interruptForCallerSpeech();
           console.log(`${tag} 🛑 Caller interrupted (barge-in): "${trimmed}"`);
         },

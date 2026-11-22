@@ -1,3 +1,5 @@
+import { isLanguageSwitchIntent } from "../utils/language.js";
+
 /**
  * Detects explicit caller intent to end or leave the call:
  * e.g., "bye", "okay thank you bye", "that's all", "no thanks", "have to go", "not interested".
@@ -12,12 +14,14 @@ const CALL_END_PATTERNS = [
   // Busy / Gotta go
   /\b(i have to (go|leave)|got to go|have to go|talk (to you )?later|call you later|call back later|busy right now bye)\b/i,
   // Explicit hangup commands / regional phrases
-  /\b(disconnect|cut the call|end the call|hang up|phone rakho|call cut karo|phone kaato|band karo|ab nahi|nahi chahiye|baad me)\b/i,
+  /\b(disconnect|cut the call|end the call|hang up|phone rakho|call cut karo|phone kaato|call band karo|phone band karo|ab nahi chahiye|kuch nahi chahiye|nahi chahiye|baad me (baat|call))\b/i,
 ];
 
 export function isCallEndIntent(text: string): boolean {
   const clean = text.trim();
   if (!clean || clean.length > 80) return false;
+  // If caller is asking to switch languages or speaks in another language, NEVER end the call
+  if (isLanguageSwitchIntent(clean)) return false;
   return CALL_END_PATTERNS.some((pattern) => pattern.test(clean));
 }
 

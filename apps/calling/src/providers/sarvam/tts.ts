@@ -66,6 +66,7 @@ export interface StreamingTtsSession {
   sendText: (text: string) => void;
   finish: () => Promise<void>;
   close: () => void;
+  languageCode: string;
   setLanguage?: (languageCode: string) => void;
   setAudioHandler: (handler: (chunk: Buffer) => void) => void;
   isReady: () => boolean;
@@ -156,6 +157,7 @@ export async function openSarvamTtsStream(
   });
 
   return {
+    languageCode,
     isReady() {
       return !closed && (socket as any).readyState === 1;
     },
@@ -176,22 +178,9 @@ export async function openSarvamTtsStream(
         throw error;
       }
     },
-    setLanguage(newLang: string) {
-      if (closed || options?.signal?.aborted) return;
-      try {
-        (socket as any).sendJson({
-          type: "config",
-          data: {
-            language_code: newLang,
-            speaker,
-            speech_sample_rate: 8000,
-            output_audio_codec: "mulaw",
-            pace,
-          },
-        });
-      } catch (e) {
-        console.warn("[openSarvamTtsStream] Failed to send reconfig language:", e);
-      }
+    setLanguage(_newLang: string) {
+      // Sarvam Bulbul:v3 WebSocket does not support dynamic reconfiguration mid-stream;
+      // callers recreate a clean stream with the new language instead.
     },
     async finish() {
       if (pendingFlushes === 0) return;

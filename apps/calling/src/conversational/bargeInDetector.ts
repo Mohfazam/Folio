@@ -105,16 +105,16 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return true;
   }
 
-  // 5. Direct active question
+  // 5. Filter out common ambient room chatter & background TV noise FIRST
+  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
+    return false;
+  }
+
+  // 6. Direct active question
   const isQuestion = QUESTION_PATTERNS.some((p) => p.test(clean));
   const words = clean.split(/\s+/);
   if (isQuestion && words.length >= 2) {
     return true;
-  }
-
-  // 6. Filter out common ambient room chatter & background TV noise
-  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
-    return false;
   }
 
   // 7. Substantive caller statement: must be at least 4 distinct words and >= 16 chars

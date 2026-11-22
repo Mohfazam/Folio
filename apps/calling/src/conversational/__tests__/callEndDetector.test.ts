@@ -41,6 +41,15 @@ describe("Call End Detector", () => {
     assert.equal(isCallEndIntent("can you explain the installments?"), false);
   });
 
+  it("never false-positives on language switch requests", () => {
+    assert.equal(isCallEndIntent("Hindi please"), false);
+    assert.equal(isCallEndIntent("Can you speak in Hindi?"), false);
+    assert.equal(isCallEndIntent("Telugu lo matladandi"), false);
+    assert.equal(isCallEndIntent("English band karo, Hindi me bolo"), false);
+    assert.equal(isCallEndIntent("No English, speak in Telugu"), false);
+    assert.equal(isCallEndIntent("Hindi me baat karo baad me samajh aayega"), false);
+  });
+
   it("builds localized fast farewells", () => {
     assert.match(buildFastFarewell("en-IN"), /wonderful day|Goodbye/i);
     assert.match(buildFastFarewell("hi"), /dhanyawad|Namaste/i);
