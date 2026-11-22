@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,6 +10,7 @@ import {
 import {
   createContactAction,
   deleteContactAction,
+  fetchContactsAction,
   updateContactAction,
 } from "@/app/(dashboard)/dashboard/contacts/actions";
 
@@ -535,19 +536,33 @@ function ContactEditor({
 
           <label className={LABEL_CLASS}>
             Lifecycle stage
-            <select
-              name="lifecycleStage"
-              value={lifecycleStage}
-              onChange={(event) => setLifecycleStage(event.target.value)}
-              className={INPUT_CLASS}
-            >
-              <option value="">Not set</option>
-              {LIFECYCLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative mt-1.5">
+              <select
+                name="lifecycleStage"
+                value={lifecycleStage}
+                onChange={(event) => setLifecycleStage(event.target.value)}
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+              >
+                <option value="">Not set</option>
+                {LIFECYCLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 20 20"
+                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747878]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 8 4 4 4-4" />
+              </svg>
+            </div>
           </label>
         </div>
 
@@ -1030,14 +1045,180 @@ function buildPageHref(filters: ContactFilters, offset: number): string {
   return `/dashboard/contacts?${params.toString()}`;
 }
 
+function computeLevenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const matrix: number[][] = Array.from({ length: a.length + 1 }, () =>
+    new Array<number>(b.length + 1).fill(0),
+  );
+  for (let i = 0; i <= a.length; i++) matrix[i]![0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0]![j] = j;
+
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i]![j] = Math.min(
+        matrix[i - 1]![j]! + 1,
+        matrix[i]![j - 1]! + 1,
+        matrix[i - 1]![j - 1]! + cost,
+      );
+    }
+  }
+  return matrix[a.length]![b.length]!;
+}
+
+function isSubsequence(query: string, target: string): boolean {
+  let qi = 0;
+  for (let ti = 0; ti < target.length && qi < query.length; ti++) {
+    if (target[ti] === query[qi]) qi++;
+  }
+  return qi === query.length;
+}
+
+function scoreContactMatch(contact: ContactRecord, rawQuery: string): number {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) return 1;
+
+  const name = contact.fullName.toLowerCase();
+  const phone = contact.phoneNumber.toLowerCase();
+  const phoneDigits = contact.phoneNumber.replace(/\D/g, "");
+  const queryDigits = q.replace(/\D/g, "");
+  const email = contact.email.toLowerCase();
+  const company = contact.companyName.toLowerCase();
+  const jobTitle = contact.jobTitle.toLowerCase();
+  const city = contact.city.toLowerCase();
+  const tags = contact.tags.join(" ").toLowerCase();
+
+  // Exact full-field match
+  if (
+    name === q ||
+    email === q ||
+    company === q ||
+    phone === q ||
+    (queryDigits.length >= 4 && phoneDigits === queryDigits)
+  ) {
+    return 100;
+  }
+
+  // Starts-with match
+  if (
+    name.startsWith(q) ||
+    email.startsWith(q) ||
+    company.startsWith(q) ||
+    phone.startsWith(q)
+  ) {
+    return 85;
+  }
+
+  // Word-starts-with match
+  const words = `${name} ${company} ${email} ${jobTitle} ${city}`.split(/[\s@._-]+/).filter(Boolean);
+  if (words.some((w) => w.startsWith(q))) {
+    return 75;
+  }
+
+  // Substring match (case-insensitive)
+  if (
+    name.includes(q) ||
+    email.includes(q) ||
+    company.includes(q) ||
+    phone.includes(q) ||
+    (queryDigits.length >= 2 && phoneDigits.includes(queryDigits)) ||
+    jobTitle.includes(q) ||
+    city.includes(q) ||
+    tags.includes(q)
+  ) {
+    return 65;
+  }
+
+  // Close / fuzzy match (typo tolerance via edit distance or subsequence)
+  const queryTokens = q.split(/\s+/).filter(Boolean);
+  let fuzzyScore = 0;
+
+  for (const token of queryTokens) {
+    if (token.length < 2) continue;
+    let tokenMatched = false;
+
+    for (const word of words) {
+      if (word.includes(token)) {
+        fuzzyScore += 30;
+        tokenMatched = true;
+        break;
+      }
+      const maxEdits = token.length <= 4 ? 1 : 2;
+      if (Math.abs(word.length - token.length) <= maxEdits) {
+        const dist = computeLevenshtein(token, word);
+        if (dist <= maxEdits) {
+          fuzzyScore += 25 - dist * 5;
+          tokenMatched = true;
+          break;
+        }
+      }
+    }
+
+    if (!tokenMatched && token.length >= 3 && (isSubsequence(token, name) || isSubsequence(token, company) || isSubsequence(token, email))) {
+      fuzzyScore += 15;
+    }
+  }
+
+  return fuzzyScore;
+}
+
+function normalizeFetchedContact(raw: unknown): ContactRecord | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.id !== "string") return null;
+
+  const tags = Array.isArray(value.tags)
+    ? value.tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+
+  return {
+    id: value.id,
+    fullName: typeof value.fullName === "string" ? value.fullName : "",
+    secondaryName: typeof value.secondaryName === "string" ? value.secondaryName : "",
+    phoneNumber: typeof value.phoneNumber === "string" ? value.phoneNumber : "",
+    phoneNumberRaw: typeof value.phoneNumberRaw === "string" ? value.phoneNumberRaw : "",
+    email: typeof value.email === "string" ? value.email : "",
+    companyName: typeof value.companyName === "string" ? value.companyName : "",
+    jobTitle: typeof value.jobTitle === "string" ? value.jobTitle : "",
+    department: typeof value.department === "string" ? value.department : "",
+    industry: typeof value.industry === "string" ? value.industry : "",
+    city: typeof value.city === "string" ? value.city : "",
+    state: typeof value.state === "string" ? value.state : "",
+    country: typeof value.country === "string" ? value.country : "",
+    timezone: typeof value.timezone === "string" ? value.timezone : "",
+    leadScore: typeof value.leadScore === "number" ? value.leadScore : null,
+    lifecycleStage: typeof value.lifecycleStage === "string" ? value.lifecycleStage : "",
+    tags,
+    parentName: typeof value.parentName === "string" ? value.parentName : "",
+    studentName: typeof value.studentName === "string" ? value.studentName : "",
+    courseOrStream: typeof value.courseOrStream === "string" ? value.courseOrStream : "",
+    status: typeof value.status === "string" ? value.status : "pending",
+    optOut: value.optOut === true,
+    createdAt: typeof value.createdAt === "string" ? value.createdAt : null,
+    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
+  };
+}
+
 export function ContactsDashboard({
-  contacts,
-  total,
-  filters,
+  contacts: initialContacts,
+  total: initialTotal,
+  filters: initialFilters,
   initialError,
   startInImportMode = false,
 }: ContactsDashboardProps) {
   const router = useRouter();
+  const [contactsList, setContactsList] = useState<ContactRecord[]>(initialContacts);
+  const [totalCount, setTotalCount] = useState<number>(initialTotal);
+  const [activeFilters, setActiveFilters] = useState<ContactFilters>(initialFilters);
+
+  const [searchInput, setSearchInput] = useState(initialFilters.search);
+  const [statusInput, setStatusInput] = useState(initialFilters.status);
+  const [lifecycleInput, setLifecycleInput] = useState(initialFilters.lifecycleStage);
+  const [filtering, setFiltering] = useState(false);
+
   const [showImport, setShowImport] = useState(startInImportMode);
   const [editor, setEditor] = useState<{
     mode: EditorMode;
@@ -1047,22 +1228,124 @@ export function ContactsDashboard({
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const currentPage = Math.floor(filters.offset / filters.limit) + 1;
-  const totalPages = Math.max(1, Math.ceil(total / filters.limit));
-  const rangeStart = total === 0 ? 0 : filters.offset + 1;
-  const rangeEnd = Math.min(filters.offset + contacts.length, total);
+  const requestCounterRef = useRef(0);
+  const isInitialMountRef = useRef(true);
+
+  useEffect(() => {
+    setContactsList(initialContacts);
+    setTotalCount(initialTotal);
+  }, [initialContacts, initialTotal]);
+
+  const syncUrlWithoutReload = useCallback((nextFilters: ContactFilters) => {
+    if (typeof window === "undefined") return;
+    const href = buildPageHref(nextFilters, nextFilters.offset);
+    window.history.replaceState(null, "", href);
+  }, []);
+
+  const executeQuery = useCallback(
+    async (nextFilters: ContactFilters) => {
+      const requestId = ++requestCounterRef.current;
+      setFiltering(true);
+      setActionError(null);
+      syncUrlWithoutReload(nextFilters);
+
+      try {
+        const result = await fetchContactsAction({
+          search: nextFilters.search,
+          status: nextFilters.status,
+          lifecycleStage: nextFilters.lifecycleStage,
+          limit: nextFilters.limit,
+          offset: nextFilters.offset,
+        });
+
+        if (requestId !== requestCounterRef.current) return;
+
+        if (!result.ok) {
+          setActionError(result.error);
+          return;
+        }
+
+        const rows = Array.isArray(result.data.contacts) ? result.data.contacts : [];
+        const normalized = rows
+          .map(normalizeFetchedContact)
+          .filter((item): item is ContactRecord => item !== null);
+        const nextTotal =
+          typeof result.data.total === "number" ? result.data.total : normalized.length;
+
+        setActiveFilters(nextFilters);
+        setContactsList(normalized);
+        setTotalCount(nextTotal);
+      } catch (cause) {
+        if (requestId !== requestCounterRef.current) return;
+        setActionError(
+          cause instanceof Error ? cause.message : "Unable to load contacts.",
+        );
+      } finally {
+        if (requestId === requestCounterRef.current) {
+          setFiltering(false);
+        }
+      }
+    },
+    [syncUrlWithoutReload],
+  );
+
+  // Independent live search: runs automatically as the user types (debounced) without needing Apply filter
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    const trimmed = searchInput.trim();
+    if (trimmed === activeFilters.search) return;
+
+    const timer = window.setTimeout(() => {
+      void executeQuery({
+        ...activeFilters,
+        search: trimmed,
+        offset: 0,
+      });
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [searchInput, activeFilters, executeQuery]);
+
+  // Surface matching & fuzzy-matched contacts at the top immediately while typing
+  const displayedContacts = useMemo(() => {
+    const query = searchInput.trim();
+    if (!query) return contactsList;
+
+    const scored = contactsList.map((contact, idx) => ({
+      contact,
+      idx,
+      score: scoreContactMatch(contact, query),
+    }));
+
+    return scored
+      .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.idx - b.idx))
+      .map((entry) => entry.contact);
+  }, [contactsList, searchInput]);
+
+  const currentPage = Math.floor(activeFilters.offset / activeFilters.limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(totalCount / activeFilters.limit));
+  const rangeStart = totalCount === 0 ? 0 : activeFilters.offset + 1;
+  const rangeEnd = Math.min(activeFilters.offset + displayedContacts.length, totalCount);
 
   const pageStats = useMemo(
     () => ({
-      pending: contacts.filter((contact) => contact.status === "pending" && !contact.optOut).length,
-      optedOut: contacts.filter((contact) => contact.optOut || contact.status === "do_not_call").length,
-      completed: contacts.filter((contact) => contact.status === "completed").length,
+      pending: displayedContacts.filter((contact) => contact.status === "pending" && !contact.optOut).length,
+      optedOut: displayedContacts.filter((contact) => contact.optOut || contact.status === "do_not_call").length,
+      completed: displayedContacts.filter((contact) => contact.status === "completed").length,
     }),
-    [contacts],
+    [displayedContacts],
+  );
+
+  const hasActiveFilters = Boolean(
+    searchInput.trim() || statusInput || lifecycleInput || activeFilters.search || activeFilters.status || activeFilters.lifecycleStage,
   );
 
   function cleanImportQuery() {
-    router.replace(buildPageHref(filters, filters.offset), { scroll: false });
+    syncUrlWithoutReload(activeFilters);
   }
 
   function closeImport() {
@@ -1075,8 +1358,32 @@ export function ContactsDashboard({
     setShowImport(false);
     setNotice(message);
     setActionError(null);
-    cleanImportQuery();
+    void executeQuery(activeFilters);
     router.refresh();
+  }
+
+  function handleApplyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void executeQuery({
+      ...activeFilters,
+      search: searchInput.trim(),
+      status: statusInput,
+      lifecycleStage: lifecycleInput,
+      offset: 0,
+    });
+  }
+
+  function handleClearFilters() {
+    setSearchInput("");
+    setStatusInput("");
+    setLifecycleInput("");
+    void executeQuery({
+      search: "",
+      status: "",
+      lifecycleStage: "",
+      limit: activeFilters.limit,
+      offset: 0,
+    });
   }
 
   async function handleDelete(contact: ContactRecord) {
@@ -1097,6 +1404,7 @@ export function ContactsDashboard({
         return;
       }
       setNotice(`${displayName(contact)} was deleted.`);
+      await executeQuery(activeFilters);
       router.refresh();
     } catch (cause) {
       setActionError(
@@ -1194,7 +1502,7 @@ export function ContactsDashboard({
           </p>
           <button
             type="button"
-            onClick={() => router.refresh()}
+            onClick={() => void executeQuery(activeFilters)}
             className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#8D3028]"
           >
             Try again
@@ -1205,7 +1513,7 @@ export function ContactsDashboard({
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Contact metrics">
         <MetricCard
           label="Workspace contacts"
-          value={formatNumber(total)}
+          value={formatNumber(totalCount)}
           detail="Matching current filters"
         />
         <MetricCard
@@ -1233,7 +1541,7 @@ export function ContactsDashboard({
                 Contact directory
               </h2>
               <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
-                Search and filter your workspace contacts. Results are loaded from the contacts API.
+                Search by name, phone number, email, or company, or filter by status and lifecycle stage.
               </p>
             </div>
             <a
@@ -1241,72 +1549,129 @@ export function ContactsDashboard({
               download
               className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB] underline underline-offset-2"
             >
-              CSV template
+              Download CSV template
             </a>
           </div>
 
           <form
-            method="get"
-            action="/dashboard/contacts"
-            className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.4fr)_repeat(2,minmax(130px,0.8fr))_auto]"
+            onSubmit={handleApplyFilters}
+            className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.5fr)_repeat(2,minmax(160px,0.85fr))_auto]"
           >
-            <input type="hidden" name="limit" value={filters.limit} />
-            <label className="sr-only" htmlFor="contact-search">Search contacts</label>
-            <input
-              id="contact-search"
-              name="search"
-              defaultValue={filters.search}
-              placeholder="Search name, phone, email or company"
-              className="h-10 min-w-0 rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[11px] outline-none focus:border-[#7852D6] sm:col-span-2 xl:col-span-1"
-            />
+            <div className="relative sm:col-span-2 xl:col-span-1">
+              <label className="sr-only" htmlFor="contact-search">Search contacts</label>
+              <svg
+                viewBox="0 0 24 24"
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#85877F]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                id="contact-search"
+                name="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search name, phone, email or company"
+                className="h-10 w-full min-w-0 rounded-[5px] border border-[#DCDDD6] bg-[#FFFEFB] pl-9 pr-8 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+              />
+              {searchInput ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchInput("")}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded px-1 font-['Space_Grotesk'] text-[11px] text-[#85877F] hover:text-[#1B1C18]"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
 
-            <label className="sr-only" htmlFor="contact-status">Contact status</label>
-            <select
-              id="contact-status"
-              name="status"
-              defaultValue={filters.status}
-              className="h-10 rounded-[5px] border border-[#E5E4DC] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#444748] outline-none focus:border-[#7852D6]"
-            >
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="queued">Queued</option>
-              <option value="in_progress">In progress</option>
-              <option value="completed">Completed</option>
-              <option value="do_not_call">Do not call</option>
-              <option value="invalid">Invalid</option>
-            </select>
+            <div className="relative">
+              <label className="sr-only" htmlFor="contact-status">Contact status</label>
+              <select
+                id="contact-status"
+                name="status"
+                value={statusInput}
+                onChange={(event) => setStatusInput(event.target.value)}
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+              >
+                <option value="">All statuses</option>
+                <option value="pending">Pending</option>
+                <option value="queued">Queued</option>
+                <option value="in_progress">In progress</option>
+                <option value="completed">Completed</option>
+                <option value="do_not_call">Do not call</option>
+                <option value="invalid">Invalid</option>
+              </select>
+              <svg
+                viewBox="0 0 20 20"
+                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747878]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 8 4 4 4-4" />
+              </svg>
+            </div>
 
-            <label className="sr-only" htmlFor="contact-lifecycle">Lifecycle stage</label>
-            <select
-              id="contact-lifecycle"
-              name="lifecycleStage"
-              defaultValue={filters.lifecycleStage}
-              className="h-10 rounded-[5px] border border-[#E5E4DC] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#444748] outline-none focus:border-[#7852D6]"
-            >
-              <option value="">All lifecycle stages</option>
-              {LIFECYCLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <label className="sr-only" htmlFor="contact-lifecycle">Lifecycle stage</label>
+              <select
+                id="contact-lifecycle"
+                name="lifecycleStage"
+                value={lifecycleInput}
+                onChange={(event) => setLifecycleInput(event.target.value)}
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+              >
+                <option value="">All lifecycle stages</option>
+                {LIFECYCLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <svg
+                viewBox="0 0 20 20"
+                className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#747878]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m6 8 4 4 4-4" />
+              </svg>
+            </div>
 
             <div className="flex gap-2 sm:col-span-2 xl:col-span-1">
               <button
                 type="submit"
-                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F]"
+                disabled={filtering}
+                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-60"
               >
-                Apply filters
+                {filtering ? "Filtering…" : "Apply filter"}
               </button>
-              <Link
-                href="/dashboard/contacts"
-                className="inline-flex h-10 items-center justify-center rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B] hover:bg-[#F7F6F1]"
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                disabled={filtering || !hasActiveFilters}
+                className="inline-flex h-10 items-center justify-center rounded-[5px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#565B5B] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                Clear
-              </Link>
+                Clear filter
+              </button>
             </div>
           </form>
         </div>
 
-        {contacts.length > 0 ? (
+        {displayedContacts.length > 0 ? (
           <>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[850px] border-collapse text-left">
@@ -1321,7 +1686,7 @@ export function ContactsDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0EFE9]">
-                  {contacts.map((contact) => (
+                  {displayedContacts.map((contact) => (
                     <tr key={contact.id} className="align-middle transition-colors hover:bg-[#FFFEFB]">
                       <td className="px-4 py-3.5 sm:px-5">
                         <div className="min-w-0">
@@ -1390,28 +1755,38 @@ export function ContactsDashboard({
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
               <p className="font-['Space_Grotesk'] text-[10px] text-[#85877F]">
-                Showing {rangeStart}–{rangeEnd} of {formatNumber(total)} contacts
+                Showing {rangeStart}–{rangeEnd} of {formatNumber(totalCount)} contacts
               </p>
               <div className="flex items-center gap-2">
-                <Link
-                  aria-disabled={filters.offset <= 0}
-                  tabIndex={filters.offset <= 0 ? -1 : 0}
-                  href={buildPageHref(filters, Math.max(0, filters.offset - filters.limit))}
-                  className={`rounded-[4px] border border-[#DCDDD6] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${filters.offset <= 0 ? "pointer-events-none text-[#B5B6B0]" : "text-[#444748] hover:bg-[#F7F6F1]"}`}
+                <button
+                  type="button"
+                  disabled={activeFilters.offset <= 0 || filtering}
+                  onClick={() =>
+                    void executeQuery({
+                      ...activeFilters,
+                      offset: Math.max(0, activeFilters.offset - activeFilters.limit),
+                    })
+                  }
+                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
                 >
                   Previous
-                </Link>
+                </button>
                 <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] text-[#747878]">
                   Page {currentPage} of {totalPages}
                 </span>
-                <Link
-                  aria-disabled={currentPage >= totalPages}
-                  tabIndex={currentPage >= totalPages ? -1 : 0}
-                  href={buildPageHref(filters, filters.offset + filters.limit)}
-                  className={`rounded-[4px] border border-[#DCDDD6] px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${currentPage >= totalPages ? "pointer-events-none text-[#B5B6B0]" : "text-[#444748] hover:bg-[#F7F6F1]"}`}
+                <button
+                  type="button"
+                  disabled={currentPage >= totalPages || filtering}
+                  onClick={() =>
+                    void executeQuery({
+                      ...activeFilters,
+                      offset: activeFilters.offset + activeFilters.limit,
+                    })
+                  }
+                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
                 >
                   Next
-                </Link>
+                </button>
               </div>
             </div>
           </>
@@ -1424,14 +1799,14 @@ export function ContactsDashboard({
               </svg>
             </span>
             <h3 className="mt-4 font-['Newsreader'] text-[25px] text-[#1B1C18]">
-              {total === 0 ? "Your contacts start here" : "No contacts match these filters"}
+              {!hasActiveFilters ? "Your contacts start here" : "No contacts match these filters"}
             </h3>
             <p className="mt-2 max-w-[400px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">
-              {total === 0
+              {!hasActiveFilters
                 ? "Add an individual contact or import a CSV/XLSX list. Contacts are not called until they are explicitly added to an approved campaign."
                 : "Try clearing one or more filters, or use a different search term."}
             </p>
-            {total === 0 ? (
+            {!hasActiveFilters ? (
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
@@ -1449,12 +1824,13 @@ export function ContactsDashboard({
                 </button>
               </div>
             ) : (
-              <Link
-                href="/dashboard/contacts"
+              <button
+                type="button"
+                onClick={handleClearFilters}
                 className="mt-5 rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
               >
                 Clear all filters
-              </Link>
+              </button>
             )}
           </div>
         )}

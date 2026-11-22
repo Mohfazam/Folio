@@ -107,3 +107,78 @@ export async function deleteContactAction(
     "DELETE",
   );
 }
+
+export async function fetchContactsAction(params: {
+  search?: string;
+  status?: string;
+  lifecycleStage?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ContactActionResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      return {
+        ok: false,
+        status: 401,
+        error: "Your session has expired. Sign in again.",
+      };
+    }
+
+    const baseUrl = (
+      process.env.BACKEND_API_URL?.trim() ||
+      process.env.NEXT_PUBLIC_API_URL?.trim() ||
+      "http://localhost:4000"
+    ).replace(/\/+$/, "");
+
+    const query = new URLSearchParams({
+      limit: String(params.limit ?? 25),
+      offset: String(params.offset ?? 0),
+    });
+    if (params.search?.trim()) query.set("search", params.search.trim());
+    if (params.status?.trim()) query.set("status", params.status.trim());
+    if (params.lifecycleStage?.trim()) {
+      query.set("lifecycleStage", params.lifecycleStage.trim());
+    }
+
+    const response = await fetch(`${baseUrl}/api/contacts?${query.toString()}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      cache: "no-store",
+    });
+
+    const payload: unknown = await response.json().catch(() => null);
+    const record =
+      typeof payload === "object" && payload !== null && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
+
+    if (!response.ok || record.ok === false) {
+      return {
+        ok: false,
+        status: response.status,
+        error:
+          typeof record.error === "string"
+            ? record.error
+            : `Contacts request failed (${response.status}).`,
+      };
+    }
+
+    return { ok: true, data: record };
+  } catch (error) {
+    console.error("[contacts/action] GET /api/contacts failed:", error);
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unable to load contacts.",
+    };
+  }
+}
