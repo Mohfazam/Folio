@@ -165,7 +165,7 @@ export function CallTranscript({
       </div>
 
       {lines.length > 0 ? (
-        <div className="space-y-3">
+        <div className="max-h-[440px] space-y-3 overflow-y-auto overscroll-contain pr-2">
           {lines.map((line, index) => {
             const assistant = line.speaker === "assistant";
             return (
