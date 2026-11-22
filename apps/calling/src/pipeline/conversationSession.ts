@@ -6,6 +6,7 @@ import { metricsCollector } from "../monitoring/metricsCollector.js";
 import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
 import { buildOpeningIntro } from "../conversational/introManager.js";
+import { ConversationalEngine } from "../conversational/conversationalEngine.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -64,19 +65,21 @@ export function createConversationSession(
   let sttReconnectAttempts = 0;
   let greetingStarted = false;
   let greetingDelivered = false;
-  let silenceWatchdog: SilenceWatchdog | null = null;
-
-  const pending: Buffer[] = []; // audio buffered while STT connection establishes
-  const history: { role: "user" | "assistant"; content: string }[] = [];
-
-  // ── Dynamic language tracking ──────────────────────────────────
-  // Tracks the active language detected from caller speech across turns.
-  // Starts with the configured language and updates per-turn from STT detection.
   let currentLanguage = normalizeLanguageCode(options?.language ?? options?.sessionState?.language);
   const speaker = options?.speaker ?? options?.sessionState?.voiceId ?? "priya";
   const speechRate = typeof options?.speechRate === "number"
     ? Math.max(0.8, Math.min(1.2, options.speechRate))
     : options?.sessionState?.speechRate ?? 1;
+
+  let silenceWatchdog: SilenceWatchdog | null = null;
+  const conversationalEngine = new ConversationalEngine({
+    persona: options?.sessionState?.context?.business?.aiPersonaName || "Aarohi",
+    businessName: options?.sessionState?.context?.business?.displayName || "Foolioo",
+    language: currentLanguage,
+  });
+
+  const pending: Buffer[] = []; // audio buffered while STT connection establishes
+  const history: { role: "user" | "assistant"; content: string }[] = [];
 
   const sessionStartTime = performance.now();
 
@@ -173,11 +176,48 @@ export function createConversationSession(
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
       greetingDelivered = true;
+      conversationalEngine.markIntroCompleted();
       silenceWatchdog?.reset();
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
       options?.sessionState?.recordError("tts", "tts_synthesis", err?.message ?? "Greeting error");
+    }
+  }
+
+  async function speakImmediateResponse(responseText: string, lang: string, shouldHangup = false) {
+    const currentGen = ++generationId;
+    interruptForCallerSpeech();
+    turnInProgress = true;
+    silenceWatchdog?.reset(true);
+    const cleanText = responseText.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
+    history.push({ role: "assistant", content: cleanText });
+    options?.sessionState?.addAssistantTurn(cleanText);
+
+    try {
+      console.log(`${tag} 🤖 AI Immediate: "${cleanText}" ${shouldHangup ? "🛑 [AUTO-HANGUP]" : ""}`);
+      const audio = await convertTextToSpeech(cleanText, {
+        speaker,
+        languageCode: lang,
+        pace: speechRate,
+      });
+
+      if (!closed && generationId === currentGen) {
+        callbacks.playAudio(audio);
+        silenceWatchdog?.reset();
+      }
+
+      if (shouldHangup && callbacks.hangup) {
+        const audioDurationMs = Math.round((audio.length / 8000) * 1000);
+        const waitMs = Math.max(1200, audioDurationMs + 800);
+        setTimeout(() => {
+          if (!closed) callbacks.hangup?.("Call ended by edge-case handler");
+        }, waitMs);
+      }
+    } catch (err: any) {
+      console.error(`${tag} Immediate speech error:`, err?.message ?? err);
+    } finally {
+      turnInProgress = false;
     }
   }
 
@@ -409,6 +449,13 @@ export function createConversationSession(
           if (!greetingDelivered) return;
           const trimmed = text?.trim();
           if (!trimmed || isNoiseOrFiller(trimmed)) return;
+
+          // Do not interrupt on passive backchannels ("haan", "hmm") or early intro greetings
+          const action = conversationalEngine.evaluateUtterance(trimmed, currentLanguage);
+          if (action.type === "ignore_filler" || action.type === "continue_intro") {
+            return;
+          }
+
           // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
           if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
             silenceWatchdog?.reset(true);
@@ -421,12 +468,51 @@ export function createConversationSession(
         onFinal: (text, language) => {
           silenceWatchdog?.registerSpeech();
           const finalTrimmed = text?.trim() || "";
-          if (!finalTrimmed) return;
-          if (isNoiseOrFiller(finalTrimmed)) {
-            console.log(`${tag} 🔇 Ignored background noise/filler: "${finalTrimmed}"`);
+          if (!finalTrimmed || isNoiseOrFiller(finalTrimmed)) {
             return;
           }
+
+          const activeLang = language || currentLanguage;
+          const action = conversationalEngine.evaluateUtterance(finalTrimmed, activeLang);
+
+          if (action.type === "ignore_filler") {
+            console.log(`${tag} 🔇 Ignored passive backchannel: "${finalTrimmed}"`);
+            return;
+          }
+
+          if (action.type === "continue_intro") {
+            console.log(`${tag} 🗣️ Early greeting during intro ("${finalTrimmed}") — allowing intro to finish`);
+            return;
+          }
+
           greetingDelivered = true;
+          conversationalEngine.markIntroCompleted();
+
+          if (action.type === "audibility_check") {
+            console.log(`${tag} 🔍 Audibility verification triggered: "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, false);
+            return;
+          }
+
+          if (action.type === "busy_callback") {
+            console.log(`${tag} 📅 Busy / Callback requested: "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, true);
+            return;
+          }
+
+          if (action.type === "opt_out") {
+            console.log(`${tag} 🛑 Caller requested opt-out: "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, true);
+            return;
+          }
+
+          if (action.type === "ai_disclosure") {
+            console.log(`${tag} 🤖 AI disclosure inquiry: "${finalTrimmed}"`);
+            speakImmediateResponse(action.replyText, activeLang, false);
+            return;
+          }
+
+          // Passthrough to conversational LLM pipeline
           interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);
         },
