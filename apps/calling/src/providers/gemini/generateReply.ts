@@ -98,7 +98,6 @@ export async function generateReply(
       model: PRIMARY_MODEL,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 50000,
       },
       contents,
     });
@@ -109,7 +108,6 @@ export async function generateReply(
       model: FALLBACK_MODEL,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 50000,
       },
       contents,
     });
@@ -196,7 +194,6 @@ export async function generateReplyStream(
       model,
       config: {
         systemInstruction: sysInst,
-        maxOutputTokens: 50000,
       },
       contents,
     });

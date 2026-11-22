@@ -1,26 +1,10 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { analyzeCallTranscript } from "../pipeline/callAnalysis.js";
 import { CallSessionState } from "../session/CallSessionState.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
 import type { CallResult } from "../types/callTypes.js";
 
-const SPOOL_DIR = join(process.cwd(), ".call-results");
-
-// Ensure spool directory exists
-let spoolDirReady = false;
-async function ensureSpoolDir() {
-  if (spoolDirReady) return;
-  try {
-    await mkdir(SPOOL_DIR, { recursive: true });
-    spoolDirReady = true;
-  } catch (err: any) {
-    console.warn("[delivery] Failed to create local spool dir:", err?.message ?? err);
-  }
-}
-
 /**
- * Dispatches final call analysis, persists durable local backup,
+ * Dispatches final call analysis, computes cost & credit metrics,
  * and posts the CallResult payload to the configured webhook callback URL.
  */
 export async function dispatchCallCompleted(
@@ -67,16 +51,7 @@ export async function dispatchCallCompleted(
     totalEstimatedCost,
   };
 
-  // 3. Durable local disk backup (so data is never lost)
-  try {
-    await ensureSpoolDir();
-    const filePath = join(SPOOL_DIR, `${result.requestId}.json`);
-    await writeFile(filePath, JSON.stringify(result, null, 2), "utf-8");
-  } catch (fsErr: any) {
-    console.warn(`${tag} Local spool write error:`, fsErr?.message ?? fsErr);
-  }
-
-  // 4. Deliver to Webhook URL (if configured)
+  // 3. Deliver to Webhook URL (if configured)
   const targetUrl = callbackUrlOverride || sessionState.callbackUrl || process.env.CALLBACK_URL;
   let deliverySuccess = false;
 
@@ -114,7 +89,7 @@ export async function dispatchCallCompleted(
     metricsCollector.recordWebhookResult(deliverySuccess);
 
     if (!deliverySuccess) {
-      console.error(`${tag} ❌ All 3 webhook delivery attempts failed for ${targetUrl}. Spooled locally.`);
+      console.error(`${tag} ❌ All 3 webhook delivery attempts failed for ${targetUrl}.`);
     }
   }
 
