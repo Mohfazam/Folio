@@ -13,7 +13,11 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { dashboardKeys } from "@/lib/query/keys";
+import { fetchDashboardApi } from "@/lib/query/fetcher";
+import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
 
 type IconName =
   | "overview"
@@ -185,8 +189,65 @@ function NavEntry({
   onSetupAction?: (action: DashboardSetupAction) => void;
 }) {
   const isMobile = variant === "mobile";
+  const queryClient = useQueryClient();
   const [shouldPrefetch, setShouldPrefetch] = useState(false);
-  const warmRoute = () => setShouldPrefetch(true);
+  const warmRoute = () => {
+    setShouldPrefetch(true);
+    if (item.href === "/dashboard") {
+      const timeframe = useDashboardUiStore.getState().overviewTimeframe;
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.workspaceSetup(),
+        queryFn: () => fetchDashboardApi("/workspace-setup"),
+        staleTime: 45_000,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.overviewAnalytics(timeframe),
+        queryFn: () => fetchDashboardApi(`/analytics/overview?timeframe=${timeframe}`),
+        staleTime: 45_000,
+      });
+    } else if (item.href === "/dashboard/campaigns") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.campaigns(),
+        queryFn: () => fetchDashboardApi("/campaigns"),
+        staleTime: 45_000,
+      });
+    } else if (item.href === "/dashboard/contacts") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.contacts({ query: "limit=25&offset=0" }),
+        queryFn: () => fetchDashboardApi("/contacts?limit=25&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/calls") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.calls({ query: "limit=25&offset=0" }),
+        queryFn: () => fetchDashboardApi("/calls?limit=25&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/follow-ups") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.followUps({ limit: 100, offset: 0 }),
+        queryFn: () => fetchDashboardApi("/follow-ups?limit=100&offset=0"),
+        staleTime: 30_000,
+      });
+    } else if (item.href === "/dashboard/ai-studio") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.knowledgeBase(),
+        queryFn: () => fetchDashboardApi("/knowledge-base?limit=100&offset=0"),
+        staleTime: 60_000,
+      });
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.agentSettings(),
+        queryFn: () => fetchDashboardApi("/agent-settings"),
+        staleTime: 60_000,
+      });
+    } else if (item.href === "/dashboard/analytics") {
+      void queryClient.prefetchQuery({
+        queryKey: dashboardKeys.overviewAnalytics("30d"),
+        queryFn: () => fetchDashboardApi("/analytics/overview?timeframe=30d"),
+        staleTime: 45_000,
+      });
+    }
+  };
 
   const className = [
     "group flex w-full font-['Space_Grotesk'] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]",
@@ -311,6 +372,9 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [userMenuOpen]);
 
+  const queryClient = useQueryClient();
+  const resetUiState = useDashboardUiStore((state) => state.resetUiState);
+
   const handleSignOut = async () => {
     setSigningOut(true);
     setSignOutError(null);
@@ -318,6 +382,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
       const supabase = createClient();
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      queryClient.clear();
+      resetUiState();
       router.replace("/sign-in");
       router.refresh();
     } catch (error) {

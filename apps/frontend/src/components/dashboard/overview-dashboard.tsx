@@ -9,11 +9,14 @@ import {
   type DashboardSetupAction,
 } from "@/components/dashboard/dashboard-shell";
 import { SetupWizardModal } from "@/components/dashboard/setup-wizard-modal";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getOverviewAnalyticsAction,
   skipTestCallSetupAction,
   type OverviewTimeframe,
 } from "@/app/(dashboard)/dashboard/actions";
+import { dashboardKeys } from "@/lib/query/keys";
+import { fetchDashboardApi, DashboardApiError } from "@/lib/query/fetcher";
+import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -475,13 +478,16 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
 function SetupChecklist({
   setupState,
   setupError,
+  onRetrySetup,
   onAction,
 }: {
   setupState: WorkspaceSetupState;
   setupError: string | null;
+  onRetrySetup?: () => void;
   onAction: (action: SetupAction) => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { allSteps, mandatorySteps, completedMandatoryCount, totalMandatoryCount, hasPartialProgress } =
     setupState;
 
@@ -515,6 +521,7 @@ function SetupChecklist({
         setSkipTestCallError(result.error);
         return;
       }
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
       router.refresh();
     } catch (error) {
       setSkipTestCallError(
@@ -527,7 +534,7 @@ function SetupChecklist({
 
   return (
     <div className="space-y-3">
-      {setupError ? <SectionError title="Workspace setup status" error={setupError} onRetry={() => router.refresh()} /> : null}
+      {setupError ? <SectionError title="Workspace setup status" error={setupError} onRetry={onRetrySetup} /> : null}
       <section
         className="overflow-hidden rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
         aria-labelledby="setup-heading"
@@ -1241,10 +1248,12 @@ const HEALTH_TONE_CLASSES: Record<HealthBadgeTone, string> = {
 function WorkspaceHealth({
   data,
   workspaceStatus,
+  onRetrySetup,
   onOpenRouting,
 }: {
   data: DashboardOverviewData;
   workspaceStatus: string | null;
+  onRetrySetup?: () => void;
   onOpenRouting: () => void;
 }) {
   const setupSummary =
@@ -1347,7 +1356,7 @@ function WorkspaceHealth({
 
       {data.setup.state === "error" ? (
         <div className="mt-3">
-          <SectionError title="Workspace health" error={data.setup.error} onRetry={() => window.location.reload()} />
+          <SectionError title="Workspace health" error={data.setup.error} onRetry={onRetrySetup} />
         </div>
       ) : (
         <div className="mt-3 divide-y divide-[#ECEBE5]">
@@ -1560,87 +1569,120 @@ const TIMEFRAME_OPTIONS: Array<{ value: OverviewTimeframe; label: string }> = [
 export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const profile = useDashboardProfile();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { requestedSetupAction, clearRequestedSetupAction } = useDashboardNavigation();
   const firstName = profile.displayName.trim().split(/\s+/)[0] || "there";
 
-  const [timeframe, setTimeframe] = useState<OverviewTimeframe>("30d");
-  const [analyticsResult, setAnalyticsResult] = useState<LoadResult<AnalyticsOverview>>(
-    data.analytics,
-  );
-  const [completionBannerDismissed, setCompletionBannerDismissed] = useState(false);
-  const [activeAction, setActiveAction] = useState<SetupAction | null>(null);
+  const timeframe = useDashboardUiStore((state) => state.overviewTimeframe);
+  const setTimeframe = useDashboardUiStore((state) => state.setOverviewTimeframe);
+  const completionBannerDismissed = useDashboardUiStore((state) => state.completionBannerDismissed);
+  const dismissCompletionBanner = useDashboardUiStore((state) => state.dismissCompletionBanner);
+  const activeAction = useDashboardUiStore((state) => state.activeSetupAction);
+  const setActiveAction = useDashboardUiStore((state) => state.setActiveSetupAction);
 
-  const loadAnalytics = useCallback((selectedTimeframe: OverviewTimeframe, isMounted: () => boolean = () => true) => {
-    setAnalyticsResult({ state: "loading" });
-    getOverviewAnalyticsAction(selectedTimeframe)
-      .then((result) => {
-        if (!isMounted()) return;
-        if (!result.ok) {
-          setAnalyticsResult({ state: "error", error: result.error, status: result.status });
-          return;
-        }
-        const payload = result.data?.analytics;
-        if (!isJsonRecord(payload)) {
-          setAnalyticsResult({ state: "error", error: "The analytics response was invalid." });
-          return;
-        }
-        if (
-          !isJsonRecord(payload.quota) ||
-          !isJsonRecord(payload.callMetrics) ||
-          !isJsonRecord(payload.pipeline)
-        ) {
-          setAnalyticsResult({
-            state: "error",
-            error: "The analytics response is missing required workspace metrics.",
-          });
-          return;
-        }
-        setAnalyticsResult({
-          state: "ready",
-          data: {
-            timeframe: typeof payload.timeframe === "string" ? payload.timeframe : selectedTimeframe,
-            client: isJsonRecord(payload.client) ? payload.client : {},
-            quota: payload.quota,
-            callMetrics: payload.callMetrics,
-            leadIntelligence: isJsonRecord(payload.leadIntelligence)
-              ? payload.leadIntelligence
-              : {},
-            pipeline: payload.pipeline,
-            costs: isJsonRecord(payload.costs) ? payload.costs : {},
-            recentCalls: Array.isArray(payload.recentCalls)
-              ? payload.recentCalls.filter(isJsonRecord)
-              : [],
-            dailyTrend: Array.isArray(payload.dailyTrend)
-              ? payload.dailyTrend.filter(isJsonRecord)
-              : [],
-            campaignPerformance: Array.isArray(payload.campaignPerformance)
-              ? payload.campaignPerformance.filter(isJsonRecord)
-              : [],
-          },
-        });
-      })
-      .catch((error) => {
-        if (isMounted()) {
-          setAnalyticsResult({
-            state: "error",
-            error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load workspace analytics."),
-          });
-        }
-      });
-  }, []);
+  const setupQuery = useQuery({
+    queryKey: dashboardKeys.workspaceSetup(),
+    queryFn: () =>
+      fetchDashboardApi<JsonRecord>(
+        "/workspace-setup",
+        "Unable to load workspace setup status right now. Please retry.",
+      ),
+    initialData: data.setup.state === "ready" ? data.setup.data : undefined,
+    staleTime: 45_000,
+  });
 
-  useEffect(() => {
-    let active = true;
-    loadAnalytics(timeframe, () => active);
-    return () => {
-      active = false;
+  const analyticsQuery = useQuery({
+    queryKey: dashboardKeys.overviewAnalytics(timeframe),
+    queryFn: () =>
+      fetchDashboardApi<JsonRecord>(
+        `/analytics/overview?timeframe=${timeframe}`,
+        "Unable to load workspace analytics right now. Please try again.",
+      ),
+    placeholderData: keepPreviousData,
+    staleTime: 45_000,
+  });
+
+  const setupLoadResult = useMemo<LoadResult<JsonRecord>>(() => {
+    if (setupQuery.data) {
+      return { state: "ready", data: setupQuery.data };
+    }
+    if (setupQuery.isError) {
+      const err = setupQuery.error;
+      return {
+        state: "error",
+        status: err instanceof DashboardApiError ? err.status : undefined,
+        error: sanitizeUserError(
+          err instanceof Error ? err.message : null,
+          "Unable to load workspace setup status right now. Please retry.",
+        ),
+      };
+    }
+    return { state: "loading" };
+  }, [setupQuery.data, setupQuery.isError, setupQuery.error]);
+
+  const analyticsResult = useMemo<LoadResult<AnalyticsOverview>>(() => {
+    if (analyticsQuery.isPending && !analyticsQuery.data) {
+      return { state: "loading" };
+    }
+    if (analyticsQuery.isError && !analyticsQuery.data) {
+      const err = analyticsQuery.error;
+      return {
+        state: "error",
+        status: err instanceof DashboardApiError ? err.status : undefined,
+        error: sanitizeUserError(
+          err instanceof Error ? err.message : null,
+          "Unable to load workspace analytics right now. Please try again.",
+        ),
+      };
+    }
+    const payload = analyticsQuery.data;
+    if (!isJsonRecord(payload)) {
+      return { state: "error", error: "The analytics response was invalid." };
+    }
+    if (
+      !isJsonRecord(payload.quota) ||
+      !isJsonRecord(payload.callMetrics) ||
+      !isJsonRecord(payload.pipeline)
+    ) {
+      return {
+        state: "error",
+        error: "The analytics response is missing required workspace metrics.",
+      };
+    }
+    return {
+      state: "ready",
+      data: {
+        timeframe: typeof payload.timeframe === "string" ? payload.timeframe : timeframe,
+        client: isJsonRecord(payload.client) ? payload.client : {},
+        quota: payload.quota,
+        callMetrics: payload.callMetrics,
+        leadIntelligence: isJsonRecord(payload.leadIntelligence)
+          ? payload.leadIntelligence
+          : {},
+        pipeline: payload.pipeline,
+        costs: isJsonRecord(payload.costs) ? payload.costs : {},
+        recentCalls: Array.isArray(payload.recentCalls)
+          ? payload.recentCalls.filter(isJsonRecord)
+          : [],
+        dailyTrend: Array.isArray(payload.dailyTrend)
+          ? payload.dailyTrend.filter(isJsonRecord)
+          : [],
+        campaignPerformance: Array.isArray(payload.campaignPerformance)
+          ? payload.campaignPerformance.filter(isJsonRecord)
+          : [],
+      },
     };
-  }, [timeframe, loadAnalytics]);
+  }, [analyticsQuery.isPending, analyticsQuery.isError, analyticsQuery.error, analyticsQuery.data, timeframe]);
 
-  const setupState = useMemo(() => evaluateWorkspaceSetup(data), [data]);
+  const liveData = useMemo<DashboardOverviewData>(
+    () => ({ ...data, setup: setupLoadResult }),
+    [data, setupLoadResult],
+  );
+
+  const setupState = useMemo(() => evaluateWorkspaceSetup(liveData), [liveData]);
   const setupSummary =
-    data.setup.state === "ready" && isJsonRecord(data.setup.data.setup)
-      ? data.setup.data.setup
+    liveData.setup.state === "ready" && isJsonRecord(liveData.setup.data.setup)
+      ? liveData.setup.data.setup
       : null;
 
   const canPlaceTestCall =
@@ -1775,7 +1817,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
       });
     }
 
-    if (data.setup.state === "ready" && knowledgeBaseCount === 0) {
+    if (liveData.setup.state === "ready" && knowledgeBaseCount === 0) {
       items.push({
         id: "missing-kb",
         priority: "recommended",
@@ -1809,7 +1851,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     workspaceStatus,
     profile.isTrial,
     setupState.isComplete,
-    data.setup.state,
+    liveData.setup.state,
     canPlaceTestCall,
     router,
   ]);
@@ -1922,7 +1964,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           </div>
           <button
             type="button"
-            onClick={() => setCompletionBannerDismissed(true)}
+            onClick={dismissCompletionBanner}
             className="shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#25633A] hover:underline"
           >
             Dismiss
@@ -1960,7 +2002,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           <SectionError
             title="Workspace analytics"
             error={analyticsResult.error}
-            onRetry={() => loadAnalytics(timeframe)}
+            onRetry={() => void analyticsQuery.refetch()}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -2015,17 +2057,18 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
         <div className="flex min-w-0 flex-col gap-5 lg:col-span-8">
-          {!setupState.isComplete ? (
+          {!setupState.isComplete && liveData.setup.state !== "loading" ? (
             <SetupChecklist
               setupState={setupState}
-              setupError={data.setup.state === "error" ? data.setup.error : null}
+              setupError={liveData.setup.state === "error" ? liveData.setup.error : null}
+              onRetrySetup={() => void setupQuery.refetch()}
               onAction={handleSetupAction}
             />
           ) : null}
 
           <ActionCenter
             items={actionCenterItems}
-            loading={analyticsResult.state === "loading" && data.setup.state === "loading"}
+            loading={analyticsResult.state === "loading" && liveData.setup.state === "loading"}
           />
 
           {analytics ? (
@@ -2067,8 +2110,9 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           ) : null}
 
           <WorkspaceHealth
-            data={data}
+            data={liveData}
             workspaceStatus={workspaceStatus}
+            onRetrySetup={() => void setupQuery.refetch()}
             onOpenRouting={() => setActiveAction("routing")}
           />
         </aside>
@@ -2105,7 +2149,8 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           onClose={() => setActiveAction(null)}
           onComplete={() => {
             setActiveAction(null);
-            router.refresh();
+            void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
+            void queryClient.invalidateQueries({ queryKey: dashboardKeys.overviewAnalytics(timeframe) });
           }}
           onSwitchAction={(nextAction) => setActiveAction(nextAction)}
         />
