@@ -537,6 +537,13 @@ export function createConversationSession(
             return;
           }
 
+          if (action.type === "hold_wait") {
+            console.log(`${tag} ⏸️ Caller requested hold/wait: "${finalTrimmed}"`);
+            silenceWatchdog?.pause(25000);
+            speakImmediateResponse(action.replyText, activeLang, false);
+            return;
+          }
+
           // Passthrough to conversational LLM pipeline
           interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);

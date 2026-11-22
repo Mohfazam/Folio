@@ -39,6 +39,18 @@ export class SilenceWatchdog {
     this.reset();
   }
 
+  public pause(durationMs = 25000): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.closed) return;
+    this.timer = setTimeout(() => {
+      this.reset();
+    }, durationMs);
+    this.timer.unref();
+  }
+
   private async handleTimeout(): Promise<void> {
     if (this.closed) return;
     this.cycle++;
