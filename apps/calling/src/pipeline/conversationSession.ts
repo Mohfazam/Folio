@@ -7,6 +7,7 @@ import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language
 import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
 import { buildOpeningIntro } from "../conversational/introManager.js";
 import { ConversationalEngine } from "../conversational/conversationalEngine.js";
+import { getRandomLatencyFiller } from "../conversational/latencyFiller.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -286,7 +287,27 @@ export function createConversationSession(
     let firstSentenceLogged = false;
     let turnAudioBytes = 0;
     let sentenceCount = 0;
+    let fillerTimeout: NodeJS.Timeout | null = null;
     try {
+      fillerTimeout = setTimeout(async () => {
+        if (closed || generationId !== currentGen || firstSentenceLogged) return;
+        try {
+          const fillerText = getRandomLatencyFiller(activeLanguage);
+          console.log(`${tag} 💬 Generation delay, playing conversational filler: "${fillerText}"`);
+          const fillerAudio = await convertTextToSpeech(fillerText, {
+            speaker,
+            languageCode: activeLanguage,
+            pace: speechRate,
+          });
+          if (!closed && generationId === currentGen && !firstSentenceLogged) {
+            callbacks.playAudio(fillerAudio);
+          }
+        } catch {
+          // ignore filler synthesis error
+        }
+      }, 2000);
+      fillerTimeout.unref();
+
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
       const ttsPromise = openSarvamTtsStream((audioChunk) => {
@@ -314,6 +335,10 @@ export function createConversationSession(
           sentenceCount++;
           if (!firstSentenceLogged) {
             firstSentenceLogged = true;
+            if (fillerTimeout) {
+              clearTimeout(fillerTimeout);
+              fillerTimeout = null;
+            }
             const sentenceMs = Math.round(performance.now() - turnStartedAt);
             options?.sessionState?.recordFirstSentenceTime(sentenceMs);
             metricsCollector.recordTurnLatency(sentenceMs, undefined);
@@ -429,6 +454,10 @@ export function createConversationSession(
         } catch {}
       }
     } finally {
+      if (fillerTimeout) {
+        clearTimeout(fillerTimeout);
+        fillerTimeout = null;
+      }
       tts?.close();
       if (activeTurn === controller) activeTurn = null;
       turnInProgress = false;
