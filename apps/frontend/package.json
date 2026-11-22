@@ -11,14 +11,10 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
-    "@tanstack/react-query": "^5.108.2",
-    "@upstash/ratelimit": "^2.2.0",
-    "@upstash/redis": "^1.40.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "zod": "^4.6.7",
-    "zustand": "^5.1.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

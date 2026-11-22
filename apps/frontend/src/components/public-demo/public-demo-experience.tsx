@@ -54,21 +54,39 @@ export default function PublicDemoExperience() {
   const [captchaToken, setCaptchaToken] = useState("");
   const captchaRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
-  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
   useEffect(() => {
-    const w = window as TurnstileWindow;
-    if (!siteKey || !captchaRef.current || !w.turnstile || widgetId.current) return;
-    widgetId.current = w.turnstile.render(captchaRef.current, {
-      sitekey: siteKey,
-      action: "public_demo",
-      theme: "light",
-      callback: (token: string) => setCaptchaToken(token),
-      "expired-callback": () => setCaptchaToken(""),
-      "error-callback": () => setCaptchaToken(""),
-    });
+    if (!siteKey) return;
+
+    const renderWidget = () => {
+      const w = window as TurnstileWindow;
+      if (!captchaRef.current || !w.turnstile || widgetId.current) return true;
+      widgetId.current = w.turnstile.render(captchaRef.current, {
+        sitekey: siteKey,
+        action: "public_demo",
+        theme: "light",
+        callback: (token: string) => setCaptchaToken(token),
+        "expired-callback": () => setCaptchaToken(""),
+        "error-callback": () => setCaptchaToken(""),
+      });
+      return true;
+    };
+
+    if (renderWidget()) return;
+
+    const interval = window.setInterval(() => {
+      if (renderWidget()) {
+        window.clearInterval(interval);
+      }
+    }, 200);
+
     return () => {
-      if (widgetId.current && w.turnstile) w.turnstile.remove(widgetId.current);
+      window.clearInterval(interval);
+      const w = window as TurnstileWindow;
+      if (widgetId.current && w.turnstile) {
+        w.turnstile.remove(widgetId.current);
+      }
       widgetId.current = null;
     };
   }, [siteKey]);
@@ -372,7 +390,7 @@ export default function PublicDemoExperience() {
                 </label>
               </div>
 
-              {siteKey ? <div ref={captchaRef} className="min-h-[0px]" /> : null}
+              {siteKey ? <div ref={captchaRef} className="min-h-[65px]" /> : null}
 
               {message && status === "error" ? (
                 <p role="alert" className="text-[11px] leading-5 text-[#B34E35]">
