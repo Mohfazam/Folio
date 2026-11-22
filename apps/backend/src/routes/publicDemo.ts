@@ -1,13 +1,15 @@
 import type { Request, Response } from "express";
-import { and, eq, gte, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 
 import { db } from "../config/db.js";
 import { matchesSecret } from "../middleware/auth.js";
 import { isLocalPublicDemoDevelopmentRequest } from "../middleware/publicDemo.js";
+import { processNextEligibleCall } from "../worker/processQueue.js";
 import {
   auditLog,
   businessProfiles,
   callQueue,
+  calls,
   clients,
   contacts,
 } from "@repo/db";
@@ -480,6 +482,10 @@ export async function createPublicDemoRoute(
       });
     }
 
+    void processNextEligibleCall().catch((err) => {
+      console.error("[public-demo] Immediate queue worker trigger failed:", err);
+    });
+
     return res.status(202).json({
       ok: true,
       requestId: result.requestId,
@@ -496,6 +502,115 @@ export async function createPublicDemoRoute(
       ok: false,
       error:
         "We could not start your demo call. Please try again later.",
+    });
+  }
+}
+
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TERMINAL_QUEUE_STATUSES = new Set(["completed", "failed", "exhausted"]);
+
+/**
+ * GET /api/public-demo/:requestId
+ *
+ * Returns the live status of a queued/in-progress/completed public demo call
+ * behind the trusted frontend proxy secret.
+ */
+export async function getPublicDemoStatusRoute(
+  req: Request,
+  res: Response
+) {
+  const proxySecret = process.env.PUBLIC_DEMO_PROXY_SECRET?.trim();
+  if (
+    !proxySecret ||
+    !matchesSecret(
+      proxySecret,
+      req.get("x-public-demo-proxy-secret")?.trim()
+    )
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error: "Unauthorized demo status request.",
+    });
+  }
+
+  const demoClientId = process.env.PUBLIC_DEMO_CLIENT_ID?.trim();
+  if (!demoClientId) {
+    return res.status(503).json({
+      ok: false,
+      error: "The live demo is not configured yet.",
+    });
+  }
+
+  const requestId =
+    typeof req.params.requestId === "string" ? req.params.requestId.trim() : "";
+  if (!UUID_REGEX.test(requestId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "Invalid demo reference ID.",
+    });
+  }
+
+  try {
+    const [row] = await db
+      .select({
+        id: callQueue.id,
+        status: callQueue.status,
+        customFields: contacts.customFields,
+      })
+      .from(callQueue)
+      .innerJoin(contacts, eq(contacts.id, callQueue.contactId))
+      .where(
+        and(
+          eq(callQueue.id, requestId),
+          eq(callQueue.clientId, demoClientId)
+        )
+      )
+      .limit(1);
+
+    const isPublicDemoContact =
+      row &&
+      isRecord(row.customFields) &&
+      row.customFields._fooliooSystem === "public_demo";
+
+    if (!row || !isPublicDemoContact) {
+      return res.status(404).json({
+        ok: false,
+        error: "Demo call request not found.",
+      });
+    }
+
+    const [callRecord] = await db
+      .select({
+        outcome: calls.outcome,
+        startedAt: calls.startedAt,
+        endedAt: calls.endedAt,
+        durationSeconds: calls.durationSeconds,
+      })
+      .from(calls)
+      .where(eq(calls.queueEntryId, row.id))
+      .orderBy(desc(calls.startedAt))
+      .limit(1);
+
+    const completed =
+      TERMINAL_QUEUE_STATUSES.has(row.status) || Boolean(callRecord?.endedAt);
+
+    return res.status(200).json({
+      ok: true,
+      requestId: row.id,
+      status: completed ? "completed" : row.status,
+      queueStatus: row.status,
+      outcome: callRecord?.outcome ?? null,
+      startedAt: callRecord?.startedAt ? callRecord.startedAt.toISOString() : null,
+      endedAt: callRecord?.endedAt ? callRecord.endedAt.toISOString() : null,
+      durationSeconds: callRecord?.durationSeconds ?? null,
+      completed,
+    });
+  } catch (error) {
+    console.error("[public-demo/status] Failed to read demo call status:", error);
+    return res.status(500).json({
+      ok: false,
+      error: "Unable to check demo call status right now.",
     });
   }
 }

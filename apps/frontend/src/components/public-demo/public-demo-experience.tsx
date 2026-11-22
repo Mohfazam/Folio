@@ -51,6 +51,9 @@ export default function PublicDemoExperience() {
   const [message, setMessage] = useState("");
   const [requestId, setRequestId] = useState("");
   const [countdown, setCountdown] = useState(5);
+  const [liveCallPhase, setLiveCallPhase] = useState<"pending" | "in_progress" | "completed">("pending");
+  const [callOutcome, setCallOutcome] = useState<string | null>(null);
+  const [callDurationSeconds, setCallDurationSeconds] = useState<number | null>(null);
   const [captchaToken, setCaptchaToken] = useState("");
   const captchaRef = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
@@ -104,8 +107,23 @@ export default function PublicDemoExperience() {
         });
         if (!res.ok) return;
         const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+
+        const queueState = String(data.queueStatus ?? data.status ?? "").toLowerCase();
         const callState = String(data.status ?? data.callStatus ?? data.state ?? "").toLowerCase();
-        if (!cancelled && (data.completed === true || COMPLETED_STATUSES.has(callState))) {
+
+        if (queueState === "in_progress" || callState === "in_progress") {
+          setLiveCallPhase("in_progress");
+        } else if (queueState === "pending" || callState === "pending") {
+          setLiveCallPhase("pending");
+        }
+
+        if (data.completed === true || COMPLETED_STATUSES.has(callState)) {
+          setLiveCallPhase("completed");
+          setCallOutcome(typeof data.outcome === "string" ? data.outcome : null);
+          setCallDurationSeconds(
+            typeof data.durationSeconds === "number" ? data.durationSeconds : null,
+          );
           setCountdown(5);
           setStatus("completed");
         }
@@ -114,14 +132,16 @@ export default function PublicDemoExperience() {
       }
     };
 
-    const pollInterval = setInterval(checkCallStatus, 3000);
+    void checkCallStatus();
+    const pollInterval = setInterval(checkCallStatus, 2500);
 
     const maxDurationTimer = setTimeout(() => {
       if (!cancelled) {
+        setLiveCallPhase("completed");
         setCountdown(5);
         setStatus("completed");
       }
-    }, 130_000);
+    }, 135_000);
 
     return () => {
       cancelled = true;
@@ -191,6 +211,9 @@ export default function PublicDemoExperience() {
         );
       }
       setRequestId(typeof payload.requestId === "string" ? payload.requestId : "");
+      setLiveCallPhase("pending");
+      setCallOutcome(null);
+      setCallDurationSeconds(null);
       setStatus("queued");
       setMessage(
         typeof payload.message === "string"
@@ -247,13 +270,26 @@ export default function PublicDemoExperience() {
               ✓
             </div>
             <p className="mt-6 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
-              Demo completed
+              {callOutcome === "no_answer"
+                ? "Call unanswered"
+                : callOutcome === "busy"
+                  ? "Line busy"
+                  : callOutcome === "failed"
+                    ? "Call ended"
+                    : "Demo completed"}
             </p>
             <h2 className="mt-2 font-[var(--font-newsreader)] text-[36px] leading-tight">
               Thank you for trying Foolioo.
             </h2>
             <p className="mt-3 max-w-sm text-[13px] leading-6 text-[#716D64]">
-              We hope you enjoyed experiencing our AI receptionist. Returning back to landing in{" "}
+              {callOutcome === "no_answer"
+                ? "We tried reaching your phone, but the call was not answered."
+                : callOutcome === "busy"
+                  ? "Your line appeared busy when our AI receptionist called."
+                  : callDurationSeconds && callDurationSeconds > 0
+                    ? `Your ${callDurationSeconds}s conversation with our AI receptionist has ended.`
+                    : "We hope you enjoyed experiencing our AI receptionist."}{" "}
+              Returning back to landing in{" "}
               <span className="font-semibold text-[#FD7032]">{countdown}</span>…
             </p>
             <button
@@ -265,28 +301,58 @@ export default function PublicDemoExperience() {
             </button>
           </div>
         ) : status === "queued" ? (
-          <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[27px] text-[#E96B32]">
-              ✓
+          <div className="flex min-h-[420px] flex-col items-center justify-center text-center" aria-live="polite">
+            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[#E96B32]">
+              <span className="absolute inset-0 animate-ping rounded-full bg-[#FD7032]/25" />
+              <span className="relative h-3 w-3 rounded-full bg-[#E96B32]" />
             </div>
             <p className="mt-6 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
-              Request accepted
+              {liveCallPhase === "in_progress" ? "Live call in progress" : "Connecting your call"}
             </p>
-            <h2 className="mt-2 font-[var(--font-newsreader)] text-[36px] leading-tight">
-              Your demo call is queued.
+            <h2 className="mt-2 font-[var(--font-newsreader)] text-[34px] leading-tight">
+              {liveCallPhase === "in_progress"
+                ? "Your AI receptionist is on the line."
+                : "Dialling your phone now…"}
             </h2>
-            <p className="mt-3 max-w-sm text-[13px] leading-6 text-[#716D64]">{message}</p>
+            <p className="mt-3 max-w-sm text-[13px] leading-6 text-[#716D64]">
+              {liveCallPhase === "in_progress"
+                ? "Speak naturally. This screen will automatically update as soon as your call ends."
+                : message || "Keep your phone nearby — your call is connecting and will last up to two minutes."}
+            </p>
+
+            {/* Live step tracker */}
+            <div className="mt-6 flex w-full max-w-xs items-center justify-between rounded-xl border border-[#EAE5DB] bg-[#F9F7F1] px-4 py-3 text-left text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
+                <span className="font-medium text-[#292821]">Queued</span>
+              </div>
+              <span className="text-[#C8C1B4]">→</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    liveCallPhase === "in_progress"
+                      ? "animate-pulse bg-[#FD7032]"
+                      : "bg-[#D5CFC2]"
+                  }`}
+                />
+                <span
+                  className={
+                    liveCallPhase === "in_progress"
+                      ? "font-semibold text-[#1B1C18]"
+                      : "text-[#8A8377]"
+                  }
+                >
+                  In progress
+                </span>
+              </div>
+              <span className="text-[#C8C1B4]">→</span>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-[#D5CFC2]" />
+                <span className="text-[#8A8377]">Summary</span>
+              </div>
+            </div>
+
             {requestId ? <p className="mt-4 text-[10px] text-[#A19B90]">Reference: {requestId}</p> : null}
-            <button
-              type="button"
-              onClick={() => {
-                setCountdown(5);
-                setStatus("completed");
-              }}
-              className="mt-7 rounded-full border border-[#DCD5C8] px-5 py-2.5 text-[12px] font-semibold hover:border-[#FD7032]"
-            >
-              I&apos;ve finished my call
-            </button>
           </div>
         ) : (
           <>
