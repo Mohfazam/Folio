@@ -4,6 +4,7 @@ import { generateReplyStream } from "../providers/gemini/generateReply.js";
 import { convertTextToSpeech, openSarvamTtsStream } from "../providers/sarvam/tts.js";
 import { metricsCollector } from "../monitoring/metricsCollector.js";
 import { normalizeLanguageCode, detectLanguageFromText } from "../utils/language.js";
+import { SilenceWatchdog } from "../conversational/silenceWatchdog.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -62,9 +63,7 @@ export function createConversationSession(
   let sttReconnectAttempts = 0;
   let greetingStarted = false;
   let greetingDelivered = false;
-  let silenceTimer: NodeJS.Timeout | null = null;
-  let silencePromptCount = 0;
-  const SILENCE_TIMEOUT_MS = 10000; // 10 seconds of silence before gentle prompt
+  let silenceWatchdog: SilenceWatchdog | null = null;
 
   const pending: Buffer[] = []; // audio buffered while STT connection establishes
   const history: { role: "user" | "assistant"; content: string }[] = [];
@@ -80,15 +79,11 @@ export function createConversationSession(
 
   const sessionStartTime = performance.now();
 
-  function resetSilenceTimer() {
-    if (silenceTimer) clearTimeout(silenceTimer);
-    if (closed) return;
-    silenceTimer = setTimeout(async () => {
-      if (closed || turnInProgress) return;
-      silencePromptCount++;
-      if (silencePromptCount === 1) {
-        console.log(`${tag} ⏱️ Caller silence detected (10s) — checking in`);
-        const promptText = "Hello? Can you hear me okay?";
+  silenceWatchdog = new SilenceWatchdog(
+    {
+      onNudge: async (promptText) => {
+        if (closed || turnInProgress) return;
+        console.log(`${tag} ⏱️ Silence watchdog nudging caller: "${promptText}"`);
         try {
           const audio = await convertTextToSpeech(promptText, {
             speaker,
@@ -98,14 +93,14 @@ export function createConversationSession(
           if (!closed && !turnInProgress) {
             callbacks.playAudio(audio);
             history.push({ role: "assistant", content: promptText });
-            resetSilenceTimer();
           }
         } catch (e: any) {
           console.warn(`${tag} Silence prompt TTS error:`, e?.message ?? e);
         }
-      } else if (silencePromptCount >= 2) {
-        console.log(`${tag} ⏱️ Persistent caller silence — ending call gracefully`);
-        const exitText = "It seems we have an audio issue. I will follow up later. Thank you, goodbye!";
+      },
+      onHangup: async (exitText) => {
+        if (closed) return;
+        console.log(`${tag} ⏱️ Silence watchdog terminating call due to persistence`);
         try {
           const audio = await convertTextToSpeech(exitText, {
             speaker,
@@ -119,10 +114,10 @@ export function createConversationSession(
         setTimeout(() => {
           if (!closed) callbacks.hangup?.("Call ended due to persistent caller silence");
         }, 2500);
-      }
-    }, SILENCE_TIMEOUT_MS);
-    silenceTimer.unref();
-  }
+      },
+    },
+    { nudgeTimeoutMs: 7000, language: currentLanguage }
+  );
 
   // ── Safety: max call duration timer ─────────────────────────────
   // If auto-hangup never triggers (edge case), force-terminate the call
@@ -171,7 +166,7 @@ export function createConversationSession(
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
       greetingDelivered = true;
-      resetSilenceTimer();
+      silenceWatchdog?.reset();
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
@@ -183,7 +178,7 @@ export function createConversationSession(
   async function handleCallerTurn(userText: string, language?: string) {
     const trimmed = userText.trim();
     if (!trimmed) return;
-    resetSilenceTimer();
+    silenceWatchdog?.registerSpeech();
 
     // ── Turn serialization & fresh interrupt handling ──
     // If a turn is currently in progress and the caller speaks again,
@@ -329,7 +324,7 @@ export function createConversationSession(
       console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
-      resetSilenceTimer();
+      silenceWatchdog?.reset();
 
       // If call is concluded, wait for audio playback to reach the phone and hang up
       if (shouldHangup && callbacks.hangup) {
@@ -399,7 +394,7 @@ export function createConversationSession(
     try {
       const session = await openSttSession({
         onSpeechStart: () => {
-          resetSilenceTimer();
+          silenceWatchdog?.reset(true);
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
         },
         onPartial: (text) => {
@@ -409,7 +404,7 @@ export function createConversationSession(
           if (!trimmed || isNoiseOrFiller(trimmed)) return;
           // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
           if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
-            resetSilenceTimer();
+            silenceWatchdog?.reset(true);
             interruptForCallerSpeech();
             if (process.env.NODE_ENV !== "production") {
               console.log(`${tag} ... ${trimmed}`);
@@ -417,7 +412,7 @@ export function createConversationSession(
           }
         },
         onFinal: (text, language) => {
-          resetSilenceTimer();
+          silenceWatchdog?.registerSpeech();
           const finalTrimmed = text?.trim() || "";
           if (!finalTrimmed) return;
           if (isNoiseOrFiller(finalTrimmed)) {
@@ -480,7 +475,7 @@ export function createConversationSession(
       if (closed) return; // idempotent
       closed = true;
       clearTimeout(maxDurationTimer);
-      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceWatchdog?.stop();
       generationId++;
       activeTurn?.abort();
       callbacks.clearAudio();
