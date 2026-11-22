@@ -9,6 +9,7 @@ import { buildOpeningIntro } from "../conversational/introManager.js";
 import { ConversationalEngine } from "../conversational/conversationalEngine.js";
 import { isBackchannel } from "../conversational/backchannelDetector.js";
 import { isGenericGreeting } from "../conversational/genericGreetingTracker.js";
+import { isCallEndIntent, buildFastFarewell } from "../conversational/callEndDetector.js";
 import { getRandomLatencyFiller } from "../conversational/latencyFiller.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
@@ -271,7 +272,7 @@ export function createConversationSession(
 
       if (shouldHangup && callbacks.hangup) {
         const audioDurationMs = Math.round((audio.length / 8000) * 1000);
-        const waitMs = Math.max(1200, audioDurationMs + 800);
+        const waitMs = Math.max(600, audioDurationMs + 200);
         setTimeout(() => {
           if (!closed) callbacks.hangup?.("Call ended by edge-case handler");
         }, waitMs);
@@ -477,7 +478,7 @@ export function createConversationSession(
       if (shouldHangup && callbacks.hangup) {
         // 8000 bytes = 1.0s of 8kHz mu-law audio
         const audioDurationMs = Math.round((turnAudioBytes / 8000) * 1000);
-        const waitMs = Math.max(1200, audioDurationMs + 800);
+        const waitMs = Math.max(600, audioDurationMs + 200);
         console.log(`${tag} ⏳ Waiting ${waitMs}ms (${audioDurationMs}ms playback + buffer) before hanging up...`);
 
         setTimeout(() => {
@@ -532,10 +533,11 @@ export function createConversationSession(
     try {
       const session = await openSttSession({
         onSpeechStart: () => {
-          silenceWatchdog?.reset(true);
-          console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
+          silenceWatchdog?.pause(12000);
+          console.log(`${tag} ⚡ Speech detected; pausing silence watchdog`);
         },
         onPartial: (text) => {
+          silenceWatchdog?.pause(12000);
           // Do not barge-in before the opening greeting has actually started playing
           if (!greetingDelivered) return;
           const trimmed = text?.trim();
@@ -553,6 +555,14 @@ export function createConversationSession(
             return;
           }
 
+          // Require at least 2 words or explicit stop word ("wait", "stop", "hold", "listen", "no", "ruko")
+          // to prevent brief ambient noise or mic clicks from interrupting AI speech
+          const isStopWord = /^(wait|stop|ruko|hold|listen|no|suno)\b/i.test(trimmed);
+          const wordCount = trimmed.split(/\s+/).length;
+          if (wordCount < 2 && !isStopWord) {
+            return;
+          }
+
           // Do not interrupt on passive backchannels or early intro greetings
           const action = conversationalEngine.evaluateUtterance(trimmed, currentLanguage);
           if (action.type === "ignore_filler" || action.type === "continue_intro") {
@@ -560,7 +570,6 @@ export function createConversationSession(
           }
 
           // Fast conversational barge-in: any intentional caller speech stops AI speech immediately
-          silenceWatchdog?.reset(true);
           interruptForCallerSpeech();
           console.log(`${tag} 🛑 Caller interrupted (barge-in): "${trimmed}"`);
         },
@@ -572,6 +581,14 @@ export function createConversationSession(
           }
 
           const activeLang = language || currentLanguage;
+
+          // ── Fast Call-Ending: If customer showed intent to end the call, exit immediately! ──
+          if (isCallEndIntent(finalTrimmed)) {
+            console.log(`${tag} 🛑 Customer requested to end call: "${finalTrimmed}" — executing fast farewell and hangup`);
+            const farewellText = buildFastFarewell(activeLang);
+            speakImmediateResponse(farewellText, activeLang, true);
+            return;
+          }
           const action = conversationalEngine.evaluateUtterance(finalTrimmed, activeLang);
 
           if (action.type === "ignore_filler") {

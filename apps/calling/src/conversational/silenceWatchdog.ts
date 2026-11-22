@@ -4,7 +4,7 @@ export interface SilenceWatchdogCallbacks {
 }
 
 export interface SilenceWatchdogOptions {
-  nudgeTimeoutMs?: number; // default: 5000ms (5s of silence after speech ends)
+  nudgeTimeoutMs?: number; // default: 8000ms (8s of complete silence after speech ends)
   language?: string;
 }
 
@@ -18,7 +18,7 @@ export class SilenceWatchdog {
 
   constructor(callbacks: SilenceWatchdogCallbacks, options?: SilenceWatchdogOptions) {
     this.callbacks = callbacks;
-    this.nudgeTimeoutMs = options?.nudgeTimeoutMs ?? 5000;
+    this.nudgeTimeoutMs = options?.nudgeTimeoutMs ?? 8000;
     this.language = options?.language ?? "en-IN";
   }
 
