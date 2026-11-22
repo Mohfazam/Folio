@@ -73,7 +73,13 @@ export function attachMediaStream(server: Server) {
     .onMedia((event, ws) => {
       sessions.get(ws)?.handleAudio(event.getRawMedia());
     })
-    .onError((error) => console.error("Plivo stream error:", error.message))
+    .onError((error, ws) => {
+      console.error("Plivo stream error:", error.message);
+      if (ws) {
+        sessions.get(ws)?.close();
+        sessions.delete(ws);
+      }
+    })
     .onClose((ws) => {
       sessions.get(ws)?.close();
       sessions.delete(ws);
