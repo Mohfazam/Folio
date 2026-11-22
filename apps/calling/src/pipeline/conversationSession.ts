@@ -178,6 +178,7 @@ export function createConversationSession(
       callbacks.playAudio(audio);
       greetingDelivered = true;
       conversationalEngine.markIntroCompleted();
+      conversationalEngine.setLastAssistantReply(greetingText);
       silenceWatchdog?.reset();
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
     } catch (err: any) {
@@ -211,6 +212,7 @@ export function createConversationSession(
     const cleanText = responseText.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
     history.push({ role: "assistant", content: cleanText });
     options?.sessionState?.addAssistantTurn(cleanText);
+    conversationalEngine.setLastAssistantReply(cleanText);
 
     try {
       console.log(`${tag} 🤖 AI Immediate: "${cleanText}" ${shouldHangup ? "🛑 [AUTO-HANGUP]" : ""}`);
@@ -391,6 +393,7 @@ export function createConversationSession(
       console.log(`${tag} 🤖 AI: "${cleanReply}" ${shouldHangup ? "🛑 [AUTO-HANGUP QUEUED]" : ""}`);
       history.push({ role: "assistant", content: cleanReply });
       options?.sessionState?.addAssistantTurn(cleanReply);
+      conversationalEngine.setLastAssistantReply(cleanReply);
       silenceWatchdog?.reset();
 
       // If call is concluded, wait for audio playback to reach the phone and hang up
@@ -540,6 +543,12 @@ export function createConversationSession(
           if (action.type === "hold_wait") {
             console.log(`${tag} ⏸️ Caller requested hold/wait: "${finalTrimmed}"`);
             silenceWatchdog?.pause(25000);
+            speakImmediateResponse(action.replyText, activeLang, false);
+            return;
+          }
+
+          if (action.type === "repeat_request") {
+            console.log(`${tag} 🔁 Caller requested repeat: "${finalTrimmed}"`);
             speakImmediateResponse(action.replyText, activeLang, false);
             return;
           }
