@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import { Suspense } from "react";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 import { redirect } from "next/navigation";
@@ -43,13 +44,6 @@ async function getBackendPayload(
   return { status: response.status, payload: payload as ApiEnvelope };
 }
 
-function sanitizeOverviewError(message: string): string {
-  if (/^Failed query:/i.test(message.trim()) || /password_hash|select\s+"id"/i.test(message)) {
-    return "A temporary connection issue prevented loading workspace status. Please retry.";
-  }
-  return message;
-}
-
 async function loadObject(
   path: string,
   accessToken: string,
@@ -57,7 +51,7 @@ async function loadObject(
 ): Promise<LoadResult<JsonRecord>> {
   let lastResult: LoadResult<JsonRecord> = {
     state: "error",
-    error: "Unable to load workspace settings.",
+    error: "Unable to load workspace setup status right now. Please retry.",
   };
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -66,12 +60,13 @@ async function loadObject(
       if (status >= 200 && status < 300 && payload.ok === true) {
         return { state: "ready", data: payload };
       }
-      const rawError =
-        typeof payload.error === "string" ? payload.error : `Request failed (${status}).`;
       lastResult = {
         state: "error",
         status,
-        error: sanitizeOverviewError(rawError),
+        error: sanitizeUserError(
+          payload.error,
+          "Unable to load workspace setup status right now. Please retry.",
+        ),
       };
       if (status >= 500 && attempt === 0) {
         await new Promise((resolve) => setTimeout(resolve, 150));
@@ -82,8 +77,9 @@ async function loadObject(
       console.error(`[dashboard/overview] ${path} request failed:`, error);
       lastResult = {
         state: "error",
-        error: sanitizeOverviewError(
-          error instanceof Error ? error.message : "Unable to load workspace settings.",
+        error: sanitizeUserError(
+          error instanceof Error ? error.message : null,
+          "Unable to load workspace setup status right now. Please retry.",
         ),
       };
       if (attempt === 0) {

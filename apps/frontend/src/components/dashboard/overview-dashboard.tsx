@@ -1,3 +1,4 @@
+import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
@@ -424,10 +425,10 @@ function SectionError({
   error: string;
   onRetry?: () => void;
 }) {
-  const safeError =
-    /^Failed query:/i.test(error.trim()) || /password_hash|select\s+"id"/i.test(error)
-      ? "A temporary connection issue prevented loading this section. Please retry."
-      : error;
+  const safeError = sanitizeUserError(
+    error,
+    "A temporary connection issue prevented loading this section. Please retry.",
+  );
 
   return (
     <div
@@ -1623,7 +1624,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         if (isMounted()) {
           setAnalyticsResult({
             state: "error",
-            error: error instanceof Error ? error.message : "Unable to load workspace analytics.",
+            error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to load workspace analytics."),
           });
         }
       });
