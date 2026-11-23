@@ -165,21 +165,28 @@ export function CallTranscript({
       </div>
 
       {lines.length > 0 ? (
-        <div className="max-h-[440px] space-y-3 overflow-y-auto overscroll-contain pr-2">
-          {lines.map((line, index) => {
-            const assistant = line.speaker === "assistant";
-            return (
-              <div key={`${index}-${line.timestamp ?? "transcript"}`} className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
-                <div className={`max-w-[92%] rounded-[9px] border px-3.5 py-3 sm:max-w-[82%] ${assistant ? "border-[#ECEBE5] bg-[#F8F7F2]" : "border-[#E7E0F3] bg-[#F5F1FB]"}`}>
-                  <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                    <span className={`font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] ${assistant ? "text-[#747878]" : "text-[#806DB2]"}`}>{assistant ? "FOOLIOO AGENT" : "CONTACT"}</span>
-                    {line.timestamp ? <time className="font-['Space_Grotesk'] text-[9px] text-[#92938C]">{formatTimestamp(line.timestamp)}</time> : null}
+        <div
+          role="region"
+          aria-label="Conversation transcript entries"
+          tabIndex={0}
+          className="max-h-[60vh] overflow-y-auto overscroll-contain pr-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+        >
+          <div className="space-y-3">
+            {lines.map((line, index) => {
+              const assistant = line.speaker === "assistant";
+              return (
+                <div key={`${index}-${line.timestamp ?? "transcript"}`} className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
+                  <div className={`max-w-[92%] rounded-[9px] border px-3.5 py-3 sm:max-w-[82%] ${assistant ? "border-[#ECEBE5] bg-[#F8F7F2]" : "border-[#E7E0F3] bg-[#F5F1FB]"}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                      <span className={`font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] ${assistant ? "text-[#747878]" : "text-[#806DB2]"}`}>{assistant ? "FOOLIOO AGENT" : "CONTACT"}</span>
+                      {line.timestamp ? <time className="font-['Space_Grotesk'] text-[9px] text-[#92938C]">{formatTimestamp(line.timestamp)}</time> : null}
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap break-words font-['Space_Grotesk'] text-[12px] leading-5 text-[#34362E]">{line.text || "[No transcript text]"}</p>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap break-words font-['Space_Grotesk'] text-[12px] leading-5 text-[#34362E]">{line.text || "[No transcript text]"}</p>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : null}
 
