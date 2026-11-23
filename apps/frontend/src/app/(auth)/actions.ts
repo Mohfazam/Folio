@@ -195,37 +195,36 @@ export async function forgotPasswordAction(prevState: AuthState, formData: FormD
   const limited = await rateLimit("forgot", "Too many requests. Please try again in a minute.");
   if (limited) return limited;
 
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email || !email.includes("@")) {
     return { fieldErrors: { email: ["Please enter a valid email address."] } };
   }
 
-  const supabase = await createClient();
-  const requestHeaders = await headers();
-  const origin = requestHeaders.get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
-  await supabase.auth.resetPasswordForEmail(email, {
-    ...(origin ? { redirectTo: `${origin.replace(/\/$/, "")}/auth/callback?next=/reset-password` } : {}),
-  });
-
-  return { success: "If an account exists with this email, a password reset link has been sent." };
+  const result = await requestPasswordResetOtp(email);
+  if (!result.ok) {
+    return { error: result.error || "Could not send a password reset code." };
+  }
+  redirect(`/reset-password?email=${encodeURIComponent(email)}&sent=true`);
 }
 
 export async function resetPasswordAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const otp = String(formData.get("otp") ?? "").trim();
   const validated = resetPasswordSchema.safeParse({ password: formData.get("password") });
   if (!validated.success) {
     return { fieldErrors: validated.error.flatten().fieldErrors };
   }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password: validated.data.password });
-  if (error) {
-    return { error: "Failed to update password. Your session may have expired." };
+  if (!email || !/^\d{6}$/.test(otp)) {
+    return { error: "Enter your email and the 6-digit reset code." };
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) redirect("/sign-in");
-
-  const result = await destinationOrError(session.access_token);
-  if (result.error || !result.destination) return { error: result.error ?? "Unable to load your workspace." };
-  redirect(result.destination);
+  const result = await verifyPasswordResetOtp({
+    email,
+    otp,
+    password: validated.data.password,
+  });
+  if (!result.ok) {
+    return { error: result.error || "Could not reset your password." };
+  }
+  redirect("/sign-in?reset=true");
 }
