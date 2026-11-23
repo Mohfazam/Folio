@@ -2,6 +2,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 import { env } from "../config/env.js";
 
 let supportTransporter: Transporter | null = null;
+let authTransporter: Transporter | null = null;
 
 function createTransporter(user: string, pass: string): Transporter | null {
   if (!env.smtp.host) {
@@ -20,6 +21,13 @@ function createTransporter(user: string, pass: string): Transporter | null {
       rejectUnauthorized: env.isProduction,
     },
   });
+}
+
+export function getAuthTransporter(): Transporter | null {
+  if (!authTransporter && env.smtp.host) {
+    authTransporter = createTransporter(env.smtp.authUser, env.smtp.authPass);
+  }
+  return authTransporter;
 }
 
 export function getSupportTransporter(): Transporter | null {
@@ -102,19 +110,42 @@ export async function sendAuthOtpEmail(options: {
   otp: string;
 }): Promise<{ ok: boolean }> {
   const { to, otp } = options;
-  const transporter = getSupportTransporter();
+  const transporter = getAuthTransporter();
 
   if (!transporter) {
     console.log(`[nodemailer/dev-fallback] 📧 [AUTH OTP] To: ${to} | Code: ${otp}`);
     return { ok: true };
   }
 
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #1B1C18; background-color: #FFFFFF; border: 1px solid #EAE7DE; border-radius: 12px;">
+      <div style="margin-bottom: 24px;">
+        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #7852D6;">Foolioo Security</span>
+      </div>
+      <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 12px; color: #1B1C18;">Verify your email address</h2>
+      <p style="font-size: 14px; line-height: 22px; color: #747878; margin: 0 0 24px;">
+        Enter the following 6-digit verification code to confirm your email and access your Foolioo workspace:
+      </p>
+      <div style="background-color: #F8F6EF; border: 1px solid #E9E8E1; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
+        <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 10px; color: #1B1C18;">${otp}</span>
+      </div>
+      <p style="font-size: 12px; line-height: 18px; color: #85877F; margin: 0 0 16px;">
+        This code expires in 10 minutes. If you did not request this verification, you can safely ignore this email.
+      </p>
+      <hr style="border: none; border-top: 1px solid #EAE7DE; margin: 24px 0 16px;" />
+      <p style="font-size: 11px; color: #A0A29C; margin: 0;">
+        &copy; ${new Date().getFullYear()} Foolioo Voice Operations. Sent from auth@foolioo.app
+      </p>
+    </div>
+  `;
+
   try {
     await transporter.sendMail({
-      from: env.smtp.supportFrom,
+      from: env.smtp.authFrom,
       to,
-      subject: `Your verification code: ${otp}`,
+      subject: `Your Foolioo verification code: ${otp}`,
       text: `Your Foolioo verification code is ${otp}. It will expire in 10 minutes.`,
+      html,
     });
     return { ok: true };
   } catch (err: unknown) {
