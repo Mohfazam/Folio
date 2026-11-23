@@ -680,7 +680,8 @@ export async function launchCampaignRoute(req: Request, res: Response) {
       ok: true,
       ...result,
       status: "active",
-      message: new Date(result.scheduledFor).getTime() > launchNow.getTime() + 60_000
+      message: typeof result.scheduledFor === "string" &&
+        new Date(result.scheduledFor).getTime() > launchNow.getTime() + 60_000
         ? "Campaign scheduled. Calls will begin at the selected start time and remain inside the daily campaign and workspace calling windows."
         : "Campaign activated. Calls will run inside the daily campaign and workspace calling windows.",
     });
