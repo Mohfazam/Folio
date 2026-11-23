@@ -229,6 +229,44 @@ export async function sendAuthOtpEmail(options: {
     return { ok: true };
   } catch (err: unknown) {
     console.error("[nodemailer/auth] Failed to send auth OTP email:", err);
+    if (!env.isProduction) {
+      console.log(`[nodemailer/dev-fallback] 📧 [AUTH OTP] To: ${to} | Code: ${otp}`);
+      return { ok: true };
+    }
+    throw err;
+  }
+}
+
+export async function sendPasswordResetOtpEmail(options: {
+  to: string;
+  otp: string;
+}): Promise<{ ok: boolean }> {
+  const { to, otp } = options;
+  const transporter = getAuthTransporter();
+
+  if (!transporter) {
+    console.log(`[nodemailer/dev-fallback] 📧 [PASSWORD RESET OTP] To: ${to} | Code: ${otp}`);
+    return { ok: true };
+  }
+
+  try {
+    await transporter.sendMail({
+      from: env.smtp.authFrom,
+      to,
+      subject: `${otp} is your Foolioo password reset code`,
+      text: `Your Foolioo password reset code is ${otp}. It will expire in 10 minutes.`,
+      html: buildAuthOtpEmailHtml(otp).replace("Confirm your email address", "Reset your password").replace(
+        "Thank you for choosing Foolioo. To complete your verification and securely access your voice workspace",
+        "Use the 6-digit code below to securely reset your Foolioo password",
+      ),
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.error("[nodemailer/auth] Failed to send password reset OTP email:", err);
+    if (!env.isProduction) {
+      console.log(`[nodemailer/dev-fallback] 📧 [PASSWORD RESET OTP] To: ${to} | Code: ${otp}`);
+      return { ok: true };
+    }
     throw err;
   }
 }
@@ -258,6 +296,10 @@ export async function sendSupportOtpEmail(options: {
     return { ok: true };
   } catch (err: unknown) {
     console.error("[nodemailer/support] Failed to send support OTP email:", err);
+    if (!env.isProduction) {
+      console.log(`[nodemailer/dev-fallback] 📧 [SUPPORT OTP] To: ${to} | Code: ${otp}`);
+      return { ok: true };
+    }
     throw err;
   }
 }
