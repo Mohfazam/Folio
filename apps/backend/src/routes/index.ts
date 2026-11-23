@@ -18,6 +18,8 @@ import {
   loginUserRoute,
   sendAuthOtpRoute,
   verifyAuthOtpRoute,
+  requestPasswordResetOtpRoute,
+  verifyPasswordResetOtpRoute,
 } from "./auth.js";
 import { submitSupportTicketRoute } from "./support.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
@@ -61,6 +63,8 @@ export function registerRoutes(app: Express) {
   api.post("/auth/login", authRateLimiter, loginUserRoute);
   api.post("/auth/otp/send", authRateLimiter, sendAuthOtpRoute);
   api.post("/auth/otp/verify", authRateLimiter, verifyAuthOtpRoute);
+  api.post("/auth/password-reset/request", authRateLimiter, requestPasswordResetOtpRoute);
+  api.post("/auth/password-reset/verify", authRateLimiter, verifyPasswordResetOtpRoute);
   api.post("/auth/sync", authRateLimiter, requireAuth, syncAuthUserRoute);
   api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
   // Support endpoints (via Nodemailer support@foolioo.app)
