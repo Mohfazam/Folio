@@ -2,52 +2,17 @@ import Link from "next/link";
 import { AuthRedirectButton } from "@/components/ui/AuthRedirectButton";
 
 interface PricingProps {
-    currentPlan?: string | null; 
+    currentPlan?: string | null;
 }
 
 export const Pricing = ({ currentPlan = null }: PricingProps) => {
+    const normalizedPlan = currentPlan?.trim().toLowerCase() ?? null;
+    const isOnTrial = normalizedPlan === "trial";
+    const isTrialExpired = normalizedPlan === "expired";
+
     const plans = [
         {
-            name: "Trial",
-            price: "Free",
-            period: "",
-            description: "Test the platform and validate your first automated voice workflows.",
-            credits: "360 credits",
-            estimate: "~60 min connected talk time",
-            roughlyCalls: "~30 calls",
-            features: [
-                "360 included credits",
-                "~60 minutes of connected talk time",
-                "~1 credit = 10 seconds of conversation",
-                "Standard voice agents",
-                "Community support",
-            ],
-            cta: "Start for free",
-            highlighted: false,
-        },
-        {
-            name: "Starter",
-            originalPrice: "₹6,000",
-            price: "₹4,200",
-            period: "/month",
-            description: "For small teams validating outbound & inbound AI voice operations.",
-            credits: "6,000 credits",
-            estimate: "~1,000 min (16h 40m)",
-            roughlyCalls: "~500 calls",
-            features: [
-                "6,000 included credits",
-                "~1,000 minutes of connected talk time",
-                "~1 credit = 10 seconds of conversation",
-                "Finite state machine builder",
-                "Standard CRM sync (HubSpot, Salesforce)",
-                "Email support (24hr SLA)",
-            ],
-            cta: "Start 7-day trial",
-            highlighted: false,
-        },
-        {
             name: "Growth",
-            badge: "RECOMMENDED",
             originalPrice: "₹12,000",
             price: "₹8,300",
             period: "/month",
@@ -65,10 +30,11 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 "Priority Slack support & onboarding",
             ],
             cta: "Start 7-day trial",
-            highlighted: true,
+            highlighted: false,
         },
         {
             name: "Pro",
+            badge: "RECOMMENDED",
             price: "₹12,500",
             period: "/month",
             description: "For established teams managing high-volume outbound operations.",
@@ -79,13 +45,14 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 "18,000 included credits",
                 "~3,000 minutes of connected talk time",
                 "~1 credit = 10 seconds of conversation",
+                "Use your own phone number for outbound calls",
                 "Advanced state machine & branching",
                 "Real-time automated QA grading",
                 "Custom webhooks & API access",
                 "Priority Slack support & onboarding",
             ],
             cta: "Start 7-day trial",
-            highlighted: false,
+            highlighted: true,
         },
         {
             name: "Scale",
@@ -99,6 +66,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 "24,000 included credits",
                 "~4,000 minutes of connected talk time",
                 "~1 credit = 10 seconds of conversation",
+                "Use your own phone number for outbound calls",
                 "Dedicated carrier trunking & BYO SIP",
                 "Dedicated account manager & SLA",
                 "SOC-2 Type II & HIPAA compliance",
@@ -127,11 +95,12 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                     </p>
                 </div>
 
-                <div className="mt-14 flex flex-wrap justify-center gap-6">
+                {/* All 3 paid cards in a single row on desktop */}
+                <div className="mt-14 grid grid-cols-1 gap-6 lg:grid-cols-3">
                     {plans.map((plan) => (
                         <div
                             key={plan.name}
-                            className={`relative flex w-full flex-col justify-between rounded-2xl p-7 transition duration-200 sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] ${
+                            className={`relative flex w-full flex-col justify-between rounded-2xl p-7 transition duration-200 ${
                                 plan.highlighted
                                     ? "border-2 border-[#1B1C18] bg-white shadow-[0px_16px_48px_rgba(0,0,0,0.08)]"
                                     : "border border-[#E9E8E1] bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.03)]"
@@ -177,7 +146,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                         <span className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                                             {plan.estimate}
                                         </span>
-                                        
+
                                         <div className="mt-2 flex items-center justify-between rounded-lg border border-[#EAE6DC] bg-[#FBF9F2] px-3 py-1.5">
                                             <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">Vol</span>
                                             <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{plan.roughlyCalls}</span>
@@ -208,28 +177,15 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                     >
                                         Contact sales
                                     </a>
-                                ) : 
-                                
-                                /* 2. Expired Trial State */
-                                currentPlan === "Expired" && plan.name === "Trial" ? (
-                                    <Link href={`/sign-up`} className="block w-full">
-                                        <button className="flex h-11 w-full items-center justify-center rounded-xl bg-[#FEE2E2] font-['Space_Grotesk'] text-[13px] font-semibold text-[#991B1B] transition-colors hover:bg-[#FECACA]">
-                                            Trial Expired — Restart
-                                        </button>
-                                    </Link>
-                                ) :
-
-                                /* 3. User is on this plan */
-                                currentPlan?.toLowerCase() === plan.name.toLowerCase() ? (
+                                ) : /* 2. User is currently on this paid plan */
+                                normalizedPlan === plan.name.toLowerCase() ? (
                                     <button
                                         disabled
                                         className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#A0A09E]"
                                     >
                                         Current Plan
                                     </button>
-                                ) : 
-                                
-                                /* 4. User is logged in, wants a different plan */
+                                ) : /* 3. User is logged in (on Trial, Expired, or another plan) */
                                 currentPlan ? (
                                     <Link href={`/dashboard/billing?plan=${plan.name.toLowerCase()}`} className="block w-full">
                                         <button
@@ -242,10 +198,8 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                             Upgrade to {plan.name}
                                         </button>
                                     </Link>
-                                ) : 
-                                
-                                /* 5. Fallback: Not logged in */
-                                (
+                                ) : (
+                                    /* 4. Fallback: Not logged in */
                                     <Link href="/sign-up" className="block w-full">
                                         <AuthRedirectButton
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
@@ -262,6 +216,61 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                         </div>
                     ))}
                 </div>
+
+                {/* Free Trial / Expired Trial status box below paid cards */}
+                {(isOnTrial || isTrialExpired) && (
+                    <div
+                        role="status"
+                        className={`mt-8 flex flex-col justify-between gap-4 rounded-2xl border p-6 shadow-[0px_4px_20px_rgba(0,0,0,0.03)] sm:flex-row sm:items-center ${
+                            isTrialExpired
+                                ? "border-[#FECACA] bg-[#FEF2F2]"
+                                : "border-[#E2D9F8] bg-white"
+                        }`}
+                    >
+                        <div className="flex items-start gap-3.5">
+                            <span
+                                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-bold ${
+                                    isTrialExpired
+                                        ? "bg-[#FEE2E2] text-[#991B1B]"
+                                        : "bg-[#EFEAFB] text-[#644ABB]"
+                                }`}
+                            >
+                                {isTrialExpired ? "!" : "★"}
+                            </span>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                        className={`rounded-full px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[1px] ${
+                                            isTrialExpired
+                                                ? "bg-[#FEE2E2] text-[#991B1B]"
+                                                : "bg-[#EFEAFB] text-[#644ABB]"
+                                        }`}
+                                    >
+                                        {isTrialExpired ? "Trial Expired" : "Current Plan · Free Trial"}
+                                    </span>
+                                    <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
+                                        360 credits · ~60 min talk time (~30 calls)
+                                    </span>
+                                </div>
+                                <p className="mt-1.5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+                                    {isTrialExpired
+                                        ? "Your free trial has ended."
+                                        : "You are currently on the Free Trial plan."}
+                                </p>
+                                <p className="mt-0.5 font-['Space_Grotesk'] text-[13px] text-[#565B5B]">
+                                    Upgrade to <span className="font-semibold text-[#1B1C18]">Pro</span> (18,000 credits/mo) or another paid plan above to unlock full production calling, your own outbound phone number, QA grading, and API webhooks.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Link
+                            href="/dashboard/billing?plan=pro"
+                            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors duration-200 hover:bg-[#3A3B37]"
+                        >
+                            Upgrade to Pro →
+                        </Link>
+                    </div>
+                )}
             </div>
         </section>
     );

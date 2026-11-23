@@ -22,19 +22,35 @@ function VisibilityIcon({ visible }: { visible: boolean }) {
   );
 }
 
-function getPasswordStrength(password: string) {
-  if (!password) return { score: 0, label: "Password strength", color: "#D9D7CF" };
+function getPasswordRequirements(password: string) {
+  return {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /\d/.test(password),
+    hasSymbol: /[^A-Za-z0-9]/.test(password),
+  };
+}
 
-  const checks = [
-    password.length >= 8,
-    /[A-Za-z]/.test(password) && /\d/.test(password),
-    password.length >= 12,
-    /[a-z]/.test(password) && /[A-Z]/.test(password) && /[^A-Za-z0-9]/.test(password),
-  ];
-  const score = checks.filter(Boolean).length;
-  const labels = ["Too short", "Weak", "Fair", "Good", "Strong"];
-  const colors = ["#D9D7CF", "#D97757", "#D19A45", "#7D9A68", "#39855D"];
-  return { score, label: labels[score], color: colors[score] };
+function getPasswordStrength(password: string) {
+  if (!password) {
+    return { score: 0, label: "Password strength", color: "#D9D7CF" };
+  }
+
+  const reqs = getPasswordRequirements(password);
+  const metCount = [
+    reqs.minLength,
+    reqs.hasUppercase,
+    reqs.hasLowercase,
+    reqs.hasNumber,
+    reqs.hasSymbol,
+  ].filter(Boolean).length;
+
+  if (metCount <= 1) return { score: 1, label: "Too weak", color: "#D97757" };
+  if (metCount === 2) return { score: 1, label: "Weak", color: "#D97757" };
+  if (metCount === 3) return { score: 2, label: "Fair", color: "#D19A45" };
+  if (metCount === 4) return { score: 3, label: "Good", color: "#7D9A68" };
+  return { score: 4, label: "Strong", color: "#39855D" };
 }
 
 export default function SignUpPage() {
@@ -42,6 +58,15 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const strength = getPasswordStrength(password);
+  const reqs = getPasswordRequirements(password);
+
+  const requirementItems = [
+    { key: "length", label: "8+ characters", met: reqs.minLength },
+    { key: "upper", label: "Uppercase (A–Z)", met: reqs.hasUppercase },
+    { key: "lower", label: "Lowercase (a–z)", met: reqs.hasLowercase },
+    { key: "number", label: "One number (0–9)", met: reqs.hasNumber },
+    { key: "symbol", label: "One symbol (!@#…)", met: reqs.hasSymbol },
+  ];
 
   return (
     <main className="mx-auto w-full max-w-[384px]">
@@ -133,7 +158,7 @@ export default function SignUpPage() {
                 name="password"
                 type={showPassword ? "text" : "password"}
                 label="Password"
-                placeholder="At least 8 characters"
+                placeholder="Create a strong password"
                 autoComplete="new-password"
                 minLength={8}
                 value={password}
@@ -154,8 +179,14 @@ export default function SignUpPage() {
 
             <div className="rounded-lg border border-[#ECE9E1] bg-[#FCFBF8] px-3 py-2.5">
               <div className="flex items-center justify-between gap-3">
-                <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#777970]">Password strength</span>
-                <span className="font-['Space_Grotesk'] text-[10px] font-semibold" style={{ color: strength.color }} aria-live="polite">
+                <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#777970]">
+                  Password strength
+                </span>
+                <span
+                  className="font-['Space_Grotesk'] text-[10px] font-semibold"
+                  style={{ color: strength.color }}
+                  aria-live="polite"
+                >
                   {strength.label}
                 </span>
               </div>
@@ -168,14 +199,19 @@ export default function SignUpPage() {
                   />
                 ))}
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
-                <span className={password.length >= 8 ? "text-[#39855D]" : ""}>
-                  {password.length >= 8 ? "✓" : "○"} 8 characters minimum
-                </span>
-                <span className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "text-[#39855D]" : ""}>
-                  {/[A-Za-z]/.test(password) && /\d/.test(password) ? "✓" : "○"} Mix letters and numbers
-                </span>
-              </div>
+              <ul className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 font-['Space_Grotesk'] text-[10px]">
+                {requirementItems.map((item) => (
+                  <li
+                    key={item.key}
+                    className={`flex items-center gap-1.5 transition-colors ${
+                      item.met ? "font-medium text-[#39855D]" : "text-[#85877F]"
+                    }`}
+                  >
+                    <span aria-hidden="true">{item.met ? "✓" : "○"}</span>
+                    <span>{item.label}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
