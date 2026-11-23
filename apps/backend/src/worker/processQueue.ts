@@ -102,6 +102,8 @@ async function releaseDialReservation(
   queueEntryId: string,
   clientId: string,
   nextStatus: "pending" | "failed" = "pending",
+  contactId?: string,
+  contactStatus: "pending" | "invalid" = "pending",
 ) {
   await db.transaction(async (tx) => {
     const [released] = await tx
@@ -119,6 +121,13 @@ async function releaseDialReservation(
           updatedAt: new Date(),
         })
         .where(eq(clients.id, clientId));
+
+      if (contactId && nextStatus === "failed") {
+        await tx
+          .update(contacts)
+          .set({ status: contactStatus, updatedAt: new Date() })
+          .where(and(eq(contacts.id, contactId), eq(contacts.clientId, clientId)));
+      }
     }
   });
 }
@@ -653,8 +662,17 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
             dialResponse.status >= 500 ||
             dialResponse.status === 409 ||
             dialResponse.status === 429;
-          if (!outcomeIsAmbiguous) {
-            await releaseDialReservation(queueEntry.id, client.id, isTestCall ? "failed" : "pending");
+          if (dialResponse.status === 400 || dialResponse.status === 404 || dialResponse.status === 422) {
+            const invalidPhone = /INVALID_PHONE_NUMBER|Invalid phone number format/i.test(errorText);
+            await releaseDialReservation(
+              queueEntry.id,
+              client.id,
+              "failed",
+              contact.id,
+              invalidPhone ? "invalid" : "pending",
+            );
+          } else if (!outcomeIsAmbiguous) {
+            await releaseDialReservation(queueEntry.id, client.id, isTestCall ? "failed" : "pending", contact.id);
           } else {
             console.error(
               `[worker] Dial outcome for queue entry ${queueEntry.id} is ambiguous; retaining its claim to avoid an immediate duplicate call`,
