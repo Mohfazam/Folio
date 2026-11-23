@@ -45,15 +45,15 @@ function parseRecordingPayload(value: unknown): RecordingPayload | null {
     ok: true,
     available: true,
     recording: {
-      id: rec.id,
-      callId: typeof rec.callId === "string" ? rec.callId : rec.id,
+      id: rec.id as string,
+      callId: typeof rec.callId === "string" ? rec.callId : (rec.id as string),
       durationSeconds: typeof rec.durationSeconds === "number" ? rec.durationSeconds : null,
       fileFormat: typeof rec.fileFormat === "string" ? rec.fileFormat : "mp3",
       status: typeof rec.status === "string" ? rec.status : null,
       streamUrl:
         typeof rec.streamUrl === "string" && rec.streamUrl.startsWith("/api/calls/")
           ? rec.streamUrl
-          : `/api/calls/${encodeURIComponent(typeof rec.callId === "string" ? rec.callId : rec.id)}/recording/stream`,
+          : `/api/calls/${encodeURIComponent(String(typeof rec.callId === "string" ? rec.callId : rec.id))}/recording/stream`,
     },
   };
 }

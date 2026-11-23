@@ -325,6 +325,7 @@ export function CallsDashboard({
   }, [liveRefreshKey]);
 
   const [callNotice, setCallNotice] = useState<string | null>(null);
+  const [, setCallComposerOpenState] = useState(false);
 
   const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
@@ -358,6 +359,10 @@ export function CallsDashboard({
   const pageCount = Math.max(1, Math.ceil(total / filters.limit));
   const firstResult = total === 0 ? 0 : filters.offset + 1;
   const lastResult = Math.min(filters.offset + filters.limit, total);
+
+  function setCallComposerOpen(arg0: boolean): void {
+    setCallComposerOpenState(arg0);
+  }
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
