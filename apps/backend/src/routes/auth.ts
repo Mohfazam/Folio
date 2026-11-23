@@ -1,14 +1,25 @@
 import type { Request, Response } from "express";
-import { eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { clients, users } from "@repo/db";
+import { clients, emailVerificationOtps, users } from "@repo/db";
+import {
+  generateNumericOtp,
+  hashOtp,
+  verifyOtpHash,
+  OTP_EXPIRY_MINUTES,
+  MAX_OTP_ATTEMPTS,
+  OTP_RESEND_COOLDOWN_SECONDS,
+} from "../utils/otp.js";
+import { hashPassword, verifyPassword } from "../utils/passwords.js";
+import { signAuthToken } from "../utils/tokens.js";
+import { sendAuthOtpEmail } from "../services/email.js";
 import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 function metadataString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function publicUser(user: typeof users.$inferSelect) {
+export function publicUser(user: typeof users.$inferSelect) {
   return {
     id: user.id,
     clientId: user.clientId,
@@ -45,10 +56,406 @@ function readProfile(req: Request) {
 }
 
 /**
+ * Provisions a workspace/client for a user if they do not already have one.
+ */
+async function ensureWorkspace(userId: string, userEmail: string | null, displayName: string | null) {
+  return db.transaction(async (tx) => {
+    const [currentUser] = await tx.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (!currentUser) throw new Error("User not found");
+
+    if (currentUser.clientId) {
+      const [existingClient] = await tx
+        .select()
+        .from(clients)
+        .where(eq(clients.id, currentUser.clientId))
+        .limit(1);
+      if (existingClient) {
+        return { user: currentUser, client: existingClient };
+      }
+    }
+
+    const clientName = displayName || userEmail?.split("@")[0] || "My Organization";
+    const [client] = await tx
+      .insert(clients)
+      .values({
+        name: clientName,
+        contactPersonName: displayName,
+        contactEmail: userEmail,
+        callingHoursStart: "09:00:00",
+        callingHoursEnd: "18:00:00",
+        timezone: "Asia/Kolkata",
+        planTier: "trial",
+        monthlyCreditsAllowance: 360,
+        maxCallsPerDay: 50,
+        status: "trialing",
+      })
+      .returning();
+
+    if (!client) throw new Error("Failed to create workspace client");
+
+    const [updatedUser] = await tx
+      .update(users)
+      .set({
+        clientId: client.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (!updatedUser) throw new Error("Failed to update user with workspace");
+
+    return { user: updatedUser, client };
+  });
+}
+
+/**
+ * POST /api/auth/register
+ *
+ * Direct email + password registration with Nodemailer OTP verification.
+ */
+export async function registerUserRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const rawPassword = typeof req.body?.password === "string" ? req.body.password : "";
+    const rawName = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid work email address is required" });
+    }
+    if (!rawPassword || rawPassword.length < 8) {
+      return res.status(400).json({ ok: false, error: "Password must be at least 8 characters long" });
+    }
+
+    const [existing] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .limit(1);
+
+    if (existing && existing.emailVerified) {
+      return res.status(409).json({ ok: false, error: "An account with this email already exists." });
+    }
+
+    const passwordHash = hashPassword(rawPassword);
+    const displayName = rawName || rawEmail.split("@")[0];
+
+    let userId: string;
+    if (existing) {
+      await db
+        .update(users)
+        .set({
+          passwordHash,
+          displayName,
+          authProvider: "email",
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existing.id));
+      userId = existing.id;
+    } else {
+      const [created] = await db
+        .insert(users)
+        .values({
+          email: rawEmail,
+          displayName,
+          passwordHash,
+          authProvider: "email",
+          emailVerified: false,
+          role: "client_admin",
+        })
+        .returning({ id: users.id });
+      userId = created!.id;
+    }
+
+    const otp = generateNumericOtp();
+    const otpHash = hashOtp(otp);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await db.insert(emailVerificationOtps).values({
+      email: rawEmail,
+      userId,
+      otpHash,
+      purpose: "auth_verification",
+      expiresAt,
+      attempts: 0,
+    });
+
+    await sendAuthOtpEmail({
+      to: rawEmail,
+      otp,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: `Verification code sent to ${rawEmail}`,
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/register] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Could not create account. Please try again." });
+  }
+}
+
+/**
+ * POST /api/auth/otp/send
+ *
+ * Generates and sends a 6-digit verification code to the given email via Nodemailer.
+ */
+export async function sendAuthOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+
+    // Rate-limit resends: check if an OTP was sent within the last OTP_RESEND_COOLDOWN_SECONDS
+    const cooldownThreshold = new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000);
+    const [recentOtp] = await db
+      .select({ createdAt: emailVerificationOtps.createdAt })
+      .from(emailVerificationOtps)
+      .where(
+        and(
+          eq(emailVerificationOtps.email, rawEmail),
+          eq(emailVerificationOtps.purpose, "auth_verification"),
+          gt(emailVerificationOtps.createdAt, cooldownThreshold),
+        ),
+      )
+      .orderBy(desc(emailVerificationOtps.createdAt))
+      .limit(1);
+
+    if (recentOtp) {
+      return res.status(429).json({
+        ok: false,
+        error: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting another code.`,
+      });
+    }
+
+    const [matchedUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .limit(1);
+
+    const otp = generateNumericOtp();
+    const otpHash = hashOtp(otp);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    await db.insert(emailVerificationOtps).values({
+      email: rawEmail,
+      userId: matchedUser?.id ?? null,
+      otpHash,
+      purpose: "auth_verification",
+      expiresAt,
+      attempts: 0,
+    });
+
+    await sendAuthOtpEmail({
+      to: rawEmail,
+      otp,
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: `Verification code sent to ${rawEmail}`,
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/otp/send] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to send verification code. Please try again." });
+  }
+}
+
+/**
+ * POST /api/auth/otp/verify
+ *
+ * Verifies the 6-digit OTP, marks email as verified, provisions workspace, and returns a session JWT.
+ */
+export async function verifyAuthOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const rawOtp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
+
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+    if (!rawOtp || !/^\d{6}$/.test(rawOtp)) {
+      return res.status(400).json({ ok: false, error: "A valid 6-digit verification code is required" });
+    }
+
+    const [activeRecord] = await db
+      .select()
+      .from(emailVerificationOtps)
+      .where(
+        and(
+          eq(emailVerificationOtps.email, rawEmail),
+          eq(emailVerificationOtps.purpose, "auth_verification"),
+          isNull(emailVerificationOtps.consumedAt),
+          gt(emailVerificationOtps.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(emailVerificationOtps.createdAt))
+      .limit(1);
+
+    if (!activeRecord) {
+      return res.status(400).json({
+        ok: false,
+        error: "Verification code has expired or is invalid. Please request a new code.",
+      });
+    }
+
+    if (activeRecord.attempts >= MAX_OTP_ATTEMPTS) {
+      return res.status(429).json({
+        ok: false,
+        error: "Too many failed attempts. Please request a new verification code.",
+      });
+    }
+
+    const isValid = verifyOtpHash(rawOtp, activeRecord.otpHash);
+    if (!isValid) {
+      await db
+        .update(emailVerificationOtps)
+        .set({ attempts: activeRecord.attempts + 1 })
+        .where(eq(emailVerificationOtps.id, activeRecord.id));
+
+      const remaining = Math.max(0, MAX_OTP_ATTEMPTS - (activeRecord.attempts + 1));
+      return res.status(400).json({
+        ok: false,
+        error: `Incorrect verification code. ${remaining > 0 ? `${remaining} attempts remaining.` : "Please request a new code."}`,
+      });
+    }
+
+    // Mark OTP as consumed
+    await db
+      .update(emailVerificationOtps)
+      .set({
+        consumedAt: new Date(),
+        attempts: activeRecord.attempts + 1,
+      })
+      .where(eq(emailVerificationOtps.id, activeRecord.id));
+
+    // Update user record: mark emailVerified = true
+    const [user] = await db
+      .update(users)
+      .set({
+        emailVerified: true,
+        lastLoginAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .returning();
+
+    if (!user) {
+      return res.status(404).json({ ok: false, error: "User account not found." });
+    }
+
+    // Ensure workspace is provisioned
+    const { user: finalizedUser, client } = await ensureWorkspace(user.id, user.email, user.displayName);
+
+    const token = signAuthToken({
+      userId: finalizedUser.id,
+      email: finalizedUser.email,
+      clientId: finalizedUser.clientId,
+      role: finalizedUser.role,
+      authProvider: finalizedUser.authProvider || "email",
+    });
+
+    return res.status(200).json({
+      ok: true,
+      verified: true,
+      token,
+      user: publicUser(finalizedUser),
+      client,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/otp/verify] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to verify code. Please try again." });
+  }
+}
+
+/**
+ * POST /api/auth/login
+ *
+ * Direct email + password authentication. Issues an App JWT session.
+ */
+export async function loginUserRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const rawPassword = typeof req.body?.password === "string" ? req.body.password : "";
+
+    if (!rawEmail || !rawPassword) {
+      return res.status(400).json({ ok: false, error: "Email and password are required." });
+    }
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .limit(1);
+
+    if (!user || !user.passwordHash) {
+      return res.status(401).json({ ok: false, error: "Invalid email or password." });
+    }
+
+    const passwordMatches = verifyPassword(rawPassword, user.passwordHash);
+    if (!passwordMatches) {
+      return res.status(401).json({ ok: false, error: "Invalid email or password." });
+    }
+
+    if (!user.emailVerified) {
+      // Auto-trigger a fresh OTP so user can verify immediately
+      const otp = generateNumericOtp();
+      const otpHash = hashOtp(otp);
+      const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+      await db.insert(emailVerificationOtps).values({
+        email: rawEmail,
+        userId: user.id,
+        otpHash,
+        purpose: "auth_verification",
+        expiresAt,
+        attempts: 0,
+      });
+
+      await sendAuthOtpEmail({ to: rawEmail, otp });
+
+      return res.status(403).json({
+        ok: false,
+        requiresVerification: true,
+        error: "Your email is not verified. We sent a verification code to your email.",
+      });
+    }
+
+    // Ensure workspace
+    const { user: finalizedUser, client } = await ensureWorkspace(user.id, user.email, user.displayName);
+
+    await db
+      .update(users)
+      .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, finalizedUser.id));
+
+    const token = signAuthToken({
+      userId: finalizedUser.id,
+      email: finalizedUser.email,
+      clientId: finalizedUser.clientId,
+      role: finalizedUser.role,
+      authProvider: finalizedUser.authProvider || "email",
+    });
+
+    return res.status(200).json({
+      ok: true,
+      token,
+      user: publicUser(finalizedUser),
+      client,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/login] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Sign-in failed. Please try again." });
+  }
+}
+
+/**
  * POST /api/auth/sync
  *
- * Provisions the signed-in Supabase identity and its initial workspace.
- * Profile identity fields are sourced from the authenticated Supabase user.
+ * Provisions the signed-in Supabase identity (Google OAuth) and its initial workspace.
  */
 export async function syncAuthUserRoute(req: Request, res: Response) {
   try {
@@ -74,10 +481,10 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
     const [existingByEmail] =
       !existingByUid && profile.email
         ? await db
-        .select({ id: users.id, authUserId: users.authUserId })
-        .from(users)
-        .where(sql`lower(${users.email}) = ${profile.email}`)
-        .limit(1)
+            .select({ id: users.id, authUserId: users.authUserId })
+            .from(users)
+            .where(sql`lower(${users.email}) = ${profile.email}`)
+            .limit(1)
         : [];
 
     if (

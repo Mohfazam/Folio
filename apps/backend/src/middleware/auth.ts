@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import type { User } from "@supabase/supabase-js";
 import { isSupabaseAuthConfigured, verifySupabaseToken } from "../config/supabase.js";
+import { verifyAuthToken } from "../utils/tokens.js";
 import { db, withDbRetry } from "../config/db.js";
 import { env } from "../config/env.js";
 import { users } from "@repo/db";
@@ -25,20 +26,45 @@ export function getBearerToken(req: Request): string | undefined {
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!isSupabaseAuthConfigured()) {
-    return res.status(503).json({ ok: false, error: "Authentication service is not configured" });
-  }
-
   const idToken = getBearerToken(req);
   if (!idToken) {
     return res.status(401).json({ ok: false, error: "A valid Bearer token is required" });
+  }
+
+  // 1. Try verifying as an application session JWT (Email + Password / OTP auth)
+  const appPayload = verifyAuthToken(idToken);
+  if (appPayload) {
+    try {
+      const [user] = await withDbRetry(() =>
+        db
+          .select()
+          .from(users)
+          .where(eq(users.id, appPayload.userId))
+          .limit(1),
+      );
+
+      if (!user) {
+        return res.status(401).json({ ok: false, error: "Unauthorized: User not found" });
+      }
+
+      req.user = user;
+      req.clientId = user.clientId ?? undefined;
+      return next();
+    } catch (err: unknown) {
+      return next(err);
+    }
+  }
+
+  // 2. Fall back to Supabase access token (Google OAuth identity)
+  if (!isSupabaseAuthConfigured()) {
+    return res.status(401).json({ ok: false, error: "Unauthorized: Invalid or expired token" });
   }
 
   let supabaseUser: User;
   try {
     supabaseUser = await verifySupabaseToken(idToken);
   } catch (err: unknown) {
-    console.warn("[middleware/auth] Supabase access token verification failed:", err);
+    console.warn("[middleware/auth] Token verification failed:", err);
     return res.status(401).json({ ok: false, error: "Unauthorized: Invalid or expired token" });
   }
 

@@ -119,7 +119,7 @@ export async function signUpAction(prevState: AuthState, formData: FormData): Pr
     if (message.includes("already registered") || message.includes("already exists")) {
       return { error: "An account with this email already exists." };
     }
-    return { error: "Could not create account. Please try again." };
+    return { error: error.message || "Could not create account. Please try again." };
   }
 
   // OTP verification is disabled for now. Password sign-up must receive a
