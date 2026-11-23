@@ -228,7 +228,7 @@ export async function sendAuthOtpRoute(req: Request, res: Response) {
       .from(emailVerificationOtps)
       .where(
         and(
-          eq(emailVerificationOtps.email, rawEmail),
+          sql`lower(${emailVerificationOtps.email}) = ${rawEmail}`,
           eq(emailVerificationOtps.purpose, "auth_verification"),
           gt(emailVerificationOtps.createdAt, cooldownThreshold),
         ),
