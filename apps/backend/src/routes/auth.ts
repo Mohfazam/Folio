@@ -183,6 +183,7 @@ export async function registerUserRoute(req: Request, res: Response) {
     const otpHash = hashOtp(otp);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
+    await invalidateActiveOtps(rawEmail, "auth_verification");
     await db.insert(emailVerificationOtps).values({
       email: rawEmail,
       userId,
@@ -252,6 +253,7 @@ export async function sendAuthOtpRoute(req: Request, res: Response) {
     const otpHash = hashOtp(otp);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
+    await invalidateActiveOtps(rawEmail, "auth_verification");
     await db.insert(emailVerificationOtps).values({
       email: rawEmail,
       userId: matchedUser?.id ?? null,
@@ -419,6 +421,7 @@ export async function loginUserRoute(req: Request, res: Response) {
       const otpHash = hashOtp(otp);
       const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
+      await invalidateActiveOtps(rawEmail, "auth_verification");
       await db.insert(emailVerificationOtps).values({
         email: rawEmail,
         userId: user.id,
