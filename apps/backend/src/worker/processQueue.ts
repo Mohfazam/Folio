@@ -148,6 +148,7 @@ async function recoverExpiredQueueClaims() {
         await tx
           .update(clients)
           .set({
+            callsMadeToday: sql`greatest(0, ${clients.callsMadeToday} - 1)`,
             creditsReservedThisCycle: sql`greatest(0, ${clients.creditsReservedThisCycle} - ${released.reservedCredits})`,
             updatedAt: new Date(),
           })

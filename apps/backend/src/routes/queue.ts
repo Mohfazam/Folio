@@ -375,10 +375,25 @@ export async function deleteQueueRoute(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Queue ID is required" });
     }
 
-    const [deleted] = await db
-      .delete(callQueue)
-      .where(and(eq(callQueue.id, id), eq(callQueue.clientId, req.clientId!), eq(callQueue.status, "pending")))
-      .returning();
+    const deleted = await db.transaction(async (tx) => {
+      const [entry] = await tx
+        .delete(callQueue)
+        .where(and(eq(callQueue.id, id), eq(callQueue.clientId, req.clientId!), eq(callQueue.status, "pending")))
+        .returning({ contactId: callQueue.contactId });
+
+      if (!entry) return null;
+
+      await tx
+        .update(contacts)
+        .set({ status: "pending", updatedAt: new Date() })
+        .where(and(
+          eq(contacts.id, entry.contactId),
+          eq(contacts.clientId, req.clientId!),
+          eq(contacts.status, "queued"),
+        ));
+
+      return entry;
+    });
 
     if (!deleted) {
       return res.status(404).json({ ok: false, error: `Queue entry ${id} not found` });
