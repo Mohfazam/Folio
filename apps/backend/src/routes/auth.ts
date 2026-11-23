@@ -19,6 +19,19 @@ function metadataString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+async function invalidateActiveOtps(email: string, purpose: string) {
+  await db
+    .update(emailVerificationOtps)
+    .set({ consumedAt: new Date() })
+    .where(
+      and(
+        sql`lower(${emailVerificationOtps.email}) = ${email}`,
+        eq(emailVerificationOtps.purpose, purpose),
+        isNull(emailVerificationOtps.consumedAt),
+      ),
+    );
+}
+
 export function publicUser(user: typeof users.$inferSelect) {
   return {
     id: user.id,
