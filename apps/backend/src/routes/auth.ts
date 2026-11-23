@@ -12,7 +12,7 @@ import {
 } from "../utils/otp.js";
 import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import { signAuthToken } from "../utils/tokens.js";
-import { sendAuthOtpEmail } from "../services/email.js";
+import { sendAuthOtpEmail, sendPasswordResetOtpEmail } from "../services/email.js";
 import { enforceTrialExpiration } from "../services/trialExpiration.js";
 
 function metadataString(value: unknown): string | null {
