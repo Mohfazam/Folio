@@ -1,6 +1,6 @@
 "use client";
 import { sanitizeUserError } from "@/lib/utils/sanitize-error";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -1691,6 +1691,63 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
   const searchParams = useSearchParams();
   const setupParam = searchParams?.get("setup") as SetupAction | null;
 
+  const completionStorageKey = `workspace-setup-celebrated:${profile.workspaceName || "default"}`;
+  const [hasSeenCompletion, setHasSeenCompletion] = useState<boolean>(true);
+  const [showCompletionBanner, setShowCompletionBanner] = useState<boolean>(false);
+  const prevCompleteRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      setHasSeenCompletion(window.localStorage.getItem(completionStorageKey) === "1");
+    } catch {
+      setHasSeenCompletion(false);
+    }
+  }, [completionStorageKey]);
+
+  const markCompletionBannerDone = useCallback(() => {
+    setShowCompletionBanner(false);
+    setHasSeenCompletion(true);
+    dismissCompletionBanner();
+    try {
+      window.localStorage.setItem(completionStorageKey, "1");
+    } catch {
+      // Ignore storage quota or private mode errors
+    }
+  }, [completionStorageKey, dismissCompletionBanner]);
+
+  useEffect(() => {
+    if (liveData.setup.state !== "ready") return;
+
+    const wasComplete = prevCompleteRef.current;
+    prevCompleteRef.current = setupState.isComplete;
+
+    if (
+      wasComplete === false &&
+      setupState.isComplete &&
+      !hasSeenCompletion &&
+      !completionBannerDismissed
+    ) {
+      setShowCompletionBanner(true);
+    }
+  }, [
+    liveData.setup.state,
+    setupState.isComplete,
+    hasSeenCompletion,
+    completionBannerDismissed,
+  ]);
+
+  useEffect(() => {
+    if (!showCompletionBanner) return;
+
+    const timer = window.setTimeout(() => {
+      markCompletionBannerDone();
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [showCompletionBanner, markCompletionBannerDone]);
+
   useEffect(() => {
     if (
       setupParam &&
@@ -1698,14 +1755,14 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     ) {
       setActiveAction(setupParam);
     }
-  }, [setupParam]);
+  }, [setupParam, setActiveAction]);
 
   useEffect(() => {
     if (requestedSetupAction) {
       setActiveAction(requestedSetupAction);
       clearRequestedSetupAction();
     }
-  }, [requestedSetupAction, clearRequestedSetupAction]);
+  }, [requestedSetupAction, clearRequestedSetupAction, setActiveAction]);
 
   const handleSetupAction = useCallback(
     (action: SetupAction) => {
@@ -1719,7 +1776,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
       }
       setActiveAction(action);
     },
-    [router],
+    [router, setActiveAction],
   );
 
   const analytics = analyticsResult.state === "ready" ? analyticsResult.data : null;
@@ -1854,6 +1911,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
     liveData.setup.state,
     canPlaceTestCall,
     router,
+    setActiveAction,
   ]);
 
   const totalCalls = recordNumber(callMetrics, "totalCalls");
@@ -1951,7 +2009,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         </div>
       </header>
 
-      {setupState.isComplete && !completionBannerDismissed ? (
+      {showCompletionBanner ? (
         <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[#CDE5D4] bg-[#F4FBF6] px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E1F3E6] text-[#25633A]">
@@ -1964,7 +2022,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           </div>
           <button
             type="button"
-            onClick={dismissCompletionBanner}
+            onClick={markCompletionBannerDone}
             className="shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#25633A] hover:underline"
           >
             Dismiss

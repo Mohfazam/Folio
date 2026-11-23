@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { CallTranscript } from "./call-transcript";
+import { CallRecordingPlayer } from "./call-recording-player";
 
 type ContactDetail = {
   id: string | null;
@@ -75,16 +76,6 @@ function formatAmount(value: number | null): string {
   return value === null ? "—" : value.toFixed(4);
 }
 
-function safeRecordingUrl(value: string | null): string | null {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 function Badge({
   children,
   tone = "neutral",
@@ -138,7 +129,6 @@ export function CallDetailView({
   }
 
   const hasRecording = Boolean(call.recordingUrl);
-  const streamUrl = hasRecording ? `/api/calls/${encodeURIComponent(call.id)}/recording/stream` : null;
   const outcomeTone = call.outcome === "connected" ? "green" : call.outcome === "failed" ? "red" : call.outcome === "busy" || call.outcome === "dropped_early" ? "amber" : "neutral";
   const interestTone = call.interestLevel === "high" ? "green" : call.interestLevel === "medium" ? "purple" : "neutral";
   const contactName = call.contact?.fullName || call.contactName || "Unknown contact";
@@ -193,40 +183,20 @@ export function CallDetailView({
             ) : null}
           </section>
 
-          <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Conversation transcript</h2>
-                <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">Recorded conversation turns from the call.</p>
-              </div>
-            </div>
-
-            <CallTranscript key={call.id} callId={call.id} initialTranscript={call.initialTranscript} />
-          </section>
-
-          <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Recording</h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">Audio recording, when retained and available.</p>
-            {streamUrl ? (
-              <div className="mt-4 space-y-2">
-                <audio controls preload="none" src={streamUrl} className="w-full">
-                  Your browser does not support audio playback.
-                </audio>
-                <div className="flex items-center justify-between text-[11px] font-['Space_Grotesk'] text-[#85877F]">
-                  <span>Format: MP3</span>
-                  <a
-                    href={streamUrl}
-                    download={`call-${call.id}.mp3`}
-                    className="text-[#13343B] underline hover:text-[#0C1E22]"
-                  >
-                    Download audio
-                  </a>
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(270px,0.75fr)]">
+            <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Conversation transcript</h2>
+                  <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">Recorded conversation turns from the call.</p>
                 </div>
               </div>
-            ) : (
-              <p className="mt-4 rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Recording is not available for this call.</p>
-            )}
-          </section>
+
+              <CallTranscript key={call.id} callId={call.id} initialTranscript={call.initialTranscript} />
+            </section>
+
+            <CallRecordingPlayer callId={call.id} initialHasRecording={hasRecording} />
+          </div>
         </div>
 
         <aside className="space-y-5">
