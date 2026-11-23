@@ -301,7 +301,7 @@ export async function verifyAuthOtpRoute(req: Request, res: Response) {
       .from(emailVerificationOtps)
       .where(
         and(
-          eq(emailVerificationOtps.email, rawEmail),
+          sql`lower(${emailVerificationOtps.email}) = ${rawEmail}`,
           eq(emailVerificationOtps.purpose, "auth_verification"),
           isNull(emailVerificationOtps.consumedAt),
           gt(emailVerificationOtps.expiresAt, new Date()),
