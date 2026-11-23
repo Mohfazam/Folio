@@ -206,6 +206,48 @@ export async function verifyAuthOtp(
   }
 }
 
+export async function requestPasswordResetOtp(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/password-reset/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to send password reset code" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[auth/password-reset/request] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function verifyPasswordResetOtp(data: {
+  email: string;
+  otp: string;
+  password: string;
+}): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/password-reset/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to reset password" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[auth/password-reset/verify] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
 export async function submitSupportTicket(data: {
   name: string;
   email: string;
