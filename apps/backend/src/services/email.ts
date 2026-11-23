@@ -102,6 +102,105 @@ export async function sendSupportTicketEmail(options: {
   }
 }
 
+export function buildAuthOtpEmailHtml(otp: string): string {
+  const currentYear = new Date().getFullYear();
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Foolioo Verification Code</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8F7F3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F8F7F3; padding: 48px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 520px; background-color: #FFFFFF; border: 1px solid #EAE7DE; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(27, 28, 24, 0.04);">
+          <!-- Header with Brandmark & Badge -->
+          <tr>
+            <td style="padding: 32px 36px 20px 36px; border-bottom: 1px solid #F0EEE6;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td>
+                    <span style="font-size: 26px; font-weight: 700; letter-spacing: -0.6px; color: #1B1C18; text-decoration: none;">
+                      Foolioo<span style="color: #FD7032;">.</span>
+                    </span>
+                  </td>
+                  <td align="right">
+                    <span style="display: inline-block; padding: 5px 12px; background-color: #F4F0FF; border: 1px solid #E7DEFF; border-radius: 20px; font-size: 11px; font-weight: 600; color: #644ABB; text-transform: uppercase; letter-spacing: 0.8px;">
+                      Security Verification
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 36px 36px 24px 36px;">
+              <h1 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 600; letter-spacing: -0.3px; color: #1B1C18; line-height: 1.3;">
+                Confirm your email address
+              </h1>
+              <p style="margin: 0 0 28px 0; font-size: 14px; line-height: 22px; color: #666862;">
+                Thank you for choosing Foolioo. To complete your verification and securely access your voice workspace, please use the 6-digit code below:
+              </p>
+
+              <!-- Elegant OTP Display -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 28px;">
+                <tr>
+                  <td align="center" style="background-color: #F8F6EF; border: 1.5px solid #E6E2D5; border-radius: 12px; padding: 24px 16px;">
+                    <div style="font-family: 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 38px; font-weight: 700; letter-spacing: 12px; color: #1B1C18; padding-left: 12px;">
+                      ${otp}
+                    </div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiry Alert Callout -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFDF5; border: 1px solid #F5E8C7; border-radius: 8px; margin-bottom: 28px;">
+                <tr>
+                  <td style="padding: 14px 16px;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align: top; padding-right: 10px; font-size: 14px; line-height: 18px;">
+                          ⏱️
+                        </td>
+                        <td style="font-size: 12px; line-height: 18px; color: #8A6D2B;">
+                          This code expires in <strong>10 minutes</strong>. For your protection, never share this code with anyone. Foolioo will never call or ask you for your verification code.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 0; font-size: 13px; line-height: 20px; color: #85877F;">
+                If you did not make this request, you can safely disregard this email or report it to <a href="mailto:support@foolioo.app" style="color: #7852D6; text-decoration: underline;">support@foolioo.app</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 24px 36px 28px 36px; background-color: #FAF9F5; border-top: 1px solid #F0EEE6; text-align: center;">
+              <p style="margin: 0 0 6px 0; font-size: 12px; line-height: 18px; color: #85877F;">
+                Foolioo &bull; Autonomous Outbound Voice Operations
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #A0A29C;">
+                &copy; ${currentYear} Foolioo. All rights reserved. Sent securely from auth@foolioo.app
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 /**
  * Sends an authentication OTP code email.
  */
@@ -117,33 +216,13 @@ export async function sendAuthOtpEmail(options: {
     return { ok: true };
   }
 
-  const html = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px 24px; color: #1B1C18; background-color: #FFFFFF; border: 1px solid #EAE7DE; border-radius: 12px;">
-      <div style="margin-bottom: 24px;">
-        <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: #7852D6;">Foolioo Security</span>
-      </div>
-      <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 12px; color: #1B1C18;">Verify your email address</h2>
-      <p style="font-size: 14px; line-height: 22px; color: #747878; margin: 0 0 24px;">
-        Enter the following 6-digit verification code to confirm your email and access your Foolioo workspace:
-      </p>
-      <div style="background-color: #F8F6EF; border: 1px solid #E9E8E1; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
-        <span style="font-family: monospace; font-size: 32px; font-weight: 700; letter-spacing: 10px; color: #1B1C18;">${otp}</span>
-      </div>
-      <p style="font-size: 12px; line-height: 18px; color: #85877F; margin: 0 0 16px;">
-        This code expires in 10 minutes. If you did not request this verification, you can safely ignore this email.
-      </p>
-      <hr style="border: none; border-top: 1px solid #EAE7DE; margin: 24px 0 16px;" />
-      <p style="font-size: 11px; color: #A0A29C; margin: 0;">
-        &copy; ${new Date().getFullYear()} Foolioo Voice Operations. Sent from auth@foolioo.app
-      </p>
-    </div>
-  `;
+  const html = buildAuthOtpEmailHtml(otp);
 
   try {
     await transporter.sendMail({
       from: env.smtp.authFrom,
       to,
-      subject: `Your Foolioo verification code: ${otp}`,
+      subject: `${otp} is your Foolioo verification code`,
       text: `Your Foolioo verification code is ${otp}. It will expire in 10 minutes.`,
       html,
     });
