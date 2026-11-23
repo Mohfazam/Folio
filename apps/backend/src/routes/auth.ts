@@ -468,6 +468,133 @@ export async function loginUserRoute(req: Request, res: Response) {
   }
 }
 
+export async function requestPasswordResetOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+
+    const [matchedUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.email}) = ${rawEmail}`)
+      .limit(1);
+
+    if (matchedUser) {
+      const cooldownThreshold = new Date(Date.now() - OTP_RESEND_COOLDOWN_SECONDS * 1000);
+      const [recentOtp] = await db
+        .select({ createdAt: emailVerificationOtps.createdAt })
+        .from(emailVerificationOtps)
+        .where(
+          and(
+            sql`lower(${emailVerificationOtps.email}) = ${rawEmail}`,
+            eq(emailVerificationOtps.purpose, "password_reset"),
+            gt(emailVerificationOtps.createdAt, cooldownThreshold),
+          ),
+        )
+        .orderBy(desc(emailVerificationOtps.createdAt))
+        .limit(1);
+
+      if (recentOtp) {
+        return res.status(429).json({
+          ok: false,
+          error: `Please wait ${OTP_RESEND_COOLDOWN_SECONDS} seconds before requesting another code.`,
+        });
+      }
+
+      const otp = generateNumericOtp();
+      const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+      await invalidateActiveOtps(rawEmail, "password_reset");
+      await db.insert(emailVerificationOtps).values({
+        email: rawEmail,
+        userId: matchedUser.id,
+        otpHash: hashOtp(otp),
+        purpose: "password_reset",
+        expiresAt,
+        attempts: 0,
+      });
+      await sendPasswordResetOtpEmail({ to: rawEmail, otp });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      message: "If an account exists for this email, a password reset code has been sent.",
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+  } catch (err: unknown) {
+    console.error("[auth/password-reset/request] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Could not send a password reset code. Please try again." });
+  }
+}
+
+export async function verifyPasswordResetOtpRoute(req: Request, res: Response) {
+  try {
+    const rawEmail = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const rawOtp = typeof req.body?.otp === "string" ? req.body.otp.trim() : "";
+    const rawPassword = typeof req.body?.password === "string" ? req.body.password : "";
+
+    if (!rawEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      return res.status(400).json({ ok: false, error: "A valid email address is required" });
+    }
+    if (!/^\d{6}$/.test(rawOtp)) {
+      return res.status(400).json({ ok: false, error: "A valid 6-digit verification code is required" });
+    }
+    if (rawPassword.length < 8) {
+      return res.status(400).json({ ok: false, error: "Password must be at least 8 characters long" });
+    }
+
+    const [activeRecord] = await db
+      .select()
+      .from(emailVerificationOtps)
+      .where(
+        and(
+          sql`lower(${emailVerificationOtps.email}) = ${rawEmail}`,
+          eq(emailVerificationOtps.purpose, "password_reset"),
+          isNull(emailVerificationOtps.consumedAt),
+          gt(emailVerificationOtps.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(emailVerificationOtps.createdAt))
+      .limit(1);
+
+    if (!activeRecord) {
+      return res.status(400).json({ ok: false, error: "Reset code has expired or is invalid. Please request a new code." });
+    }
+    if (activeRecord.attempts >= MAX_OTP_ATTEMPTS) {
+      return res.status(429).json({ ok: false, error: "Too many failed attempts. Please request a new reset code." });
+    }
+
+    if (!verifyOtpHash(rawOtp, activeRecord.otpHash)) {
+      await db
+        .update(emailVerificationOtps)
+        .set({ attempts: activeRecord.attempts + 1 })
+        .where(eq(emailVerificationOtps.id, activeRecord.id));
+      const remaining = Math.max(0, MAX_OTP_ATTEMPTS - (activeRecord.attempts + 1));
+      return res.status(400).json({
+        ok: false,
+        error: `Incorrect reset code. ${remaining > 0 ? `${remaining} attempts remaining.` : "Please request a new code."}`,
+      });
+    }
+
+    await db
+      .update(users)
+      .set({ passwordHash: hashPassword(rawPassword), updatedAt: new Date() })
+      .where(sql`lower(${users.email}) = ${rawEmail}`);
+
+    await db
+      .update(emailVerificationOtps)
+      .set({ consumedAt: new Date(), attempts: activeRecord.attempts + 1 })
+      .where(eq(emailVerificationOtps.id, activeRecord.id));
+
+    return res.status(200).json({ ok: true, message: "Password updated successfully." });
+  } catch (err: unknown) {
+    console.error("[auth/password-reset/verify] Unexpected error:", err);
+    return res.status(500).json({ ok: false, error: "Could not reset password. Please try again." });
+  }
+}
+
 /**
  * POST /api/auth/sync
  *
