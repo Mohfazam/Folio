@@ -3,8 +3,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { signInSchema, signUpSchema, resetPasswordSchema } from "@/lib/validations/auth";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { resolvePostAuthDestination } from "@/lib/auth/backend";
+import { headers, cookies } from "next/headers";
+import {
+  resolvePostAuthDestination,
+  registerWithEmail,
+  loginWithEmail,
+  requestAuthOtp,
+  verifyAuthOtp,
+} from "@/lib/auth/backend";
+import { FOOLIOO_SESSION_COOKIE } from "@/lib/auth/dashboard-request";
 
 const AUTH_WINDOW_MS = 60_000;
 const AUTH_MAX_ATTEMPTS = 5;
@@ -55,6 +62,19 @@ async function destinationOrError(accessToken: string): Promise<{ destination?: 
   }
 }
 
+async function setSessionCookie(token: string) {
+  const cookieStore = await cookies();
+  cookieStore.set({
+    name: FOOLIOO_SESSION_COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  });
+}
+
 export async function signInAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const limited = await rateLimit("signin", "Too many login attempts. Please try again in a minute.");
   if (limited) return limited;
@@ -67,24 +87,30 @@ export async function signInAction(prevState: AuthState, formData: FormData): Pr
     return { fieldErrors: validated.error.flatten().fieldErrors };
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({
+  // 1. Direct Email + Password authentication via backend
+  const result = await loginWithEmail({
     email: validated.data.email,
     password: validated.data.password,
   });
 
-  if (error || !data.session?.access_token) {
-    if (error?.message?.toLowerCase().includes("email not confirmed")) {
-      return {
-        error: "Email confirmation is still enabled in Supabase. Disable Confirm email in Authentication settings to allow sign-in without verification.",
-      };
+  if (!result.ok) {
+    if (result.requiresVerification) {
+      redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}&unconfirmed=true`);
     }
-    return { error: "Invalid email or password." };
+    return { error: result.error || "Invalid email or password." };
   }
 
-  const result = await destinationOrError(data.session.access_token);
-  if (result.error || !result.destination) return { error: result.error ?? "Unable to load your workspace." };
-  redirect(result.destination);
+  if (!result.token) {
+    return { error: "Unable to establish session. Please try again." };
+  }
+
+  await setSessionCookie(result.token);
+
+  const dest = await destinationOrError(result.token);
+  if (dest.error || !dest.destination) {
+    return { error: dest.error ?? "Unable to load your workspace." };
+  }
+  redirect(dest.destination);
 }
 
 export async function signUpAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
@@ -100,41 +126,67 @@ export async function signUpAction(prevState: AuthState, formData: FormData): Pr
     return { fieldErrors: validated.error.flatten().fieldErrors };
   }
 
-  const supabase = await createClient();
-  const requestHeaders = await headers();
-  const origin = requestHeaders.get("origin") || process.env.NEXT_PUBLIC_SITE_URL;
-
-  const { data, error } = await supabase.auth.signUp({
+  // Direct backend registration: creates user, hashes password, sends 6-digit OTP from auth@foolioo.app
+  const result = await registerWithEmail({
+    name: validated.data.name,
     email: validated.data.email,
     password: validated.data.password,
-    options: {
-      data: { full_name: validated.data.name },
-      ...(origin ? { emailRedirectTo: `${origin.replace(/\/$/, "")}/auth/callback` } : {}),
-    },
   });
 
-  if (error) {
-    console.error("Supabase Signup Error:", error.message);
-    const message = error.message.toLowerCase();
-    if (message.includes("already registered") || message.includes("already exists")) {
-      return { error: "An account with this email already exists." };
-    }
-    return { error: error.message || "Could not create account. Please try again." };
+  if (!result.ok) {
+    return { error: result.error || "Could not create account. Please try again." };
   }
 
-  // OTP verification is disabled for now. Password sign-up must receive a
-  // Supabase session immediately so the user can enter the workspace.
-  if (!data.session?.access_token) {
-    return {
-      error: "Your account was created, but Supabase is still requiring email confirmation. Disable Confirm email in Supabase Authentication settings, then sign in again.",
-    };
+  // Redirect to email OTP verification page
+  redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}`);
+}
+
+export async function verifyOtpAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const limited = await rateLimit("verify_otp", "Too many verification attempts. Please try again in a minute.");
+  if (limited) return limited;
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const otp = String(formData.get("otp") ?? "").trim();
+
+  if (!email || !otp) {
+    return { error: "Please enter the 6-digit verification code." };
   }
 
-  const result = await destinationOrError(data.session.access_token);
-  if (result.error || !result.destination) {
-    return { error: result.error ?? "Your account was created, but we couldn't open your workspace." };
+  const result = await verifyAuthOtp(email, otp);
+  if (!result.ok) {
+    return { error: result.error || "Invalid or expired verification code." };
   }
-  redirect(result.destination);
+
+  if (!result.token) {
+    redirect("/sign-in?verified=true");
+  }
+
+  await setSessionCookie(result.token);
+
+  const dest = await destinationOrError(result.token);
+  if (dest.error || !dest.destination) {
+    redirect("/dashboard");
+  }
+  redirect(dest.destination);
+}
+
+export async function resendOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  if (!email) return { ok: false, error: "Email address is required" };
+  return requestAuthOtp(email);
+}
+
+export async function signOutAction(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.delete(FOOLIOO_SESSION_COOKIE);
+
+  try {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  } catch {
+    // ignore
+  }
+
+  redirect("/sign-in");
 }
 
 export async function forgotPasswordAction(prevState: AuthState, formData: FormData): Promise<AuthState> {

@@ -28,9 +28,10 @@ export async function proxy(request: NextRequest) {
   // the JWT without a separate Auth user lookup.
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims as Record<string, unknown> | undefined;
-  const authenticated = !error && typeof claims?.sub === "string";
+  const hasFooliooSession = Boolean(request.cookies.get("foolioo_session")?.value);
+  const authenticated = hasFooliooSession || (!error && typeof claims?.sub === "string");
 
-  if (request.nextUrl.pathname === "/sign-in" && authenticated) {
+  if ((request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname === "/sign-up") && authenticated) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

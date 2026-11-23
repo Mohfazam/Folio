@@ -72,6 +72,10 @@ async function loadAuthMeWithRefresh(
       throw error;
     }
 
+    if (!supabase) {
+      throw new Error("Your sign-in session has expired. Please sign in again.");
+    }
+
     const { data, error: refreshError } = await supabase.auth.refreshSession();
     const refreshedToken = data.session?.access_token;
 
