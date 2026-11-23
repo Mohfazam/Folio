@@ -1,5 +1,9 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
+export const OTP_EXPIRY_MINUTES = 10;
+export const MAX_OTP_ATTEMPTS = 5;
+export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
 export function generateNumericOtp(): string {
   return randomInt(100000, 1000000).toString();
 }

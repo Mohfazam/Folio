@@ -36,6 +36,8 @@ export const env = {
   /** CORS whitelist configuration */
   allowedOrigins: parsedAllowedOrigins,
   rawAllowedOrigins,
+  /** JWT Secret for application session tokens */
+  jwtSecret: optional("JWT_SECRET", "foolioo-super-secret-jwt-key-development-38917239812739"),
   /** Secrets for machine-to-machine route authorization */
   webhookSecret: process.env.WEBHOOK_SECRET?.trim() || process.env.CALLING_WEBHOOK_SECRET?.trim(),
   workerSecret: process.env.BACKEND_WORKER_SECRET?.trim(),

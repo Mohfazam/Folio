@@ -11,7 +11,14 @@ import { authRateLimiter, publicDemoRateLimiter, uploadRateLimiter } from "../mi
 import { getLivenessRoute, getReadinessRoute } from "./health.js";
 import { createPublicDemoRoute, getPublicDemoStatusRoute } from "./publicDemo.js";
 import { getAnalyticsOverviewRoute } from "./analytics.js";
-import { syncAuthUserRoute, getAuthMeRoute } from "./auth.js";
+import {
+  syncAuthUserRoute,
+  getAuthMeRoute,
+  registerUserRoute,
+  loginUserRoute,
+  sendAuthOtpRoute,
+  verifyAuthOtpRoute,
+} from "./auth.js";
 import { submitSupportTicketRoute } from "./support.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
@@ -49,7 +56,11 @@ export function registerRoutes(app: Express) {
 
   const api = Router();
 
-  // Rate-limited Auth endpoints (Supabase access-token validation)
+  // Rate-limited Auth endpoints (App JWT & Supabase access-token validation)
+  api.post("/auth/register", authRateLimiter, registerUserRoute);
+  api.post("/auth/login", authRateLimiter, loginUserRoute);
+  api.post("/auth/otp/send", authRateLimiter, sendAuthOtpRoute);
+  api.post("/auth/otp/verify", authRateLimiter, verifyAuthOtpRoute);
   api.post("/auth/sync", authRateLimiter, requireAuth, syncAuthUserRoute);
   api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
   // Support endpoints (via Nodemailer support@foolioo.app)

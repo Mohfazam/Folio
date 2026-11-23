@@ -84,6 +84,128 @@ export async function resolvePostAuthDestination(accessToken: string): Promise<"
   return onboarding.status === "completed" ? "/dashboard" : "/onboarding";
 }
 
+export async function registerWithEmail(data: {
+  name?: string;
+  email: string;
+  password: string;
+}): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Could not create account. Please try again." };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[auth/register] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function loginWithEmail(data: {
+  email: string;
+  password: string;
+}): Promise<{
+  ok: boolean;
+  token?: string;
+  requiresVerification?: boolean;
+  user?: unknown;
+  client?: unknown;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{
+      ok?: boolean;
+      token?: string;
+      requiresVerification?: boolean;
+      user?: unknown;
+      client?: unknown;
+      error?: string;
+    }>(response);
+    if (!response.ok || !payload.ok) {
+      return {
+        ok: false,
+        error: payload.error || "Invalid email or password.",
+        requiresVerification: payload.requiresVerification,
+      };
+    }
+    return {
+      ok: true,
+      token: payload.token,
+      user: payload.user,
+      client: payload.client,
+    };
+  } catch (err: unknown) {
+    console.error("[auth/login] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function requestAuthOtp(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/otp/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Failed to send verification code" };
+    }
+    return { ok: true, message: payload.message };
+  } catch (err: unknown) {
+    console.error("[auth/otp/send] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
+export async function verifyAuthOtp(
+  email: string,
+  otp: string,
+): Promise<{ ok: boolean; token?: string; verified?: boolean; user?: unknown; client?: unknown; error?: string }> {
+  try {
+    const response = await fetch(`${backendBaseUrl()}/api/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+      cache: "no-store",
+    });
+    const payload = await parseJson<{
+      ok?: boolean;
+      token?: string;
+      verified?: boolean;
+      user?: unknown;
+      client?: unknown;
+      error?: string;
+    }>(response);
+    if (!response.ok || !payload.ok) {
+      return { ok: false, error: payload.error || "Invalid verification code" };
+    }
+    return {
+      ok: true,
+      token: payload.token,
+      verified: payload.verified,
+      user: payload.user,
+      client: payload.client,
+    };
+  } catch (err: unknown) {
+    console.error("[auth/otp/verify] Network error:", err);
+    return { ok: false, error: "Network error. Please try again." };
+  }
+}
+
 export async function submitSupportTicket(data: {
   name: string;
   email: string;

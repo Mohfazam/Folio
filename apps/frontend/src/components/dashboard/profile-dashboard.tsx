@@ -65,8 +65,9 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
       const supabase = createClient();
-      await supabase.auth.signOut();
+      await supabase.auth.signOut().catch(() => {});
       router.replace("/sign-in");
       router.refresh();
     } catch {

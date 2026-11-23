@@ -2,10 +2,14 @@ import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 import "server-only";
 
 import { cache } from "react";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { createClient } from "@/lib/supabase/server";
 
+export const FOOLIOO_SESSION_COOKIE = "foolioo_session";
+
 export type DashboardAuthContext = {
-  supabase: Awaited<ReturnType<typeof createClient>>;
+  supabase: Awaited<ReturnType<typeof createClient>> | null;
   accessToken: string;
   userId: string;
   email: string | null;
@@ -14,11 +18,37 @@ export type DashboardAuthContext = {
 
 /**
  * Request-scoped, verified dashboard identity.
- * getClaims verifies the JWT signature and can use the cached project JWKS;
- * getSession is used only to obtain the bearer token forwarded to our API.
- * React cache deduplicates this work across the dashboard layout and its page.
+ * Supports both custom App JWT (Email + Password / OTP auth)
+ * and Supabase OAuth identity (Google Sign-In).
  */
 export const getDashboardAuthContext = cache(async (): Promise<DashboardAuthContext | null> => {
+  // 1. Check custom App session cookie first
+  try {
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get(FOOLIOO_SESSION_COOKIE)?.value;
+    if (sessionToken) {
+      const payload = jwt.decode(sessionToken) as {
+        userId?: string;
+        email?: string;
+        displayName?: string;
+        exp?: number;
+      } | null;
+
+      if (payload?.userId && (!payload.exp || payload.exp * 1000 > Date.now())) {
+        return {
+          supabase: null,
+          accessToken: sessionToken,
+          userId: payload.userId,
+          email: payload.email ?? null,
+          displayName: payload.displayName ?? null,
+        };
+      }
+    }
+  } catch {
+    // Fall back to Supabase
+  }
+
+  // 2. Fall back to Supabase OAuth session (Google login)
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims as Record<string, unknown> | undefined;
@@ -26,8 +56,6 @@ export const getDashboardAuthContext = cache(async (): Promise<DashboardAuthCont
 
   if (error || !claims || !userId) return null;
 
-  // getClaims refreshes an expiring SSR session. Read the session afterwards
-  // only to obtain the current access token, never to establish identity.
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) return null;

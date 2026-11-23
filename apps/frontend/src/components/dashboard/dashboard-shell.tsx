@@ -392,9 +392,9 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
     setSigningOut(true);
     setSignOutError(null);
     try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
       const supabase = createClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await supabase.auth.signOut().catch(() => {});
       queryClient.clear();
       resetUiState();
       router.replace("/sign-in");

@@ -45,7 +45,7 @@ async function ProfileContent() {
 
   // The layout normally resolves this case already. Keep a one-time refresh
   // fallback for the edge case where this component receives an expired token.
-  if (!result.ok && result.status === 401) {
+  if (!result.ok && result.status === 401 && auth.supabase) {
     const { data, error } = await auth.supabase.auth.refreshSession();
     const refreshedToken = data.session?.access_token;
     if (!error && refreshedToken) {
