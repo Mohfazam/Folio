@@ -5,7 +5,50 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
-import { ComingSoonButton } from "@/components/ui/ComingSoon";
+
+const FOOTER_SECTIONS = [
+    {
+        title: "Product",
+        links: [
+            { label: "Dialer", href: "/product/dialer" },
+            { label: "Voice Agent", href: "/product/voice-agent" },
+            { label: "Real-time QA", href: "/product/real-time-qa" },
+            { label: "State Machine", href: "/product/state-machine" },
+            { label: "Integrations", href: "/product/integrations" },
+            { label: "Pricing", href: "/#pricing" },
+        ],
+    },
+    {
+        title: "Solutions",
+        links: [
+            { label: "Outbound Sales", href: "/solutions/outbound-sales" },
+            { label: "Inbound Support", href: "/solutions/inbound-support" },
+            { label: "Property Logistics", href: "/solutions/property-logistics" },
+            { label: "Healthcare", href: "/solutions/healthcare" },
+            { label: "Financial Services", href: "/solutions/financial-services" },
+        ],
+    },
+    {
+        title: "Resources",
+        links: [
+            { label: "Documentation", href: "/docs" },
+            { label: "API Reference", href: "/api-reference" },
+            { label: "Compliance Guide", href: "/compliance" },
+            { label: "System Status", href: "/status" },
+            { label: "Security Whitepaper", href: "/security" },
+        ],
+    },
+    {
+        title: "Company",
+        links: [
+            { label: "About Us", href: "/about" },
+            { label: "Customers", href: "/customers" },
+            { label: "Careers", href: "/careers" },
+            { label: "Privacy Policy", href: "/privacy" },
+            { label: "Terms of Service", href: "/terms" },
+        ],
+    },
+];
 
 export const CtaFooter = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -68,15 +111,15 @@ export const CtaFooter = () => {
                         {!isLoading && (
                             <>
                                 {user ? (
-                                    <Link 
-                                        href="/dashboard" 
+                                    <Link
+                                        href="/dashboard"
                                         className="flex h-11 w-full items-center justify-center rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37] sm:w-auto"
                                     >
                                         Go to Dashboard
                                     </Link>
                                 ) : (
-                                    <Link 
-                                        href="/sign-up" 
+                                    <Link
+                                        href="/sign-up"
                                         className="flex h-11 w-full items-center justify-center rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-200 hover:bg-[#3A3B37] sm:w-auto"
                                     >
                                         Start 7-day free trial
@@ -113,81 +156,34 @@ export const CtaFooter = () => {
                     <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
                         {/* Column 1: Brand & Description */}
                         <div className="col-span-2 md:col-span-4 lg:col-span-1">
-                            <span className="font-['Space_Grotesk'] text-[18px] font-bold tracking-tight lowercase text-[#1B1C18]">
+                            <Link
+                                href="/"
+                                className="font-['Space_Grotesk'] text-[18px] font-bold tracking-tight lowercase text-[#1B1C18]"
+                            >
                                 foolioo
-                            </span>
+                            </Link>
                             <p className="mt-3 max-w-[220px] font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#747878]">
                                 AI voice operations with deterministic rigor.
                             </p>
                         </div>
 
-                        {/* Column 2: Product */}
-                        <div className="flex flex-col gap-3">
-                            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1px] text-[#747878]">
-                                Product
-                            </span>
-                            {["Dialer", "Voice Agent", "Real-time QA", "State Machine", "Integrations", "Pricing"].map(
-                                (item) => (
-                                    <ComingSoonButton
-                                        key={item}
+                        {/* Columns 2–5 */}
+                        {FOOTER_SECTIONS.map((section) => (
+                            <div key={section.title} className="flex flex-col gap-3">
+                                <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1px] text-[#747878]">
+                                    {section.title}
+                                </span>
+                                {section.links.map((link) => (
+                                    <Link
+                                        key={link.label}
+                                        href={link.href}
                                         className="text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition hover:text-[#1B1C18]"
                                     >
-                                        {item}
-                                    </ComingSoonButton>
-                                )
-                            )}
-                        </div>
-
-                        {/* Column 3: Solutions */}
-                        <div className="flex flex-col gap-3">
-                            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1px] text-[#747878]">
-                                Solutions
-                            </span>
-                            {["Outbound Sales", "Inbound Support", "Property Logistics", "Healthcare", "Financial Services"].map(
-                                (item) => (
-                                    <ComingSoonButton
-                                        key={item}
-                                        className="text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition hover:text-[#1B1C18]"
-                                    >
-                                        {item}
-                                    </ComingSoonButton>
-                                )
-                            )}
-                        </div>
-
-                        {/* Column 4: Resources */}
-                        <div className="flex flex-col gap-3">
-                            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1px] text-[#747878]">
-                                Resources
-                            </span>
-                            {["Documentation", "API Reference", "Compliance Guide", "System Status", "Security Whitepaper"].map(
-                                (item) => (
-                                    <ComingSoonButton
-                                        key={item}
-                                        className="text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition hover:text-[#1B1C18]"
-                                    >
-                                        {item}
-                                    </ComingSoonButton>
-                                )
-                            )}
-                        </div>
-
-                        {/* Column 5: Company */}
-                        <div className="flex flex-col gap-3">
-                            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1px] text-[#747878]">
-                                Company
-                            </span>
-                            {["About Us", "Customers", "Careers", "Privacy Policy", "Terms of Service"].map(
-                                (item) => (
-                                    <ComingSoonButton
-                                        key={item}
-                                        className="text-left font-['Space_Grotesk'] text-[13px] text-[#444748] transition hover:text-[#1B1C18]"
-                                    >
-                                        {item}
-                                    </ComingSoonButton>
-                                )
-                            )}
-                        </div>
+                                        {link.label}
+                                    </Link>
+                                ))}
+                            </div>
+                        ))}
                     </div>
 
                     {/* Bottom row */}
@@ -195,12 +191,15 @@ export const CtaFooter = () => {
                         <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                             &copy; 2026 Foolioo Inc. All rights reserved.
                         </p>
-                        <div className="flex items-center gap-2">
+                        <Link
+                            href="/status"
+                            className="flex items-center gap-2 transition hover:opacity-80"
+                        >
                             <span className="h-2 w-2 rounded-full bg-[#22A06B]"></span>
                             <span className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                                 All systems operational
                             </span>
-                        </div>
+                        </Link>
                     </div>
                 </div>
             </footer>
