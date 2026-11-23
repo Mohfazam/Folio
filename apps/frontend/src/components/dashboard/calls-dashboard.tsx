@@ -376,15 +376,15 @@ export function CallsDashboard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="purple">Call history</Badge>
-          <button
+          {/* <Badge tone="purple">Call history</Badge> */}
+          {/* <button
             type="button"
             onClick={() => setCallComposerOpen(true)}
             className="hidden h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] md:inline-flex"
           >
             <span aria-hidden="true" className="text-[15px]">＋</span>
             Make a test call
-          </button>
+          </button> */}
         </div>
       </header>
 
