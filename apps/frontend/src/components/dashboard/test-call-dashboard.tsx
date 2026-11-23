@@ -84,8 +84,14 @@ export function TestCallDashboard() {
         const result = await getLiveCallStatusAction();
         if (disposed) return;
 
-        if (!result.ok || !result.data) {
+        if (!result.ok) {
           setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
+          return;
+        }
+
+        if (!result.data) {
+          setLiveStatusError("Live call status is temporarily unavailable.");
           timer = window.setTimeout(refreshLiveStatus, 15000);
           return;
         }
