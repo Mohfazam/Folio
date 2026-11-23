@@ -27,6 +27,7 @@ type IconName =
   | "followups"
   | "knowledge"
   | "analytics"
+  | "testing"
   | "search"
   | "settings"
   | "arrow"
@@ -95,6 +96,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Follow-ups", href: "/dashboard/follow-ups", icon: "followups", enabled: true, group: "operations" },
   { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true, group: "intelligence" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true, group: "intelligence" },
+  { label: "Testing", href: "/dashboard/testing", icon: "testing", enabled: true, group: "intelligence" },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -128,6 +130,9 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
       break;
     case "analytics":
       artwork = <><path d="M3 20V4M3 20h18" /><path d="m6 15 4-4 3 2 6-7" /><path d="M16 6h3v3" /></>;
+      break;
+    case "testing":
+      artwork = <><path d="M9 3h6M10 3v5l-4.5 7.5A2 2 0 0 0 7.2 18.5h9.6a2 2 0 0 0 1.7-3L14 8V3" /><path d="M8.5 13h7" /></>;
       break;
     case "search":
       artwork = <><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4.5 4.5" /></>;
