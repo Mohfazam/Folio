@@ -484,7 +484,7 @@ export function CallsDashboard({
   const lastResult = Math.min(filters.offset + filters.limit, total);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
@@ -499,7 +499,7 @@ export function CallsDashboard({
           <button
             type="button"
             onClick={() => setCallComposerOpen(true)}
-            className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+            className="hidden h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] md:inline-flex"
           >
             <span aria-hidden="true" className="text-[15px]">＋</span>
             Make a test call
@@ -753,6 +753,17 @@ export function CallsDashboard({
           </div>
         </footer>
       </section>
+
+      <div className="!mt-0 fixed inset-x-0 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),8px))] z-30 border-t border-[#E9E8E1] bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(27,28,24,0.06)] backdrop-blur md:hidden">
+        <button
+          type="button"
+          onClick={() => setCallComposerOpen(true)}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+        >
+          <span aria-hidden="true" className="text-[15px]">＋</span>
+          Make a test call
+        </button>
+      </div>
 
       {callComposerOpen ? (
         <CallComposer
