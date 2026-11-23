@@ -10,6 +10,8 @@ import {
   loginWithEmail,
   requestAuthOtp,
   verifyAuthOtp,
+  requestPasswordResetOtp,
+  verifyPasswordResetOtp,
 } from "@/lib/auth/backend";
 import { FOOLIOO_SESSION_COOKIE } from "@/lib/auth/dashboard-request";
 
