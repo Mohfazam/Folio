@@ -45,6 +45,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 "18,000 included credits",
                 "~3,000 minutes of connected talk time",
                 "~1 credit = 10 seconds of conversation",
+                "Use your own phone number for outbound calls",
                 "Advanced state machine & branching",
                 "Real-time automated QA grading",
                 "Custom webhooks & API access",
@@ -65,6 +66,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 "24,000 included credits",
                 "~4,000 minutes of connected talk time",
                 "~1 credit = 10 seconds of conversation",
+                "Use your own phone number for outbound calls",
                 "Dedicated carrier trunking & BYO SIP",
                 "Dedicated account manager & SLA",
                 "SOC-2 Type II & HIPAA compliance",
@@ -256,7 +258,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                         : "You are currently on the Free Trial plan."}
                                 </p>
                                 <p className="mt-0.5 font-['Space_Grotesk'] text-[13px] text-[#565B5B]">
-                                    Upgrade to <span className="font-semibold text-[#1B1C18]">Pro</span> (18,000 credits/mo) or another paid plan above to unlock full production calling, QA grading, and API webhooks.
+                                    Upgrade to <span className="font-semibold text-[#1B1C18]">Pro</span> (18,000 credits/mo) or another paid plan above to unlock full production calling, your own outbound phone number, QA grading, and API webhooks.
                                 </p>
                             </div>
                         </div>
