@@ -177,6 +177,11 @@ export async function resendOtpAction(email: string): Promise<{ ok: boolean; mes
   return requestAuthOtp(email);
 }
 
+export async function resendPasswordResetOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
+  if (!email) return { ok: false, error: "Email address is required" };
+  return requestPasswordResetOtp(email);
+}
+
 export async function signOutAction(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete(FOOLIOO_SESSION_COOKIE);
