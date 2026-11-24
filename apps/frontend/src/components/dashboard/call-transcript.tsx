@@ -110,6 +110,7 @@ export function CallTranscript({
       return;
     }
 
+    const controller = new AbortController();
     let cancelled = false;
 
     async function loadTranscript() {
@@ -117,9 +118,10 @@ export function CallTranscript({
       let loaded: TranscriptLine[] = [];
       try {
         while (true) {
+          if (cancelled || controller.signal.aborted) return;
           const response = await fetch(
             `/api/calls/${encodeURIComponent(callId)}/transcript?offset=${offset}&limit=${PAGE_SIZE}`,
-            { cache: "no-store" },
+            { cache: "no-store", signal: controller.signal },
           );
           const payload = await response.json().catch(() => null);
           const page = parseTranscriptPayload(payload);
@@ -132,7 +134,7 @@ export function CallTranscript({
 
           loaded = loaded.concat(page.transcript);
           offset += page.transcript.length;
-          if (!cancelled) {
+          if (!cancelled && !controller.signal.aborted) {
             setLines(loaded);
             setTotal(page.total);
             setUnavailable(false);
@@ -140,19 +142,20 @@ export function CallTranscript({
           if (offset >= page.total || page.transcript.length === 0) break;
         }
       } catch (loadError) {
+        if (cancelled || controller.signal.aborted) return;
+        if (loadError instanceof DOMException && loadError.name === "AbortError") return;
         console.error("[CallTranscript] Failed to load transcript:", loadError);
-        if (!cancelled) {
-          setTotal((current) => current ?? 0);
-          setUnavailable(true);
-        }
+        setTotal((current) => current ?? 0);
+        setUnavailable(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !controller.signal.aborted) setLoading(false);
       }
     }
 
     void loadTranscript();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [callId, preloaded, retry]);
 

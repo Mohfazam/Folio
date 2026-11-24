@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   bulkCreateContactsAction,
   previewContactImportAction,
@@ -154,7 +155,7 @@ const MAX_TAGS_COUNT = 10;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 const INDIAN_MOBILE_10_REGEX = /^[6-9]\d{9}$/;
-const SQL_INJECTION_PATTERN = /(?:--|;|\/\*|\*\/|(?:union\s+select|drop\s+table|insert\s+into|delete\s+from|update\s+\w+\s+set|exec\s*\(|xp_cmdshell))/i;
+const SQL_INJECTION_PATTERN = /(?:--|;|\/\*|\*\/|\b(?:union\s+select|drop\s+table|insert\s+into|delete\s+from|update\s+\w+\s+set|exec\s*\(|xp_cmdshell)\b)/i;
 
 function extractIndianTenDigits(raw: string): string {
   let digits = raw.replace(/\D/g, "");
@@ -175,9 +176,10 @@ function ContactEditor({
   mode: EditorMode;
   contact: ContactRecord | null;
   onCancel: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, savedContact?: ContactRecord) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const [fullName, setFullName] = useState(contact?.fullName ?? "");
@@ -198,9 +200,9 @@ function ContactEditor({
   const [country, setCountry] = useState(contact?.country ?? "India");
   const [state, setState] = useState(contact?.state ?? "");
   const [city, setCity] = useState(contact?.city ?? "");
+  const [optOutChecked, setOptOutChecked] = useState<boolean>(contact?.optOut ?? false);
 
   function handleFullNameChange(value: string) {
-    // Disallow numeric characters immediately
     const withoutNumbers = value.replace(/\d+/g, "");
     if (withoutNumbers.length > FULL_NAME_MAX_LENGTH) {
       setFullName(withoutNumbers.slice(0, FULL_NAME_MAX_LENGTH));
@@ -266,7 +268,7 @@ function ContactEditor({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (submittingRef.current || busy) return;
 
     setError(null);
 
@@ -332,9 +334,6 @@ function ContactEditor({
       }
     }
 
-    const form = new FormData(event.currentTarget);
-    const optOut = form.get("optOut") === "on";
-
     const payload: Record<string, unknown> = {
       fullName: cleanName,
       phoneNumber: `+91${cleanDigits}`,
@@ -350,10 +349,9 @@ function ContactEditor({
       tags: parsedTags,
     };
 
-    // The API deliberately does not allow an existing opt-out to be reversed.
-    // Send optOut only when the user is actively opting this contact out.
-    if (optOut) payload.optOut = true;
+    if (optOutChecked) payload.optOut = true;
 
+    submittingRef.current = true;
     setBusy(true);
 
     try {
@@ -369,16 +367,58 @@ function ContactEditor({
         return;
       }
 
+      const rawData =
+        "data" in result && result.data && typeof result.data === "object"
+          ? (result.data as Record<string, unknown>)
+          : undefined;
+      const serverContact =
+        rawData && typeof rawData.contact === "object" && rawData.contact !== null
+          ? normalizeFetchedContact(rawData.contact)
+          : rawData
+            ? normalizeFetchedContact(rawData)
+            : null;
+
+      const nowIso = new Date().toISOString();
+      const isOptedOut = optOutChecked || contact?.optOut === true;
+      const optimisticRecord: ContactRecord = serverContact ?? {
+        id: contact?.id ?? `temp-${Date.now()}`,
+        fullName: cleanName,
+        secondaryName: contact?.secondaryName ?? "",
+        phoneNumber: `+91${cleanDigits}`,
+        phoneNumberRaw: cleanDigits,
+        email: cleanEmail,
+        companyName: String(payload.companyName ?? ""),
+        jobTitle: String(payload.jobTitle ?? ""),
+        department: String(payload.department ?? ""),
+        industry: String(payload.industry ?? ""),
+        city: String(payload.city ?? ""),
+        state: String(payload.state ?? ""),
+        country: String(payload.country ?? ""),
+        timezone: contact?.timezone ?? "",
+        leadScore: contact?.leadScore ?? null,
+        lifecycleStage: String(payload.lifecycleStage ?? ""),
+        tags: parsedTags,
+        parentName: contact?.parentName ?? "",
+        studentName: contact?.studentName ?? "",
+        courseOrStream: contact?.courseOrStream ?? "",
+        status: isOptedOut ? "do_not_call" : (contact?.status ?? "pending"),
+        optOut: isOptedOut,
+        createdAt: contact?.createdAt ?? nowIso,
+        updatedAt: nowIso,
+      };
+
       onSaved(
         mode === "create"
           ? "Contact added to your workspace."
           : "Contact details updated.",
+        optimisticRecord,
       );
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Unable to save this contact.",
       );
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   }
@@ -637,7 +677,8 @@ function ContactEditor({
           <input
             name="optOut"
             type="checkbox"
-            defaultChecked={contact?.optOut ?? false}
+            checked={optOutChecked}
+            onChange={(event) => setOptOutChecked(event.target.checked)}
             disabled={contact?.optOut === true}
             className="mt-1 accent-[#7852D6]"
           />
@@ -695,12 +736,13 @@ function ImportPanel({
   onImported,
 }: {
   onCancel: () => void;
-  onImported: (message: string) => void;
+  onImported: (message: string, importedRows?: ImportPreviewRow[], insertedCount?: number) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [rows, setRows] = useState<ImportPreviewRow[]>([]);
   const [parsing, setParsing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const importingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const stats = useMemo(
@@ -761,8 +803,9 @@ function ImportPanel({
   }
 
   async function handleImport() {
-    if (!file || busy || parsing || stats.valid.length === 0) return;
+    if (!file || importingRef.current || busy || parsing || stats.valid.length === 0) return;
 
+    importingRef.current = true;
     setBusy(true);
     setError(null);
 
@@ -788,12 +831,17 @@ function ImportPanel({
       }
 
       const summarySuffix = skippedParts.length > 0 ? ` (${skippedParts.join(", ")})` : "";
-      onImported(`Imported ${formatNumber(inserted)} contact${inserted === 1 ? "" : "s"}${summarySuffix}.`);
+      onImported(
+        `Imported ${formatNumber(inserted)} contact${inserted === 1 ? "" : "s"}${summarySuffix}.`,
+        stats.valid,
+        inserted,
+      );
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "The contact import failed.",
       );
     } finally {
+      importingRef.current = false;
       setBusy(false);
     }
   }
@@ -1091,7 +1139,6 @@ function scoreContactMatch(contact: ContactRecord, rawQuery: string): number {
   const city = contact.city.toLowerCase();
   const tags = contact.tags.join(" ").toLowerCase();
 
-  // Exact full-field match
   if (
     name === q ||
     email === q ||
@@ -1102,7 +1149,6 @@ function scoreContactMatch(contact: ContactRecord, rawQuery: string): number {
     return 100;
   }
 
-  // Starts-with match
   if (
     name.startsWith(q) ||
     email.startsWith(q) ||
@@ -1112,13 +1158,11 @@ function scoreContactMatch(contact: ContactRecord, rawQuery: string): number {
     return 85;
   }
 
-  // Word-starts-with match
   const words = `${name} ${company} ${email} ${jobTitle} ${city}`.split(/[\s@._-]+/).filter(Boolean);
   if (words.some((w) => w.startsWith(q))) {
     return 75;
   }
 
-  // Substring match (case-insensitive)
   if (
     name.includes(q) ||
     email.includes(q) ||
@@ -1132,7 +1176,6 @@ function scoreContactMatch(contact: ContactRecord, rawQuery: string): number {
     return 65;
   }
 
-  // Close / fuzzy match (typo tolerance via edit distance or subsequence)
   const queryTokens = q.split(/\s+/).filter(Boolean);
   let fuzzyScore = 0;
 
@@ -1225,13 +1268,27 @@ export function ContactsDashboard({
     contact: ContactRecord | null;
   } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteContact, setPendingDeleteContact] = useState<{ contact: ContactRecord; confirmationMessage: string } | null>(null);
 
   const requestCounterRef = useRef(0);
   const isInitialMountRef = useRef(true);
+  const skipNextPropSyncRef = useRef(false);
 
   useEffect(() => {
+    if (skipNextPropSyncRef.current) {
+      skipNextPropSyncRef.current = false;
+      return;
+    }
     setContactsList(initialContacts);
     setTotalCount(initialTotal);
   }, [initialContacts, initialTotal]);
@@ -1243,9 +1300,11 @@ export function ContactsDashboard({
   }, []);
 
   const executeQuery = useCallback(
-    async (nextFilters: ContactFilters) => {
+    async (nextFilters: ContactFilters, options?: { silent?: boolean }) => {
       const requestId = ++requestCounterRef.current;
-      setFiltering(true);
+      if (!options?.silent) {
+        setFiltering(true);
+      }
       setActionError(null);
       syncUrlWithoutReload(nextFilters);
 
@@ -1296,7 +1355,6 @@ export function ContactsDashboard({
     setLifecycleInput(initialFilters.lifecycleStage);
   }, [initialFilters]);
 
-  // Independent live search: runs automatically as the user types (debounced) without needing Apply filter
   useEffect(() => {
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -1317,7 +1375,6 @@ export function ContactsDashboard({
     return () => window.clearTimeout(timer);
   }, [searchInput, activeFilters, executeQuery]);
 
-  // Surface matching & fuzzy-matched contacts at the top immediately while typing
   const displayedContacts = useMemo(() => {
     const query = searchInput.trim();
     if (!query) return contactsList;
@@ -1371,12 +1428,78 @@ export function ContactsDashboard({
     cleanImportQuery();
   }
 
-  function handleSaved(message: string) {
+  function handleSaved(message: string, savedContact?: ContactRecord) {
+    const wasCreating = editor?.mode === "create";
     setEditor(null);
     setShowImport(false);
     setNotice(message);
     setActionError(null);
-    void executeQuery(activeFilters);
+    skipNextPropSyncRef.current = true;
+
+    if (savedContact) {
+      if (wasCreating) {
+        setContactsList((prev) => {
+          const filtered = prev.filter((item) => item.id !== savedContact.id);
+          return [savedContact, ...filtered].slice(0, activeFilters.limit);
+        });
+        setTotalCount((prev) => prev + 1);
+      } else {
+        setContactsList((prev) =>
+          prev.map((item) => (item.id === savedContact.id ? savedContact : item)),
+        );
+      }
+    }
+
+    void executeQuery(activeFilters, { silent: true });
+    router.refresh();
+  }
+
+  function handleImported(
+    message: string,
+    importedRows?: ImportPreviewRow[],
+    insertedCount?: number,
+  ) {
+    setShowImport(false);
+    setEditor(null);
+    setNotice(message);
+    setActionError(null);
+    skipNextPropSyncRef.current = true;
+
+    if (importedRows && importedRows.length > 0) {
+      const nowIso = new Date().toISOString();
+      const newRecords: ContactRecord[] = importedRows.map((row, index) => ({
+        id: `temp-import-${Date.now()}-${index}`,
+        fullName: row.fullName,
+        secondaryName: "",
+        phoneNumber: row.normalizedPhone || row.phoneNumber,
+        phoneNumberRaw: row.phoneNumber,
+        email: row.email,
+        companyName: row.companyName,
+        jobTitle: typeof row.rawRow.jobTitle === "string" ? row.rawRow.jobTitle : "",
+        department: typeof row.rawRow.department === "string" ? row.rawRow.department : "",
+        industry: typeof row.rawRow.industry === "string" ? row.rawRow.industry : "",
+        city: typeof row.rawRow.city === "string" ? row.rawRow.city : "",
+        state: typeof row.rawRow.state === "string" ? row.rawRow.state : "",
+        country: typeof row.rawRow.country === "string" ? row.rawRow.country : "",
+        timezone: "",
+        leadScore: null,
+        lifecycleStage:
+          typeof row.rawRow.lifecycleStage === "string" ? row.rawRow.lifecycleStage : "lead",
+        tags: [],
+        parentName: "",
+        studentName: "",
+        courseOrStream: "",
+        status: "pending",
+        optOut: false,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      }));
+
+      setContactsList((prev) => [...newRecords, ...prev].slice(0, activeFilters.limit));
+      setTotalCount((prev) => prev + (insertedCount ?? newRecords.length));
+    }
+
+    void executeQuery(activeFilters, { silent: true });
     router.refresh();
   }
 
@@ -1406,27 +1529,42 @@ export function ContactsDashboard({
     void executeQuery(cleared);
   }
 
-  async function handleDelete(contact: ContactRecord) {
-    if (deletingId) return;
+  function handleDelete(contact: ContactRecord) {
+    if (deletingId || pendingDeleteContact) return;
     const confirmationMessage = contact.optOut
       ? `Delete ${displayName(contact)} from this workspace? This also removes the contact's do-not-call suppression record. Proceed only if your retention policy allows it. This cannot be undone.`
       : `Delete ${displayName(contact)} from this workspace? This cannot be undone.`;
-    const confirmed = window.confirm(confirmationMessage);
-    if (!confirmed) return;
+    setPendingDeleteContact({ contact, confirmationMessage });
+  }
+
+  async function confirmDeleteContact() {
+    const contact = pendingDeleteContact?.contact;
+    if (!contact || deletingId) return;
+
+    const previousContacts = contactsList;
+    const previousTotal = totalCount;
 
     setDeletingId(contact.id);
     setActionError(null);
+    skipNextPropSyncRef.current = true;
+    setContactsList((prev) => prev.filter((item) => item.id !== contact.id));
+    setTotalCount((prev) => Math.max(0, prev - 1));
 
     try {
       const result = await deleteContactAction(contact.id);
       if (!result.ok) {
+        setContactsList(previousContacts);
+        setTotalCount(previousTotal);
         setActionError(result.error);
         return;
       }
       setNotice(`${displayName(contact)} was deleted.`);
-      await executeQuery(activeFilters);
+      setPendingDeleteContact(null);
+      void executeQuery(activeFilters, { silent: true });
       router.refresh();
     } catch (cause) {
+      setContactsList(previousContacts);
+      setTotalCount(previousTotal);
       setActionError(
         cause instanceof Error ? cause.message : "Unable to delete this contact.",
       );
@@ -1473,21 +1611,7 @@ export function ContactsDashboard({
         </div>
       </header>
 
-      {notice ? (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#397A55]"
-        >
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className="font-semibold"
-          >
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      <ToastNotice message={notice} onDismiss={() => setNotice(null)} />
 
       {actionError ? (
         <div
@@ -1511,7 +1635,7 @@ export function ContactsDashboard({
       {showImport ? (
         <ImportPanel
           onCancel={closeImport}
-          onImported={handleSaved}
+          onImported={handleImported}
         />
       ) : null}
 
@@ -1791,7 +1915,7 @@ export function ContactsDashboard({
                 >
                   Previous
                 </button>
-                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button

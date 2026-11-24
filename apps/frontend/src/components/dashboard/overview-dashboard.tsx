@@ -608,6 +608,7 @@ function SetupChecklist({
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : step.id)}
                       aria-expanded={isExpanded}
+                      aria-controls={`setup-step-panel-${step.id}`}
                       className="flex w-full flex-wrap items-center gap-2 rounded-[4px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                     >
                       <span
@@ -1821,7 +1822,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         description: "Outbound calls are currently blocked until your workspace status is active.",
         ctaLabel: "Review settings",
         icon: "alert",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     }
 
@@ -1836,7 +1837,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           : "New outbound calls cannot be placed until your cycle resets or you upgrade.",
         ctaLabel: "View billing",
         icon: "credit",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     } else if (analytics && allowance > 0 && remaining / allowance <= 0.2) {
       items.push({
@@ -1846,7 +1847,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         description: "Top up or upgrade your plan before active campaigns pause mid-run.",
         ctaLabel: "Manage plan",
         icon: "credit",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     }
 
@@ -1925,56 +1926,18 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
       <header className="mb-4 sm:mb-6 border-b border-[#ECEBE5] pb-6 sm:pb-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           
-          {/* Left Side: Overline, Greeting, Metadata */}
+          {/* Left Side: Greeting, Workspace Metadata */}
           <div className="flex flex-col gap-4">
-            
-            {/* Top Row: Overline & Status */}
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.1em] text-[#8E918B]">
-                Workspace Overview
-              </span>
-
-              {profile.isTrial ? (
-                <>
-                  <span className="h-3 w-px bg-[#D8D8D1]" />
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold tracking-wide ${
-                      profile.trialExpired
-                        ? "bg-[#FBE8E6] text-[#A33A32]"
-                        : profile.trialDaysLeft !== null && profile.trialDaysLeft <= 3
-                          ? "bg-[#FFFAEC] text-[#8A6826]"
-                          : "bg-[#EFEAFB] text-[#644ABB]"
-                    }`}
-                  >
-                    {profile.trialExpired
-                      ? "Trial expired"
-                      : profile.trialDaysLeft === 0
-                        ? "Trial ends today"
-                        : `Trial ends in ${profile.trialDaysLeft} ${profile.trialDaysLeft === 1 ? "day" : "days"}`}
-                  </span>
-                </>
-              ) : workspaceStatus !== "active" ? (
-                <>
-                  <span className="h-3 w-px bg-[#D8D8D1]" />
-                  <span className="inline-flex items-center rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize text-[#A33A32]">
-                    {workspaceStatus}
-                  </span>
-                </>
-              ) : null}
-            </div>
-
-            {/* Bottom Row: Greeting & Metadata */}
+            {/* Greeting & Metadata */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between lg:block">
               <h1 className="font-['Newsreader'] text-[34px] leading-[1.1] tracking-[-0.5px] text-[#1B1C18] sm:text-[42px]">
                 {profile.greeting},{" "}
                 <span className="italic">{firstName}</span>
               </h1>
 
-              {/* Metadata (Placed below greeting) */}
+              {/* Workspace name */}
               <div className="mt-2 flex flex-wrap items-center gap-2.5 font-['Space_Grotesk'] text-[13px] text-[#747878]">
                 <span className="font-medium text-[#1B1C18]">{profile.workspaceName}</span>
-                <span className="text-[#D8D8D1]">&bull;</span>
-                <span>{timezone}</span>
               </div>
             </div>
           </div>
@@ -2154,7 +2117,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
               timezone={timezone}
               isTrial={workspaceStatus === "trialing" || profile.isTrial}
               trialEndsAt={profile.trialEndsAt}
-              onUpgrade={() => router.push("/dashboard/settings")}
+              onUpgrade={() => router.push("/dashboard/billing")}
             />
           ) : analyticsResult.state === "loading" ? (
             <div

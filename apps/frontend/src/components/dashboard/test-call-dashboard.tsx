@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   cancelQueuedCallAction,
   createTestCallAction,
@@ -55,11 +58,20 @@ function Badge({
 }
 
 export function TestCallDashboard() {
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!callNotice) return;
+    const timer = window.setTimeout(() => {
+      setCallNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [callNotice]);
 
   const [liveRefreshKey, setLiveRefreshKey] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveCallStatus>({
@@ -72,6 +84,7 @@ export function TestCallDashboard() {
   const [liveStatusError, setLiveStatusError] = useState<string | null>(null);
   const [cancellingQueueId, setCancellingQueueId] = useState<string | null>(null);
   const [queueActionError, setQueueActionError] = useState<string | null>(null);
+  const [pendingCancelEntry, setPendingCancelEntry] = useState<LiveQueueEntry | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -177,10 +190,28 @@ export function TestCallDashboard() {
       }
       setPhoneNumber("");
       setConfirmed(false);
+      setLiveStatus((current) => ({
+        ...current,
+        pendingCount: current.pendingCount + 1,
+        duePendingCount: current.duePendingCount + 1,
+        entries: [
+          {
+            id: `queued-${Date.now()}`,
+            contactName: null,
+            phoneNumber: normalizedPhone,
+            campaignName: "Test / direct call",
+            status: "pending",
+            scheduledFor: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          ...current.entries,
+        ],
+      }));
       setCallNotice(
         `Your test call to ${normalizedPhone} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`,
       );
       setLiveRefreshKey((value) => value + 1);
+      router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The call could not be queued.");
     } finally {
@@ -188,12 +219,16 @@ export function TestCallDashboard() {
     }
   };
 
-  const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
+  const handleCancelQueuedCall = (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
+    setQueueActionError(null);
+    setPendingCancelEntry(entry);
+  };
+
+  const confirmCancelQueuedCall = async () => {
+    const entry = pendingCancelEntry;
+    if (!entry || cancellingQueueId) return;
     const recipient = entry.contactName || entry.phoneNumber || "this recipient";
-    if (!window.confirm(`Cancel the queued call to ${recipient}? It will not be attempted.`)) {
-      return;
-    }
 
     setCancellingQueueId(entry.id);
     setQueueActionError(null);
@@ -217,16 +252,15 @@ export function TestCallDashboard() {
       entries: current.entries.filter((item) => item.id !== entry.id),
     }));
     setCallNotice(`Queued call to ${recipient} cancelled.`);
+    setPendingCancelEntry(null);
     setLiveRefreshKey((value) => value + 1);
+    router.refresh();
   };
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#9A8ABF]">
-            Agent sandbox
-          </p>
           <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Testing
           </h1>
@@ -245,24 +279,11 @@ export function TestCallDashboard() {
         </div>
       </header>
 
-      {callNotice ? (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#397A55]"
-        >
-          <span>{callNotice}</span>
-          <button type="button" onClick={() => setCallNotice(null)} className="font-semibold">
-            Dismiss
-          </button>
-        </div>
-      ) : null}
+      <ToastNotice message={callNotice} onDismiss={() => setCallNotice(null)} />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
         <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-5 sm:p-6">
           <div className="border-b border-[#ECEBE5] pb-4">
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">
-              OUTBOUND CALL
-            </p>
             <h2 className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]">
               Make a test call
             </h2>
@@ -409,6 +430,15 @@ export function TestCallDashboard() {
           </section>
         </aside>
       </div>
+      <ConfirmDialog
+        open={pendingCancelEntry !== null}
+        title="Cancel queued call?"
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        confirmLabel="Cancel call"
+        busy={cancellingQueueId !== null}
+        onCancel={() => setPendingCancelEntry(null)}
+        onConfirm={() => void confirmCancelQueuedCall()}
+      />
     </div>
   );
 }

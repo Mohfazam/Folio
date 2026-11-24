@@ -80,6 +80,7 @@ export function CallRecordingPlayer({
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
 
     async function loadRecordingMeta() {
@@ -90,6 +91,7 @@ export function CallRecordingPlayer({
       try {
         const response = await fetch(`/api/calls/${encodeURIComponent(callId)}/recording`, {
           cache: "no-store",
+          signal: controller.signal,
         });
         const payload = await response.json().catch(() => null);
         const parsed = parseRecordingPayload(payload);
@@ -102,33 +104,34 @@ export function CallRecordingPlayer({
           );
         }
 
-        if (!cancelled) {
+        if (!cancelled && !controller.signal.aborted) {
           setAvailable(parsed.available);
           setRecording(parsed.recording);
         }
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load recording.");
-          if (initialHasRecording) {
-            setAvailable(true);
-            setRecording({
-              id: callId,
-              callId,
-              fileFormat: "mp3",
-              streamUrl: `/api/calls/${encodeURIComponent(callId)}/recording/stream`,
-            });
-          } else {
-            setAvailable(false);
-          }
+        if (controller.signal.aborted || cancelled) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Failed to load recording.");
+        if (initialHasRecording) {
+          setAvailable(true);
+          setRecording({
+            id: callId,
+            callId,
+            fileFormat: "mp3",
+            streamUrl: `/api/calls/${encodeURIComponent(callId)}/recording/stream`,
+          });
+        } else {
+          setAvailable(false);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !controller.signal.aborted) setLoading(false);
       }
     }
 
     void loadRecordingMeta();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [callId, initialHasRecording, retry]);
 

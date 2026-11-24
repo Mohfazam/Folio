@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
 import { dashboardKeys } from "@/lib/query/keys";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 
 type Section = "general" | "account" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
@@ -38,6 +40,7 @@ export function SettingsDashboard({ account, initialSettings }: {
   account: { name: string; email: string };
   initialSettings: { profile: RecordValue; agent: RecordValue; voices: string[]; languages: string[]; error: string | null };
 }) {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [section, setSection] = useState<Section>("general");
   const [profile, setProfile] = useState<RecordValue>(initialSettings.profile);
@@ -115,11 +118,14 @@ export function SettingsDashboard({ account, initialSettings }: {
       return;
     }
 
+    setProfile((current) => ({ ...current, ...currentProfile }));
     setDirty(false);
     setSaveStatus("saved");
     setSuccess("Changes saved automatically.");
     void queryClient.invalidateQueries({ queryKey: dashboardKeys.businessProfile() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.agentSettings() });
     void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
+    router.refresh();
   }, [queryClient]);
 
   const scheduleAutoSave = useCallback(() => {
@@ -131,6 +137,14 @@ export function SettingsDashboard({ account, initialSettings }: {
       }
     }, AUTO_SAVE_DELAY_MS);
   }, [clearDebounceTimer, performSave]);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = window.setTimeout(() => {
+      setSuccess(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [success]);
 
   useEffect(() => {
     return () => {
@@ -159,8 +173,9 @@ export function SettingsDashboard({ account, initialSettings }: {
       <div className="mx-auto max-w-[1180px]">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p>
-            <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1>
+            <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
+            Settings
+          </h1>
             <p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, account and operational preferences.</p>
           </div>
           <div className="flex items-center gap-3 text-right">
@@ -305,7 +320,7 @@ export function SettingsDashboard({ account, initialSettings }: {
           {section === "integrations" ? <Placeholder title="Integrations" description="Connect external tools to your Foolioo workspace." items={["CRM integrations", "Webhook endpoints and delivery logs", "API keys and access scopes", "Telephony provider status", "Speech provider status"]} /> : null}
 
           {error ? <p role="alert" className="mt-5 rounded-md bg-[#FBECE9] px-3 py-2.5 text-[12px] text-[#A33A32]">{error}</p> : null}
-          {success ? <p role="status" className="mt-5 rounded-md bg-[#EDF5EC] px-3 py-2.5 text-[12px] text-[#356B3D]">{success}</p> : null}
+      <ToastNotice message={success} />
         </main>
       </div>
 

@@ -55,6 +55,23 @@ async function rateLimit(key: string, message: string): Promise<AuthState> {
   return null;
 }
 
+function resolveSafeRedirect(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
+    return null;
+  }
+  return trimmed;
+}
+
+function finalizePostAuthRoute(destination: "/onboarding" | "/dashboard", rawRedirect?: unknown): string {
+  const safeRedirect = resolveSafeRedirect(rawRedirect);
+  if (destination === "/dashboard" && safeRedirect) {
+    return safeRedirect;
+  }
+  return destination;
+}
+
 async function destinationOrError(accessToken: string): Promise<{ destination?: "/onboarding" | "/dashboard"; error?: string }> {
   try {
     return { destination: await resolvePostAuthDestination(accessToken) };
@@ -112,7 +129,7 @@ export async function signInAction(prevState: AuthState, formData: FormData): Pr
   if (dest.error || !dest.destination) {
     return { error: dest.error ?? "Unable to load your workspace." };
   }
-  redirect(dest.destination);
+  redirect(finalizePostAuthRoute(dest.destination, formData.get("redirectTo")) as never);
 }
 
 export async function signUpAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
@@ -140,7 +157,9 @@ export async function signUpAction(prevState: AuthState, formData: FormData): Pr
   }
 
   // Redirect to email OTP verification page
-  redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}`);
+  const safeRedirect = resolveSafeRedirect(formData.get("redirectTo"));
+  const nextParam = safeRedirect ? `&redirect=${encodeURIComponent(safeRedirect)}` : "";
+  redirect(`/verify-email?email=${encodeURIComponent(validated.data.email)}${nextParam}`);
 }
 
 export async function verifyOtpAction(prevState: AuthState, formData: FormData): Promise<AuthState> {
@@ -167,9 +186,9 @@ export async function verifyOtpAction(prevState: AuthState, formData: FormData):
 
   const dest = await destinationOrError(result.token);
   if (dest.error || !dest.destination) {
-    redirect("/dashboard");
+    redirect((resolveSafeRedirect(formData.get("redirectTo")) ?? "/dashboard") as never);
   }
-  redirect(dest.destination);
+  redirect(finalizePostAuthRoute(dest.destination, formData.get("redirectTo")) as never);
 }
 
 export async function resendOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AuthRedirectButton } from "@/components/ui/AuthRedirectButton";
 
 interface PricingProps {
     currentPlan?: string | null;
@@ -169,47 +168,36 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                             </div>
 
                             <div className="mt-8 pt-4">
-                                {/* 1. Scale Plan */}
-                                {plan.name === "Scale" ? (
-                                    <a
-                                        href="mailto:sales@foolioo.app?subject=Scale%20Plan%20Inquiry"
-                                        className="flex h-11 w-full items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#E9E8E1]"
-                                    >
-                                        Contact sales
-                                    </a>
-                                ) : /* 2. User is currently on this paid plan */
-                                normalizedPlan === plan.name.toLowerCase() ? (
-                                    <button
-                                        disabled
-                                        className="flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#A0A09E]"
-                                    >
-                                        Current Plan
-                                    </button>
-                                ) : /* 3. User is logged in (on Trial, Expired, or another plan) */
-                                currentPlan ? (
+                                {currentPlan ? (
                                     <Link href={`/dashboard/billing?plan=${plan.name.toLowerCase()}`} className="block w-full">
                                         <button
+                                            type="button"
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
                                                 plan.highlighted
                                                     ? "bg-[#1B1C18] text-white hover:bg-[#3A3B37]"
                                                     : "border border-[#E9E8E1] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
                                             }`}
                                         >
-                                            Upgrade to {plan.name}
+                                            {normalizedPlan === plan.name.toLowerCase()
+                                                ? `Buy More ${plan.name} Credits`
+                                                : `Upgrade to ${plan.name}`}
                                         </button>
                                     </Link>
                                 ) : (
-                                    /* 4. Fallback: Not logged in */
-                                    <Link href="/sign-up" className="block w-full">
-                                        <AuthRedirectButton
+                                    <Link
+                                        href={`/sign-in?redirect=${encodeURIComponent(`/dashboard/billing?plan=${plan.name.toLowerCase()}`)}`}
+                                        className="block w-full"
+                                    >
+                                        <button
+                                            type="button"
                                             className={`flex h-11 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[13px] font-semibold transition-colors duration-200 ${
                                                 plan.highlighted
                                                     ? "bg-[#1B1C18] text-white hover:bg-[#3A3B37]"
                                                     : "border border-[#E9E8E1] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
                                             }`}
                                         >
-                                            {plan.cta}
-                                        </AuthRedirectButton>
+                                            Sign in to buy {plan.name}
+                                        </button>
                                     </Link>
                                 )}
                             </div>

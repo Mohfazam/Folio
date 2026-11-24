@@ -1,7 +1,10 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useRef } from "react";
+import { ConfirmDialog, useDialogFocusTrap } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   createFollowUpAction,
   deleteFollowUpAction,
@@ -94,38 +97,85 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<FollowUpRecord[]>(followUps);
   const [notice, setNotice] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<FollowUpRecord | null>(null);
+  const createDialogRef = useRef<HTMLElement | null>(null);
 
-  const openCount = followUps.filter((item) => item.status === "open").length;
-  const overdueCount = followUps.filter(isOverdue).length;
-  const urgentCount = followUps.filter((item) => item.status === "open" && (item.priority === "urgent" || item.priority === "high")).length;
-  const completedCount = followUps.filter((item) => item.status === "done").length;
+  useDialogFocusTrap(creating, createDialogRef, () => {
+    if (busyId !== "new") setCreating(false);
+  });
+
+  useEffect(() => {
+    setItems(followUps);
+  }, [followUps]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  const openCount = items.filter((item) => item.status === "open").length;
+  const overdueCount = items.filter(isOverdue).length;
+  const urgentCount = items.filter((item) => item.status === "open" && (item.priority === "urgent" || item.priority === "high")).length;
+  const completedCount = items.filter((item) => item.status === "done").length;
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return followUps.filter((item) => {
+    return items.filter((item) => {
       const matchesStatus = status === "all" || item.status === status;
       const matchesPriority = priority === "all" || item.priority === priority;
       const searchable = `${item.contact?.fullName ?? ""} ${item.contact?.phoneNumber ?? ""} ${item.notes ?? ""} ${item.type}`.toLowerCase();
       return matchesStatus && matchesPriority && (!needle || searchable.includes(needle));
     });
-  }, [followUps, priority, query, status]);
+  }, [items, priority, query, status]);
 
   async function changeStatus(item: FollowUpRecord, nextStatus: string) {
+    const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
+    setItems((current) => current.map((row) => (row.id === item.id ? { ...row, status: nextStatus } : row)));
     const result = await updateFollowUpAction(item.id, { status: nextStatus });
     setBusyId(null);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) {
+      setItems(previousItems);
+      setError(result.error);
+      return;
+    }
+    const updatedRow = (result.data as { followUp?: FollowUpRecord } | undefined)?.followUp;
+    if (updatedRow && typeof updatedRow === "object") {
+      setItems((current) => current.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)));
+    }
     setNotice(nextStatus === "done" ? "Follow-up marked as completed." : nextStatus === "not_needed" ? "Follow-up closed." : "Follow-up reopened.");
     router.refresh();
   }
 
-  async function removeItem(item: FollowUpRecord) {
-    if (!window.confirm(`Delete the follow-up for ${item.contact?.fullName || "this contact"}? This cannot be undone.`)) return;
+  function removeItem(item: FollowUpRecord) {
+    setError(null);
+    setPendingDeleteItem(item);
+  }
+
+  async function confirmRemoveItem() {
+    const item = pendingDeleteItem;
+    if (!item) return;
+    const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
+    setItems((current) => current.filter((row) => row.id !== item.id));
     const result = await deleteFollowUpAction(item.id);
     setBusyId(null);
-    if (!result.ok) { setError(result.error); return; }
+    setPendingDeleteItem(null);
+    if (!result.ok) {
+      setItems(previousItems);
+      setError(result.error);
+      return;
+    }
     setNotice("Follow-up deleted.");
     router.refresh();
   }
@@ -134,20 +184,69 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const contactId = String(form.get("contactId") || "");
+    const typeVal = String(form.get("type") || "call_back");
+    const priorityVal = String(form.get("priority") || "medium");
     const dueDateValue = String(form.get("dueDate") || "");
     const callbackValue = String(form.get("requestedCallbackTime") || "");
+    const notesVal = String(form.get("notes") || "").trim() || null;
+    const matchedContact = contacts.find((c) => c.id === contactId);
+
     setBusyId("new"); setError(null);
     const result = await createFollowUpAction({
       contactId,
-      type: String(form.get("type") || "call_back"),
-      priority: String(form.get("priority") || "medium"),
+      type: typeVal,
+      priority: priorityVal,
       dueDate: dueDateValue ? new Date(dueDateValue).toISOString() : undefined,
       requestedCallbackTime: callbackValue ? new Date(callbackValue).toISOString() : undefined,
-      notes: String(form.get("notes") || "").trim() || undefined,
+      notes: notesVal || undefined,
     });
     setBusyId(null);
     if (!result.ok) { setError(result.error); return; }
-    setCreating(false); setNotice("Follow-up created."); router.refresh();
+
+    const createdFromServer = (result.data as { followUp?: FollowUpRecord } | undefined)?.followUp;
+    const optimisticRecord: FollowUpRecord = createdFromServer && typeof createdFromServer === "object"
+      ? {
+          ...createdFromServer,
+          contact: createdFromServer.contact ?? (matchedContact
+            ? {
+                id: matchedContact.id,
+                fullName: matchedContact.fullName,
+                phoneNumber: matchedContact.phoneNumber,
+                email: null,
+                companyName: null,
+                courseOrStream: null,
+              }
+            : null),
+        }
+      : {
+          id: `temp-${Date.now()}`,
+          contactId,
+          callId: null,
+          type: typeVal,
+          priority: priorityVal,
+          dueDate: dueDateValue ? new Date(dueDateValue).toISOString() : null,
+          requestedCallbackTime: callbackValue ? new Date(callbackValue).toISOString() : null,
+          assignedTo: null,
+          status: "open",
+          notes: notesVal,
+          createdAt: new Date().toISOString(),
+          contact: matchedContact
+            ? {
+                id: matchedContact.id,
+                fullName: matchedContact.fullName,
+                phoneNumber: matchedContact.phoneNumber,
+                email: null,
+                companyName: null,
+                courseOrStream: null,
+              }
+            : null,
+          call: null,
+        };
+
+    setItems((current) => [optimisticRecord, ...current]);
+    setCreating(false);
+    setNotice("Follow-up created.");
+    router.refresh();
   }
 
   return (
@@ -160,7 +259,7 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         <button type="button" onClick={() => { setCreating(true); setError(null); }} className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">+ New follow-up</button>
       </div>
 
-      {notice ? <div role="status" className="flex items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#397A55]"><span>{notice}</span><button type="button" onClick={() => setNotice(null)} className="font-semibold">Dismiss</button></div> : null}
+      <ToastNotice message={notice} onDismiss={() => setNotice(null)} />
       {error || initialError ? <div role="alert" className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{error || initialError}</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -183,11 +282,35 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         {filtered.length ? <div className="divide-y divide-[#F0EFE9]">
           {filtered.map((item) => {
             const contactName = item.contact?.fullName || "Unknown contact";
+            const description = item.notes || item.call?.summary || "No notes added.";
+            const isExpanded = Boolean(expandedIds[item.id]);
+            const canExpand = description.length > 105 || description.includes("\n");
+
             return <article key={item.id} className="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(150px,0.8fr)_minmax(180px,0.8fr)] lg:items-center">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2"><h3 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{contactName}</h3><StatusPill status={item.status} /><PriorityPill priority={item.priority} />{isOverdue(item) ? <span className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#B33B32]">Overdue</span> : null}</div>
                 <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{item.contact?.phoneNumber || "No phone number"}{item.contact?.courseOrStream ? ` · ${item.contact.courseOrStream}` : ""}</p>
-                <p className="mt-2 line-clamp-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{item.notes || item.call?.summary || "No notes added."}</p>
+                
+                <div className="mt-2">
+                  <p
+                    id={`follow-up-notes-${item.id}`}
+                    className={`whitespace-pre-line break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878] ${isExpanded ? "" : "line-clamp-2"}`}
+                  >
+                    {description}
+                  </p>
+                  {canExpand ? (
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      aria-controls={`follow-up-notes-${item.id}`}
+                      onClick={() => toggleExpand(item.id)}
+                      className="mt-1 inline-flex items-center rounded font-['Space_Grotesk'] text-[11px] font-semibold text-[#7055A8] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                    >
+                      {isExpanded ? "Show less" : "Read more"}
+                    </button>
+                  ) : null}
+                </div>
+
                 {item.call?.outcome ? <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">From call · {titleCase(item.call.outcome)}{item.call.interestLevel ? ` · ${titleCase(item.call.interestLevel)} interest` : ""}</p> : null}
               </div>
               <div className="space-y-1"><p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-wide text-[#92938C]">{titleCase(item.type)}</p><p className="font-['Space_Grotesk'] text-[11px] text-[#444748]">Due {formatDate(item.dueDate || item.requestedCallbackTime)}</p><p className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Created {formatDate(item.createdAt)}</p></div>
@@ -197,13 +320,22 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
               </div>
             </article>;
           })}
-        </div> : <div className="px-5 py-14 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5" /></svg></div><h3 className="mt-4 font-['Newsreader'] text-[24px] text-[#1B1C18]">{followUps.length ? "No follow-ups match these filters" : "No follow-ups yet"}</h3><p className="mx-auto mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Follow-ups requested during calls will appear here automatically. You can also create one manually.</p><button type="button" onClick={() => setCreating(true)} className="mt-5 rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white">Create follow-up</button></div>}
-        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {followUps.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
+        </div> : <div className="px-5 py-14 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5" /></svg></div><h3 className="mt-4 font-['Newsreader'] text-[24px] text-[#1B1C18]">{items.length ? "No follow-ups match these filters" : "No follow-ups yet"}</h3><p className="mx-auto mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Follow-ups requested during calls will appear here automatically. You can also create one manually.</p><button type="button" onClick={() => setCreating(true)} className="mt-5 rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white">Create follow-up</button></div>}
+        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] tabular-nums text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {items.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
       </section>
 
-      {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
+      {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section ref={createDialogRef} role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" tabIndex={-1} className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] outline-none sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
         <form onSubmit={handleCreate} className="mt-5 space-y-4"><div><label className={LABEL}>Contact</label><select name="contactId" required defaultValue="" className={INPUT}><option value="" disabled>Select a contact</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.fullName} · {contact.phoneNumber}</option>)}</select>{contacts.length === 0 ? <p className="mt-1 text-[10px] text-[#A33A32]">No contacts are available. Add a contact before creating a follow-up.</p> : null}</div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Action type</label><select name="type" defaultValue="call_back" className={INPUT}>{TYPES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div><div><label className={LABEL}>Priority</label><select name="priority" defaultValue="medium" className={INPUT}>{PRIORITIES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div></div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Due date</label><input type="datetime-local" name="dueDate" className={INPUT} /></div><div><label className={LABEL}>Requested callback time</label><input type="datetime-local" name="requestedCallbackTime" className={INPUT} /></div></div><div><label className={LABEL}>Notes</label><textarea name="notes" rows={4} maxLength={4000} className="w-full rounded-[5px] border border-[#E5E4DC] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#1B1C18] outline-none focus:border-[#7852D6]" placeholder="What needs to happen next?" /></div>{error ? <p role="alert" className="text-[11px] text-[#A33A32]">{error}</p> : null}<div className="flex justify-end gap-2 border-t border-[#ECEBE5] pt-4"><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded-[5px] border border-[#DCDDD6] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#55574F]">Cancel</button><button type="submit" disabled={busyId === "new" || contacts.length === 0} className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white disabled:opacity-50">{busyId === "new" ? "Creating…" : "Create follow-up"}</button></div></form>
       </section></div> : null}
+      <ConfirmDialog
+        open={pendingDeleteItem !== null}
+        title="Delete follow-up?"
+        description={`Delete the follow-up for ${pendingDeleteItem?.contact?.fullName || "this contact"}? This cannot be undone.`}
+        confirmLabel="Delete"
+        busy={busyId === pendingDeleteItem?.id}
+        onCancel={() => setPendingDeleteItem(null)}
+        onConfirm={() => void confirmRemoveItem()}
+      />
     </div>
   );
 }

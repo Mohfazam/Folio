@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
-export function GoogleButton() {
+export function GoogleButton({ redirectTo }: { redirectTo?: string | null }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
@@ -13,11 +13,22 @@ export function GoogleButton() {
     setIsLoading(true);
     setError(null);
 
+    const safeRedirect =
+      redirectTo &&
+      redirectTo.trim().startsWith("/") &&
+      !redirectTo.trim().startsWith("//") &&
+      !redirectTo.trim().startsWith("/\\")
+        ? redirectTo.trim()
+        : null;
+    const callbackUrl = safeRedirect
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeRedirect)}`
+      : `${window.location.origin}/auth/callback`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         // Crucial: This must match the route we created earlier
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
