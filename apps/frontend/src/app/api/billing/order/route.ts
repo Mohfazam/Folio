@@ -26,14 +26,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid plan selected for payment." }, { status: 400 });
   }
 
+  const idempotencyKey =
+    request.headers.get("idempotency-key")?.trim() || parsed.data.idempotencyKey;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${auth.accessToken}`,
+    "Content-Type": "application/json",
+  };
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
+
   try {
     const response = await fetch(`${backendBaseUrl()}/api/billing/order`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ planId: parsed.data.planId }),
+      headers,
+      body: JSON.stringify({
+        planId: parsed.data.planId,
+        ...(idempotencyKey ? { idempotencyKey } : {}),
+      }),
       cache: "no-store",
     });
     const payload: unknown = await response.json().catch(() => null);

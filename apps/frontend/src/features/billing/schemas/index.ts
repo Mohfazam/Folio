@@ -5,6 +5,7 @@ export const purchasablePlanIdSchema = z.enum(["growth", "pro"]);
 
 export const createBillingOrderRequestSchema = z.object({
   planId: purchasablePlanIdSchema,
+  idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 export const createBillingOrderResponseSchema = z.object({
@@ -30,6 +31,7 @@ export const verifyBillingPaymentRequestSchema = z.object({
   razorpay_order_id: z.string().min(1),
   razorpay_payment_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
+  idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 export const verifyBillingPaymentResponseSchema = z.object({
@@ -42,6 +44,7 @@ export const verifyBillingPaymentResponseSchema = z.object({
   newCreditsBalance: z.number().int().nonnegative(),
   paymentId: z.string().min(1),
   orderId: z.string().min(1),
+  method: z.string().nullable().optional(),
 });
 
 export function normalizePurchasablePlanId(value: string | null | undefined): PurchasablePlanId | null {

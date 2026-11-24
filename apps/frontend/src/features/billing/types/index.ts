@@ -23,7 +23,8 @@ export interface BillingOrderRecord {
   planName: string;
   amountInr: number;
   creditsGranted: number;
-  status: "created" | "paid" | "failed" | string;
+  method?: string | null;
+  status: "created" | "paid" | "failed" | "pending" | string;
   createdAt: string;
 }
 
@@ -41,6 +42,7 @@ export interface BillingStatusResponse {
 
 export interface CreateBillingOrderRequest {
   planId: PurchasablePlanId;
+  idempotencyKey?: string;
 }
 
 export interface CreateBillingOrderResponse {
@@ -64,18 +66,20 @@ export interface VerifyBillingPaymentRequest {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+  idempotencyKey?: string;
 }
 
 export interface VerifyBillingPaymentResponse {
   ok?: boolean;
   verified: boolean;
-  status: "paid" | string;
+  status: "paid" | "pending" | string;
   planId: string;
   planName?: string;
   creditsGranted: number;
   newCreditsBalance: number;
   paymentId: string;
   orderId: string;
+  method?: string | null;
 }
 
 export interface RazorpaySuccessPayload {

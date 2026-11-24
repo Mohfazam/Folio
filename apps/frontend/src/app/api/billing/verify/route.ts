@@ -29,13 +29,21 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const idempotencyKey =
+    request.headers.get("idempotency-key")?.trim() || parsed.data.idempotencyKey;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${auth.accessToken}`,
+    "Content-Type": "application/json",
+  };
+  if (idempotencyKey) {
+    headers["Idempotency-Key"] = idempotencyKey;
+  }
+
   try {
     const response = await fetch(`${backendBaseUrl()}/api/billing/verify`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(parsed.data),
       cache: "no-store",
     });

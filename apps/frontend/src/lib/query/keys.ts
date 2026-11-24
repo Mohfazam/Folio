@@ -17,5 +17,6 @@ export const dashboardKeys = {
   knowledgeBase: () => [...dashboardKeys.all, "knowledge-base"] as const,
   businessProfile: () => [...dashboardKeys.all, "business-profile"] as const,
   agentSettings: () => [...dashboardKeys.all, "agent-settings"] as const,
+,
   billingStatus: () => [...dashboardKeys.all, "billing", "status"] as const,
 };

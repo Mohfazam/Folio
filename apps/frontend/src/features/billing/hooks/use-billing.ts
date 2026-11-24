@@ -5,12 +5,13 @@ import { dashboardKeys } from "@/lib/query/keys";
 import { createRazorpayOrder, fetchBillingStatus, verifyRazorpayPayment } from "../queries/api";
 import type { CreateBillingOrderRequest, VerifyBillingPaymentRequest } from "../types";
 
-export function useBillingStatus() {
+export function useBillingStatus(options?: { poll?: boolean }) {
   return useQuery({
     queryKey: dashboardKeys.billingStatus(),
     queryFn: fetchBillingStatus,
     staleTime: 30_000,
     retry: 1,
+    refetchInterval: options?.poll ? 4_000 : false,
   });
 }
 

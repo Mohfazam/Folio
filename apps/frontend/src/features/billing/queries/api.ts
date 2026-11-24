@@ -15,7 +15,11 @@ import type {
 } from "../types";
 
 export class BillingApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly isBackendUnconfigured = false,
+  ) {
     super(message);
     this.name = "BillingApiError";
   }
@@ -37,9 +41,18 @@ function normalizeOrder(value: unknown): BillingOrderRecord | null {
     planName: typeof row.planName === "string" ? row.planName : "Plan",
     amountInr: typeof row.amountInr === "number" ? row.amountInr : 0,
     creditsGranted: typeof row.creditsGranted === "number" ? row.creditsGranted : 0,
+    method: typeof row.method === "string" && row.method ? row.method : null,
     status: typeof row.status === "string" ? row.status : "created",
     createdAt: typeof row.createdAt === "string" ? row.createdAt : new Date().toISOString(),
   };
+}
+
+function isRouteNotImplemented(status: number, rawError: unknown): boolean {
+  if (status === 404 || status === 501) return true;
+  if (typeof rawError === "string" && /not found|cannot (get|post)/i.test(rawError)) {
+    return true;
+  }
+  return false;
 }
 
 export async function fetchBillingStatus(): Promise<BillingStatusResponse> {
@@ -48,9 +61,13 @@ export async function fetchBillingStatus(): Promise<BillingStatusResponse> {
   const record = asRecord(payload);
 
   if (!response.ok || !record || record.ok === false) {
+    const unconfigured = isRouteNotImplemented(response.status, record?.error);
     throw new BillingApiError(
-      sanitizeUserError(record?.error, "Unable to load your billing & credit status right now."),
+      unconfigured
+        ? "Online billing endpoints are not connected yet."
+        : sanitizeUserError(record?.error, "Unable to load your billing & credit status right now."),
       response.status,
+      unconfigured,
     );
   }
 
@@ -73,9 +90,14 @@ export async function fetchBillingStatus(): Promise<BillingStatusResponse> {
 
 export async function createRazorpayOrder(input: CreateBillingOrderRequest): Promise<CreateBillingOrderResponse> {
   const validatedInput = createBillingOrderRequestSchema.parse(input);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (validatedInput.idempotencyKey) {
+    headers["Idempotency-Key"] = validatedInput.idempotencyKey;
+  }
+
   const response = await fetch("/api/billing/order", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(validatedInput),
     cache: "no-store",
   });
@@ -84,9 +106,13 @@ export async function createRazorpayOrder(input: CreateBillingOrderRequest): Pro
   const record = asRecord(payload);
 
   if (!response.ok || !record || record.ok === false) {
+    const unconfigured = isRouteNotImplemented(response.status, record?.error);
     throw new BillingApiError(
-      sanitizeUserError(record?.error, "Could not initiate Razorpay checkout order. Please try again."),
+      unconfigured
+        ? "Checkout is waiting for the backend payment endpoint (/api/billing/order) to go live."
+        : sanitizeUserError(record?.error, "Could not initiate Razorpay checkout order. Please try again."),
       response.status,
+      unconfigured,
     );
   }
 
@@ -99,9 +125,14 @@ export async function createRazorpayOrder(input: CreateBillingOrderRequest): Pro
 
 export async function verifyRazorpayPayment(input: VerifyBillingPaymentRequest): Promise<VerifyBillingPaymentResponse> {
   const validatedInput = verifyBillingPaymentRequestSchema.parse(input);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (validatedInput.idempotencyKey) {
+    headers["Idempotency-Key"] = validatedInput.idempotencyKey;
+  }
+
   const response = await fetch("/api/billing/verify", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(validatedInput),
     cache: "no-store",
   });
