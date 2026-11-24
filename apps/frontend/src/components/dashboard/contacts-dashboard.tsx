@@ -1606,16 +1606,13 @@ export function ContactsDashboard({
       {notice ? (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#397A55]"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
         >
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className="font-semibold"
-          >
-            Dismiss
-          </button>
+          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
+            <span>{notice}</span>
+          </div>
         </div>
       ) : null}
 
