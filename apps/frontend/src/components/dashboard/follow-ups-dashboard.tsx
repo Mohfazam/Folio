@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { dashboardKeys } from "@/lib/query/keys";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import {
   createFollowUpAction,
   deleteFollowUpAction,
@@ -90,7 +89,6 @@ function Metric({ label, value, hint }: { label: string; value: number; hint: st
 
 export function FollowUpsDashboard({ followUps, total, contacts, initialError, initialStatus }: Props) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [status, setStatus] = useState(initialStatus || "open");
   const [priority, setPriority] = useState("all");
   const [query, setQuery] = useState("");
@@ -100,6 +98,7 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
   const [items, setItems] = useState<FollowUpRecord[]>(followUps);
   const [notice, setNotice] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<FollowUpRecord | null>(null);
 
   useEffect(() => {
     setItems(followUps);
@@ -148,26 +147,29 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       setItems((current) => current.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)));
     }
     setNotice(nextStatus === "done" ? "Follow-up marked as completed." : nextStatus === "not_needed" ? "Follow-up closed." : "Follow-up reopened.");
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 
-  async function removeItem(item: FollowUpRecord) {
-    if (!window.confirm(`Delete the follow-up for ${item.contact?.fullName || "this contact"}? This cannot be undone.`)) return;
+  function removeItem(item: FollowUpRecord) {
+    setError(null);
+    setPendingDeleteItem(item);
+  }
+
+  async function confirmRemoveItem() {
+    const item = pendingDeleteItem;
+    if (!item) return;
     const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
     setItems((current) => current.filter((row) => row.id !== item.id));
     const result = await deleteFollowUpAction(item.id);
     setBusyId(null);
+    setPendingDeleteItem(null);
     if (!result.ok) {
       setItems(previousItems);
       setError(result.error);
       return;
     }
     setNotice("Follow-up deleted.");
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 
@@ -237,8 +239,6 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     setItems((current) => [optimisticRecord, ...current]);
     setCreating(false);
     setNotice("Follow-up created.");
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 
@@ -326,6 +326,15 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
         <form onSubmit={handleCreate} className="mt-5 space-y-4"><div><label className={LABEL}>Contact</label><select name="contactId" required defaultValue="" className={INPUT}><option value="" disabled>Select a contact</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.fullName} · {contact.phoneNumber}</option>)}</select>{contacts.length === 0 ? <p className="mt-1 text-[10px] text-[#A33A32]">No contacts are available. Add a contact before creating a follow-up.</p> : null}</div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Action type</label><select name="type" defaultValue="call_back" className={INPUT}>{TYPES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div><div><label className={LABEL}>Priority</label><select name="priority" defaultValue="medium" className={INPUT}>{PRIORITIES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div></div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Due date</label><input type="datetime-local" name="dueDate" className={INPUT} /></div><div><label className={LABEL}>Requested callback time</label><input type="datetime-local" name="requestedCallbackTime" className={INPUT} /></div></div><div><label className={LABEL}>Notes</label><textarea name="notes" rows={4} maxLength={4000} className="w-full rounded-[5px] border border-[#E5E4DC] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#1B1C18] outline-none focus:border-[#7852D6]" placeholder="What needs to happen next?" /></div>{error ? <p role="alert" className="text-[11px] text-[#A33A32]">{error}</p> : null}<div className="flex justify-end gap-2 border-t border-[#ECEBE5] pt-4"><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded-[5px] border border-[#DCDDD6] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#55574F]">Cancel</button><button type="submit" disabled={busyId === "new" || contacts.length === 0} className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white disabled:opacity-50">{busyId === "new" ? "Creating…" : "Create follow-up"}</button></div></form>
       </section></div> : null}
+      <ConfirmDialog
+        open={pendingDeleteItem !== null}
+        title="Delete follow-up?"
+        description={`Delete the follow-up for ${pendingDeleteItem?.contact?.fullName || "this contact"}? This cannot be undone.`}
+        confirmLabel="Delete"
+        busy={busyId === pendingDeleteItem?.id}
+        onCancel={() => setPendingDeleteItem(null)}
+        onConfirm={() => void confirmRemoveItem()}
+      />
     </div>
   );
 }

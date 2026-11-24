@@ -2,8 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { dashboardKeys } from "@/lib/query/keys";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import {
   createKnowledgeEntryAction,
   updateKnowledgeEntryAction,
@@ -68,7 +67,6 @@ function Field({ title, children }: { title: string; children: ReactNode }) { re
 
 export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent, profile: initialProfile, voices, languages, error: initialError }: Props) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [tab,setTab] = useState<Tab>("knowledge");
   const [entries,setEntries] = useState(initialEntries);
   const [agentState, setAgentState] = useState<Record<string, unknown>>(initialAgent);
@@ -79,6 +77,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
   const [creating,setCreating] = useState(false);
   const [busy,setBusy] = useState(false);
   const [notice,setNotice] = useState("");
+  const [pendingDeleteEntry, setPendingDeleteEntry] = useState<Entry | null>(null);
 
   useEffect(() => {
     setEntries(initialEntries);
@@ -133,17 +132,24 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
       setEntries(current => [optimisticEntry, ...current]);
     }
     setEditing(null); setCreating(false); setNotice(editing?"Knowledge entry updated.":"Knowledge entry added."); setBusy(false);
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() });
     router.refresh();
   }
-  async function removeEntry(entry: Entry) {
-    if (!window.confirm(`Delete “${entry.title || entry.question || "this entry"}”? This cannot be undone.`)) return;
+  function removeEntry(entry: Entry) {
+    setError("");
+    setPendingDeleteEntry(entry);
+  }
+
+  async function confirmRemoveEntry() {
+    const entry = pendingDeleteEntry;
+    if (!entry) return;
     const previousEntries = entries;
+    setBusy(true);
     setEntries(current=>current.filter(e=>e.id!==entry.id));
     const result = await deleteKnowledgeEntryAction(entry.id);
+    setBusy(false);
+    setPendingDeleteEntry(null);
     if (!result.ok) { setEntries(previousEntries); setError(result.error); return; }
     setNotice("Knowledge entry deleted.");
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() });
     router.refresh();
   }
   async function saveAgent(event: FormEvent<HTMLFormElement>) {
@@ -199,6 +205,15 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
         <section className="rounded-lg border border-[#ECEBE5] bg-white"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] p-4"><div><h2 className="text-[14px] font-semibold text-[#1B1C18]">Knowledge library</h2><p className="mt-1 text-[11px] text-[#85877F]">Approved facts and answers your AI can use during calls.</p></div><button onClick={()=>{setEditing(null);setCreating(true);}} className="rounded-md bg-[#1B1C18] px-4 py-2.5 text-[11px] font-semibold text-white">+ Add knowledge</button></div><div className="grid gap-3 border-b border-[#ECEBE5] p-4 md:grid-cols-[1fr_220px]"><input value={query} onChange={e=>setQuery(e.target.value)} className={input+" mt-0"} placeholder="Search titles, questions and content"/><select value={filter} onChange={e=>setFilter(e.target.value)} className={input+" mt-0"}><option value="all">All content types</option>{types.map(t=><option key={t} value={t}>{typeLabels[t]??t}</option>)}</select></div>{filtered.length? <div className="divide-y divide-[#F0EFE9]">{filtered.map(entry=><article key={entry.id} className="flex flex-wrap items-start justify-between gap-4 p-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="text-[13px] font-semibold text-[#1B1C18]">{entry.title||entry.question||"Untitled entry"}</h3><span className="rounded-full bg-[#F1ECFA] px-2 py-1 text-[9px] text-[#684AAE]">{typeLabels[entry.type]??entry.type}</span><span className={`rounded-full px-2 py-1 text-[9px] ${entry.isActive?"bg-[#EFF8F1] text-[#34734B]":"bg-[#F4F3EF] text-[#777970]"}`}>{entry.isActive?"Active":"Inactive"}</span></div>{entry.question&&entry.title&&<p className="mt-1 text-[11px] text-[#6F716A]">{entry.question}</p>}<p className="mt-2 line-clamp-2 whitespace-pre-line text-[11px] leading-5 text-[#85877F]">{entry.content}</p><p className="mt-2 text-[9px] text-[#A0A19A]">Version {entry.version} · Updated {entry.updatedAt?new Date(entry.updatedAt).toLocaleDateString():"—"}{entry.tags?.length?` · ${entry.tags.join(", ")}`:""}</p></div><div className="flex shrink-0 gap-2"><button onClick={()=>{setEditing(entry);setCreating(false);}} className="rounded-md border border-[#DCDDD6] px-3 py-2 text-[10px] font-semibold">Edit</button><button onClick={()=>removeEntry(entry)} className="rounded-md border border-[#EAD6D3] px-3 py-2 text-[10px] font-semibold text-[#A33A32]">Delete</button></div></article>)}</div>:<div className="p-12 text-center"><h3 className="font-['Newsreader'] text-[24px]">No knowledge entries found</h3><p className="mt-2 text-[11px] text-[#85877F]">Add approved information so your agent can answer customer questions accurately.</p></div>}</section>
       </>}
     </> : <section className="rounded-lg border border-[#ECEBE5] bg-white p-5"><div className="mb-5 border-b border-[#ECEBE5] pb-4"><h2 className="font-['Newsreader'] text-[26px]">Voice agent settings</h2><p className="mt-1 text-[11px] text-[#85877F]">Define the agent's identity, speaking style, objectives and safety boundaries.</p></div><form onSubmit={saveAgent} className="grid gap-4 md:grid-cols-2"><Field title="Agent name"><input name="agentName" required defaultValue={str(agentState.agentName,str(profileState.aiPersonaName,"Foolioo Assistant"))} className={input}/></Field><Field title="Speaking style"><select name="tone" required defaultValue={str(agentState.tone,str(profileState.toneOfVoice,"Warm, professional, knowledgeable, and concise"))} className={input}>{["Warm, professional, knowledgeable, and concise","Friendly and conversational","Formal and professional","Confident and persuasive","Calm and reassuring"].map(x=><option key={x}>{x}</option>)}</select></Field><Field title="Language"><select name="language" defaultValue={str(agentState.language,languages[0]?.code??"en-IN")} className={input}>{languages.map(l=><option key={l.code} value={l.code}>{l.label}</option>)}</select></Field><Field title="Voice"><select name="voiceId" defaultValue={str(agentState.voiceId)} className={input}><option value="">Provider default</option>{voices.map(v=><option key={v.id} value={v.id}>{v.label}{v.language?` · ${v.language}`:""}</option>)}</select></Field><Field title="Speaking speed"><div className="flex items-center gap-3"><input name="speechRate" type="range" min="0.8" max="1.2" step="0.05" defaultValue={String(agentState.speechRate??1)} className="mt-3 flex-1"/><span className="text-[11px] text-[#747878]">0.8x–1.2x</span></div></Field><Field title="Primary objective"><input name="primaryObjective" required defaultValue={str(agentState.primaryObjective)} className={input} placeholder="What should the agent accomplish?"/></Field><div className="md:col-span-2"><Field title="Opening greeting"><AutoTextarea name="greeting" required rows={3} defaultValue={str(agentState.greeting)} className={area} placeholder="Write the first message the agent says when a call connects."/></Field></div><div className="md:col-span-2"><Field title="Handoff instructions"><AutoTextarea name="handoffInstructions" rows={3} defaultValue={str(agentState.handoffInstructions)} className={area} placeholder="When and how should the agent transfer a conversation to a human?"/></Field></div><div className="md:col-span-2"><Field title="Pronunciation notes"><AutoTextarea name="pronunciationNotes" rows={2} defaultValue={str(agentState.pronunciationNotes)} className={area} placeholder="Names, acronyms and terms the agent must pronounce correctly."/></Field></div><div className="md:col-span-2"><Field title="Compliance notes"><AutoTextarea name="complianceNotes" rows={3} defaultValue={str(agentState.complianceNotes,str(profileState.complianceNotes))} className={area} placeholder="Required disclosures and statements."/></Field></div><div className="md:col-span-2"><Field title="Safety rules (one per line)"><AutoTextarea name="guardrails" required rows={5} defaultValue={Array.isArray(profileState.guardrails)?profileState.guardrails.join("\n"):"Do not invent prices, policies, deadlines or availability.\nIf the approved knowledge base does not contain an answer, say so and offer human follow-up.\nDo not request sensitive personal or payment information."} className={area}/></Field></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4 md:col-span-2"><p className="max-w-[560px] text-[10px] leading-4 text-[#85877F]">Changes apply to future calls after saving. Run a test call before launching a campaign.</p><button disabled={busy} className="rounded-md bg-[#1B1C18] px-5 py-2.5 text-[11px] font-semibold text-white">{busy?"Saving…":"Save agent settings"}</button></div></form></section>}
+    <ConfirmDialog
+      open={pendingDeleteEntry !== null}
+      title="Delete knowledge entry?"
+      description={`Delete “${pendingDeleteEntry?.title || pendingDeleteEntry?.question || "this entry"}”? This cannot be undone.`}
+      confirmLabel="Delete"
+      busy={busy}
+      onCancel={() => setPendingDeleteEntry(null)}
+      onConfirm={() => void confirmRemoveEntry()}
+    />
   </div>;
 }
 function Metric({title,value}:{title:string;value:number}) { return <div className="rounded-lg border border-[#ECEBE5] bg-[#FFFEFB] px-5 py-4"><p className="text-[11px] text-[#747878]">{title}</p><p className="mt-2 font-['Newsreader'] text-[30px] leading-none">{value}</p></div>; }

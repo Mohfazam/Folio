@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import { cancelQueuedCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type CallRecord = {
@@ -136,6 +137,15 @@ function MetricCard({
       <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">{label}</p>
       <p className="mt-2 font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
       <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{detail}</p>
+      <ConfirmDialog
+        open={pendingCancelEntry !== null}
+        title="Cancel queued call?"
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        confirmLabel="Cancel call"
+        busy={cancellingQueueId !== null}
+        onCancel={() => setPendingCancelEntry(null)}
+        onConfirm={() => void confirmCancelQueuedCall()}
+      />
     </div>
   );
 }
@@ -249,55 +259,39 @@ export function CallsDashboard({
   const [liveStatusError, setLiveStatusError] = useState<string | null>(null);
   const [cancellingQueueId, setCancellingQueueId] = useState<string | null>(null);
   const [queueActionError, setQueueActionError] = useState<string | null>(null);
+  const [pendingCancelEntry, setPendingCancelEntry] = useState<LiveQueueEntry | null>(null);
 
   useEffect(() => {
     let disposed = false;
-    let inFlight = false;
     let timer: number | undefined;
 
-    const scheduleNext = (ms: number) => {
-      if (disposed) return;
-      if (timer !== undefined) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        void refreshLiveStatus();
-      }, ms);
-    };
-
     const refreshLiveStatus = async () => {
-      if (disposed) return;
-      if (document.visibilityState === "hidden") {
-        scheduleNext(15000);
-        return;
-      }
-      if (inFlight) return;
-      inFlight = true;
+      if (document.visibilityState === "hidden") return;
 
       try {
         const result = await getLiveCallStatusAction();
         if (disposed) return;
 
-        if (!result.ok || !result.data) {
-          setLiveStatusError(
-            !result.ok && result.error
-              ? result.error
-              : "Live call status is temporarily unavailable.",
-          );
-          scheduleNext(15000);
+        if (!result.ok) {
+          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
+          return;
+        }
+
+        if (!result.data) {
+          setLiveStatusError("Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
           return;
         }
 
         const data = result.data;
         const entries = Array.isArray(data.entries)
-          ? data.entries.filter(
-              (entry): entry is LiveQueueEntry =>
-                typeof entry === "object" &&
-                entry !== null &&
-                typeof (entry as LiveQueueEntry).id === "string" &&
-                ((entry as LiveQueueEntry).status === "pending" ||
-                  (entry as LiveQueueEntry).status === "in_progress"),
+          ? data.entries.filter((entry): entry is LiveQueueEntry =>
+              typeof entry === "object" && entry !== null &&
+              typeof (entry as LiveQueueEntry).id === "string" &&
+              ((entry as LiveQueueEntry).status === "pending" || (entry as LiveQueueEntry).status === "in_progress"),
             )
           : [];
-
         const nextStatus: LiveCallStatus = {
           pendingCount: typeof data.pendingCount === "number" ? data.pendingCount : 0,
           inProgressCount: typeof data.inProgressCount === "number" ? data.inProgressCount : 0,
@@ -310,22 +304,18 @@ export function CallsDashboard({
 
         const hasImmediateWork = nextStatus.inProgressCount > 0 || nextStatus.duePendingCount > 0;
         if (hasImmediateWork) {
-          scheduleNext(8000);
+          timer = window.setTimeout(refreshLiveStatus, 8000);
         } else if (nextStatus.pendingCount > 0 && nextStatus.nextPendingAt) {
           const nextAttemptAt = new Date(nextStatus.nextPendingAt).getTime();
           const waitMs = Number.isFinite(nextAttemptAt)
             ? Math.max(1000, nextAttemptAt - Date.now())
             : 30000;
-          scheduleNext(waitMs);
+          timer = window.setTimeout(refreshLiveStatus, waitMs);
         }
-      } catch (err) {
+      } catch (error) {
         if (disposed) return;
-        setLiveStatusError(
-          err instanceof Error ? err.message : "Live call status is temporarily unavailable.",
-        );
-        scheduleNext(15000);
-      } finally {
-        inFlight = false;
+        setLiveStatusError(error instanceof Error ? error.message : "Live call status is temporarily unavailable.");
+        timer = window.setTimeout(refreshLiveStatus, 15000);
       }
     };
 
@@ -345,10 +335,27 @@ export function CallsDashboard({
     };
   }, [liveRefreshKey]);
 
-  const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
+  const [callNotice, setCallNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!callNotice) return;
+    const timer = window.setTimeout(() => {
+      setCallNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [callNotice]);
+  const [, setCallComposerOpenState] = useState(false);
+
+  const handleCancelQueuedCall = (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
+    setQueueActionError(null);
+    setPendingCancelEntry(entry);
+  };
+
+  const confirmCancelQueuedCall = async () => {
+    const entry = pendingCancelEntry;
+    if (!entry || cancellingQueueId) return;
     const recipient = entry.contactName || entry.phoneNumber || "this recipient";
-    if (!window.confirm(`Cancel the queued call to ${recipient}? It will not be attempted.`)) return;
 
     setCancellingQueueId(entry.id);
     setQueueActionError(null);
@@ -368,6 +375,7 @@ export function CallsDashboard({
       entries: current.entries.filter((item) => item.id !== entry.id),
     }));
     setCallNotice(`Queued call to ${recipient} cancelled.`);
+    setPendingCancelEntry(null);
     setLiveRefreshKey((value) => value + 1);
     router.refresh();
   };

@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { dashboardKeys } from "@/lib/query/keys";
 import { fetchDashboardApi } from "@/lib/query/fetcher";
 import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { useDialogFocusTrap } from "@/components/dashboard/accessible-dialog";
 
 type IconName =
   | "overview"
@@ -97,7 +98,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true, group: "intelligence" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true, group: "intelligence" },
   { label: "Testing", href: "/dashboard/testing", icon: "testing", enabled: true, group: "intelligence" },
-  { label: "Billing", href: "/dashboard/billing", icon: "overview", enabled: true, group: "intelligence" },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -339,6 +339,13 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const searchDialogRef = useRef<HTMLDivElement>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement>(null);
+  const settingsDialogRef = useRef<HTMLElement>(null);
+
+  useDialogFocusTrap(searchOpen, searchDialogRef, () => setSearchOpen(false));
+  useDialogFocusTrap(mobileDrawerOpen, mobileDrawerRef, () => setMobileDrawerOpen(false));
+  useDialogFocusTrap(settingsOpen, settingsDialogRef, () => setSettingsOpen(false));
 
   const filteredItems = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -574,7 +581,10 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
                   <button
                     type="button"
-                    onClick={() => router.push("/dashboard/billing")}
+                    onClick={() => {
+                      setSettingsSection("plan");
+                      setSettingsOpen(true);
+                    }}
                     className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
                       profile.trialExpired
                         ? "text-[#A33A32] hover:text-[#852F29]"
@@ -588,7 +598,10 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   {/* Compact trigger for collapsed tablet sidebar */}
                   <button
                     type="button"
-                    onClick={() => router.push("/dashboard/billing")}
+                    onClick={() => {
+                      setSettingsSection("plan");
+                      setSettingsOpen(true);
+                    }}
                     title={upgradeCardAction}
                     aria-label={upgradeCardAction}
                     className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[#EFEAFB] py-1 text-[10px] font-bold text-[#644ABB] lg:hidden"
@@ -772,10 +785,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               }}
             >
               <div
+                ref={mobileDrawerRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Workspace navigation"
-                className="flex h-full w-76 max-w-[85vw] flex-col justify-between overflow-y-auto border-l border-[#E9E8E1] bg-[#F5F4ED] p-4 shadow-xl"
+                tabIndex={-1}
+                className="flex h-full w-76 max-w-[85vw] flex-col justify-between overflow-y-auto border-l border-[#E9E8E1] bg-[#F5F4ED] p-4 shadow-xl outline-none"
               >
                 <div>
                   <div className="flex items-center justify-between border-b border-[#E6E5DD] pb-3">
@@ -849,7 +864,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         type="button"
                         onClick={() => {
                           setMobileDrawerOpen(false);
-                          router.push("/dashboard/billing");
+                          setSettingsSection("plan");
+                          setSettingsOpen(true);
                         }}
                         className="mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]"
                       >
@@ -915,7 +931,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
             <div className="fixed inset-0 z-[60] flex items-start justify-center bg-[#1B1C18]/25 px-4 pt-[15vh]" onMouseDown={(event) => {
               if (event.target === event.currentTarget) setSearchOpen(false);
             }}>
-              <div className="w-full max-w-[520px] overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white shadow-[0_20px_64px_rgba(27,28,24,0.18)]">
+              <div ref={searchDialogRef} role="dialog" aria-modal="true" aria-label="Search Foolioo workspace" tabIndex={-1} className="w-full max-w-[520px] overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white shadow-[0_20px_64px_rgba(27,28,24,0.18)] outline-none">
                 <div className="flex items-center gap-3 border-b border-[#E9E8E1] px-4 py-3">
                   <Icon name="search" className="h-4 w-4 text-[#747878]" />
                   <input
@@ -979,7 +995,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               className="fixed inset-0 z-[70] flex items-center justify-center bg-[#1B1C18]/30 px-4 py-8"
               onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}
             >
-              <section role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" className="w-full max-w-[480px] rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6">
+              <section ref={settingsDialogRef} role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" tabIndex={-1} className="w-full max-w-[480px] rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] outline-none sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">ACCOUNT</p>
@@ -1015,7 +1031,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     </div>
                     {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
                   </div>
-                  <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Purchase one-time credit packs via Razorpay on the <Link href="/dashboard/billing" onClick={() => setSettingsOpen(false)} className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">Billing page</Link>.</p>
+                  <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we&apos;ll get back to you within one business day.</p>
                 </div>
                 <div className="mt-5 flex justify-end">
                   <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>

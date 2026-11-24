@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import {
   bulkCreateContactsAction,
   previewContactImportAction,
@@ -141,6 +142,15 @@ function MetricCard({
       <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">
         {detail}
       </p>
+      <ConfirmDialog
+        open={pendingDeleteContact !== null}
+        title="Delete contact?"
+        description={pendingDeleteContact?.confirmationMessage ?? ""}
+        confirmLabel="Delete"
+        busy={deletingId === pendingDeleteContact?.contact.id}
+        onCancel={() => setPendingDeleteContact(null)}
+        onConfirm={() => void confirmDeleteContact()}
+      />
     </div>
   );
 }
@@ -1276,6 +1286,7 @@ export function ContactsDashboard({
   }, [notice]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteContact, setPendingDeleteContact] = useState<{ contact: ContactRecord; confirmationMessage: string } | null>(null);
 
   const requestCounterRef = useRef(0);
   const isInitialMountRef = useRef(true);

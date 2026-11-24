@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import {
   cancelQueuedCallAction,
   createTestCallAction,
@@ -82,40 +83,28 @@ export function TestCallDashboard() {
   const [liveStatusError, setLiveStatusError] = useState<string | null>(null);
   const [cancellingQueueId, setCancellingQueueId] = useState<string | null>(null);
   const [queueActionError, setQueueActionError] = useState<string | null>(null);
+  const [pendingCancelEntry, setPendingCancelEntry] = useState<LiveQueueEntry | null>(null);
 
   useEffect(() => {
     let disposed = false;
-    let inFlight = false;
     let timer: number | undefined;
 
-    const scheduleNext = (ms: number) => {
-      if (disposed) return;
-      if (timer !== undefined) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        void refreshLiveStatus();
-      }, ms);
-    };
-
     const refreshLiveStatus = async () => {
-      if (disposed) return;
-      if (document.visibilityState === "hidden") {
-        scheduleNext(15000);
-        return;
-      }
-      if (inFlight) return;
-      inFlight = true;
+      if (document.visibilityState === "hidden") return;
 
       try {
         const result = await getLiveCallStatusAction();
         if (disposed) return;
 
-        if (!result.ok || !result.data) {
-          setLiveStatusError(
-            !result.ok && result.error
-              ? result.error
-              : "Live call status is temporarily unavailable.",
-          );
-          scheduleNext(15000);
+        if (!result.ok) {
+          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
+          return;
+        }
+
+        if (!result.data) {
+          setLiveStatusError("Live call status is temporarily unavailable.");
+          timer = window.setTimeout(refreshLiveStatus, 15000);
           return;
         }
 
@@ -143,22 +132,20 @@ export function TestCallDashboard() {
 
         const hasImmediateWork = nextStatus.inProgressCount > 0 || nextStatus.duePendingCount > 0;
         if (hasImmediateWork) {
-          scheduleNext(8000);
+          timer = window.setTimeout(refreshLiveStatus, 8000);
         } else if (nextStatus.pendingCount > 0 && nextStatus.nextPendingAt) {
           const nextAttemptAt = new Date(nextStatus.nextPendingAt).getTime();
           const waitMs = Number.isFinite(nextAttemptAt)
             ? Math.max(1000, nextAttemptAt - Date.now())
             : 30000;
-          scheduleNext(waitMs);
+          timer = window.setTimeout(refreshLiveStatus, waitMs);
         }
       } catch (err) {
         if (disposed) return;
         setLiveStatusError(
           err instanceof Error ? err.message : "Live call status is temporarily unavailable.",
         );
-        scheduleNext(15000);
-      } finally {
-        inFlight = false;
+        timer = window.setTimeout(refreshLiveStatus, 15000);
       }
     };
 
@@ -231,12 +218,16 @@ export function TestCallDashboard() {
     }
   };
 
-  const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
+  const handleCancelQueuedCall = (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
+    setQueueActionError(null);
+    setPendingCancelEntry(entry);
+  };
+
+  const confirmCancelQueuedCall = async () => {
+    const entry = pendingCancelEntry;
+    if (!entry || cancellingQueueId) return;
     const recipient = entry.contactName || entry.phoneNumber || "this recipient";
-    if (!window.confirm(`Cancel the queued call to ${recipient}? It will not be attempted.`)) {
-      return;
-    }
 
     setCancellingQueueId(entry.id);
     setQueueActionError(null);
@@ -260,6 +251,7 @@ export function TestCallDashboard() {
       entries: current.entries.filter((item) => item.id !== entry.id),
     }));
     setCallNotice(`Queued call to ${recipient} cancelled.`);
+    setPendingCancelEntry(null);
     setLiveRefreshKey((value) => value + 1);
     router.refresh();
   };
@@ -448,6 +440,15 @@ export function TestCallDashboard() {
           </section>
         </aside>
       </div>
+      <ConfirmDialog
+        open={pendingCancelEntry !== null}
+        title="Cancel queued call?"
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        confirmLabel="Cancel call"
+        busy={cancellingQueueId !== null}
+        onCancel={() => setPendingCancelEntry(null)}
+        onConfirm={() => void confirmCancelQueuedCall()}
+      />
     </div>
   );
 }
