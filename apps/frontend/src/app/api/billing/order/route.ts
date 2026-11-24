@@ -1,82 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
-import { createBillingOrderRequestSchema } from "@/features/billing/schemas";
-import { sanitizeUserError } from "@/lib/utils/sanitize-error";
+import { createOrderRequestSchema } from "@/features/billing/schemas";
+import { enforceDevTestPlanAllowed } from "@/features/billing/utils/dev-test-guard";
+import { DEV_TEST_PLAN_AMOUNT_PAISE, DEV_TEST_PLAN_ID } from "@/features/billing/utils/dev-test-plan";
 
-function backendBaseUrl(): string {
-  return (
-    process.env.BACKEND_API_URL?.trim() ||
-    process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    "http://localhost:4000"
-  ).replace(/\/+$/, "");
+function resolveBackendBaseUrl(): string | null {
+  const raw =
+    process.env.BACKEND_API_URL ||
+    process.env.NEXT_PUBLIC_BACKEND_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "";
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  return trimmed ? trimmed : null;
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getDashboardAuthContext();
-  if (!auth) {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
     return NextResponse.json(
-      { ok: false, error: "You must be signed in to make a payment." },
-      { status: 401 },
+      { ok: false, error: "Invalid JSON request body." },
+      { status: 400 },
     );
   }
 
-  const rawBody: unknown = await request.json().catch(() => null);
-  const parsed = createBillingOrderRequestSchema.safeParse(rawBody);
+  const parsed = createOrderRequestSchema.safeParse(rawBody);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "Invalid plan selected for payment." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: JSON.stringify(parsed.error.issues) },
+      { status: 400 },
+    );
   }
 
-  const idempotencyKey =
-    request.headers.get("idempotency-key")?.trim() || parsed.data.idempotencyKey;
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${auth.accessToken}`,
-    "Content-Type": "application/json",
-  };
-  if (idempotencyKey) {
-    headers["Idempotency-Key"] = idempotencyKey;
+  const { planId, idempotencyKey, billingDetails } = parsed.data;
+  const blockedResponse = enforceDevTestPlanAllowed(planId, request.headers);
+  if (blockedResponse) {
+    return blockedResponse;
   }
 
-  try {
-    const response = await fetch(`${backendBaseUrl()}/api/billing/order`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        planId: parsed.data.planId,
-        ...(idempotencyKey ? { idempotencyKey } : {}),
-        ...(parsed.data.billingDetails ? { billingDetails: parsed.data.billingDetails } : {}),
-      }),
-      cache: "no-store",
-    });
-    const payload: unknown = await response.json().catch(() => null);
-    const record =
-      typeof payload === "object" && payload !== null && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>)
-        : null;
-
-    if (!response.ok || !record || record.ok === false) {
+  const backendBase = resolveBackendBaseUrl();
+  if (!backendBase) {
+    if (planId === DEV_TEST_PLAN_ID) {
       return NextResponse.json(
-        { ok: false, error: sanitizeUserError(record?.error, "Unable to create payment order right now.") },
-        { status: response.status || 502 },
+        {
+          ok: false,
+          error:
+            "Backend billing endpoint is not configured yet for dev_test (expected 500 paise / INR 5 order creation on backend).",
+          expectedAmountPaise: DEV_TEST_PLAN_AMOUNT_PAISE,
+        },
+        { status: 503 },
       );
     }
-
     return NextResponse.json(
-      {
-        ok: true,
-        ...record,
-        keyId:
-          typeof record.keyId === "string" && record.keyId.trim()
-            ? record.keyId.trim()
-            : process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() || undefined,
-      },
-      { status: response.status, headers: { "Cache-Control": "no-store" } },
-    );
-  } catch (error) {
-    console.error("[api/billing/order] POST failed:", error);
-    return NextResponse.json(
-      { ok: false, error: sanitizeUserError(error instanceof Error ? error.message : null, "Unable to reach payment service.") },
-      { status: 502 },
+      { ok: false, error: "Backend billing order endpoint is not configured." },
+      { status: 503 },
     );
   }
+
+  const forwardHeaders: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  const cookie = request.headers.get("cookie");
+  const auth = request.headers.get("authorization");
+  const host = request.headers.get("host");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (cookie) forwardHeaders.cookie = cookie;
+  if (auth) forwardHeaders.authorization = auth;
+  if (host) forwardHeaders["x-client-host"] = host;
+  if (forwardedHost) forwardHeaders["x-forwarded-host"] = forwardedHost;
+
+  const upstream = await fetch(`${backendBase}/api/billing/order`, {
+    method: "POST",
+    headers: forwardHeaders,
+    body: JSON.stringify({
+      planId,
+      idempotencyKey,
+      billingDetails,
+      ...(planId === DEV_TEST_PLAN_ID ? { amountPaise: DEV_TEST_PLAN_AMOUNT_PAISE, currency: "INR" } : {}),
+    }),
+    cache: "no-store",
+  });
+
+  const text = await upstream.text();
+  return new NextResponse(text, {
+    status: upstream.status,
+    headers: {
+      "content-type": upstream.headers.get("content-type") || "application/json",
+    },
+  });
 }
