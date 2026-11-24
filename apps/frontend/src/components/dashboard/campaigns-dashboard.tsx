@@ -132,7 +132,6 @@ function cleanScriptText(raw: string | null | undefined): string {
     .trim();
 }
 
-
 function normalizeObjectionHandlers(rawHandlers: unknown[] | undefined): ObjectionHandler[] {
   if (!Array.isArray(rawHandlers)) return [];
   const normalized: ObjectionHandler[] = [];
@@ -175,6 +174,7 @@ function serializeObjectionHandlers(handlers: ObjectionHandler[]): ObjectionHand
     }))
     .filter((h) => h.objection.length > 0 && h.response.length > 0);
 }
+
 function extractEditableTalkingPoints(points: string[] | undefined): string[] {
   if (!points?.length) return [];
   const filtered = points
@@ -596,8 +596,7 @@ function CampaignForm({
         return;
       }
 
-      const launchImmediately =
-        event.currentTarget.dataset.launchAfterSave === "1";
+      const launchImmediately = event.currentTarget.dataset.launchAfterSave === "1";
       event.currentTarget.dataset.launchAfterSave = "0";
       const createdRecord =
         result.data && typeof result.data.campaign === "object" && result.data.campaign !== null
@@ -658,9 +657,7 @@ function CampaignForm({
                 name="name"
                 required
                 maxLength={120}
-                defaultValue={
-                  initialDraft ? `${cleanDisplayTitle(initialDraft.name)} (Copy)` : ""
-                }
+                defaultValue={initialDraft ? `${cleanDisplayTitle(initialDraft.name)} (Copy)` : ""}
                 className={INPUT}
                 placeholder="e.g. New enquiries follow-up"
               />
@@ -757,7 +754,7 @@ function CampaignForm({
               placeholder="e.g. Offer to send more information by email"
             />
           </label>
-      
+
           <ObjectionHandlersEditor
             handlers={objectionHandlers}
             onChange={setObjectionHandlers}
@@ -1095,7 +1092,7 @@ function CampaignFullEditor({
             />
           </label>
         </div>
-    
+
         <ObjectionHandlersEditor
           handlers={objectionHandlers}
           onChange={setObjectionHandlers}
@@ -1209,7 +1206,7 @@ function CampaignDetailView({
   onLaunch,
   onStatusChange,
   onDuplicate,
-  onDeleteDraft,
+  onDeleteCampaign,
   onSaved,
 }: {
   campaign: Campaign;
@@ -1218,7 +1215,7 @@ function CampaignDetailView({
   onLaunch: (campaign: Campaign) => void;
   onStatusChange: (campaign: Campaign, next: "active" | "paused") => void;
   onDuplicate: (campaign: Campaign) => void;
-  onDeleteDraft: (campaign: Campaign) => void;
+  onDeleteCampaign: (campaign: Campaign) => void;
   onSaved: (message: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "script" | "edit">(initialTab);
@@ -1275,7 +1272,6 @@ function CampaignDetailView({
 
   return (
     <div className="mx-auto max-w-[980px] space-y-7 pb-8">
-      {/* Dedicated Campaign Page Header */}
       <div className="space-y-4">
         <button
           type="button"
@@ -1309,7 +1305,6 @@ function CampaignDetailView({
             </p>
           </div>
 
-          {/* Header Actions: Lifecycle CTA + Edit Tab Switch + Overflow Menu */}
           <div
             className="flex shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
@@ -1391,20 +1386,18 @@ function CampaignDetailView({
                     <Icon kind="copy" className="h-3.5 w-3.5 text-[#747878]" />
                     Duplicate campaign
                   </button>
-                  {campaign.status === "draft" ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setActionsOpen(false);
-                        onDeleteDraft(campaign);
-                      }}
-                      className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
-                    >
-                      <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
-                      Delete draft
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      onDeleteCampaign(campaign);
+                    }}
+                    className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                  >
+                    <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
+                    Delete campaign
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1412,7 +1405,6 @@ function CampaignDetailView({
         </div>
       </div>
 
-      {/* Unified Live Performance Strip */}
       <section
         aria-label="Campaign metrics"
         className="grid grid-cols-2 divide-y divide-[#ECEBE5] rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F5] sm:grid-cols-4 sm:divide-x sm:divide-y-0"
@@ -1457,7 +1449,6 @@ function CampaignDetailView({
         </div>
       </section>
 
-      {/* Dedicated Workspace Tabs: Overview | Call Script & Flow | Edit Campaign */}
       <div>
         <div
           role="tablist"
@@ -1855,7 +1846,7 @@ export function CampaignsDashboard({
   } | null>(() =>
     initialCampaignId ? { campaignId: initialCampaignId, initialTab: "overview" } : null,
   );
-  const [deletingDraft, setDeletingDraft] = useState<Campaign | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   useEffect(() => {
@@ -2115,19 +2106,19 @@ export function CampaignsDashboard({
     router.refresh();
   };
 
-  const confirmDeleteDraft = async () => {
-    if (!deletingDraft || deleteBusy) return;
+  const confirmDeleteCampaign = async () => {
+    if (!deletingCampaign || deleteBusy) return;
     setDeleteBusy(true);
-    const result = await deleteDraftCampaignAction(deletingDraft.id);
+    const result = await deleteDraftCampaignAction(deletingCampaign.id);
     setDeleteBusy(false);
     if (!result.ok) {
-      setNotice(`Could not delete draft campaign: ${result.error}`);
-      setDeletingDraft(null);
+      setNotice(`Could not delete campaign: ${result.error}`);
+      setDeletingCampaign(null);
       return;
     }
-    const deletedName = cleanDisplayTitle(deletingDraft.name);
-    setDeletingDraft(null);
-    setNotice(`Deleted draft campaign "${deletedName}".`);
+    const deletedName = cleanDisplayTitle(deletingCampaign.name);
+    setDeletingCampaign(null);
+    setNotice(`Deleted campaign "${deletedName}".`);
     router.refresh();
   };
 
@@ -2273,9 +2264,9 @@ export function CampaignsDashboard({
           setDetailSelection(null);
           setDuplicateSource(c);
         }}
-        onDeleteDraft={(c) => {
+        onDeleteCampaign={(c) => {
           setDetailSelection(null);
-          setDeletingDraft(c);
+          setDeletingCampaign(c);
         }}
         onSaved={(msg) => {
           setNotice(msg);
@@ -2287,7 +2278,6 @@ export function CampaignsDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Launch Campaign Modal */}
       {launchingCampaign ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#171812]/45 p-4"
@@ -2731,35 +2721,35 @@ export function CampaignsDashboard({
         </div>
       ) : null}
 
-      {/* Delete Draft Confirmation Modal */}
-      {deletingDraft ? (
+      {deletingCampaign ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#171812]/45 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="delete-draft-title"
+          aria-labelledby="delete-campaign-title"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setDeletingDraft(null);
+            if (event.target === event.currentTarget && !deleteBusy) setDeletingCampaign(null);
           }}
         >
           <div className="w-full max-w-[440px] rounded-[12px] border border-[#ECEBE5] bg-white p-5 shadow-xl sm:p-6">
             <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#A33A32]">
-              Delete draft campaign
+              Delete campaign
             </p>
             <h2
-              id="delete-draft-title"
+              id="delete-campaign-title"
               className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]"
             >
-              Delete &ldquo;{cleanDisplayTitle(deletingDraft.name)}&rdquo;?
+              Delete &ldquo;{cleanDisplayTitle(deletingCampaign.name)}&rdquo;?
             </h2>
             <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
-              This draft campaign will be permanently removed from your workspace. Only draft
-              campaigns can be deleted.
+              {deletingCampaign.status === "active"
+                ? "This campaign is currently active. Deleting it will stop any queued calls and permanently remove this campaign from your workspace without affecting other campaigns."
+                : "This campaign will be permanently removed from your workspace. Other campaigns will not be affected, and this action cannot be undone."}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setDeletingDraft(null)}
+                onClick={() => setDeletingCampaign(null)}
                 disabled={deleteBusy}
                 className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
               >
@@ -2767,18 +2757,17 @@ export function CampaignsDashboard({
               </button>
               <button
                 type="button"
-                onClick={confirmDeleteDraft}
+                onClick={confirmDeleteCampaign}
                 disabled={deleteBusy}
                 className="h-9 rounded-[8px] bg-[#A33A32] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#8A2E27] disabled:opacity-50"
               >
-                {deleteBusy ? "Deleting…" : "Delete draft"}
+                {deleteBusy ? "Deleting…" : "Delete campaign"}
               </button>
             </div>
           </div>
         </div>
       ) : null}
 
-      {/* Compact Page Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ECEBE5] pb-5">
         <div>
           <h1 className="font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
@@ -2833,7 +2822,6 @@ export function CampaignsDashboard({
         </div>
       ) : null}
 
-      {/* 4 Uniform Metric Cards */}
       <section
         aria-label="Campaign metrics"
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
@@ -2868,9 +2856,7 @@ export function CampaignsDashboard({
         />
       </section>
 
-      {/* Campaign Management Card */}
       <section className="overflow-visible rounded-[12px] border border-[#E9E8E1] bg-white shadow-[0_1px_2px_rgba(27,28,24,0.03)]">
-        {/* Toolbar: Title + Search + Single Filter/Sort Popover */}
         <div className="flex flex-col gap-3 border-b border-[#ECEBE5] px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
@@ -2908,7 +2894,6 @@ export function CampaignsDashboard({
               ) : null}
             </label>
 
-            {/* Compact Filter & Sort Popover Trigger */}
             <div className="relative" onClick={(event) => event.stopPropagation()}>
               <button
                 type="button"
@@ -3006,7 +2991,6 @@ export function CampaignsDashboard({
           </div>
         </div>
 
-        {/* Clean Segmented Status Tabs */}
         <div
           role="tablist"
           aria-label="Filter campaigns by status"
@@ -3057,7 +3041,6 @@ export function CampaignsDashboard({
           </span>
         </div>
 
-        {/* Clean 3-Zone Campaign Rows */}
         {filteredCampaigns.length > 0 ? (
           <div className="divide-y divide-[#ECEBE5]">
             {filteredCampaigns.map((campaign) => {
@@ -3078,7 +3061,6 @@ export function CampaignsDashboard({
                   className="group cursor-pointer px-4 py-4 transition-colors hover:bg-[#FCFBF8] sm:px-5"
                 >
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px_auto] lg:items-center lg:gap-6">
-                    {/* AREA A: Campaign Title, Status, Objective & Single Metadata Line */}
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] transition-colors group-hover:text-[#644ABB]">
@@ -3107,7 +3089,6 @@ export function CampaignsDashboard({
                       </div>
                     </div>
 
-                    {/* AREA B: Clean Horizontal KPI Strip */}
                     <div className="grid grid-cols-3 divide-x divide-[#ECEBE5] rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] py-2">
                       <div className="px-3">
                         <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
@@ -3135,7 +3116,6 @@ export function CampaignsDashboard({
                       </div>
                     </div>
 
-                    {/* AREA C: Contextual Primary CTA + Three-Dot Actions Menu */}
                     <div
                       className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
                       onClick={(event) => event.stopPropagation()}
@@ -3284,27 +3264,24 @@ export function CampaignsDashboard({
                                 Resume campaign
                               </button>
                             ) : null}
-                            {campaign.status === "draft" ? (
-                              <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  setDeletingDraft(campaign);
-                                }}
-                                className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
-                              >
-                                <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
-                                Delete draft
-                              </button>
-                            ) : null}
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                setDeletingCampaign(campaign);
+                              }}
+                              className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                            >
+                              <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
+                              Delete campaign
+                            </button>
                           </div>
                         ) : null}
                       </div>
                     </div>
                   </div>
 
-                  {/* Subtle Full-Width Bottom Progress Strip only when queue has data */}
                   {progress.hasQueueData ? (
                     <div className="mt-3 flex items-center gap-3 pt-1">
                       <div
@@ -3333,7 +3310,6 @@ export function CampaignsDashboard({
             })}
           </div>
         ) : (
-          /* Contextual Empty States */
           <div className="flex flex-col items-center px-5 py-14 text-center">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#644ABB]">
               <Icon kind="layers" className="h-5 w-5" />
