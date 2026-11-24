@@ -29,6 +29,7 @@ type IconName =
   | "knowledge"
   | "analytics"
   | "testing"
+  | "billing"
   | "search"
   | "settings"
   | "arrow"
@@ -134,6 +135,9 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
       break;
     case "testing":
       artwork = <><path d="M9 3h6M10 3v5l-4.5 7.5A2 2 0 0 0 7.2 18.5h9.6a2 2 0 0 0 1.7-3L14 8V3" /><path d="M8.5 13h7" /></>;
+      break;
+    case "billing":
+      artwork = <><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /></>;
       break;
     case "search":
       artwork = <><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4.5 4.5" /></>;
@@ -338,6 +342,15 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileDrawerOpen]);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const searchDialogRef = useRef<HTMLDivElement>(null);
   const mobileDrawerRef = useRef<HTMLDivElement>(null);
@@ -517,6 +530,27 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       onSetupAction={openSetupAction}
                     />
                   ))}
+
+                  <Link
+                    href="/dashboard/billing"
+                    aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                      isRouteActive("/dashboard/billing")
+                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                    }`}
+                    title="Billing"
+                  >
+                    <Icon
+                      name="billing"
+                      className={`h-4 w-4 shrink-0 ${
+                        isRouteActive("/dashboard/billing")
+                          ? "text-[#644ABB]"
+                          : "text-[#666A68] group-hover:text-[#1B1C18]"
+                      }`}
+                    />
+                    <span className="hidden lg:inline">Billing</span>
+                  </Link>
 
                   <Link
                     href="/dashboard/settings"
@@ -841,6 +875,32 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         </Link>
                       );
                     })}
+                    <Link
+                      href="/dashboard/billing"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                        isRouteActive("/dashboard/billing")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
+                          : "text-[#444748] hover:bg-[#ECEBE4]"
+                      }`}
+                    >
+                      <Icon name="billing" className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Billing</span>
+                    </Link>
+                    <Link
+                      href="/dashboard/settings"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                        isRouteActive("/dashboard/settings")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
+                          : "text-[#444748] hover:bg-[#ECEBE4]"
+                      }`}
+                    >
+                      <Icon name="settings" className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Settings</span>
+                    </Link>
                   </div>
                 </div>
 
