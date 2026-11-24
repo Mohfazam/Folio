@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import { sanitizeUserError } from "@/lib/utils/sanitize-error";
 
 export default function DashboardRouteError({
@@ -11,6 +14,10 @@ export default function DashboardRouteError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [isRetrying, startTransition] = useTransition();
+
   useEffect(() => {
     console.error("[dashboard/error] Route error boundary caught:", error);
   }, [error]);
@@ -19,6 +26,14 @@ export default function DashboardRouteError({
     error?.message,
     "Something went wrong while rendering this dashboard view. Your data and session are safe.",
   );
+
+  const handleTryAgain = () => {
+    startTransition(() => {
+      void queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
+      router.refresh();
+      reset();
+    });
+  };
 
   return (
     <div className="mx-auto w-full max-w-[760px] py-6">
@@ -44,10 +59,11 @@ export default function DashboardRouteError({
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button
             type="button"
-            onClick={reset}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            disabled={isRetrying}
+            onClick={handleTryAgain}
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#34352F] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
-            Try again
+            {isRetrying ? "Retrying…" : "Try again"}
           </button>
           <Link
             href="/dashboard"
