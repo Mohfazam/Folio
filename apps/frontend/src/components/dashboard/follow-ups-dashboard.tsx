@@ -95,6 +95,11 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
 
   const openCount = followUps.filter((item) => item.status === "open").length;
   const overdueCount = followUps.filter(isOverdue).length;
@@ -183,11 +188,30 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         {filtered.length ? <div className="divide-y divide-[#F0EFE9]">
           {filtered.map((item) => {
             const contactName = item.contact?.fullName || "Unknown contact";
+            const description = item.notes || item.call?.summary || "No notes added.";
+            const isExpanded = Boolean(expandedIds[item.id]);
+            const canExpand = description.length > 105 || description.includes("\n");
+
             return <article key={item.id} className="grid gap-3 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(150px,0.8fr)_minmax(180px,0.8fr)] lg:items-center">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2"><h3 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{contactName}</h3><StatusPill status={item.status} /><PriorityPill priority={item.priority} />{isOverdue(item) ? <span className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#B33B32]">Overdue</span> : null}</div>
                 <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{item.contact?.phoneNumber || "No phone number"}{item.contact?.courseOrStream ? ` · ${item.contact.courseOrStream}` : ""}</p>
-                <p className="mt-2 line-clamp-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">{item.notes || item.call?.summary || "No notes added."}</p>
+                
+                <div className="mt-2">
+                  <p className={`whitespace-pre-line break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878] ${isExpanded ? "" : "line-clamp-2"}`}>
+                    {description}
+                  </p>
+                  {canExpand ? (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(item.id)}
+                      className="mt-1 inline-flex items-center font-['Space_Grotesk'] text-[11px] font-semibold text-[#7055A8] hover:underline"
+                    >
+                      {isExpanded ? "Show less" : "Read more"}
+                    </button>
+                  ) : null}
+                </div>
+
                 {item.call?.outcome ? <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">From call · {titleCase(item.call.outcome)}{item.call.interestLevel ? ` · ${titleCase(item.call.interestLevel)} interest` : ""}</p> : null}
               </div>
               <div className="space-y-1"><p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-wide text-[#92938C]">{titleCase(item.type)}</p><p className="font-['Space_Grotesk'] text-[11px] text-[#444748]">Due {formatDate(item.dueDate || item.requestedCallbackTime)}</p><p className="font-['Space_Grotesk'] text-[10px] text-[#92938C]">Created {formatDate(item.createdAt)}</p></div>
