@@ -1978,6 +1978,14 @@ export function CampaignsDashboard({
   const [creating, setCreating] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<Campaign | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [detailSelection, setDetailSelection] = useState<{
     campaignId: string;
