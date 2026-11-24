@@ -1,5 +1,5 @@
-export type PurchasablePlanId = "growth" | "pro";
-export type AllPlanId = "growth" | "pro" | "scale";
+export type PurchasablePlanId = "growth" | "pro" | "scale";
+export type AllPlanId = PurchasablePlanId;
 
 export interface OneTimePlanDefinition {
   id: PurchasablePlanId;

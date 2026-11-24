@@ -522,124 +522,105 @@ export function BillingDashboard() {
         </div>
       ) : null}
 
-      {/* Main Two-Column Grid */}
-      <div className="grid gap-6 lg:grid-cols-12">
-        {/* Left: Plan Cards with #4 Full Feature Parity */}
-        <div className="space-y-4 lg:col-span-7">
-          <div className="flex items-center justify-between">
-            <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
-              1. Choose a one-time plan
-            </h2>
-            <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
-              ~1 credit = 10s connected talk time
-            </span>
-          </div>
+      {/* 1. All 3 Plans Grid */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
+            1. Choose a one-time plan (Growth, Pro, or Scale)
+          </h2>
+          <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+            ~1 credit = 10s connected talk time
+          </span>
+        </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {ONE_TIME_PLAN_LIST.map((plan) => {
-              const isSelected = plan.id === selectedPlanId;
-              return (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => handleSelectPlan(plan.id)}
-                  aria-pressed={isSelected}
-                  className={`relative flex flex-col justify-between rounded-2xl p-6 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
-                    isSelected
-                      ? "border-2 border-[#1B1C18] bg-[#FFFEFB] shadow-[0_12px_32px_rgba(27,28,24,0.08)]"
-                      : "border border-[#E6E4DC] bg-white hover:border-[#C9C6BA]"
-                  }`}
-                >
-                  <div>
-                    <span className="mb-3 inline-flex w-fit rounded-full bg-[#1B1C18] px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[1.4px] text-white">
-                      {plan.badge || "ONE-TIME PACK"}
+        <div className="grid gap-4 md:grid-cols-3">
+          {ONE_TIME_PLAN_LIST.map((plan) => {
+            const isSelected = plan.id === selectedPlanId;
+            return (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => handleSelectPlan(plan.id)}
+                aria-pressed={isSelected}
+                className={`relative flex flex-col justify-between rounded-2xl p-6 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
+                  isSelected
+                    ? "border-2 border-[#1B1C18] bg-[#FFFEFB] shadow-[0_12px_32px_rgba(27,28,24,0.08)]"
+                    : "border border-[#E6E4DC] bg-white hover:border-[#C9C6BA]"
+                }`}
+              >
+                <div>
+                  <span className="mb-3 inline-flex w-fit rounded-full bg-[#1B1C18] px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[1.4px] text-white">
+                    {plan.badge || "ONE-TIME PACK"}
+                  </span>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-['Space_Grotesk'] text-[20px] font-bold text-[#1B1C18]">
+                      {plan.name}
+                    </h3>
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
+                        isSelected
+                          ? "border-[#1B1C18] bg-[#1B1C18] text-white"
+                          : "border-[#D5D3C8] bg-white text-transparent"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      ✓
                     </span>
+                  </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-['Space_Grotesk'] text-[20px] font-bold text-[#1B1C18]">
-                        {plan.name}
-                      </h3>
-                      <span
-                        className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] ${
-                          isSelected
-                            ? "border-[#1B1C18] bg-[#1B1C18] text-white"
-                            : "border-[#D5D3C8] bg-white text-transparent"
-                        }`}
-                        aria-hidden="true"
-                      >
-                        ✓
+                  <p className="mt-1.5 font-['Space_Grotesk'] text-[12.5px] leading-[1.45] text-[#747878]">
+                    {plan.description}
+                  </p>
+
+                  <div className="mt-5 border-t border-[#ECEBE4] pt-4">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      {plan.originalPriceInr ? (
+                        <span className="font-['Space_Grotesk'] text-[16px] font-medium text-[#8C8F8E] line-through">
+                          {formatInr(plan.originalPriceInr)}
+                        </span>
+                      ) : null}
+                      <span className="font-['Space_Grotesk'] text-[32px] font-bold tracking-[-0.8px] text-[#1B1C18]">
+                        {formatInr(plan.priceInr)}
+                      </span>
+                      <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
+                        one-time
                       </span>
                     </div>
 
-                    <p className="mt-1.5 font-['Space_Grotesk'] text-[12.5px] leading-[1.45] text-[#747878]">
-                      {plan.description}
-                    </p>
-
-                    <div className="mt-5 border-t border-[#ECEBE4] pt-4">
-                      <div className="flex flex-wrap items-baseline gap-2">
-                        {plan.originalPriceInr ? (
-                          <span className="font-['Space_Grotesk'] text-[16px] font-medium text-[#8C8F8E] line-through">
-                            {formatInr(plan.originalPriceInr)}
-                          </span>
-                        ) : null}
-                        <span className="font-['Space_Grotesk'] text-[32px] font-bold tracking-[-0.8px] text-[#1B1C18]">
-                          {formatInr(plan.priceInr)}
-                        </span>
-                        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
-                          one-time
-                        </span>
-                      </div>
-
-                      <div className="mt-3 space-y-1">
-                        <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
-                          {formatCredits(plan.credits)} credits
-                        </p>
-                        <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
-                          {plan.estimateLabel} · {plan.roughlyCalls}
-                        </p>
-                      </div>
+                    <div className="mt-3 space-y-1">
+                      <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {formatCredits(plan.credits)} credits
+                      </p>
+                      <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
+                        {plan.estimateLabel} · {plan.roughlyCalls}
+                      </p>
                     </div>
-
-                    {/* Full feature list matching pricing.tsx (#4) */}
-                    <ul className="mt-4 space-y-2 border-t border-[#F1F0EA] pt-4">
-                      {plan.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-start gap-2 font-['Space_Grotesk'] text-[12px] leading-[1.4] text-[#444748]"
-                        >
-                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#E3FCEF] text-[10px] text-[#22A06B]">
-                            ✓
-                          </span>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
-                </button>
-              );
-            })}
-          </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E6E4DC] bg-[#FBFAF6] px-5 py-4">
-            <div>
-              <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
-                Need Scale (24,000 credits · ₹16,700) or dedicated SIP trunking?
-              </p>
-              <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">
-                Custom carrier routing, SLA, and volume provisioning are handled directly with our team.
-              </p>
-            </div>
-            <a
-              href="mailto:sales@foolioo.app?subject=Scale%20Plan%20Inquiry"
-              className="shrink-0 rounded-lg border border-[#DCDCD4] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED]"
-            >
-              Contact sales →
-            </a>
-          </div>
+                  <ul className="mt-4 space-y-2 border-t border-[#F1F0EA] pt-4">
+                    {plan.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 font-['Space_Grotesk'] text-[12px] leading-[1.4] text-[#444748]"
+                      >
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#E3FCEF] text-[10px] text-[#22A06B]">
+                          ✓
+                        </span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </button>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Right: Checkout Summary */}
-        <aside className="lg:col-span-5">
+      {/* 2. Checkout Summary */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        <aside className="lg:col-span-12">
           <div className="sticky top-6 rounded-2xl border border-[#E6E4DC] bg-[#FFFEFB] p-6 shadow-[0_8px_28px_rgba(27,28,24,0.04)]">
             <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
               2. Checkout summary
@@ -813,7 +794,7 @@ export function BillingDashboard() {
                 : "No one-time payments recorded yet."}
             </p>
             <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#85877F]">
-              Select Growth or Pro above and click Pay with Razorpay to purchase credits.
+              Select Growth, Pro, or Scale above and click Pay with Razorpay to purchase credits.
             </p>
           </div>
         )}

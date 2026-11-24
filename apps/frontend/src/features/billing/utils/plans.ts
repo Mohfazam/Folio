@@ -12,7 +12,7 @@ export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = 
     roughlyCalls: "~1,000 calls",
     description: "For scaling teams that require high-throughput voice operations.",
     features: [
-      "12,000 one-time credits added immediately",
+      "12,000 included credits",
       "~2,000 minutes of connected talk time",
       "~1 credit = 10 seconds of conversation",
       "Advanced state machine & branching",
@@ -33,7 +33,7 @@ export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = 
     roughlyCalls: "~1,500 calls",
     description: "For established teams managing high-volume outbound operations.",
     features: [
-      "18,000 one-time credits added immediately",
+      "18,000 included credits",
       "~3,000 minutes of connected talk time",
       "~1 credit = 10 seconds of conversation",
       "Use your own phone number for outbound calls",
@@ -44,12 +44,40 @@ export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = 
     ],
     highlighted: true,
   },
+  scale: {
+    id: "scale",
+    name: "Scale",
+    priceInr: 16700,
+    amountPaise: 1670000,
+    credits: 24000,
+    estimateLabel: "~4,000 min (66h 40m)",
+    roughlyCalls: "~2,000 calls",
+    description: "For operations with maximum volume and custom routing requirements.",
+    features: [
+      "24,000 included credits",
+      "~4,000 minutes of connected talk time",
+      "~1 credit = 10 seconds of conversation",
+      "Use your own phone number for outbound calls",
+      "Dedicated carrier trunking & BYO SIP",
+      "Dedicated account manager & SLA",
+      "SOC-2 Type II & HIPAA compliance",
+      "Custom LLM fine-tuning & deployment",
+    ],
+    highlighted: false,
+  },
 };
 
 export const ONE_TIME_PLAN_LIST: OneTimePlanDefinition[] = [
   ONE_TIME_PLANS.growth,
   ONE_TIME_PLANS.pro,
+  ONE_TIME_PLANS.scale,
 ];
+
+export function isPurchasablePlanId(value: string | null | undefined): value is PurchasablePlanId {
+  if (!value) return false;
+  const cleaned = value.trim().toLowerCase();
+  return cleaned === "growth" || cleaned === "pro" || cleaned === "scale";
+}
 
 export function formatInr(amountInr: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -65,7 +93,7 @@ export function formatCredits(credits: number): string {
 
 export function buildBillingPath(planId?: string | null): string {
   const normalized = planId?.trim().toLowerCase();
-  if (normalized === "growth" || normalized === "pro") {
+  if (isPurchasablePlanId(normalized)) {
     return `/dashboard/billing?plan=${encodeURIComponent(normalized)}`;
   }
   return "/dashboard/billing";

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { PurchasablePlanId } from "../types";
 
-export const purchasablePlanIdSchema = z.enum(["growth", "pro"]);
+export const purchasablePlanIdSchema = z.enum(["growth", "pro", "scale"]);
 
 export const createBillingOrderRequestSchema = z.object({
   planId: purchasablePlanIdSchema,

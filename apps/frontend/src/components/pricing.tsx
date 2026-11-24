@@ -168,16 +168,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                             </div>
 
                             <div className="mt-8 pt-4">
-                                {/* 1. Scale Plan */}
-                                {plan.name === "Scale" ? (
-                                    <a
-                                        href="mailto:sales@foolioo.app?subject=Scale%20Plan%20Inquiry"
-                                        className="flex h-11 w-full items-center justify-center rounded-xl border border-[#E9E8E1] bg-[#F5F3EC] font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#E9E8E1]"
-                                    >
-                                        Contact sales
-                                    </a>
-                                ) : /* 2. Logged-in users go straight to one-time payment checkout */
-                                currentPlan ? (
+                                {currentPlan ? (
                                     <Link href={`/dashboard/billing?plan=${plan.name.toLowerCase()}`} className="block w-full">
                                         <button
                                             type="button"
@@ -193,7 +184,6 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                                         </button>
                                     </Link>
                                 ) : (
-                                    /* 3. Logged-out users must sign in first and return to /dashboard/billing?plan=... */
                                     <Link
                                         href={`/sign-in?redirect=${encodeURIComponent(`/dashboard/billing?plan=${plan.name.toLowerCase()}`)}`}
                                         className="block w-full"
