@@ -39,7 +39,8 @@ export function trackBillingEvent(
 
   try {
     if (Array.isArray(window.dataLayer)) {
-      window.dataLayer.push({ event: `foolioo_${event}`, ...payload });
+      const { event: _ignoredEvent, ...rest } = payload;
+      window.dataLayer.push({ event: `foolioo_${event}`, ...rest });
     }
     if (typeof window.gtag === "function") {
       window.gtag("event", event, payload);
