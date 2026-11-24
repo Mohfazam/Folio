@@ -85,24 +85,37 @@ export function TestCallDashboard() {
 
   useEffect(() => {
     let disposed = false;
+    let inFlight = false;
     let timer: number | undefined;
 
+    const scheduleNext = (ms: number) => {
+      if (disposed) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void refreshLiveStatus();
+      }, ms);
+    };
+
     const refreshLiveStatus = async () => {
-      if (document.visibilityState === "hidden") return;
+      if (disposed) return;
+      if (document.visibilityState === "hidden") {
+        scheduleNext(15000);
+        return;
+      }
+      if (inFlight) return;
+      inFlight = true;
 
       try {
         const result = await getLiveCallStatusAction();
         if (disposed) return;
 
-        if (!result.ok) {
-          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
-          timer = window.setTimeout(refreshLiveStatus, 15000);
-          return;
-        }
-
-        if (!result.data) {
-          setLiveStatusError("Live call status is temporarily unavailable.");
-          timer = window.setTimeout(refreshLiveStatus, 15000);
+        if (!result.ok || !result.data) {
+          setLiveStatusError(
+            !result.ok && result.error
+              ? result.error
+              : "Live call status is temporarily unavailable.",
+          );
+          scheduleNext(15000);
           return;
         }
 
@@ -130,20 +143,22 @@ export function TestCallDashboard() {
 
         const hasImmediateWork = nextStatus.inProgressCount > 0 || nextStatus.duePendingCount > 0;
         if (hasImmediateWork) {
-          timer = window.setTimeout(refreshLiveStatus, 8000);
+          scheduleNext(8000);
         } else if (nextStatus.pendingCount > 0 && nextStatus.nextPendingAt) {
           const nextAttemptAt = new Date(nextStatus.nextPendingAt).getTime();
           const waitMs = Number.isFinite(nextAttemptAt)
             ? Math.max(1000, nextAttemptAt - Date.now())
             : 30000;
-          timer = window.setTimeout(refreshLiveStatus, waitMs);
+          scheduleNext(waitMs);
         }
       } catch (err) {
         if (disposed) return;
         setLiveStatusError(
           err instanceof Error ? err.message : "Live call status is temporarily unavailable.",
         );
-        timer = window.setTimeout(refreshLiveStatus, 15000);
+        scheduleNext(15000);
+      } finally {
+        inFlight = false;
       }
     };
 

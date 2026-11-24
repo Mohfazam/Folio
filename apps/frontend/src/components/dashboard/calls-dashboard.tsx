@@ -252,35 +252,52 @@ export function CallsDashboard({
 
   useEffect(() => {
     let disposed = false;
+    let inFlight = false;
     let timer: number | undefined;
 
+    const scheduleNext = (ms: number) => {
+      if (disposed) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void refreshLiveStatus();
+      }, ms);
+    };
+
     const refreshLiveStatus = async () => {
-      if (document.visibilityState === "hidden") return;
+      if (disposed) return;
+      if (document.visibilityState === "hidden") {
+        scheduleNext(15000);
+        return;
+      }
+      if (inFlight) return;
+      inFlight = true;
 
       try {
         const result = await getLiveCallStatusAction();
         if (disposed) return;
 
-        if (!result.ok) {
-          setLiveStatusError(result.error || "Live call status is temporarily unavailable.");
-          timer = window.setTimeout(refreshLiveStatus, 15000);
-          return;
-        }
-
-        if (!result.data) {
-          setLiveStatusError("Live call status is temporarily unavailable.");
-          timer = window.setTimeout(refreshLiveStatus, 15000);
+        if (!result.ok || !result.data) {
+          setLiveStatusError(
+            !result.ok && result.error
+              ? result.error
+              : "Live call status is temporarily unavailable.",
+          );
+          scheduleNext(15000);
           return;
         }
 
         const data = result.data;
         const entries = Array.isArray(data.entries)
-          ? data.entries.filter((entry): entry is LiveQueueEntry =>
-              typeof entry === "object" && entry !== null &&
-              typeof (entry as LiveQueueEntry).id === "string" &&
-              ((entry as LiveQueueEntry).status === "pending" || (entry as LiveQueueEntry).status === "in_progress"),
+          ? data.entries.filter(
+              (entry): entry is LiveQueueEntry =>
+                typeof entry === "object" &&
+                entry !== null &&
+                typeof (entry as LiveQueueEntry).id === "string" &&
+                ((entry as LiveQueueEntry).status === "pending" ||
+                  (entry as LiveQueueEntry).status === "in_progress"),
             )
           : [];
+
         const nextStatus: LiveCallStatus = {
           pendingCount: typeof data.pendingCount === "number" ? data.pendingCount : 0,
           inProgressCount: typeof data.inProgressCount === "number" ? data.inProgressCount : 0,
@@ -293,18 +310,22 @@ export function CallsDashboard({
 
         const hasImmediateWork = nextStatus.inProgressCount > 0 || nextStatus.duePendingCount > 0;
         if (hasImmediateWork) {
-          timer = window.setTimeout(refreshLiveStatus, 8000);
+          scheduleNext(8000);
         } else if (nextStatus.pendingCount > 0 && nextStatus.nextPendingAt) {
           const nextAttemptAt = new Date(nextStatus.nextPendingAt).getTime();
           const waitMs = Number.isFinite(nextAttemptAt)
             ? Math.max(1000, nextAttemptAt - Date.now())
             : 30000;
-          timer = window.setTimeout(refreshLiveStatus, waitMs);
+          scheduleNext(waitMs);
         }
-      } catch (error) {
+      } catch (err) {
         if (disposed) return;
-        setLiveStatusError(error instanceof Error ? error.message : "Live call status is temporarily unavailable.");
-        timer = window.setTimeout(refreshLiveStatus, 15000);
+        setLiveStatusError(
+          err instanceof Error ? err.message : "Live call status is temporarily unavailable.",
+        );
+        scheduleNext(15000);
+      } finally {
+        inFlight = false;
       }
     };
 
@@ -323,17 +344,6 @@ export function CallsDashboard({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [liveRefreshKey]);
-
-  const [callNotice, setCallNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!callNotice) return;
-    const timer = window.setTimeout(() => {
-      setCallNotice(null);
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [callNotice]);
-  const [, setCallComposerOpenState] = useState(false);
 
   const handleCancelQueuedCall = async (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
@@ -649,6 +659,17 @@ export function CallsDashboard({
           </div>
         </footer>
       </section>
+
+      <div className="!mt-0 fixed inset-x-0 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),8px))] z-30 border-t border-[#E9E8E1] bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(27,28,24,0.06)] backdrop-blur md:hidden">
+        {/* <button
+          type="button"
+          onClick={() => setCallComposerOpen(true)}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+        >
+          <span aria-hidden="true" className="text-[15px]">＋</span>
+          Make a test call
+        </button> */}
+      </div>
 
 
     </div>
