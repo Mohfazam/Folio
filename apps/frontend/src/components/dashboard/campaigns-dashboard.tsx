@@ -219,6 +219,34 @@ function formatDate(value: string | null | undefined) {
   }).format(date);
 }
 
+function isTransientDbMessage(msg: string | null | undefined): boolean {
+  if (!msg) return false;
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("temporary database connection") ||
+    lower.includes("database connection issue") ||
+    lower.includes("connection terminated") ||
+    lower.includes("econnreset") ||
+    lower.includes("etimedout") ||
+    lower.includes("too many clients")
+  );
+}
+
+async function withTransientRetry<T extends { ok: boolean; error?: string }>(
+  fn: () => Promise<T>,
+  retries = 2,
+): Promise<T> {
+  let lastResult = await fn();
+  for (let attempt = 0; attempt < retries; attempt++) {
+    if (lastResult.ok || !isTransientDbMessage(lastResult.error)) {
+      return lastResult;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 450 * (attempt + 1)));
+    lastResult = await fn();
+  }
+  return lastResult;
+}
+
 type IconKind =
   | "layers"
   | "activity"
@@ -541,10 +569,16 @@ function CampaignForm({
   onCancel: () => void;
   onCreated: (
     message?: string,
-    options?: { createdCampaignId?: string | null; launchImmediately?: boolean },
+    options?: {
+      createdCampaignId?: string | null;
+      createdCampaign?: Campaign | null;
+      launchImmediately?: boolean;
+    },
   ) => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const submittingRef = useRef(false);
+  const launchAfterSaveRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [objectionHandlers, setObjectionHandlers] = useState<ObjectionHandler[]>(() =>
     normalizeObjectionHandlers(initialDraft?.objectionHandlers),
@@ -556,11 +590,21 @@ function CampaignForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busy) return;
+    if (submittingRef.current || busy) return;
 
-    const form = new FormData(event.currentTarget);
-    const language = String(form.get("language") ?? "auto");
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const name = String(form.get("name") ?? "").trim();
+    const type = String(form.get("type") ?? "outreach_sales") as CampaignType;
+    const primaryObjective = String(form.get("primaryObjective") ?? "").trim();
+    const callOpeningHook = String(form.get("callOpeningHook") ?? "").trim();
     const rawTalkingPoints = String(form.get("keyTalkingPoints") ?? "");
+    const callToAction = String(form.get("callToAction") ?? "").trim();
+    const fallbackOffer = String(form.get("fallbackOffer") ?? "").trim() || undefined;
+    const targetAudience = String(form.get("targetAudience") ?? "").trim() || undefined;
+    const language = String(form.get("language") ?? "auto");
+    const maxDurationSeconds = Number(form.get("maxDurationSeconds") ?? 300);
+
     const editablePoints = extractEditableTalkingPoints(
       rawTalkingPoints
         .split("\n")
@@ -573,22 +617,29 @@ function CampaignForm({
       return;
     }
 
+    const launchImmediately = launchAfterSaveRef.current;
+    launchAfterSaveRef.current = false;
+
+    submittingRef.current = true;
     setBusy(true);
     setError(null);
 
+    const talkingPointsPayload = buildTalkingPointsPayload(language, rawTalkingPoints);
+    const serializedHandlers = serializeObjectionHandlers(objectionHandlers);
+
     try {
       const result = await createCampaignAction({
-        name: String(form.get("name") ?? "").trim(),
-        type: String(form.get("type") ?? "outreach_sales") as CampaignType,
-        primaryObjective: String(form.get("primaryObjective") ?? "").trim(),
-        callOpeningHook: String(form.get("callOpeningHook") ?? "").trim(),
-        keyTalkingPoints: buildTalkingPointsPayload(language, rawTalkingPoints),
-        objectionHandlers: serializeObjectionHandlers(objectionHandlers),
-        callToAction: String(form.get("callToAction") ?? "").trim(),
-        fallbackOffer: String(form.get("fallbackOffer") ?? "").trim() || undefined,
-        targetAudience: String(form.get("targetAudience") ?? "").trim() || undefined,
+        name,
+        type,
+        primaryObjective,
+        callOpeningHook,
+        keyTalkingPoints: talkingPointsPayload,
+        objectionHandlers: serializedHandlers,
+        callToAction,
+        fallbackOffer,
+        targetAudience,
         language,
-        maxDurationSeconds: Number(form.get("maxDurationSeconds") ?? 300),
+        maxDurationSeconds,
       });
 
       if (!result.ok) {
@@ -596,24 +647,83 @@ function CampaignForm({
         return;
       }
 
-      const launchImmediately = event.currentTarget.dataset.launchAfterSave === "1";
-      event.currentTarget.dataset.launchAfterSave = "0";
+      const rawData = result.data as Record<string, unknown> | undefined;
       const createdRecord =
-        result.data && typeof result.data.campaign === "object" && result.data.campaign !== null
-          ? (result.data.campaign as Record<string, unknown>)
-          : result.data;
+        rawData && typeof rawData.campaign === "object" && rawData.campaign !== null
+          ? (rawData.campaign as Record<string, unknown>)
+          : rawData;
       const createdId =
-        createdRecord && typeof createdRecord.id === "string" ? createdRecord.id : null;
+        createdRecord && typeof createdRecord.id === "string"
+          ? createdRecord.id
+          : `temp-${Date.now()}`;
+      const nowIso = new Date().toISOString();
+
+      const optimisticCampaign: Campaign = {
+        id: createdId,
+        name: typeof createdRecord?.name === "string" ? createdRecord.name : name,
+        type: typeof createdRecord?.type === "string" ? createdRecord.type : type,
+        status: typeof createdRecord?.status === "string" ? createdRecord.status : "draft",
+        primaryObjective:
+          typeof createdRecord?.primaryObjective === "string"
+            ? createdRecord.primaryObjective
+            : primaryObjective,
+        callOpeningHook:
+          typeof createdRecord?.callOpeningHook === "string"
+            ? createdRecord.callOpeningHook
+            : callOpeningHook,
+        keyTalkingPoints: Array.isArray(createdRecord?.keyTalkingPoints)
+          ? (createdRecord.keyTalkingPoints as string[])
+          : talkingPointsPayload,
+        objectionHandlers: Array.isArray(createdRecord?.objectionHandlers)
+          ? (createdRecord.objectionHandlers as unknown[])
+          : serializedHandlers,
+        callToAction:
+          typeof createdRecord?.callToAction === "string"
+            ? createdRecord.callToAction
+            : callToAction,
+        fallbackOffer:
+          typeof createdRecord?.fallbackOffer === "string"
+            ? createdRecord.fallbackOffer
+            : (fallbackOffer ?? null),
+        targetAudience:
+          typeof createdRecord?.targetAudience === "string"
+            ? createdRecord.targetAudience
+            : (targetAudience ?? null),
+        language:
+          typeof createdRecord?.language === "string" ? createdRecord.language : language,
+        maxDurationSeconds:
+          typeof createdRecord?.maxDurationSeconds === "number"
+            ? createdRecord.maxDurationSeconds
+            : maxDurationSeconds,
+        createdAt:
+          typeof createdRecord?.createdAt === "string" ? createdRecord.createdAt : nowIso,
+        updatedAt:
+          typeof createdRecord?.updatedAt === "string" ? createdRecord.updatedAt : nowIso,
+        stats: {
+          totalCalls: 0,
+          connectedCalls: 0,
+          highInterestCalls: 0,
+          pendingCalls: 0,
+          inProgressCalls: 0,
+          failedCalls: 0,
+          completedQueueCalls: 0,
+        },
+      };
 
       onCreated(
         initialDraft
           ? `Duplicated "${cleanDisplayTitle(initialDraft.name)}" as a new draft.`
           : "Campaign draft saved. Review your audience before launching outbound calls.",
-        { createdCampaignId: createdId, launchImmediately },
+        {
+          createdCampaignId: createdId,
+          createdCampaign: optimisticCampaign,
+          launchImmediately,
+        },
       );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Your campaign draft could not be saved.");
     } finally {
+      submittingRef.current = false;
       setBusy(false);
     }
   };
@@ -826,24 +936,20 @@ function CampaignForm({
             <button
               type="submit"
               disabled={busy}
-              onClick={(event) => {
-                if (event.currentTarget.form) {
-                  event.currentTarget.form.dataset.launchAfterSave = "0";
-                }
+              onClick={() => {
+                launchAfterSaveRef.current = false;
               }}
-              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
+              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Saving draft…" : "Save campaign draft"}
             </button>
             <button
               type="submit"
               disabled={busy}
-              onClick={(event) => {
-                if (event.currentTarget.form) {
-                  event.currentTarget.form.dataset.launchAfterSave = "1";
-                }
+              onClick={() => {
+                launchAfterSaveRef.current = true;
               }}
-              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon kind="rocket" className="h-3.5 w-3.5" />
               {busy ? "Saving…" : "Save & launch"}
@@ -862,7 +968,7 @@ function CampaignFullEditor({
 }: {
   campaign: Campaign;
   onCancel: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, patch?: Partial<Campaign>) => void;
 }) {
   const initialTalkingPointsText = useMemo(
     () => extractEditableTalkingPoints(campaign.keyTalkingPoints).join("\n"),
@@ -902,6 +1008,7 @@ function CampaignFullEditor({
   const [maxDurationSeconds, setMaxDurationSeconds] = useState<number>(() => initialDuration);
 
   const [busy, setBusy] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const isDirty =
@@ -919,7 +1026,7 @@ function CampaignFullEditor({
 
   const handleSave = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (busy) return;
+    if (savingRef.current || busy) return;
 
     const trimmedName = name.trim();
     const trimmedObjective = primaryObjective.trim();
@@ -949,6 +1056,7 @@ function CampaignFullEditor({
       return;
     }
 
+    savingRef.current = true;
     setBusy(true);
     setError(null);
 
@@ -967,16 +1075,22 @@ function CampaignFullEditor({
         maxDurationSeconds,
       };
 
-      const result = await updateCampaignDetailsAction(campaign.id, payload);
+      const result = await withTransientRetry(() =>
+        updateCampaignDetailsAction(campaign.id, payload),
+      );
       if (!result.ok) {
         setError(result.error || "Unable to update campaign details.");
         return;
       }
 
-      onSaved(`Saved all changes for "${trimmedName}".`);
+      onSaved(`Saved all changes for "${trimmedName}".`, {
+        ...payload,
+        updatedAt: new Date().toISOString(),
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update campaign details.");
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   };
@@ -1202,6 +1316,7 @@ function formatLanguageLabel(code: string | null | undefined): string {
 function CampaignDetailView({
   campaign,
   initialTab = "overview",
+  statusBusy = false,
   onBack,
   onLaunch,
   onStatusChange,
@@ -1211,12 +1326,13 @@ function CampaignDetailView({
 }: {
   campaign: Campaign;
   initialTab?: "overview" | "script" | "edit";
+  statusBusy?: boolean;
   onBack: () => void;
   onLaunch: (campaign: Campaign) => void;
   onStatusChange: (campaign: Campaign, next: "active" | "paused") => void;
   onDuplicate: (campaign: Campaign) => void;
   onDeleteCampaign: (campaign: Campaign) => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, patch?: Partial<Campaign>) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"overview" | "script" | "edit">(initialTab);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -1322,20 +1438,22 @@ function CampaignDetailView({
             ) : campaign.status === "paused" ? (
               <button
                 type="button"
+                disabled={statusBusy}
                 onClick={() => onStatusChange(campaign, "active")}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
               >
                 <Icon kind="play" className="h-3.5 w-3.5" />
-                Resume
+                {statusBusy ? "Resuming…" : "Resume"}
               </button>
             ) : campaign.status === "active" ? (
               <button
                 type="button"
+                disabled={statusBusy}
                 onClick={() => onStatusChange(campaign, "paused")}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
               >
                 <Icon kind="pause" className="h-3.5 w-3.5" />
-                Pause
+                {statusBusy ? "Pausing…" : "Pause"}
               </button>
             ) : null}
 
@@ -1691,9 +1809,9 @@ function CampaignDetailView({
           <CampaignFullEditor
             campaign={campaign}
             onCancel={() => setActiveTab("overview")}
-            onSaved={(msg) => {
+            onSaved={(msg, patch) => {
               setActiveTab("overview");
-              onSaved(msg);
+              onSaved(msg, patch);
             }}
           />
         )}
@@ -1747,24 +1865,41 @@ export function CampaignsDashboard({
 }: Props) {
   const router = useRouter();
   const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
+  const [optimisticCreated, setOptimisticCreated] = useState<Campaign[]>([]);
+  const [optimisticPatches, setOptimisticPatches] = useState<Record<string, Partial<Campaign>>>({});
   const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
+  const [statusBusyIds, setStatusBusyIds] = useState<Record<string, boolean>>({});
   const liveStatsRequestInFlight = useRef(false);
 
   useEffect(() => {
     setLiveCampaigns({});
+    setOptimisticCreated((prev) =>
+      prev.filter((item) => !initialCampaigns.some((serverItem) => serverItem.id === item.id)),
+    );
+    setOptimisticPatches({});
     setDeletedIds(new Set());
   }, [initialCampaigns]);
 
-  const campaigns = useMemo(
-    () =>
-      initialCampaigns
-        .filter((campaign) => !deletedIds.has(campaign.id))
-        .map((campaign) => {
-          const live = liveCampaigns[campaign.id];
-          return live ? { ...campaign, status: live.status, stats: live.stats } : campaign;
-        }),
-    [initialCampaigns, liveCampaigns, deletedIds],
-  );
+  const campaigns = useMemo(() => {
+    const serverIds = new Set(initialCampaigns.map((c) => c.id));
+    const mergedBase = [
+      ...optimisticCreated.filter((c) => !serverIds.has(c.id)),
+      ...initialCampaigns,
+    ];
+
+    return mergedBase
+      .filter((campaign) => !deletedIds.has(campaign.id))
+      .map((campaign) => {
+        const live = liveCampaigns[campaign.id];
+        const patch = optimisticPatches[campaign.id];
+        return {
+          ...campaign,
+          ...(live ? { status: live.status, stats: live.stats } : {}),
+          ...(patch ?? {}),
+        };
+      });
+  }, [initialCampaigns, optimisticCreated, liveCampaigns, optimisticPatches, deletedIds]);
+
   const hasActiveCampaigns = campaigns.some((campaign) => campaign.status === "active");
 
   useEffect(() => {
@@ -2073,35 +2208,77 @@ export function CampaignsDashboard({
       );
       return;
     }
+    const targetCampaignId = launchingCampaign.id;
+    const queuedCount = selectedContactIds.length;
     setLaunchBusy(true);
     setLaunchError(null);
-    const result = await launchCampaignAction(launchingCampaign.id, selectedContactIds, {
-      startAt: scheduled.toISOString(),
-      startDate: startDate || undefined,
-      dailyStart,
-      dailyEnd,
-    });
+    const result = await withTransientRetry(() =>
+      launchCampaignAction(targetCampaignId, selectedContactIds, {
+        startAt: scheduled.toISOString(),
+        startDate: startDate || undefined,
+        dailyStart,
+        dailyEnd,
+      }),
+    );
     setLaunchBusy(false);
     if (!result.ok) {
       setLaunchError(result.error);
       return;
     }
+    setOptimisticPatches((prev) => ({
+      ...prev,
+      [targetCampaignId]: {
+        ...(prev[targetCampaignId] ?? {}),
+        status: "active",
+        stats: {
+          ...launchingCampaign.stats,
+          pendingCalls: (launchingCampaign.stats.pendingCalls ?? 0) + queuedCount,
+        },
+      },
+    }));
     setNotice(
-      `Campaign queued for ${selectedContactIds.length} contacts. Calls will run only during ${dailyStart}–${dailyEnd} workspace time.`,
+      `Campaign queued for ${queuedCount} contacts. Calls will run only during ${dailyStart}–${dailyEnd} workspace time.`,
     );
     setLaunchingCampaign(null);
     router.refresh();
   };
 
   const changeCampaignStatus = async (campaign: Campaign, status: "active" | "paused") => {
+    if (statusBusyIds[campaign.id]) return;
     setOpenMenuId(null);
-    const result = await updateCampaignStatusAction(campaign.id, status);
+    const previousStatus = campaign.status;
+
+    setStatusBusyIds((prev) => ({ ...prev, [campaign.id]: true }));
+    setOptimisticPatches((prev) => ({
+      ...prev,
+      [campaign.id]: {
+        ...(prev[campaign.id] ?? {}),
+        status,
+      },
+    }));
+
+    const result = await withTransientRetry(() => updateCampaignStatusAction(campaign.id, status));
+
+    setStatusBusyIds((prev) => {
+      const next = { ...prev };
+      delete next[campaign.id];
+      return next;
+    });
+
     if (!result.ok) {
+      setOptimisticPatches((prev) => ({
+        ...prev,
+        [campaign.id]: {
+          ...(prev[campaign.id] ?? {}),
+          status: previousStatus,
+        },
+      }));
       setNotice(
         `Could not ${status === "paused" ? "pause" : "resume"} campaign: ${result.error}`,
       );
       return;
     }
+
     setNotice(
       status === "paused"
         ? "Campaign paused. No new calls will start until you resume it."
@@ -2116,7 +2293,7 @@ export function CampaignsDashboard({
     const deletedName = cleanDisplayTitle(deletingCampaign.name);
 
     setDeleteBusy(true);
-    const result = await deleteDraftCampaignAction(targetId);
+    const result = await withTransientRetry(() => deleteDraftCampaignAction(targetId));
     setDeleteBusy(false);
     if (!result.ok) {
       setNotice(`Could not delete campaign: ${result.error}`);
@@ -2129,6 +2306,7 @@ export function CampaignsDashboard({
       next.add(targetId);
       return next;
     });
+    setOptimisticCreated((prev) => prev.filter((item) => item.id !== targetId));
     setDetailSelection((curr) => (curr?.campaignId === targetId ? null : curr));
     setDeletingCampaign(null);
     setNotice(`Deleted campaign "${deletedName}".`);
@@ -2219,8 +2397,19 @@ export function CampaignsDashboard({
 
   const handleCreated = (
     message?: string,
-    options?: { createdCampaignId?: string | null; launchImmediately?: boolean },
+    options?: {
+      createdCampaignId?: string | null;
+      createdCampaign?: Campaign | null;
+      launchImmediately?: boolean;
+    },
   ) => {
+    if (options?.createdCampaign) {
+      const created = options.createdCampaign;
+      setOptimisticCreated((prev) => [
+        created,
+        ...prev.filter((item) => item.id !== created.id),
+      ]);
+    }
     setCreating(false);
     setDuplicateSource(null);
     setStatusFilter("all");
@@ -2228,7 +2417,11 @@ export function CampaignsDashboard({
       message ?? "Campaign draft saved. Review your audience before launching outbound calls.",
     );
     if (options?.launchImmediately && options.createdCampaignId) {
-      setPendingLaunchCampaignId(options.createdCampaignId);
+      if (options.createdCampaign) {
+        void openLaunch(options.createdCampaign);
+      } else {
+        setPendingLaunchCampaignId(options.createdCampaignId);
+      }
     }
     router.refresh();
   };
@@ -2260,6 +2453,7 @@ export function CampaignsDashboard({
       <CampaignDetailView
         campaign={selectedDetailCampaign}
         initialTab={detailSelection.initialTab}
+        statusBusy={Boolean(statusBusyIds[selectedDetailCampaign.id])}
         onBack={() => {
           setDetailSelection(null);
           if (initialCampaignId) {
@@ -2281,7 +2475,16 @@ export function CampaignsDashboard({
           setDetailSelection(null);
           setDeletingCampaign(c);
         }}
-        onSaved={(msg) => {
+        onSaved={(msg, patch) => {
+          if (patch) {
+            setOptimisticPatches((prev) => ({
+              ...prev,
+              [selectedDetailCampaign.id]: {
+                ...(prev[selectedDetailCampaign.id] ?? {}),
+                ...patch,
+              },
+            }));
+          }
           setNotice(msg);
           router.refresh();
         }}
@@ -3063,6 +3266,7 @@ export function CampaignsDashboard({
               const highIntent = stats.highInterestCalls ?? 0;
               const progress = computeExecutionProgress(campaign);
               const menuOpen = openMenuId === campaign.id;
+              const isRowStatusBusy = Boolean(statusBusyIds[campaign.id]);
               const displayName = cleanDisplayTitle(campaign.name);
 
               return (
@@ -3146,20 +3350,22 @@ export function CampaignsDashboard({
                       ) : campaign.status === "paused" ? (
                         <button
                           type="button"
+                          disabled={isRowStatusBusy}
                           onClick={() => changeCampaignStatus(campaign, "active")}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
                         >
                           <Icon kind="play" className="h-3.5 w-3.5" />
-                          Resume
+                          {isRowStatusBusy ? "Resuming…" : "Resume"}
                         </button>
                       ) : campaign.status === "active" ? (
                         <button
                           type="button"
+                          disabled={isRowStatusBusy}
                           onClick={() => changeCampaignStatus(campaign, "paused")}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
                         >
                           <Icon kind="pause" className="h-3.5 w-3.5" />
-                          Pause
+                          {isRowStatusBusy ? "Pausing…" : "Pause"}
                         </button>
                       ) : (
                         <button
@@ -3259,8 +3465,9 @@ export function CampaignsDashboard({
                               <button
                                 type="button"
                                 role="menuitem"
+                                disabled={isRowStatusBusy}
                                 onClick={() => changeCampaignStatus(campaign, "paused")}
-                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
                               >
                                 <Icon kind="pause" className="h-3.5 w-3.5 text-[#747878]" />
                                 Pause campaign
@@ -3270,8 +3477,9 @@ export function CampaignsDashboard({
                               <button
                                 type="button"
                                 role="menuitem"
+                                disabled={isRowStatusBusy}
                                 onClick={() => changeCampaignStatus(campaign, "active")}
-                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
                               >
                                 <Icon kind="play" className="h-3.5 w-3.5 text-[#747878]" />
                                 Resume campaign
