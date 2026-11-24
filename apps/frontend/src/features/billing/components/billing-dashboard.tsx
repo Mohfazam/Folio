@@ -14,8 +14,10 @@ import type {
   VerifyBillingPaymentResponse,
 } from "../types";
 import { ONE_TIME_PLANS, ONE_TIME_PLAN_LIST, formatCredits, formatInr } from "../utils/plans";
+import { getAvailableLocalDevTestPlan } from "../utils/dev-test-plan";
 import { loadRazorpayCheckoutScript } from "../utils/razorpay";
 import { trackBillingEvent } from "../utils/telemetry";
+import { LocalDevTestPlanCard } from "./local-dev-test-plan-card";
 
 type CheckoutStage =
   | "idle"
@@ -26,6 +28,10 @@ type CheckoutStage =
   | "succeeded"
   | "cancelled"
   | "failed";
+
+type ActiveCheckoutSelection =
+  | { kind: "plan"; planId: PurchasablePlanId }
+  | { kind: "dev_test" };
 
 function formatDateTime(value: string | null): string {
   if (!value) return "—";
@@ -45,17 +51,31 @@ function generateIdempotencyKey(planId: string): string {
   return `foolioo_${planId}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function BillingDashboard() {
+export function BillingDashboard({
+  isLocalDevTestAvailable = false,
+}: {
+  isLocalDevTestAvailable?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const profile = useDashboardProfile();
 
-  const requestedPlan = useMemo(
-    () => normalizePurchasablePlanId(searchParams.get("plan")),
-    [searchParams],
+  const localDevPlan = useMemo(
+    () => getAvailableLocalDevTestPlan(isLocalDevTestAvailable),
+    [isLocalDevTestAvailable],
   );
 
-  const [selectedPlanId, setSelectedPlanId] = useState<PurchasablePlanId>(requestedPlan ?? "pro");
+  const rawPlanParam = searchParams.get("plan");
+  const isDevTestParamRequested = rawPlanParam === "dev_test" && Boolean(localDevPlan);
+
+  const requestedPlan = useMemo(
+    () => normalizePurchasablePlanId(rawPlanParam),
+    [rawPlanParam],
+  );
+
+  const [selection, setSelection] = useState<ActiveCheckoutSelection>(
+    isDevTestParamRequested ? { kind: "dev_test" } : { kind: "plan", planId: requestedPlan ?? "pro" },
+  );
   const [stage, setStage] = useState<CheckoutStage>("idle");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [scriptBlockedHint, setScriptBlockedHint] = useState(false);
@@ -71,21 +91,32 @@ export function BillingDashboard() {
   const [gstin, setGstin] = useState("");
 
   const submitLockRef = useRef(false);
-  const attemptIdempotencyRef = useRef<{ planId: PurchasablePlanId; key: string } | null>(null);
+  const attemptIdempotencyRef = useRef<{ targetKey: string; key: string } | null>(null);
   const viewedTrackedRef = useRef(false);
+
+  const activePlanIdForApi: PurchasablePlanId =
+    selection.kind === "dev_test"
+      ? ("dev_test" as unknown as PurchasablePlanId)
+      : selection.planId;
 
   useEffect(() => {
     if (!viewedTrackedRef.current) {
       viewedTrackedRef.current = true;
-      trackBillingEvent("billing_page_viewed", { planId: requestedPlan ?? "pro" });
+      trackBillingEvent("billing_page_viewed", {
+        planId: isDevTestParamRequested ? "dev_test" : (requestedPlan ?? "pro"),
+      });
     }
-  }, [requestedPlan]);
+  }, [isDevTestParamRequested, requestedPlan]);
 
   useEffect(() => {
-    if (requestedPlan) {
-      setSelectedPlanId(requestedPlan);
+    if (isDevTestParamRequested) {
+      setSelection({ kind: "dev_test" });
+    } else if (requestedPlan) {
+      setSelection({ kind: "plan", planId: requestedPlan });
+    } else if (selection.kind === "dev_test" && !localDevPlan) {
+      setSelection({ kind: "plan", planId: "pro" });
     }
-  }, [requestedPlan]);
+  }, [isDevTestParamRequested, requestedPlan, localDevPlan, selection.kind]);
 
   useEffect(() => {
     if (!billingName && profile.displayName) setBillingName(profile.displayName);
@@ -95,7 +126,36 @@ export function BillingDashboard() {
   const billingQuery = useBillingStatus({ poll: stage === "reconciling" });
   const createOrderMutation = useCreateRazorpayOrder();
   const verifyPaymentMutation = useVerifyRazorpayPayment();
-  const selectedPlan = ONE_TIME_PLANS[selectedPlanId];
+
+  const selectedStandardPlan =
+    selection.kind === "plan" ? ONE_TIME_PLANS[selection.planId] : ONE_TIME_PLANS.pro;
+
+  const checkoutSummary = useMemo(() => {
+    if (selection.kind === "dev_test" && localDevPlan) {
+      return {
+        targetKey: "dev_test",
+        planIdForApi: "dev_test" as unknown as PurchasablePlanId,
+        name: localDevPlan.name,
+        priceInr: localDevPlan.amountInr,
+        credits: 0,
+        creditsLabel: localDevPlan.creditsLabel,
+        estimateLabel: "Localhost test verification (500 paise)",
+        description: `${localDevPlan.name} · ${localDevPlan.creditsLabel}`,
+        isDevTest: true,
+      };
+    }
+    return {
+      targetKey: selectedStandardPlan.id,
+      planIdForApi: selectedStandardPlan.id,
+      name: `${selectedStandardPlan.name} Plan`,
+      priceInr: selectedStandardPlan.priceInr,
+      credits: selectedStandardPlan.credits,
+      creditsLabel: `+${formatCredits(selectedStandardPlan.credits)} credits`,
+      estimateLabel: selectedStandardPlan.estimateLabel,
+      description: `${selectedStandardPlan.name} Plan · ${formatCredits(selectedStandardPlan.credits)} one-time credits`,
+      isDevTest: false,
+    };
+  }, [selection, localDevPlan, selectedStandardPlan]);
 
   // #3 Detect trial expiration or low/exhausted credits for tailored pack guidance
   const creditsBalance = billingQuery.data?.creditsBalance ?? null;
@@ -146,12 +206,12 @@ export function BillingDashboard() {
     billingQuery.error instanceof BillingApiError &&
     billingQuery.error.isBackendUnconfigured;
 
-  const getOrCreateAttemptKey = (planId: PurchasablePlanId): string => {
-    if (attemptIdempotencyRef.current?.planId === planId) {
+  const getOrCreateAttemptKey = (targetKey: string): string => {
+    if (attemptIdempotencyRef.current?.targetKey === targetKey) {
       return attemptIdempotencyRef.current.key;
     }
-    const key = generateIdempotencyKey(planId);
-    attemptIdempotencyRef.current = { planId, key };
+    const key = generateIdempotencyKey(targetKey);
+    attemptIdempotencyRef.current = { targetKey, key };
     return key;
   };
 
@@ -173,7 +233,7 @@ export function BillingDashboard() {
       app: "Foolioo Billing",
       route: "/dashboard/billing",
       workspaceId: profile.workspaceId ?? "unknown",
-      selectedPlanId,
+      selectedPlanId: checkoutSummary.targetKey,
       stage,
       pendingOrderId,
       razorpayScriptPresent: typeof window !== "undefined" ? Boolean(window.Razorpay) : false,
@@ -192,7 +252,7 @@ export function BillingDashboard() {
 
   const handleSelectPlan = (planId: PurchasablePlanId) => {
     if (submitLockRef.current) return;
-    setSelectedPlanId(planId);
+    setSelection({ kind: "plan", planId });
     attemptIdempotencyRef.current = null;
     if (stage === "cancelled" || stage === "failed") {
       setStage("idle");
@@ -201,6 +261,19 @@ export function BillingDashboard() {
     }
     trackBillingEvent("plan_selected", { planId });
     router.replace(`/dashboard/billing?plan=${encodeURIComponent(planId)}`, { scroll: false });
+  };
+
+  const handleSelectDevTestPlan = () => {
+    if (submitLockRef.current || !localDevPlan) return;
+    setSelection({ kind: "dev_test" });
+    attemptIdempotencyRef.current = null;
+    if (stage === "cancelled" || stage === "failed") {
+      setStage("idle");
+      setFeedbackMessage(null);
+      setScriptBlockedHint(false);
+    }
+    trackBillingEvent("plan_selected", { planId: "dev_test" as unknown as PurchasablePlanId });
+    router.replace("/dashboard/billing?plan=dev_test", { scroll: false });
   };
 
   const handlePayNow = async () => {
@@ -213,14 +286,20 @@ export function BillingDashboard() {
       return;
     }
 
+    if (checkoutSummary.isDevTest && !localDevPlan) {
+      setStage("failed");
+      setFeedbackMessage("The ₹5 dev test plan is only available on localhost.");
+      return;
+    }
+
     submitLockRef.current = true;
     setFeedbackMessage(null);
     setScriptBlockedHint(false);
     setReceipt(null);
     setStage("creating_order");
 
-    const idempotencyKey = getOrCreateAttemptKey(selectedPlan.id);
-    trackBillingEvent("checkout_started", { planId: selectedPlan.id });
+    const idempotencyKey = getOrCreateAttemptKey(checkoutSummary.targetKey);
+    trackBillingEvent("checkout_started", { planId: checkoutSummary.planIdForApi });
 
     try {
       const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
@@ -243,14 +322,14 @@ export function BillingDashboard() {
           "Razorpay Checkout could not load in your browser. An ad-blocker, strict privacy shield, or in-app browser may be blocking checkout.razorpay.com.",
         );
         trackBillingEvent("payment_failed", {
-          planId: selectedPlan.id,
+          planId: checkoutSummary.planIdForApi,
           reason: "script_load_failed",
         });
         return;
       }
 
       const order = await createOrderMutation.mutateAsync({
-        planId: selectedPlan.id,
+        planId: checkoutSummary.planIdForApi,
         idempotencyKey,
         billingDetails: {
           name: billingName.trim() || profile.displayName || undefined,
@@ -262,7 +341,7 @@ export function BillingDashboard() {
       });
 
       trackBillingEvent("razorpay_order_created", {
-        planId: selectedPlan.id,
+        planId: checkoutSummary.planIdForApi,
         orderId: order.orderId,
       });
 
@@ -286,7 +365,7 @@ export function BillingDashboard() {
         amount: order.amount,
         currency: order.currency || "INR",
         name: "Foolioo",
-        description: `${selectedPlan.name} Plan · ${formatCredits(selectedPlan.credits)} one-time credits`,
+        description: checkoutSummary.description,
         image: "/Foolioo.svg",
         order_id: order.orderId,
         prefill: {
@@ -295,11 +374,11 @@ export function BillingDashboard() {
           contact: order.prefill?.contact || billingPhone.trim() || undefined,
         },
         notes: {
-          planId: selectedPlan.id,
+          planId: checkoutSummary.targetKey,
           workspaceId: profile.workspaceId ?? "",
           companyName: companyName.trim() || profile.workspaceName || "",
           ...(gstin.trim() ? { gstin: gstin.trim() } : {}),
-          paymentType: "one_time",
+          paymentType: checkoutSummary.isDevTest ? "localhost_dev_test" : "one_time",
         },
         theme: { color: "#1B1C18" },
         modal: {
@@ -313,7 +392,7 @@ export function BillingDashboard() {
                   "Checkout window closed before payment completed. Your selection is saved—click Pay Now whenever you're ready.",
                 );
                 trackBillingEvent("payment_dismissed", {
-                  planId: selectedPlan.id,
+                  planId: checkoutSummary.planIdForApi,
                   orderId: order.orderId,
                 });
                 return "cancelled";
@@ -327,7 +406,7 @@ export function BillingDashboard() {
           setFeedbackMessage(null);
           try {
             const verification = await verifyPaymentMutation.mutateAsync({
-              planId: selectedPlan.id,
+              planId: checkoutSummary.planIdForApi,
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
@@ -342,7 +421,7 @@ export function BillingDashboard() {
                 "Payment received by Razorpay and awaiting final webhook confirmation. Your credits will appear automatically in a few seconds.",
               );
               trackBillingEvent("payment_reconciling", {
-                planId: selectedPlan.id,
+                planId: checkoutSummary.planIdForApi,
                 orderId: response.razorpay_order_id,
                 paymentId: response.razorpay_payment_id,
               });
@@ -353,7 +432,7 @@ export function BillingDashboard() {
             setReceipt(verification);
             setStage("succeeded");
             trackBillingEvent("payment_verified", {
-              planId: selectedPlan.id,
+              planId: checkoutSummary.planIdForApi,
               orderId: verification.orderId,
               paymentId: verification.paymentId,
             });
@@ -367,7 +446,7 @@ export function BillingDashboard() {
                 : "Checking final payment confirmation with server...",
             );
             trackBillingEvent("payment_reconciling", {
-              planId: selectedPlan.id,
+              planId: checkoutSummary.planIdForApi,
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,
             });
@@ -385,14 +464,14 @@ export function BillingDashboard() {
         setStage("failed");
         setFeedbackMessage(reason);
         trackBillingEvent("payment_failed", {
-          planId: selectedPlan.id,
+          planId: checkoutSummary.planIdForApi,
           orderId: order.orderId,
           reason,
         });
       });
 
       trackBillingEvent("razorpay_modal_opened", {
-        planId: selectedPlan.id,
+        planId: checkoutSummary.planIdForApi,
         orderId: order.orderId,
       });
       rzp.open();
@@ -405,7 +484,7 @@ export function BillingDashboard() {
       setStage("failed");
       setFeedbackMessage(msg);
       trackBillingEvent("payment_failed", {
-        planId: selectedPlan.id,
+        planId: checkoutSummary.planIdForApi,
         reason: msg,
       });
     }
@@ -479,7 +558,7 @@ export function BillingDashboard() {
               {formatInr(ONE_TIME_PLANS[recommendedPackId].priceInr)} one-time).
             </p>
           </div>
-          {selectedPlanId !== recommendedPackId ? (
+          {selection.kind === "plan" && selection.planId !== recommendedPackId ? (
             <button
               type="button"
               onClick={() => handleSelectPlan(recommendedPackId)}
@@ -648,6 +727,12 @@ export function BillingDashboard() {
         </div>
       ) : null}
 
+      {/* Localhost-only ₹5 Dev Test Plan Card */}
+      <LocalDevTestPlanCard
+        isLocalDevTestAvailable={isLocalDevTestAvailable}
+        onSelectPlan={handleSelectDevTestPlan}
+      />
+
       {/* 1. All 3 Plans Grid */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -661,7 +746,7 @@ export function BillingDashboard() {
 
         <div className="grid gap-4 md:grid-cols-3">
           {ONE_TIME_PLAN_LIST.map((plan) => {
-            const isSelected = plan.id === selectedPlanId;
+            const isSelected = selection.kind === "plan" && plan.id === selection.planId;
             return (
               <button
                 key={plan.id}
@@ -820,14 +905,16 @@ export function BillingDashboard() {
             <div className="mt-4 flex items-baseline justify-between border-b border-[#ECEBE4] pb-4">
               <div>
                 <p className="font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]">
-                  {selectedPlan.name} Plan
+                  {checkoutSummary.name}
                 </p>
                 <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">
-                  One-time payment · Instant credit grant
+                  {checkoutSummary.isDevTest
+                    ? "Localhost dev test order · 500 paise"
+                    : "One-time payment · Instant credit grant"}
                 </p>
               </div>
               <span className="font-['Space_Grotesk'] text-[26px] font-bold text-[#1B1C18]">
-                {formatInr(selectedPlan.priceInr)}
+                {formatInr(checkoutSummary.priceInr)}
               </span>
             </div>
 
@@ -839,12 +926,12 @@ export function BillingDashboard() {
               <div className="flex items-center justify-between">
                 <dt className="text-[#666A68]">Credits granted</dt>
                 <dd className="font-semibold text-[#1B1C18]">
-                  +{formatCredits(selectedPlan.credits)} credits
+                  {checkoutSummary.creditsLabel}
                 </dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-[#666A68]">Talk time estimate</dt>
-                <dd className="text-[#444748]">{selectedPlan.estimateLabel}</dd>
+                <dd className="text-[#444748]">{checkoutSummary.estimateLabel}</dd>
               </div>
             </dl>
 
@@ -860,7 +947,7 @@ export function BillingDashboard() {
                   ? "Complete payment in Razorpay..."
                   : stage === "verifying"
                     ? "Verifying payment signature..."
-                    : `Pay ${formatInr(selectedPlan.priceInr)} with Razorpay`}
+                    : `Pay ${formatInr(checkoutSummary.priceInr)} with Razorpay`}
             </button>
           </div>
         </aside>
