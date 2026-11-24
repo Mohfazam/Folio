@@ -10,7 +10,7 @@ export const ALL_PURCHASABLE_PLAN_IDS = [
 export const standardPurchasablePlanSchema = z.enum(STANDARD_PURCHASABLE_PLAN_IDS);
 export const purchasablePlanSchema = z.enum(ALL_PURCHASABLE_PLAN_IDS);
 
-export const createOrderRequestSchema = z.object({
+export const createBillingOrderRequestSchema = z.object({
   planId: purchasablePlanSchema,
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
   billingDetails: z
@@ -24,12 +24,43 @@ export const createOrderRequestSchema = z.object({
     .optional(),
 });
 
-export const verifyPaymentRequestSchema = z.object({
+export const createOrderRequestSchema = createBillingOrderRequestSchema;
+
+export const createBillingOrderResponseSchema = z.object({
+  orderId: z.string().trim().min(1),
+  amount: z.number().int().positive(),
+  currency: z.string().trim().min(1).default("INR"),
+  keyId: z.string().trim().optional(),
+  prefill: z
+    .object({
+      name: z.string().optional(),
+      email: z.string().optional(),
+      contact: z.string().optional(),
+    })
+    .optional(),
+});
+
+export const verifyBillingPaymentRequestSchema = z.object({
   planId: purchasablePlanSchema,
   razorpay_order_id: z.string().trim().min(1),
   razorpay_payment_id: z.string().trim().min(1),
   razorpay_signature: z.string().trim().min(1),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),
+});
+
+export const verifyPaymentRequestSchema = verifyBillingPaymentRequestSchema;
+
+export const verifyBillingPaymentResponseSchema = z.object({
+  ok: z.boolean().optional().default(true),
+  verified: z.boolean().optional().default(true),
+  status: z.string().trim().min(1),
+  planId: z.string().trim().min(1),
+  planName: z.string().trim().min(1),
+  creditsGranted: z.number().nonnegative(),
+  newCreditsBalance: z.number().nonnegative().nullable().optional(),
+  paymentId: z.string().trim().min(1),
+  orderId: z.string().trim().min(1),
+  method: z.string().nullable().optional().default(null),
 });
 
 export function normalizeStandardPlanId(
