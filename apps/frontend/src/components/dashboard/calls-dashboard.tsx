@@ -138,15 +138,6 @@ function MetricCard({
       <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">{label}</p>
       <p className="mt-2 font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
       <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{detail}</p>
-      <ConfirmDialog
-        open={pendingCancelEntry !== null}
-        title="Cancel queued call?"
-        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
-        confirmLabel="Cancel call"
-        busy={cancellingQueueId !== null}
-        onCancel={() => setPendingCancelEntry(null)}
-        onConfirm={() => void confirmCancelQueuedCall()}
-      />
     </div>
   );
 }
@@ -410,6 +401,15 @@ export function CallsDashboard({
       </header>
 
       <ToastNotice message={callNotice} onDismiss={() => setCallNotice(null)} />
+      <ConfirmDialog
+        open={pendingCancelEntry !== null}
+        title="Cancel queued call?"
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        confirmLabel="Cancel call"
+        busy={cancellingQueueId !== null}
+        onCancel={() => setPendingCancelEntry(null)}
+        onConfirm={() => void confirmCancelQueuedCall()}
+      />
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">

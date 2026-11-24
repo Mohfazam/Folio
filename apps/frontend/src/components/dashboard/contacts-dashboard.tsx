@@ -143,15 +143,6 @@ function MetricCard({
       <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">
         {detail}
       </p>
-      <ConfirmDialog
-        open={pendingDeleteContact !== null}
-        title="Delete contact?"
-        description={pendingDeleteContact?.confirmationMessage ?? ""}
-        confirmLabel="Delete"
-        busy={deletingId === pendingDeleteContact?.contact.id}
-        onCancel={() => setPendingDeleteContact(null)}
-        onConfirm={() => void confirmDeleteContact()}
-      />
     </div>
   );
 }
@@ -1538,13 +1529,17 @@ export function ContactsDashboard({
     void executeQuery(cleared);
   }
 
-  async function handleDelete(contact: ContactRecord) {
-    if (deletingId) return;
+  function handleDelete(contact: ContactRecord) {
+    if (deletingId || pendingDeleteContact) return;
     const confirmationMessage = contact.optOut
       ? `Delete ${displayName(contact)} from this workspace? This also removes the contact's do-not-call suppression record. Proceed only if your retention policy allows it. This cannot be undone.`
       : `Delete ${displayName(contact)} from this workspace? This cannot be undone.`;
-    const confirmed = window.confirm(confirmationMessage);
-    if (!confirmed) return;
+    setPendingDeleteContact({ contact, confirmationMessage });
+  }
+
+  async function confirmDeleteContact() {
+    const contact = pendingDeleteContact?.contact;
+    if (!contact || deletingId) return;
 
     const previousContacts = contactsList;
     const previousTotal = totalCount;
@@ -1564,6 +1559,7 @@ export function ContactsDashboard({
         return;
       }
       setNotice(`${displayName(contact)} was deleted.`);
+      setPendingDeleteContact(null);
       void executeQuery(activeFilters, { silent: true });
       router.refresh();
     } catch (cause) {
