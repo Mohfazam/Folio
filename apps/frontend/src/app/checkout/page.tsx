@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { buildBillingPath } from "@/features/billing/utils/plans";
 
@@ -6,7 +6,7 @@ async function CheckoutRedirect({
   searchParams,
 }: {
   searchParams: Promise<{ plan?: string }>;
-}) {
+}): Promise<ReactNode> {
   const params = await searchParams;
   redirect(buildBillingPath(params?.plan));
 }
