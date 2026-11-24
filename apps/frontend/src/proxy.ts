@@ -32,7 +32,12 @@ export async function proxy(request: NextRequest) {
   const authenticated = hasFooliooSession || (!error && typeof claims?.sub === "string");
 
   if ((request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname === "/sign-up") && authenticated) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    const rawRedirect = request.nextUrl.searchParams.get("redirect")?.trim() ?? "";
+    const safeRedirect =
+      rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") && !rawRedirect.startsWith("/\\")
+        ? rawRedirect
+        : "/dashboard";
+    return NextResponse.redirect(new URL(safeRedirect, request.url));
   }
 
   return response;

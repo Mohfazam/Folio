@@ -1821,7 +1821,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         description: "Outbound calls are currently blocked until your workspace status is active.",
         ctaLabel: "Review settings",
         icon: "alert",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     }
 
@@ -1836,7 +1836,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           : "New outbound calls cannot be placed until your cycle resets or you upgrade.",
         ctaLabel: "View billing",
         icon: "credit",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     } else if (analytics && allowance > 0 && remaining / allowance <= 0.2) {
       items.push({
@@ -1846,7 +1846,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         description: "Top up or upgrade your plan before active campaigns pause mid-run.",
         ctaLabel: "Manage plan",
         icon: "credit",
-        onTrigger: () => router.push("/dashboard/settings"),
+        onTrigger: () => router.push("/dashboard/billing"),
       });
     }
 
@@ -2116,7 +2116,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
               timezone={timezone}
               isTrial={workspaceStatus === "trialing" || profile.isTrial}
               trialEndsAt={profile.trialEndsAt}
-              onUpgrade={() => router.push("/dashboard/settings")}
+              onUpgrade={() => router.push("/dashboard/billing")}
             />
           ) : analyticsResult.state === "loading" ? (
             <div

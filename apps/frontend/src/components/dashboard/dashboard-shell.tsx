@@ -97,6 +97,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "AI Studio", href: "/dashboard/ai-studio", icon: "knowledge", enabled: true, group: "intelligence" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "analytics", enabled: true, group: "intelligence" },
   { label: "Testing", href: "/dashboard/testing", icon: "testing", enabled: true, group: "intelligence" },
+  { label: "Billing", href: "/dashboard/billing", icon: "overview", enabled: true, group: "intelligence" },
 ];
 
 function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
@@ -573,10 +574,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setSettingsSection("plan");
-                      setSettingsOpen(true);
-                    }}
+                    onClick={() => router.push("/dashboard/billing")}
                     className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
                       profile.trialExpired
                         ? "text-[#A33A32] hover:text-[#852F29]"
@@ -590,10 +588,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   {/* Compact trigger for collapsed tablet sidebar */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setSettingsSection("plan");
-                      setSettingsOpen(true);
-                    }}
+                    onClick={() => router.push("/dashboard/billing")}
                     title={upgradeCardAction}
                     aria-label={upgradeCardAction}
                     className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[#EFEAFB] py-1 text-[10px] font-bold text-[#644ABB] lg:hidden"
@@ -854,8 +849,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         type="button"
                         onClick={() => {
                           setMobileDrawerOpen(false);
-                          setSettingsSection("plan");
-                          setSettingsOpen(true);
+                          router.push("/dashboard/billing");
                         }}
                         className="mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]"
                       >
@@ -1021,7 +1015,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     </div>
                     {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
                   </div>
-                  <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we&apos;ll get back to you within one business day.</p>
+                  <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">Purchase one-time credit packs via Razorpay on the <Link href="/dashboard/billing" onClick={() => setSettingsOpen(false)} className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">Billing page</Link>.</p>
                 </div>
                 <div className="mt-5 flex justify-end">
                   <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>

@@ -311,7 +311,15 @@ export function SettingsDashboard({ account, initialSettings }: {
                   <p className="mt-1 text-[11px] text-[#777970]">See current consumption in Analytics.</p>
                 </div>
               </div>
-              <div className="mt-4 rounded-md bg-[#F8F7F2] p-4 text-[12px] text-[#65675F]">Self-service upgrades, invoices and payment methods are not connected yet. No billing controls are shown as active.</div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#E9E8E1] bg-[#F8F7F2] p-4 text-[12px] text-[#65675F]">
+                <span>Buy one-time credit packs (Growth or Pro) via Razorpay and view your payment history.</span>
+                <a
+                  href="/dashboard/billing"
+                  className="inline-flex items-center rounded-md bg-[#1B1C18] px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#34352F]"
+                >
+                  Open Billing & Checkout →
+                </a>
+              </div>
             </>
           ) : null}
           {section === "security" ? <Placeholder title="Security & privacy" description="Review account security and workspace data controls." items={["Active sessions and sign out everywhere", "Password and multi-factor authentication", "Call recording retention period", "Workspace data export", "Account deletion and data removal"]} /> : null}

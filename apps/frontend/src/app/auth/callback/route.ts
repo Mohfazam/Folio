@@ -42,7 +42,15 @@ export async function GET(request: Request) {
 
   try {
     const destination = await resolvePostAuthDestination(accessToken);
-    return NextResponse.redirect(new URL(destination, origin));
+    const safeNext =
+      requestedNext &&
+      requestedNext.trim().startsWith("/") &&
+      !requestedNext.trim().startsWith("//") &&
+      !requestedNext.trim().startsWith("/\\")
+        ? requestedNext.trim()
+        : null;
+    const finalTarget = destination === "/dashboard" && safeNext ? safeNext : destination;
+    return NextResponse.redirect(new URL(finalTarget, origin));
   } catch (err) {
     console.error("[auth/callback] Workspace provisioning failed:", err);
     const errorUrl = new URL("/auth-code-error", origin);

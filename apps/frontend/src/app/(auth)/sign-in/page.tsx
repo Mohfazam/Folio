@@ -26,6 +26,11 @@ function VisibilityIcon({ visible }: { visible: boolean }) {
 function SignInContent() {
   const searchParams = useSearchParams();
   const isVerified = searchParams.get("verified") === "true";
+  const rawRedirect = searchParams.get("redirect")?.trim() ?? "";
+  const safeRedirect =
+    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") && !rawRedirect.startsWith("/\\")
+      ? rawRedirect
+      : null;
   const [state, formAction, isPending] = useActionState(signInAction, null);
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
@@ -61,7 +66,7 @@ function SignInContent() {
 
       <div className="flex flex-col gap-4 sm:gap-5">
         <div className="[&_button]:!min-h-[46px] [&_button]:!w-full [&_button]:!rounded-lg [&_button]:!border [&_button]:!border-[#E6E4DC] [&_button]:!bg-white [&_button]:!font-['Space_Grotesk'] [&_button]:!text-[13px] [&_button]:!font-semibold [&_button]:!text-[#1B1C18] [&_button]:!shadow-[0_1px_2px_rgba(24,24,20,0.04)] [&_button]:transition-colors [&_button:hover]:!bg-[#F8F7F2]">
-          <GoogleButton />
+          <GoogleButton redirectTo={safeRedirect} />
         </div>
 
         <div className="flex items-center gap-3" aria-hidden="true">
@@ -83,6 +88,7 @@ function SignInContent() {
       )}
 
       <form action={formAction} className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-[18px]">
+        {safeRedirect ? <input type="hidden" name="redirectTo" value={safeRedirect} /> : null}
         <Input
           id="email"
           name="email"
@@ -160,7 +166,7 @@ function SignInContent() {
         <p className="text-center font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878] sm:text-[13px]">
           New to Foolioo?{" "}
           <Link
-            href="/sign-up"
+            href={safeRedirect ? `/sign-up?redirect=${encodeURIComponent(safeRedirect)}` : "/sign-up"}
             className="font-semibold text-[#1B1C18] underline decoration-[#B8B5AA] underline-offset-4 transition-colors hover:text-[#7852D6] hover:decoration-[#7852D6]"
           >
             Create an account

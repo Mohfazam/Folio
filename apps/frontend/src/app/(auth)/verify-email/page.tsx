@@ -11,6 +11,11 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const initialEmail = searchParams.get("email") || "";
   const isUnconfirmed = searchParams.get("unconfirmed") === "true";
+  const rawRedirect = searchParams.get("redirect")?.trim() ?? "";
+  const safeRedirect =
+    rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") && !rawRedirect.startsWith("/\\")
+      ? rawRedirect
+      : null;
 
   const [state, formAction, isPending] = useActionState(verifyOtpAction, null);
   const [email, setEmail] = useState(initialEmail);
@@ -110,6 +115,7 @@ function VerifyEmailContent() {
           />
         )}
         {initialEmail && <input type="hidden" name="email" value={email} />}
+        {safeRedirect ? <input type="hidden" name="redirectTo" value={safeRedirect} /> : null}
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="otp" className="font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18]">
