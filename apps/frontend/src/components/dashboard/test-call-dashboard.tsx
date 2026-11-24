@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   cancelQueuedCallAction,
   createTestCallAction,
@@ -55,11 +56,20 @@ function Badge({
 }
 
 export function TestCallDashboard() {
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [callNotice, setCallNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!callNotice) return;
+    const timer = window.setTimeout(() => {
+      setCallNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [callNotice]);
 
   const [liveRefreshKey, setLiveRefreshKey] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveCallStatus>({
@@ -177,10 +187,28 @@ export function TestCallDashboard() {
       }
       setPhoneNumber("");
       setConfirmed(false);
+      setLiveStatus((current) => ({
+        ...current,
+        pendingCount: current.pendingCount + 1,
+        duePendingCount: current.duePendingCount + 1,
+        entries: [
+          {
+            id: `queued-${Date.now()}`,
+            contactName: null,
+            phoneNumber: normalizedPhone,
+            campaignName: "Test / direct call",
+            status: "pending",
+            scheduledFor: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          ...current.entries,
+        ],
+      }));
       setCallNotice(
         `Your test call to ${normalizedPhone} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`,
       );
       setLiveRefreshKey((value) => value + 1);
+      router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The call could not be queued.");
     } finally {
@@ -218,6 +246,7 @@ export function TestCallDashboard() {
     }));
     setCallNotice(`Queued call to ${recipient} cancelled.`);
     setLiveRefreshKey((value) => value + 1);
+    router.refresh();
   };
 
   return (
@@ -248,12 +277,13 @@ export function TestCallDashboard() {
       {callNotice ? (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#397A55]"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
         >
-          <span>{callNotice}</span>
-          <button type="button" onClick={() => setCallNotice(null)} className="font-semibold">
-            Dismiss
-          </button>
+          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
+            <span>{callNotice}</span>
+          </div>
         </div>
       ) : null}
 

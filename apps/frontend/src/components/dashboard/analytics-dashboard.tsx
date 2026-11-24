@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { exportAnalyticsToPdf } from "@/lib/utils/export-analytics-pdf";
 
@@ -50,7 +50,20 @@ function BreakdownRow({ label, value, total, color = "bg-[#7655C7]" }: { label: 
 
 export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: string; data: AnalyticsData | null; error: string | null }) {
   const router = useRouter();
+  const [selectedTimeframe, setSelectedTimeframe] = useState(timeframe);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedTimeframe(timeframe);
+  }, [timeframe]);
+
+  useEffect(() => {
+    if (!exportNotice) return;
+    const timer = window.setTimeout(() => {
+      setExportNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [exportNotice]);
   const metrics = data?.callMetrics;
   const leads = data?.leadIntelligence;
   const costs = data?.costs;
@@ -69,7 +82,7 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
           Date range
-          <select value={timeframe} onChange={(event) => router.push(`/dashboard/analytics?timeframe=${event.target.value}`)} className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[12px] font-medium text-[#252620] outline-none focus:border-[#7655C7]">
+          <select value={selectedTimeframe} onChange={(event) => { const nextFrame = event.target.value; setSelectedTimeframe(nextFrame); router.push(`/dashboard/analytics?timeframe=${nextFrame}`); router.refresh(); }} className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[12px] font-medium text-[#252620] outline-none focus:border-[#7655C7]">
             <option value="today">Today</option>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
@@ -82,11 +95,11 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
           onClick={() => {
             if (!data) return;
             setExportNotice(null);
-            const ok = exportAnalyticsToPdf(timeframe, data);
+            const ok = exportAnalyticsToPdf(selectedTimeframe, data);
             if (!ok) {
               setExportNotice("Unable to generate the PDF report right now. Please try again.");
             } else {
-              setExportNotice("Downloaded foolioo-analytics-" + (timeframe || "30d") + ".pdf");
+              setExportNotice("Downloaded foolioo-analytics-" + (selectedTimeframe || "30d") + ".pdf");
             }
           }}
           className="inline-flex h-10 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
@@ -100,7 +113,18 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
         </button>
       </div>
     </header>
-    {exportNotice ? <div role="status" className="rounded-[8px] border border-[#E9E8E1] bg-[#F8F7F2] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] text-[#252620]">{exportNotice}</div> : null}
+      {exportNotice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+        >
+          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
+            <span>{exportNotice}</span>
+          </div>
+        </div>
+      ) : null}
     {error ? <div className="rounded-[8px] border border-[#E9D4D0] bg-[#FFF8F6] p-4 text-[12px] text-[#984B3E]">Analytics could not be loaded. {error}</div> : null}
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Metric label="Total calls" value={total.toLocaleString("en-IN")} note={`${number(data?.pipeline, "pendingInQueue")} waiting in queue`} />

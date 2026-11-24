@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   createFollowUpAction,
@@ -94,43 +94,72 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<FollowUpRecord[]>(followUps);
   const [notice, setNotice] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    setItems(followUps);
+  }, [followUps]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  const openCount = followUps.filter((item) => item.status === "open").length;
-  const overdueCount = followUps.filter(isOverdue).length;
-  const urgentCount = followUps.filter((item) => item.status === "open" && (item.priority === "urgent" || item.priority === "high")).length;
-  const completedCount = followUps.filter((item) => item.status === "done").length;
+  const openCount = items.filter((item) => item.status === "open").length;
+  const overdueCount = items.filter(isOverdue).length;
+  const urgentCount = items.filter((item) => item.status === "open" && (item.priority === "urgent" || item.priority === "high")).length;
+  const completedCount = items.filter((item) => item.status === "done").length;
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return followUps.filter((item) => {
+    return items.filter((item) => {
       const matchesStatus = status === "all" || item.status === status;
       const matchesPriority = priority === "all" || item.priority === priority;
       const searchable = `${item.contact?.fullName ?? ""} ${item.contact?.phoneNumber ?? ""} ${item.notes ?? ""} ${item.type}`.toLowerCase();
       return matchesStatus && matchesPriority && (!needle || searchable.includes(needle));
     });
-  }, [followUps, priority, query, status]);
+  }, [items, priority, query, status]);
 
   async function changeStatus(item: FollowUpRecord, nextStatus: string) {
+    const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
+    setItems((current) => current.map((row) => (row.id === item.id ? { ...row, status: nextStatus } : row)));
     const result = await updateFollowUpAction(item.id, { status: nextStatus });
     setBusyId(null);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) {
+      setItems(previousItems);
+      setError(result.error);
+      return;
+    }
+    const updatedRow = (result.data as { followUp?: FollowUpRecord } | undefined)?.followUp;
+    if (updatedRow && typeof updatedRow === "object") {
+      setItems((current) => current.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)));
+    }
     setNotice(nextStatus === "done" ? "Follow-up marked as completed." : nextStatus === "not_needed" ? "Follow-up closed." : "Follow-up reopened.");
     router.refresh();
   }
 
   async function removeItem(item: FollowUpRecord) {
     if (!window.confirm(`Delete the follow-up for ${item.contact?.fullName || "this contact"}? This cannot be undone.`)) return;
+    const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
+    setItems((current) => current.filter((row) => row.id !== item.id));
     const result = await deleteFollowUpAction(item.id);
     setBusyId(null);
-    if (!result.ok) { setError(result.error); return; }
+    if (!result.ok) {
+      setItems(previousItems);
+      setError(result.error);
+      return;
+    }
     setNotice("Follow-up deleted.");
     router.refresh();
   }
@@ -139,20 +168,69 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const contactId = String(form.get("contactId") || "");
+    const typeVal = String(form.get("type") || "call_back");
+    const priorityVal = String(form.get("priority") || "medium");
     const dueDateValue = String(form.get("dueDate") || "");
     const callbackValue = String(form.get("requestedCallbackTime") || "");
+    const notesVal = String(form.get("notes") || "").trim() || null;
+    const matchedContact = contacts.find((c) => c.id === contactId);
+
     setBusyId("new"); setError(null);
     const result = await createFollowUpAction({
       contactId,
-      type: String(form.get("type") || "call_back"),
-      priority: String(form.get("priority") || "medium"),
+      type: typeVal,
+      priority: priorityVal,
       dueDate: dueDateValue ? new Date(dueDateValue).toISOString() : undefined,
       requestedCallbackTime: callbackValue ? new Date(callbackValue).toISOString() : undefined,
-      notes: String(form.get("notes") || "").trim() || undefined,
+      notes: notesVal || undefined,
     });
     setBusyId(null);
     if (!result.ok) { setError(result.error); return; }
-    setCreating(false); setNotice("Follow-up created."); router.refresh();
+
+    const createdFromServer = (result.data as { followUp?: FollowUpRecord } | undefined)?.followUp;
+    const optimisticRecord: FollowUpRecord = createdFromServer && typeof createdFromServer === "object"
+      ? {
+          ...createdFromServer,
+          contact: createdFromServer.contact ?? (matchedContact
+            ? {
+                id: matchedContact.id,
+                fullName: matchedContact.fullName,
+                phoneNumber: matchedContact.phoneNumber,
+                email: null,
+                companyName: null,
+                courseOrStream: null,
+              }
+            : null),
+        }
+      : {
+          id: `temp-${Date.now()}`,
+          contactId,
+          callId: null,
+          type: typeVal,
+          priority: priorityVal,
+          dueDate: dueDateValue ? new Date(dueDateValue).toISOString() : null,
+          requestedCallbackTime: callbackValue ? new Date(callbackValue).toISOString() : null,
+          assignedTo: null,
+          status: "open",
+          notes: notesVal,
+          createdAt: new Date().toISOString(),
+          contact: matchedContact
+            ? {
+                id: matchedContact.id,
+                fullName: matchedContact.fullName,
+                phoneNumber: matchedContact.phoneNumber,
+                email: null,
+                companyName: null,
+                courseOrStream: null,
+              }
+            : null,
+          call: null,
+        };
+
+    setItems((current) => [optimisticRecord, ...current]);
+    setCreating(false);
+    setNotice("Follow-up created.");
+    router.refresh();
   }
 
   return (
@@ -165,7 +243,18 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         <button type="button" onClick={() => { setCreating(true); setError(null); }} className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">+ New follow-up</button>
       </div>
 
-      {notice ? <div role="status" className="flex items-center justify-between gap-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#397A55]"><span>{notice}</span><button type="button" onClick={() => setNotice(null)} className="font-semibold">Dismiss</button></div> : null}
+      {notice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
+        >
+          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
+            <span>{notice}</span>
+          </div>
+        </div>
+      ) : null}
       {error || initialError ? <div role="alert" className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{error || initialError}</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -221,8 +310,8 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
               </div>
             </article>;
           })}
-        </div> : <div className="px-5 py-14 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5" /></svg></div><h3 className="mt-4 font-['Newsreader'] text-[24px] text-[#1B1C18]">{followUps.length ? "No follow-ups match these filters" : "No follow-ups yet"}</h3><p className="mx-auto mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Follow-ups requested during calls will appear here automatically. You can also create one manually.</p><button type="button" onClick={() => setCreating(true)} className="mt-5 rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white">Create follow-up</button></div>}
-        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {followUps.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
+        </div> : <div className="px-5 py-14 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5" /></svg></div><h3 className="mt-4 font-['Newsreader'] text-[24px] text-[#1B1C18]">{items.length ? "No follow-ups match these filters" : "No follow-ups yet"}</h3><p className="mx-auto mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Follow-ups requested during calls will appear here automatically. You can also create one manually.</p><button type="button" onClick={() => setCreating(true)} className="mt-5 rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white">Create follow-up</button></div>}
+        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {items.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
       </section>
 
       {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
