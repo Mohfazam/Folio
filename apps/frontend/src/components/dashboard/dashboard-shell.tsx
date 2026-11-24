@@ -613,12 +613,8 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     {upgradeCardHeadline}
                   </p>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsSection("plan");
-                      setSettingsOpen(true);
-                    }}
+                  <Link
+                    href="/dashboard/billing"
                     className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
                       profile.trialExpired
                         ? "text-[#A33A32] hover:text-[#852F29]"
@@ -627,21 +623,17 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   >
                     <span>{upgradeCardAction}</span>
                     <span aria-hidden="true">›</span>
-                  </button>
+                  </Link>
 
                   {/* Compact trigger for collapsed tablet sidebar */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsSection("plan");
-                      setSettingsOpen(true);
-                    }}
+                  <Link
+                    href="/dashboard/billing"
                     title={upgradeCardAction}
                     aria-label={upgradeCardAction}
                     className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[#EFEAFB] py-1 text-[10px] font-bold text-[#644ABB] lg:hidden"
                   >
                     Pro
-                  </button>
+                  </Link>
                 </div>
               ) : null}
 
@@ -920,18 +912,16 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       <p className="mt-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18]">
                         {upgradeCardHeadline}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMobileDrawerOpen(false);
-                          setSettingsSection("plan");
-                          setSettingsOpen(true);
-                        }}
-                        className="mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]"
+                      <Link
+                        href="/dashboard/billing"
+                        onClick={() => setMobileDrawerOpen(false)}
+                        className={`mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold ${
+                          profile.trialExpired ? "text-[#A33A32]" : "text-[#644ABB]"
+                        }`}
                       >
                         <span>{upgradeCardAction}</span>
                         <span aria-hidden="true">›</span>
-                      </button>
+                      </Link>
                     </div>
                   ) : null}
 
