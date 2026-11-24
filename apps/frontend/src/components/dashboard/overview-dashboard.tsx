@@ -608,6 +608,7 @@ function SetupChecklist({
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : step.id)}
                       aria-expanded={isExpanded}
+                      aria-controls={`setup-step-panel-${step.id}`}
                       className="flex w-full flex-wrap items-center gap-2 rounded-[4px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                     >
                       <span

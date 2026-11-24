@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { useRef } from "react";
+import { ConfirmDialog, useDialogFocusTrap } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   createFollowUpAction,
@@ -100,6 +101,11 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
   const [notice, setNotice] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
   const [pendingDeleteItem, setPendingDeleteItem] = useState<FollowUpRecord | null>(null);
+  const createDialogRef = useRef<HTMLElement | null>(null);
+
+  useDialogFocusTrap(creating, createDialogRef, () => {
+    if (busyId !== "new") setCreating(false);
+  });
 
   useEffect(() => {
     setItems(followUps);
@@ -286,14 +292,19 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
                 <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{item.contact?.phoneNumber || "No phone number"}{item.contact?.courseOrStream ? ` · ${item.contact.courseOrStream}` : ""}</p>
                 
                 <div className="mt-2">
-                  <p className={`whitespace-pre-line break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878] ${isExpanded ? "" : "line-clamp-2"}`}>
+                  <p
+                    id={`follow-up-notes-${item.id}`}
+                    className={`whitespace-pre-line break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878] ${isExpanded ? "" : "line-clamp-2"}`}
+                  >
                     {description}
                   </p>
                   {canExpand ? (
                     <button
                       type="button"
+                      aria-expanded={isExpanded}
+                      aria-controls={`follow-up-notes-${item.id}`}
                       onClick={() => toggleExpand(item.id)}
-                      className="mt-1 inline-flex items-center font-['Space_Grotesk'] text-[11px] font-semibold text-[#7055A8] hover:underline"
+                      className="mt-1 inline-flex items-center rounded font-['Space_Grotesk'] text-[11px] font-semibold text-[#7055A8] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                     >
                       {isExpanded ? "Show less" : "Read more"}
                     </button>
@@ -310,10 +321,10 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
             </article>;
           })}
         </div> : <div className="px-5 py-14 text-center"><div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5" /></svg></div><h3 className="mt-4 font-['Newsreader'] text-[24px] text-[#1B1C18]">{items.length ? "No follow-ups match these filters" : "No follow-ups yet"}</h3><p className="mx-auto mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">Follow-ups requested during calls will appear here automatically. You can also create one manually.</p><button type="button" onClick={() => setCreating(true)} className="mt-5 rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white">Create follow-up</button></div>}
-        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {items.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
+        <div className="flex items-center justify-between border-t border-[#ECEBE5] px-4 py-3 font-['Space_Grotesk'] text-[10px] tabular-nums text-[#92938C] sm:px-5"><span>Showing {filtered.length} of {items.length} loaded follow-ups</span><span>{total.toLocaleString("en-IN")} total in workspace</span></div>
       </section>
 
-      {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
+      {creating ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#1B1C18]/35 px-4 py-6" onMouseDown={(event) => { if (event.target === event.currentTarget && busyId !== "new") setCreating(false); }}><section ref={createDialogRef} role="dialog" aria-modal="true" aria-labelledby="new-follow-up-title" tabIndex={-1} className="max-h-[90vh] w-full max-w-[560px] overflow-y-auto rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] outline-none sm:p-6"><div className="flex items-start justify-between gap-4"><div><p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#9A8ABF]">Customer action</p><h2 id="new-follow-up-title" className="mt-1 font-['Newsreader'] text-[28px] text-[#1B1C18]">New follow-up</h2><p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">Create a callback, demo, information task or escalation.</p></div><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded p-2 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close">✕</button></div>
         <form onSubmit={handleCreate} className="mt-5 space-y-4"><div><label className={LABEL}>Contact</label><select name="contactId" required defaultValue="" className={INPUT}><option value="" disabled>Select a contact</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.fullName} · {contact.phoneNumber}</option>)}</select>{contacts.length === 0 ? <p className="mt-1 text-[10px] text-[#A33A32]">No contacts are available. Add a contact before creating a follow-up.</p> : null}</div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Action type</label><select name="type" defaultValue="call_back" className={INPUT}>{TYPES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div><div><label className={LABEL}>Priority</label><select name="priority" defaultValue="medium" className={INPUT}>{PRIORITIES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}</select></div></div><div className="grid gap-3 sm:grid-cols-2"><div><label className={LABEL}>Due date</label><input type="datetime-local" name="dueDate" className={INPUT} /></div><div><label className={LABEL}>Requested callback time</label><input type="datetime-local" name="requestedCallbackTime" className={INPUT} /></div></div><div><label className={LABEL}>Notes</label><textarea name="notes" rows={4} maxLength={4000} className="w-full rounded-[5px] border border-[#E5E4DC] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#1B1C18] outline-none focus:border-[#7852D6]" placeholder="What needs to happen next?" /></div>{error ? <p role="alert" className="text-[11px] text-[#A33A32]">{error}</p> : null}<div className="flex justify-end gap-2 border-t border-[#ECEBE5] pt-4"><button type="button" onClick={() => setCreating(false)} disabled={busyId === "new"} className="rounded-[5px] border border-[#DCDDD6] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#55574F]">Cancel</button><button type="submit" disabled={busyId === "new" || contacts.length === 0} className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white disabled:opacity-50">{busyId === "new" ? "Creating…" : "Create follow-up"}</button></div></form>
       </section></div> : null}
       <ConfirmDialog

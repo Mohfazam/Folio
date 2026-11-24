@@ -3123,6 +3123,7 @@ export function CampaignsDashboard({
               <button
                 type="button"
                 aria-expanded={filterPopoverOpen}
+                aria-controls="campaign-filter-popover"
                 aria-haspopup="dialog"
                 onClick={() => setFilterPopoverOpen((open) => !open)}
                 className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
@@ -3142,6 +3143,7 @@ export function CampaignsDashboard({
 
               {filterPopoverOpen ? (
                 <div
+                  id="campaign-filter-popover"
                   role="dialog"
                   aria-label="Filter and sort campaigns"
                   className="absolute right-0 top-full z-30 mt-2 w-72 rounded-[10px] border border-[#E9E8E1] bg-white p-4 shadow-[0_12px_32px_rgba(27,28,24,0.12)]"
@@ -3394,6 +3396,7 @@ export function CampaignsDashboard({
                           type="button"
                           aria-label={`Actions for ${displayName}`}
                           aria-expanded={menuOpen}
+                          aria-controls={`campaign-menu-${campaign.id}`}
                           aria-haspopup="menu"
                           onClick={() =>
                             setOpenMenuId((current) => (current === campaign.id ? null : campaign.id))
@@ -3405,6 +3408,7 @@ export function CampaignsDashboard({
 
                         {menuOpen ? (
                           <div
+                            id={`campaign-menu-${campaign.id}`}
                             role="menu"
                             className="absolute right-0 top-full z-30 mt-1.5 w-48 overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white p-1 shadow-[0_12px_32px_rgba(27,28,24,0.12)]"
                           >
