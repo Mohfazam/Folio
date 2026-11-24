@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         planId: parsed.data.planId,
         ...(idempotencyKey ? { idempotencyKey } : {}),
+        ...(parsed.data.billingDetails ? { billingDetails: parsed.data.billingDetails } : {}),
       }),
       cache: "no-store",
     });

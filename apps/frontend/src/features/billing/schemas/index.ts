@@ -3,9 +3,20 @@ import type { PurchasablePlanId } from "../types";
 
 export const purchasablePlanIdSchema = z.enum(["growth", "pro", "scale"]);
 
+export const billingPrefillDetailsSchema = z
+  .object({
+    name: z.string().trim().max(120).optional(),
+    email: z.string().trim().max(160).optional(),
+    contact: z.string().trim().max(32).optional(),
+    companyName: z.string().trim().max(160).optional(),
+    gstin: z.string().trim().max(32).optional(),
+  })
+  .optional();
+
 export const createBillingOrderRequestSchema = z.object({
   planId: purchasablePlanIdSchema,
   idempotencyKey: z.string().min(8).max(128).optional(),
+  billingDetails: billingPrefillDetailsSchema,
 });
 
 export const createBillingOrderResponseSchema = z.object({

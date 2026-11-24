@@ -40,9 +40,18 @@ export interface BillingStatusResponse {
   orders: BillingOrderRecord[];
 }
 
+export interface BillingPrefillDetails {
+  name?: string;
+  email?: string;
+  contact?: string;
+  companyName?: string;
+  gstin?: string;
+}
+
 export interface CreateBillingOrderRequest {
   planId: PurchasablePlanId;
   idempotencyKey?: string;
+  billingDetails?: BillingPrefillDetails;
 }
 
 export interface CreateBillingOrderResponse {

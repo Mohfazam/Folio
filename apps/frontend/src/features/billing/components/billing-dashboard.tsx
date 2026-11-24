@@ -58,11 +58,18 @@ export function BillingDashboard() {
   const [selectedPlanId, setSelectedPlanId] = useState<PurchasablePlanId>(requestedPlan ?? "pro");
   const [stage, setStage] = useState<CheckoutStage>("idle");
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [scriptBlockedHint, setScriptBlockedHint] = useState(false);
   const [receipt, setReceipt] = useState<VerifyBillingPaymentResponse | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
 
-  // Ref lock + stable idempotency key per checkout attempt (#1)
+  // #1 Optional pre-checkout billing & invoice fields
+  const [billingName, setBillingName] = useState(profile.displayName || "");
+  const [billingPhone, setBillingPhone] = useState("");
+  const [companyName, setCompanyName] = useState(profile.workspaceName || "");
+  const [gstin, setGstin] = useState("");
+
   const submitLockRef = useRef(false);
   const attemptIdempotencyRef = useRef<{ planId: PurchasablePlanId; key: string } | null>(null);
   const viewedTrackedRef = useRef(false);
@@ -80,13 +87,29 @@ export function BillingDashboard() {
     }
   }, [requestedPlan]);
 
-  // Poll billing status while reconciling webhook settlement (#2)
+  useEffect(() => {
+    if (!billingName && profile.displayName) setBillingName(profile.displayName);
+    if (!companyName && profile.workspaceName) setCompanyName(profile.workspaceName);
+  }, [profile.displayName, profile.workspaceName, billingName, companyName]);
+
   const billingQuery = useBillingStatus({ poll: stage === "reconciling" });
   const createOrderMutation = useCreateRazorpayOrder();
   const verifyPaymentMutation = useVerifyRazorpayPayment();
   const selectedPlan = ONE_TIME_PLANS[selectedPlanId];
 
-  // Detect webhook settlement automatically while in reconciling stage (#2)
+  // #3 Detect trial expiration or low/exhausted credits for tailored pack guidance
+  const creditsBalance = billingQuery.data?.creditsBalance ?? null;
+  const creditsAllowance = billingQuery.data?.creditsAllowance ?? null;
+  const isCreditsLowOrExhausted =
+    typeof creditsBalance === "number" &&
+    typeof creditsAllowance === "number" &&
+    creditsAllowance > 0 &&
+    creditsBalance / creditsAllowance <= 0.2;
+  const recommendedPackId: PurchasablePlanId =
+    profile.trialExpired || (typeof creditsBalance === "number" && creditsBalance === 0)
+      ? "pro"
+      : "growth";
+
   useEffect(() => {
     if (stage !== "reconciling" || !pendingOrderId || !billingQuery.data?.orders) return;
     const settled = billingQuery.data.orders.find(
@@ -108,6 +131,7 @@ export function BillingDashboard() {
       setReceipt(resolvedReceipt);
       setStage("succeeded");
       setFeedbackMessage(null);
+      setScriptBlockedHint(false);
       attemptIdempotencyRef.current = null;
       trackBillingEvent("payment_verified", {
         planId: settled.planId,
@@ -143,6 +167,29 @@ export function BillingDashboard() {
     }
   };
 
+  // #4 Safe diagnostic bundle (excludes tokens, passwords, or secrets)
+  const handleCopyDiagnostics = async () => {
+    const diag = {
+      app: "Foolioo Billing",
+      route: "/dashboard/billing",
+      workspaceId: profile.workspaceId ?? "unknown",
+      selectedPlanId,
+      stage,
+      pendingOrderId,
+      razorpayScriptPresent: typeof window !== "undefined" ? Boolean(window.Razorpay) : false,
+      online: typeof navigator !== "undefined" ? navigator.onLine : true,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+      timestamp: new Date().toISOString(),
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(diag, null, 2));
+      setCopiedDiagnostics(true);
+      window.setTimeout(() => setCopiedDiagnostics(false), 2500);
+    } catch {
+      // Clipboard unavailable
+    }
+  };
+
   const handleSelectPlan = (planId: PurchasablePlanId) => {
     if (submitLockRef.current) return;
     setSelectedPlanId(planId);
@@ -150,6 +197,7 @@ export function BillingDashboard() {
     if (stage === "cancelled" || stage === "failed") {
       setStage("idle");
       setFeedbackMessage(null);
+      setScriptBlockedHint(false);
     }
     trackBillingEvent("plan_selected", { planId });
     router.replace(`/dashboard/billing?plan=${encodeURIComponent(planId)}`, { scroll: false });
@@ -167,6 +215,7 @@ export function BillingDashboard() {
 
     submitLockRef.current = true;
     setFeedbackMessage(null);
+    setScriptBlockedHint(false);
     setReceipt(null);
     setStage("creating_order");
 
@@ -174,12 +223,24 @@ export function BillingDashboard() {
     trackBillingEvent("checkout_started", { planId: selectedPlan.id });
 
     try {
+      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+      if (isOffline) {
+        submitLockRef.current = false;
+        setStage("failed");
+        setScriptBlockedHint(true);
+        setFeedbackMessage(
+          "Your device appears to be offline. Reconnect to the internet and try your payment again.",
+        );
+        return;
+      }
+
       const scriptReady = await loadRazorpayCheckoutScript();
       if (!scriptReady || !window.Razorpay) {
         submitLockRef.current = false;
         setStage("failed");
+        setScriptBlockedHint(true);
         setFeedbackMessage(
-          "Could not load Razorpay Checkout in your browser. Check your network or ad-blocker and try again.",
+          "Razorpay Checkout could not load in your browser. An ad-blocker, strict privacy shield, or in-app browser may be blocking checkout.razorpay.com.",
         );
         trackBillingEvent("payment_failed", {
           planId: selectedPlan.id,
@@ -191,6 +252,13 @@ export function BillingDashboard() {
       const order = await createOrderMutation.mutateAsync({
         planId: selectedPlan.id,
         idempotencyKey,
+        billingDetails: {
+          name: billingName.trim() || profile.displayName || undefined,
+          email: profile.email || undefined,
+          contact: billingPhone.trim() || undefined,
+          companyName: companyName.trim() || profile.workspaceName || undefined,
+          gstin: gstin.trim() || undefined,
+        },
       });
 
       trackBillingEvent("razorpay_order_created", {
@@ -222,13 +290,15 @@ export function BillingDashboard() {
         image: "/Foolioo.svg",
         order_id: order.orderId,
         prefill: {
-          name: order.prefill?.name || profile.displayName || undefined,
+          name: order.prefill?.name || billingName.trim() || profile.displayName || undefined,
           email: order.prefill?.email || profile.email || undefined,
-          contact: order.prefill?.contact || undefined,
+          contact: order.prefill?.contact || billingPhone.trim() || undefined,
         },
         notes: {
           planId: selectedPlan.id,
           workspaceId: profile.workspaceId ?? "",
+          companyName: companyName.trim() || profile.workspaceName || "",
+          ...(gstin.trim() ? { gstin: gstin.trim() } : {}),
           paymentType: "one_time",
         },
         theme: { color: "#1B1C18" },
@@ -290,7 +360,6 @@ export function BillingDashboard() {
             router.refresh();
           } catch (verifyErr) {
             submitLockRef.current = false;
-            // If network timed out after Razorpay captured payment, allow webhook reconciliation check (#2)
             setStage("reconciling");
             setFeedbackMessage(
               verifyErr instanceof Error
@@ -376,16 +445,53 @@ export function BillingDashboard() {
             <span className="font-['Space_Grotesk'] text-[14px] font-bold text-[#1B1C18]">
               {activePlanLabel}
             </span>
-            {typeof billingData?.creditsBalance === "number" ? (
+            {typeof creditsBalance === "number" ? (
               <span className="rounded-full bg-[#EFEAFB] px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
-                {formatCredits(billingData.creditsBalance)} credits left
+                {formatCredits(creditsBalance)} credits left
               </span>
             ) : null}
           </div>
         </div>
       </div>
 
-      {/* #5 Graceful Pre-Backend Notice */}
+      {/* #3 Trial Expired / Low Credits Guidance Callout */}
+      {(profile.trialExpired || isCreditsLowOrExhausted) && stage !== "succeeded" ? (
+        <div
+          role="status"
+          className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 ${
+            profile.trialExpired || creditsBalance === 0
+              ? "border-[#FECACA] bg-[#FEF2F2] text-[#7F1D1D]"
+              : "border-[#FDE68A] bg-[#FFFBEB] text-[#78350F]"
+          }`}
+        >
+          <div>
+            <p className="font-['Space_Grotesk'] text-[13px] font-semibold">
+              {profile.trialExpired
+                ? "Your trial period has ended — pick a one-time pack to resume calling."
+                : creditsBalance === 0
+                  ? "Your voice credits are exhausted — top up now to keep campaigns running."
+                  : `Your voice credits are running low (${formatCredits(creditsBalance ?? 0)} remaining).`}
+            </p>
+            <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] opacity-90">
+              Recommended for your workspace:{" "}
+              <strong className="font-semibold">{ONE_TIME_PLANS[recommendedPackId].name}</strong> (
+              {formatCredits(ONE_TIME_PLANS[recommendedPackId].credits)} credits ·{" "}
+              {formatInr(ONE_TIME_PLANS[recommendedPackId].priceInr)} one-time).
+            </p>
+          </div>
+          {selectedPlanId !== recommendedPackId ? (
+            <button
+              type="button"
+              onClick={() => handleSelectPlan(recommendedPackId)}
+              className="shrink-0 rounded-lg bg-[#1B1C18] px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#34352F]"
+            >
+              Select {ONE_TIME_PLANS[recommendedPackId].name}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Pre-Backend Notice */}
       {isBackendUnconfigured ? (
         <div
           role="status"
@@ -396,7 +502,11 @@ export function BillingDashboard() {
               Checkout preview ready · Awaiting backend billing connection
             </p>
             <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#666A68]">
-              Online Razorpay checkout will activate automatically as soon as the backend <code className="rounded bg-[#EFECE3] px-1.5 py-0.5 font-mono text-[11px]">/api/billing/*</code> endpoints are deployed.
+              Online Razorpay checkout will activate automatically as soon as the backend{" "}
+              <code className="rounded bg-[#EFECE3] px-1.5 py-0.5 font-mono text-[11px]">
+                /api/billing/*
+              </code>{" "}
+              endpoints are deployed.
             </p>
           </div>
           <span className="rounded-full bg-[#EFECE3] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#565B5B]">
@@ -405,7 +515,7 @@ export function BillingDashboard() {
         </div>
       ) : null}
 
-      {/* #2 Webhook Reconciliation Banner */}
+      {/* Webhook Reconciliation Banner */}
       {stage === "reconciling" ? (
         <div
           role="status"
@@ -429,7 +539,7 @@ export function BillingDashboard() {
         </div>
       ) : null}
 
-      {/* #3 Rich Success Receipt Banner */}
+      {/* Success Receipt Banner */}
       {stage === "succeeded" && receipt ? (
         <div
           role="status"
@@ -462,7 +572,6 @@ export function BillingDashboard() {
                   type="button"
                   onClick={() => void handleCopy(receipt.paymentId)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-[#22A06B]/25 bg-white/80 px-2.5 py-1 transition hover:bg-white"
-                  title="Copy Razorpay Payment ID"
                 >
                   <span>Payment: {receipt.paymentId}</span>
                   <span className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#18794E]">
@@ -473,7 +582,6 @@ export function BillingDashboard() {
                   type="button"
                   onClick={() => void handleCopy(receipt.orderId)}
                   className="inline-flex items-center gap-1.5 rounded-md border border-[#22A06B]/25 bg-white/80 px-2.5 py-1 transition hover:bg-white"
-                  title="Copy Razorpay Order ID"
                 >
                   <span>Order: {receipt.orderId}</span>
                   <span className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#18794E]">
@@ -501,24 +609,42 @@ export function BillingDashboard() {
         </div>
       ) : null}
 
-      {/* Failure / Cancelled Banner */}
+      {/* Failure / Cancelled Banner + #4 Script/Network Diagnostics */}
       {(stage === "failed" || stage === "cancelled") && feedbackMessage ? (
         <div
           role="alert"
-          className={`flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4 ${
+          className={`rounded-xl border p-4 ${
             stage === "failed"
               ? "border-[#EF4444]/30 bg-[#FFF1F0] text-[#991B1B]"
               : "border-[#E6E4DC] bg-[#F8F7F2] text-[#444748]"
           }`}
         >
-          <p className="font-['Space_Grotesk'] text-[13px] leading-5">{feedbackMessage}</p>
-          <button
-            type="button"
-            onClick={() => void handlePayNow()}
-            className="shrink-0 rounded-lg bg-[#1B1C18] px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
-          >
-            Try payment again
-          </button>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="font-['Space_Grotesk'] text-[13px] leading-5">{feedbackMessage}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {stage === "failed" ? (
+                <button
+                  type="button"
+                  onClick={() => void handleCopyDiagnostics()}
+                  className="rounded-lg border border-current/20 bg-white/80 px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold transition hover:bg-white"
+                >
+                  {copiedDiagnostics ? "Diagnostics copied" : "Copy diagnostic info"}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void handlePayNow()}
+                className="shrink-0 rounded-lg bg-[#1B1C18] px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+              >
+                Try payment again
+              </button>
+            </div>
+          </div>
+          {scriptBlockedHint ? (
+            <p className="mt-2.5 border-t border-current/15 pt-2.5 font-['Space_Grotesk'] text-[11px] leading-5 opacity-90">
+              Tip: Disable ad-blockers/tracker shields for this site or open Foolioo in Chrome/Safari rather than an embedded in-app browser, then retry.
+            </p>
+          ) : null}
         </div>
       ) : null}
 
@@ -618,14 +744,79 @@ export function BillingDashboard() {
         </div>
       </div>
 
-      {/* 2. Checkout Summary */}
+      {/* 2. Billing Details & Checkout Summary */}
       <div className="grid gap-6 lg:grid-cols-12">
-        <aside className="lg:col-span-12">
-          <div className="sticky top-6 rounded-2xl border border-[#E6E4DC] bg-[#FFFEFB] p-6 shadow-[0_8px_28px_rgba(27,28,24,0.04)]">
-            <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
-              2. Checkout summary
-            </h2>
+        {/* #1 Pre-Checkout Billing & Invoice Details */}
+        <section className="rounded-2xl border border-[#E6E4DC] bg-white p-6 lg:col-span-7">
+          <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
+            2. Billing & invoice details (optional)
+          </h2>
+          <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">
+            Pre-fills Razorpay Checkout and attaches organization/GST details to your order notes.
+          </p>
 
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                Billing contact name
+              </span>
+              <input
+                type="text"
+                value={billingName}
+                onChange={(e) => setBillingName(e.target.value)}
+                placeholder="Your full name"
+                className="mt-1.5 h-10 w-full rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition focus:border-[#1B1C18] focus:bg-white"
+              />
+            </label>
+
+            <label className="block">
+              <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                Phone number (for receipt/UPI)
+              </span>
+              <input
+                type="tel"
+                value={billingPhone}
+                onChange={(e) => setBillingPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="mt-1.5 h-10 w-full rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition focus:border-[#1B1C18] focus:bg-white"
+              />
+            </label>
+
+            <label className="block">
+              <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                Company / workspace name
+              </span>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                placeholder="Organization name"
+                className="mt-1.5 h-10 w-full rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition focus:border-[#1B1C18] focus:bg-white"
+              />
+            </label>
+
+            <label className="block">
+              <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                GSTIN (optional)
+              </span>
+              <input
+                type="text"
+                value={gstin}
+                onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                placeholder="22AAAAA0000A1Z5"
+                maxLength={20}
+                className="mt-1.5 h-10 w-full rounded-lg border border-[#E5E4DC] bg-[#FBFAF6] px-3 font-mono text-[12px] uppercase text-[#1B1C18] outline-none transition focus:border-[#1B1C18] focus:bg-white"
+              />
+            </label>
+          </div>
+        </section>
+
+        {/* Checkout Summary */}
+        <aside className="lg:col-span-5">
+          <div className="rounded-2xl border border-[#E6E4DC] bg-[#FFFEFB] p-6 shadow-[0_8px_28px_rgba(27,28,24,0.04)]">
+            <h2 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#747878]">
+              3. Checkout summary
+            </h2>
             <div className="mt-4 flex items-baseline justify-between border-b border-[#ECEBE4] pb-4">
               <div>
                 <p className="font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]">
@@ -635,21 +826,15 @@ export function BillingDashboard() {
                   One-time payment · Instant credit grant
                 </p>
               </div>
-              <span className="font-['Space_Grotesk'] text-[26px] font-bold tracking-[-0.6px] text-[#1B1C18]">
+              <span className="font-['Space_Grotesk'] text-[26px] font-bold text-[#1B1C18]">
                 {formatInr(selectedPlan.priceInr)}
               </span>
             </div>
 
-            <dl className="mt-4 space-y-3 font-['Space_Grotesk'] text-[13px]">
+            <dl className="mt-4 space-y-2.5 font-['Space_Grotesk'] text-[13px]">
               <div className="flex items-center justify-between">
                 <dt className="text-[#666A68]">Workspace</dt>
-                <dd className="font-medium text-[#1B1C18]">{profile.workspaceName}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-[#666A68]">Account email</dt>
-                <dd className="max-w-[210px] truncate font-medium text-[#1B1C18]">
-                  {profile.email || "Authenticated user"}
-                </dd>
+                <dd className="font-medium text-[#1B1C18]">{companyName.trim() || profile.workspaceName}</dd>
               </div>
               <div className="flex items-center justify-between">
                 <dt className="text-[#666A68]">Credits granted</dt>
@@ -658,65 +843,40 @@ export function BillingDashboard() {
                 </dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-[#666A68]">Estimated talk time</dt>
+                <dt className="text-[#666A68]">Talk time estimate</dt>
                 <dd className="text-[#444748]">{selectedPlan.estimateLabel}</dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-[#666A68]">Billing type</dt>
-                <dd className="rounded-full bg-[#F5F3EC] px-2.5 py-0.5 text-[11px] font-semibold text-[#1B1C18]">
-                  One-time · No auto-renewal
-                </dd>
               </div>
             </dl>
 
-            <div className="mt-5 border-t border-[#ECEBE4] pt-4">
-              <div className="flex items-center justify-between">
-                <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
-                  Total payable (INR)
-                </span>
-                <span className="font-['Space_Grotesk'] text-[22px] font-bold text-[#1B1C18]">
-                  {formatInr(selectedPlan.priceInr)}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => void handlePayNow()}
-                disabled={isBusy}
-                className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-white shadow-[0_6px_18px_rgba(27,28,24,0.14)] transition-all hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {stage === "creating_order"
-                  ? "Preparing Razorpay order..."
-                  : stage === "checkout_open"
-                    ? "Complete payment in Razorpay..."
-                    : stage === "verifying"
-                      ? "Verifying payment signature..."
-                      : `Pay ${formatInr(selectedPlan.priceInr)} with Razorpay`}
-              </button>
-
-              <p className="mt-3 text-center font-['Space_Grotesk'] text-[11px] leading-[1.5] text-[#85877F]">
-                Supports UPI, Credit/Debit Cards, NetBanking, and Wallets via Razorpay. Credits are unlocked immediately upon signature verification.
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={() => void handlePayNow()}
+              disabled={isBusy}
+              className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition hover:bg-[#34352F] disabled:opacity-60"
+            >
+              {stage === "creating_order"
+                ? "Preparing Razorpay order..."
+                : stage === "checkout_open"
+                  ? "Complete payment in Razorpay..."
+                  : stage === "verifying"
+                    ? "Verifying payment signature..."
+                    : `Pay ${formatInr(selectedPlan.priceInr)} with Razorpay`}
+            </button>
           </div>
         </aside>
       </div>
 
-      {/* #3 Enhanced Payment History Table */}
+      {/* Payment History */}
       <section className="rounded-2xl border border-[#E6E4DC] bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0EFEA] pb-4">
           <div>
-            <h2 className="font-['Newsreader'] text-[22px] text-[#1B1C18]">
-              Payment history
-            </h2>
+            <h2 className="font-['Newsreader'] text-[22px] text-[#1B1C18]">Payment history</h2>
             <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">
               One-time credit purchases recorded for this workspace.
             </p>
           </div>
           {billingQuery.isFetching ? (
-            <span className="font-['Space_Grotesk'] text-[11px] text-[#85877F]">
-              Syncing...
-            </span>
+            <span className="font-['Space_Grotesk'] text-[11px] text-[#85877F]">Syncing...</span>
           ) : null}
         </div>
 
@@ -742,9 +902,7 @@ export function BillingDashboard() {
                       <td className="py-3 pr-4 font-semibold capitalize text-[#1B1C18]">
                         {order.planName}
                       </td>
-                      <td className="py-3 pr-4 text-[#34352F]">
-                        {formatInr(order.amountInr)}
-                      </td>
+                      <td className="py-3 pr-4 text-[#34352F]">{formatInr(order.amountInr)}</td>
                       <td className="py-3 pr-4 font-medium text-[#1B1C18]">
                         +{formatCredits(order.creditsGranted)}
                       </td>
@@ -756,7 +914,6 @@ export function BillingDashboard() {
                           type="button"
                           onClick={() => void handleCopy(refId)}
                           className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 transition hover:bg-[#F5F4ED]"
-                          title="Copy reference ID"
                         >
                           <span>{refId}</span>
                           <span className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
@@ -787,16 +944,11 @@ export function BillingDashboard() {
             </table>
           </div>
         ) : (
-          <div className="py-8 text-center">
-            <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#444748]">
-              {isBackendUnconfigured
-                ? "Payment history will appear here once the backend billing endpoint is connected."
-                : "No one-time payments recorded yet."}
-            </p>
-            <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#85877F]">
-              Select Growth, Pro, or Scale above and click Pay with Razorpay to purchase credits.
-            </p>
-          </div>
+          <p className="mt-3 font-['Space_Grotesk'] text-[12px] text-[#747878]">
+            {isBackendUnconfigured
+              ? "Payment history will appear here once the backend billing endpoint is connected."
+              : "No one-time payments recorded yet. Select Growth, Pro, or Scale above and click Pay with Razorpay to purchase credits."}
+          </p>
         )}
       </section>
     </div>
