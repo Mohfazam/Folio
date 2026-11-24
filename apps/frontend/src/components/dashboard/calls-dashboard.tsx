@@ -626,7 +626,7 @@ export function CallsDashboard({
         )}
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
-          <p className="font-['Space_Grotesk'] text-[10px] text-[#85877F]">
+          <p className="font-['Space_Grotesk'] text-[10px] tabular-nums text-[#85877F]">
             Showing {formatNumber(firstResult)}–{formatNumber(lastResult)} of {formatNumber(total)} calls
           </p>
           <div className="flex items-center gap-2">
@@ -638,7 +638,7 @@ export function CallsDashboard({
             >
               Previous
             </Link>
-            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[10px] text-[#747878]">Page {currentPage} / {pageCount}</span>
+            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">Page {currentPage} / {pageCount}</span>
             <Link
               aria-disabled={filters.offset + filters.limit >= total}
               tabIndex={filters.offset + filters.limit >= total ? -1 : 0}

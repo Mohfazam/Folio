@@ -1919,7 +1919,7 @@ export function ContactsDashboard({
                 >
                   Previous
                 </button>
-                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
