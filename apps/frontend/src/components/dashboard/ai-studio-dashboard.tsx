@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import {
   createKnowledgeEntryAction,
   updateKnowledgeEntryAction,
@@ -66,6 +68,7 @@ function Field({ title, children }: { title: string; children: ReactNode }) { re
 
 export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent, profile: initialProfile, voices, languages, error: initialError }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [tab,setTab] = useState<Tab>("knowledge");
   const [entries,setEntries] = useState(initialEntries);
   const [agentState, setAgentState] = useState<Record<string, unknown>>(initialAgent);
@@ -130,6 +133,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
       setEntries(current => [optimisticEntry, ...current]);
     }
     setEditing(null); setCreating(false); setNotice(editing?"Knowledge entry updated.":"Knowledge entry added."); setBusy(false);
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() });
     router.refresh();
   }
   async function removeEntry(entry: Entry) {
@@ -139,6 +143,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
     const result = await deleteKnowledgeEntryAction(entry.id);
     if (!result.ok) { setEntries(previousEntries); setError(result.error); return; }
     setNotice("Knowledge entry deleted.");
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() });
     router.refresh();
   }
   async function saveAgent(event: FormEvent<HTMLFormElement>) {

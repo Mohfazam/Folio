@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import {
   createFollowUpAction,
   deleteFollowUpAction,
@@ -88,6 +90,7 @@ function Metric({ label, value, hint }: { label: string; value: number; hint: st
 
 export function FollowUpsDashboard({ followUps, total, contacts, initialError, initialStatus }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState(initialStatus || "open");
   const [priority, setPriority] = useState("all");
   const [query, setQuery] = useState("");
@@ -145,6 +148,8 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       setItems((current) => current.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)));
     }
     setNotice(nextStatus === "done" ? "Follow-up marked as completed." : nextStatus === "not_needed" ? "Follow-up closed." : "Follow-up reopened.");
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 
@@ -161,6 +166,8 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       return;
     }
     setNotice("Follow-up deleted.");
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 
@@ -230,6 +237,8 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     setItems((current) => [optimisticRecord, ...current]);
     setCreating(false);
     setNotice("Follow-up created.");
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.followUps() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   }
 

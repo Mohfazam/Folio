@@ -13,6 +13,7 @@ async function backendRequest(
   method: string,
   body?: unknown,
   multipart = false,
+  revalidatePaths: string[] = ["/dashboard"],
 ): Promise<ActionResult> {
   try {
     const supabase = await createClient();
@@ -46,11 +47,11 @@ async function backendRequest(
       };
     }
 
-    // Read-only requests must not invalidate dashboard routes. Mutations do.
+    // Read-only requests must not invalidate dashboard routes. Mutations revalidate only affected paths.
     if (method !== "GET") {
-      revalidatePath("/dashboard");
-      revalidatePath("/dashboard/campaigns");
-      revalidatePath("/dashboard/contacts");
+      for (const routePath of revalidatePaths) {
+        revalidatePath(routePath);
+      }
     }
     return { ok: true, data: record };
   } catch (error) {
@@ -70,7 +71,7 @@ export async function saveAgentSettingsAction(input: Record<string, unknown>): P
 export async function previewContactImportAction(file: File): Promise<ActionResult> {
   const formData = new FormData();
   formData.set("file", file, file.name);
-  return backendRequest("/api/contacts/import/preview", "POST", formData, true);
+  return backendRequest("/api/contacts/import/preview", "POST", formData, true, []);
 }
 
 export async function bulkCreateContactsAction(
@@ -81,22 +82,22 @@ export async function bulkCreateContactsAction(
     label,
     autoEnqueue: false,
     contacts,
-  });
+  }, false, ["/dashboard", "/dashboard/contacts"]);
 }
 
 export async function importContactsAction(file: File): Promise<ActionResult> {
   const formData = new FormData();
   formData.set("file", file, file.name);
-  return backendRequest("/api/contacts/import", "POST", formData, true);
+  return backendRequest("/api/contacts/import", "POST", formData, true, ["/dashboard", "/dashboard/contacts"]);
 }
 
 export async function createCampaignAction(input: Record<string, unknown>): Promise<ActionResult> {
-  return backendRequest("/api/campaigns", "POST", input);
+  return backendRequest("/api/campaigns", "POST", input, false, ["/dashboard", "/dashboard/campaigns"]);
 }
 
 
 export async function createTestCallAction(phoneNumber: string, confirmRealCall: boolean): Promise<ActionResult> {
-  return backendRequest("/api/test-calls", "POST", { phoneNumber, confirmRealCall });
+  return backendRequest("/api/test-calls", "POST", { phoneNumber, confirmRealCall }, false, ["/dashboard", "/dashboard/calls", "/dashboard/testing"]);
 }
 
 export async function getTestCallStatusAction(testCallId: string): Promise<ActionResult> {
@@ -223,12 +224,12 @@ export async function updateCampaignDetailsAction(
   input: Record<string, unknown>,
 ): Promise<ActionResult> {
   if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
-  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", input);
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "PATCH", input, false, ["/dashboard", "/dashboard/campaigns"]);
 }
 
 export async function deleteDraftCampaignAction(campaignId: string): Promise<ActionResult> {
   if (!campaignId) return { ok: false, status: 400, error: "Campaign ID is missing." };
-  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "DELETE");
+  return backendRequest(`/api/campaigns/${encodeURIComponent(campaignId)}`, "DELETE", undefined, false, ["/dashboard", "/dashboard/campaigns"]);
 }
 
 export async function createFollowUpAction(input: {
@@ -264,17 +265,17 @@ export async function deleteFollowUpAction(id: string): Promise<ActionResult> {
 }
 
 export async function createKnowledgeEntryAction(input: Record<string, unknown>): Promise<ActionResult> {
-  return backendRequest("/api/knowledge-base", "POST", input);
+  return backendRequest("/api/knowledge-base", "POST", input, false, ["/dashboard/ai-studio"]);
 }
 
 export async function updateKnowledgeEntryAction(id: string, input: Record<string, unknown>): Promise<ActionResult> {
   if (!id) return { ok: false, status: 400, error: "Knowledge entry ID is missing." };
-  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "PATCH", input);
+  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "PATCH", input, false, ["/dashboard/ai-studio"]);
 }
 
 export async function deleteKnowledgeEntryAction(id: string): Promise<ActionResult> {
   if (!id) return { ok: false, status: 400, error: "Knowledge entry ID is missing." };
-  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "DELETE");
+  return backendRequest(`/api/knowledge-base/${encodeURIComponent(id)}`, "DELETE", undefined, false, ["/dashboard/ai-studio"]);
 }
 
 export async function getWorkspaceSettingsAction(): Promise<ActionResult> {

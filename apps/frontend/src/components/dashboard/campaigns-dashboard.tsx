@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import {
   createCampaignAction,
   deleteDraftCampaignAction,
@@ -1864,6 +1866,7 @@ export function CampaignsDashboard({
   initialCampaignId = null,
 }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
   const [optimisticCreated, setOptimisticCreated] = useState<Campaign[]>([]);
   const [optimisticPatches, setOptimisticPatches] = useState<Record<string, Partial<Campaign>>>({});
@@ -2248,6 +2251,8 @@ export function CampaignsDashboard({
       `Campaign queued for ${queuedCount} contacts. Calls will run only during ${dailyStart}–${dailyEnd} workspace time.`,
     );
     setLaunchingCampaign(null);
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   };
 
@@ -2292,6 +2297,8 @@ export function CampaignsDashboard({
         ? "Campaign paused. No new calls will start until you resume it."
         : "Campaign resumed. Pending calls will continue inside the configured calling windows.",
     );
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   };
 
@@ -2318,6 +2325,8 @@ export function CampaignsDashboard({
     setDetailSelection((curr) => (curr?.campaignId === targetId ? null : curr));
     setDeletingCampaign(null);
     setNotice(`Deleted campaign "${deletedName}".`);
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   };
 
@@ -2431,6 +2440,8 @@ export function CampaignsDashboard({
         setPendingLaunchCampaignId(options.createdCampaignId);
       }
     }
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() });
+    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
     router.refresh();
   };
 
