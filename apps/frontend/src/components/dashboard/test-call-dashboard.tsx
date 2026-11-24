@@ -287,9 +287,6 @@ export function TestCallDashboard() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
         <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-5 sm:p-6">
           <div className="border-b border-[#ECEBE5] pb-4">
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">
-              OUTBOUND CALL
-            </p>
             <h2 className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]">
               Make a test call
             </h2>

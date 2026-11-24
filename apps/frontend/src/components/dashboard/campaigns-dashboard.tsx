@@ -3008,7 +3008,7 @@ export function CampaignsDashboard({
 
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[#ECEBE5] pb-5">
         <div>
-          <h1 className="font-['Newsreader'] text-[32px] leading-tight tracking-[-0.6px] text-[#1B1C18] sm:text-[36px]">
+          <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Campaigns
           </h1>
           <p className="mt-1 max-w-[640px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
