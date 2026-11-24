@@ -78,7 +78,7 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
 
   return <main className="space-y-5 pb-8">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-      <div><p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[.16em] text-[#8A7A65]">Performance intelligence</p><h1 className="mt-2 font-['Newsreader'] text-[38px] leading-none tracking-[-1px] text-[#1B1C18]">Analytics</h1><p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[12px] leading-5 text-[#777970]">Understand call activity, campaign outcomes, lead quality and operating costs.</p></div>
+      <div><h1 className="mt-2 font-['Newsreader'] text-[38px] leading-none tracking-[-1px] text-[#1B1C18]">Analytics</h1><p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[12px] leading-5 text-[#777970]">Understand call activity, campaign outcomes, lead quality and operating costs.</p></div>
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] text-[#747878]">
           Date range

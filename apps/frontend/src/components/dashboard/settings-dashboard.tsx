@@ -171,8 +171,9 @@ export function SettingsDashboard({ account, initialSettings }: {
       <div className="mx-auto max-w-[1180px]">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold tracking-[0.14em] text-[#8A806D]">WORKSPACE CONTROL</p>
-            <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight text-[#1B1C18]">Settings</h1>
+            <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
+            Settings
+          </h1>
             <p className="mt-1 text-[12px] text-[#777970]">Manage your workspace, account and operational preferences.</p>
           </div>
           <div className="flex items-center gap-3 text-right">
