@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
 import { dashboardKeys } from "@/lib/query/keys";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 
 type Section = "general" | "account" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
@@ -319,18 +320,7 @@ export function SettingsDashboard({ account, initialSettings }: {
           {section === "integrations" ? <Placeholder title="Integrations" description="Connect external tools to your Foolioo workspace." items={["CRM integrations", "Webhook endpoints and delivery logs", "API keys and access scopes", "Telephony provider status", "Speech provider status"]} /> : null}
 
           {error ? <p role="alert" className="mt-5 rounded-md bg-[#FBECE9] px-3 py-2.5 text-[12px] text-[#A33A32]">{error}</p> : null}
-      {success ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-            <span>{success}</span>
-          </div>
-        </div>
-      ) : null}
+      <ToastNotice message={success} />
         </main>
       </div>
 

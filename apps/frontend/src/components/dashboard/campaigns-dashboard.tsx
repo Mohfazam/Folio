@@ -16,6 +16,7 @@ import {
   updateCampaignStatusAction,
 } from "@/app/(dashboard)/dashboard/actions";
 import { createContactAction } from "@/app/(dashboard)/dashboard/contacts/actions";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 
 type CampaignStats = {
   totalCalls?: number;
@@ -2470,18 +2471,7 @@ export function CampaignsDashboard({
   if (selectedDetailCampaign && detailSelection) {
     return (
       <>
-        {notice ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-          >
-            <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-              <span>{notice}</span>
-            </div>
-          </div>
-        ) : null}
+        <ToastNotice message={notice} onDismiss={() => setNotice(null)} />
         <CampaignDetailView
         campaign={selectedDetailCampaign}
         initialTab={detailSelection.initialTab}
@@ -3040,18 +3030,7 @@ export function CampaignsDashboard({
         </button>
       </header>
 
-      {notice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-            <span>{notice}</span>
-          </div>
-        </div>
-      ) : null}
+      <ToastNotice message={notice} onDismiss={() => setNotice(null)} />
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">

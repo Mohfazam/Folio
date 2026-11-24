@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import { cancelQueuedCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
 
 export type CallRecord = {
@@ -344,7 +345,6 @@ export function CallsDashboard({
     }, 3000);
     return () => window.clearTimeout(timer);
   }, [callNotice]);
-  const [, setCallComposerOpenState] = useState(false);
 
   const handleCancelQueuedCall = (entry: LiveQueueEntry) => {
     if (entry.status !== "pending" || cancellingQueueId) return;
@@ -387,12 +387,9 @@ export function CallsDashboard({
   const firstResult = total === 0 ? 0 : filters.offset + 1;
   const lastResult = Math.min(filters.offset + filters.limit, total);
 
-  function setCallComposerOpen(arg0: boolean): void {
-    setCallComposerOpenState(arg0);
-  }
 
   return (
-    <div className="space-y-6 pb-20 md:pb-0">
+    <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
@@ -403,30 +400,16 @@ export function CallsDashboard({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Badge tone="purple">Call history</Badge> */}
-          {/* <button
-            type="button"
-            onClick={() => setCallComposerOpen(true)}
-            className="hidden h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] md:inline-flex"
+          <Link
+            href="/dashboard/testing"
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
-            <span aria-hidden="true" className="text-[15px]">＋</span>
-            Make a test call
-          </button> */}
+            Place test call →
+          </Link>
         </div>
       </header>
 
-      {callNotice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-            <span>{callNotice}</span>
-          </div>
-        </div>
-      ) : null}
+      <ToastNotice message={callNotice} onDismiss={() => setCallNotice(null)} />
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
@@ -667,17 +650,6 @@ export function CallsDashboard({
           </div>
         </footer>
       </section>
-
-      <div className="!mt-0 fixed inset-x-0 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),8px))] z-30 border-t border-[#E9E8E1] bg-white/95 px-4 py-3 shadow-[0_-4px_12px_rgba(27,28,24,0.06)] backdrop-blur md:hidden">
-        {/* <button
-          type="button"
-          onClick={() => setCallComposerOpen(true)}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
-        >
-          <span aria-hidden="true" className="text-[15px]">＋</span>
-          Make a test call
-        </button> */}
-      </div>
 
 
     </div>

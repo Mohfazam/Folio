@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   createFollowUpAction,
   deleteFollowUpAction,
@@ -252,18 +253,7 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         <button type="button" onClick={() => { setCreating(true); setError(null); }} className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">+ New follow-up</button>
       </div>
 
-      {notice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-            <span>{notice}</span>
-          </div>
-        </div>
-      ) : null}
+      <ToastNotice message={notice} onDismiss={() => setNotice(null)} />
       {error || initialError ? <div role="alert" className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{error || initialError}</div> : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

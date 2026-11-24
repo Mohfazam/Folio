@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
+import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
   createKnowledgeEntryAction,
   updateKnowledgeEntryAction,
@@ -186,18 +187,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
 
   return <div className="mx-auto max-w-[1180px] space-y-6">
     <header className="flex flex-wrap items-end justify-between gap-4"><div><h1 className="font-['Newsreader'] text-[38px] leading-tight text-[#1B1C18]">AI Studio</h1><p className="mt-2 max-w-[650px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">Manage what your AI knows and how it communicates with your customers.</p></div><div className="flex gap-2 rounded-lg border border-[#ECEBE5] bg-white p-1"><button onClick={()=>setTab("knowledge")} className={`rounded-md px-4 py-2 text-[11px] font-semibold ${tab==="knowledge"?"bg-[#EDE6FC] text-[#5737A6]":"text-[#777970]"}`}>Knowledge base</button><button onClick={()=>setTab("agent")} className={`rounded-md px-4 py-2 text-[11px] font-semibold ${tab==="agent"?"bg-[#EDE6FC] text-[#5737A6]":"text-[#777970]"}`}>Voice agent</button></div></header>
-      {notice ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
-        >
-          <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#4ADE80]" aria-hidden="true" />
-            <span>{notice}</span>
-          </div>
-        </div>
-      ) : null}
+      <ToastNotice message={notice} onDismiss={() => setNotice("")} />
     {error && <div role="alert" className="rounded-md border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 text-[12px] text-[#A33A32]">{error}</div>}
     {tab==="knowledge" ? <>
       <div className="grid gap-3 sm:grid-cols-3"><Metric title="Total entries" value={entries.length}/><Metric title="Active knowledge" value={activeCount}/><Metric title="Inactive entries" value={entries.length-activeCount}/></div>
