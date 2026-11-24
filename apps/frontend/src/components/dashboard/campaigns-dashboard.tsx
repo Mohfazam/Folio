@@ -1747,21 +1747,25 @@ export function CampaignsDashboard({
 }: Props) {
   const router = useRouter();
   const [liveCampaigns, setLiveCampaigns] = useState<Record<string, LiveCampaignSnapshot>>({});
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(() => new Set());
   const liveStatsRequestInFlight = useRef(false);
-
-  const campaigns = useMemo(
-    () =>
-      initialCampaigns.map((campaign) => {
-        const live = liveCampaigns[campaign.id];
-        return live ? { ...campaign, status: live.status, stats: live.stats } : campaign;
-      }),
-    [initialCampaigns, liveCampaigns],
-  );
-  const hasActiveCampaigns = campaigns.some((campaign) => campaign.status === "active");
 
   useEffect(() => {
     setLiveCampaigns({});
+    setDeletedIds(new Set());
   }, [initialCampaigns]);
+
+  const campaigns = useMemo(
+    () =>
+      initialCampaigns
+        .filter((campaign) => !deletedIds.has(campaign.id))
+        .map((campaign) => {
+          const live = liveCampaigns[campaign.id];
+          return live ? { ...campaign, status: live.status, stats: live.stats } : campaign;
+        }),
+    [initialCampaigns, liveCampaigns, deletedIds],
+  );
+  const hasActiveCampaigns = campaigns.some((campaign) => campaign.status === "active");
 
   useEffect(() => {
     if (!hasActiveCampaigns) return;
@@ -2108,15 +2112,24 @@ export function CampaignsDashboard({
 
   const confirmDeleteCampaign = async () => {
     if (!deletingCampaign || deleteBusy) return;
+    const targetId = deletingCampaign.id;
+    const deletedName = cleanDisplayTitle(deletingCampaign.name);
+
     setDeleteBusy(true);
-    const result = await deleteDraftCampaignAction(deletingCampaign.id);
+    const result = await deleteDraftCampaignAction(targetId);
     setDeleteBusy(false);
     if (!result.ok) {
       setNotice(`Could not delete campaign: ${result.error}`);
       setDeletingCampaign(null);
       return;
     }
-    const deletedName = cleanDisplayTitle(deletingCampaign.name);
+
+    setDeletedIds((prev) => {
+      const next = new Set(prev);
+      next.add(targetId);
+      return next;
+    });
+    setDetailSelection((curr) => (curr?.campaignId === targetId ? null : curr));
     setDeletingCampaign(null);
     setNotice(`Deleted campaign "${deletedName}".`);
     router.refresh();
