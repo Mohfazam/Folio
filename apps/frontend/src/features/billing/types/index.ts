@@ -101,3 +101,42 @@ export type RazorpayFailureResponse = {
     reason?: string;
   };
 };
+
+export type RazorpayCheckoutOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  image?: string;
+  order_id: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  theme?: { color: string };
+  modal?: {
+    escape?: boolean;
+    confirm_close?: boolean;
+    ondismiss?: () => void;
+  };
+  handler: (response: RazorpaySuccessPayload) => void | Promise<void>;
+};
+
+export type RazorpayCheckoutInstance = {
+  on: (event: "payment.failed", handler: (failure: RazorpayFailureResponse) => void) => void;
+  open: () => void;
+  close: () => void;
+};
+
+export type RazorpayCheckoutConstructor = new (
+  options: RazorpayCheckoutOptions,
+) => RazorpayCheckoutInstance;
+
+declare global {
+  interface Window {
+    Razorpay?: RazorpayCheckoutConstructor;
+  }
+}
