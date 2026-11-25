@@ -1,6 +1,22 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function hasValidFooliooSession(token: string | undefined): boolean {
+  if (!token) return false;
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3 || !parts[1]) return false;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "="));
+    const payload = JSON.parse(json) as { userId?: string; exp?: number };
+    if (!payload?.userId) return false;
+    if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now()) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -28,7 +44,7 @@ export async function proxy(request: NextRequest) {
   // the JWT without a separate Auth user lookup.
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims as Record<string, unknown> | undefined;
-  const hasFooliooSession = Boolean(request.cookies.get("foolioo_session")?.value);
+  const hasFooliooSession = hasValidFooliooSession(request.cookies.get("foolioo_session")?.value);
   const authenticated = hasFooliooSession || (!error && typeof claims?.sub === "string");
 
   if ((request.nextUrl.pathname === "/sign-in" || request.nextUrl.pathname === "/sign-up") && authenticated) {
