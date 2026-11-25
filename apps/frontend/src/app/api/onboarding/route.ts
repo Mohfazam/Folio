@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
 function backendBaseUrl() {
-  const value = process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000";
-  return value.replace(/\/+$/, "");
+  const raw =
+    process.env.BACKEND_API_URL?.trim() ||
+    process.env.NEXT_PUBLIC_API_URL?.trim() ||
+    "http://127.0.0.1:4000";
+  return raw
+    .replace(/^http:\/\/localhost(?=[:/]|$)/i, "http://127.0.0.1")
+    .replace(/\/+$/, "");
 }
 
 async function backendRequest(method: "GET" | "PUT", accessToken: string, body?: unknown) {
@@ -15,6 +20,7 @@ async function backendRequest(method: "GET" | "PUT", accessToken: string, body?:
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     cache: "no-store",
+    signal: AbortSignal.timeout(12_000),
   });
 
   const payload = await response.json().catch(() => ({ ok: false, error: "Invalid backend response" }));
@@ -22,28 +28,26 @@ async function backendRequest(method: "GET" | "PUT", accessToken: string, body?:
 }
 
 async function withAuthenticatedWorkspace(method: "GET" | "PUT", body?: unknown) {
-  const supabase = await createClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (userError || !user || !session?.access_token) {
+  const auth = await getDashboardAuthContext();
+  if (!auth) {
     return NextResponse.json({ ok: false, error: "You must be signed in" }, { status: 401 });
   }
 
   try {
-    let result = await backendRequest(method, session.access_token, body);
+    let result = await backendRequest(method, auth.accessToken, body);
 
-    // A valid Supabase session can exist before its Neon user/workspace row.
+    // A valid Supabase OAuth session can exist before its Neon user/workspace row.
     // Provision once, then retry the workspace-scoped onboarding request.
-    if (result.response.status === 403) {
+    if (result.response.status === 403 && auth.supabase) {
       const syncResponse = await fetch(`${backendBaseUrl()}/api/auth/sync`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${auth.accessToken}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({}),
         cache: "no-store",
+        signal: AbortSignal.timeout(12_000),
       });
 
       if (!syncResponse.ok) {
@@ -54,7 +58,7 @@ async function withAuthenticatedWorkspace(method: "GET" | "PUT", body?: unknown)
         );
       }
 
-      result = await backendRequest(method, session.access_token, body);
+      result = await backendRequest(method, auth.accessToken, body);
     }
 
     return NextResponse.json(result.payload, { status: result.response.status });

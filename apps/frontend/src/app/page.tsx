@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
 import Navbar from "@/components/Navbar";
 import { Hero } from "@/components/hero";
@@ -40,53 +40,51 @@ function hasTrialExpired(trialEndsAt: string): boolean {
 async function DynamicContent() {
   await connection();
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
+  const auth = await getDashboardAuthContext();
   let currentPlan: string | null = null;
 
-  if (user) {
+  if (auth?.accessToken) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        const backendUrl = (
-          process.env.BACKEND_API_URL?.trim() ||
-          process.env.NEXT_PUBLIC_API_URL?.trim() ||
-          "http://localhost:4000"
-        ).replace(/\/+$/, "");
+      const backendUrl = (
+        process.env.BACKEND_API_URL?.trim() ||
+        process.env.NEXT_PUBLIC_API_URL?.trim() ||
+        "http://127.0.0.1:4000"
+      )
+        .replace(/^http:\/\/localhost(?=[:/]|$)/i, "http://127.0.0.1")
+        .replace(/\/+$/, "");
 
-        const response = await fetch(`${backendUrl}/api/clients`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          cache: "no-store",
-        });
+      const response = await fetch(`${backendUrl}/api/clients`, {
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        cache: "no-store",
+        signal: AbortSignal.timeout(8_000),
+      });
 
-        if (response.ok) {
-          const payload: unknown = await response.json();
-          if (
-            typeof payload === "object" &&
-            payload !== null &&
-            "clients" in payload &&
-            Array.isArray(payload.clients)
-          ) {
-            const clientRecord = payload.clients.find(isWorkspaceClient);
-            if (clientRecord) {
-              const tier = clientRecord.planTier;
-              if (tier.toLowerCase() === "trial") {
-                if (clientRecord.status !== "trialing") {
-                  currentPlan = "Expired";
-                } else if (clientRecord.trialEndsAt) {
-                  const trialEndsAt = new Date(clientRecord.trialEndsAt).getTime();
-                  if (Number.isFinite(trialEndsAt)) {
-                    currentPlan = hasTrialExpired(clientRecord.trialEndsAt) ? "Expired" : "Trial";
-                  } else {
-                    currentPlan = "Trial";
-                  }
+      if (response.ok) {
+        const payload: unknown = await response.json();
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "clients" in payload &&
+          Array.isArray(payload.clients)
+        ) {
+          const clientRecord = payload.clients.find(isWorkspaceClient);
+          if (clientRecord) {
+            const tier = clientRecord.planTier;
+            if (tier.toLowerCase() === "trial") {
+              if (clientRecord.status !== "trialing") {
+                currentPlan = "Expired";
+              } else if (clientRecord.trialEndsAt) {
+                const trialEndsAt = new Date(clientRecord.trialEndsAt).getTime();
+                if (Number.isFinite(trialEndsAt)) {
+                  currentPlan = hasTrialExpired(clientRecord.trialEndsAt) ? "Expired" : "Trial";
                 } else {
                   currentPlan = "Trial";
                 }
               } else {
-                currentPlan = tier;
+                currentPlan = "Trial";
               }
+            } else {
+              currentPlan = tier;
             }
           }
         }
@@ -99,11 +97,11 @@ async function DynamicContent() {
 
   return (
     <>
-      <OutboundCalls isLoggedIn={Boolean(user)} />
+      <OutboundCalls isLoggedIn={Boolean(auth)} />
       <VoiceAgent />
       <CallsIntoAnswers />
       <Integrations />
-      <Pricing currentPlan={currentPlan} isLoggedIn={Boolean(user)} />
+      <Pricing currentPlan={currentPlan} isLoggedIn={Boolean(auth)} />
     </>
   );
 }

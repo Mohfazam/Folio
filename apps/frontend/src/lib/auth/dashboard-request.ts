@@ -109,13 +109,16 @@ export const getWorkspaceAuthMe = cache(async (accessToken: string): Promise<Aut
   const baseUrl = (
     process.env.BACKEND_API_URL?.trim() ||
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    "http://localhost:4000"
-  ).replace(/\/+$/, "");
+    "http://127.0.0.1:4000"
+  )
+    .replace(/^http:\/\/localhost(?=[:/]|$)/i, "http://127.0.0.1")
+    .replace(/\/+$/, "");
 
   try {
     const response = await fetch(`${baseUrl}/api/auth/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
     });
     const payload: unknown = await response.json().catch(() => null);
     const backendMessage =
@@ -166,14 +169,16 @@ export const getWorkspaceSettingsData = cache(async (accessToken: string): Promi
   const baseUrl = (
     process.env.BACKEND_API_URL?.trim() ||
     process.env.NEXT_PUBLIC_API_URL?.trim() ||
-    "http://localhost:4000"
-  ).replace(/\/+$/, "");
+    "http://127.0.0.1:4000"
+  )
+    .replace(/^http:\/\/localhost(?=[:/]|$)/i, "http://127.0.0.1")
+    .replace(/\/+$/, "");
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   try {
     const [profileResponse, agentResponse] = await Promise.all([
-      fetch(`${baseUrl}/api/business-profile`, { headers, cache: "no-store" }),
-      fetch(`${baseUrl}/api/agent-settings`, { headers, cache: "no-store" }),
+      fetch(`${baseUrl}/api/business-profile`, { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) }),
+      fetch(`${baseUrl}/api/agent-settings`, { headers, cache: "no-store", signal: AbortSignal.timeout(12_000) }),
     ]);
     const [profilePayload, agentPayload] = await Promise.all([
       profileResponse.json().catch(() => null) as Promise<unknown>,
