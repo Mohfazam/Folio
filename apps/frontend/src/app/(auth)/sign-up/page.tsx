@@ -250,13 +250,8 @@ function SignUpContent() {
           )}
 
           <div className="pt-1">
-<<<<<<< HEAD
-            <Button type="submit" loading={isPending} disabled>
-              Create account (Temporarily disabled)
-=======
             <Button type="submit" loading={isPending} disabled={EMAIL_AUTH_DISABLED}>
               {EMAIL_AUTH_DISABLED ? "Email sign-up unavailable" : isPending ? "Creating your account…" : "Create account"}
->>>>>>> a2f354c448db2295a87f26c32556694cfb3d270a
             </Button>
           </div>
 

@@ -19,7 +19,7 @@ const PLAN_DEFINITIONS: Record<string, { amountPaise: number; credits: number; n
 };
 
 function isDevTestAllowed(req: Request): boolean {
-  const host = req.get("host") || "";
+  const host = (req.get("x-client-host") || req.get("x-forwarded-host") || req.get("host") || "").toLowerCase();
   return host.startsWith("localhost") || host.startsWith("127.0.0.1");
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { createOrderRequestSchema } from "@/features/billing/schemas";
 import { enforceDevTestPlanAllowed } from "@/features/billing/utils/dev-test-guard";
 import { DEV_TEST_PLAN_AMOUNT_PAISE, DEV_TEST_PLAN_ID } from "@/features/billing/utils/dev-test-plan";
@@ -65,9 +66,21 @@ export async function POST(request: NextRequest) {
   const host = request.headers.get("host");
   const forwardedHost = request.headers.get("x-forwarded-host");
   if (cookie) forwardHeaders.cookie = cookie;
-  if (auth) forwardHeaders.authorization = auth;
   if (host) forwardHeaders["x-client-host"] = host;
   if (forwardedHost) forwardHeaders["x-forwarded-host"] = forwardedHost;
+
+  if (auth) {
+    forwardHeaders.authorization = auth;
+  } else {
+    const authContext = await getDashboardAuthContext();
+    if (!authContext) {
+      return NextResponse.json(
+        { ok: false, error: "Please sign in to complete checkout." },
+        { status: 401 },
+      );
+    }
+    forwardHeaders.authorization = `Bearer ${authContext.accessToken}`;
+  }
 
   const upstream = await fetch(`${backendBase}/api/billing/order`, {
     method: "POST",
