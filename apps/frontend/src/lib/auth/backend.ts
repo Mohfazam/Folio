@@ -67,8 +67,30 @@ async function fetchBackend(path: string, init: RequestInit): Promise<Response> 
   });
 }
 
+type BaseAuthPayload = {
+  ok?: boolean;
+  message?: string;
+  error?: string;
+  token?: string;
+  requiresVerification?: boolean;
+  verified?: boolean;
+  user?: unknown;
+  client?: unknown;
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
+}
+
+async function parseAuthJson<T extends BaseAuthPayload>(response: Response): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return {
+      ok: false,
+      error: `Server returned an unexpected response (${response.status}).`,
+    } as T;
+  }
 }
 
 export async function syncAuthenticatedUser(accessToken: string): Promise<void> {
@@ -132,10 +154,7 @@ export async function registerWithEmail(data: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    const payload = await parseAuthJson<{ ok?: boolean; message?: string; error?: string }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Could not create account. Please try again." };
     }
@@ -163,17 +182,14 @@ export async function loginWithEmail(data: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const payload = await parseJson<{
+    const payload = await parseAuthJson<{
       ok?: boolean;
       token?: string;
       requiresVerification?: boolean;
       user?: unknown;
       client?: unknown;
       error?: string;
-    }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    }>(response);
     if (!response.ok || !payload.ok) {
       return {
         ok: false,
@@ -200,10 +216,7 @@ export async function requestAuthOtp(email: string): Promise<{ ok: boolean; mess
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    const payload = await parseAuthJson<{ ok?: boolean; message?: string; error?: string }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Failed to send verification code" };
     }
@@ -224,17 +237,14 @@ export async function verifyAuthOtp(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, otp }),
     });
-    const payload = await parseJson<{
+    const payload = await parseAuthJson<{
       ok?: boolean;
       token?: string;
       verified?: boolean;
       user?: unknown;
       client?: unknown;
       error?: string;
-    }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Invalid verification code" };
     }
@@ -258,10 +268,7 @@ export async function requestPasswordResetOtp(email: string): Promise<{ ok: bool
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    const payload = await parseAuthJson<{ ok?: boolean; message?: string; error?: string }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Failed to send password reset code" };
     }
@@ -283,10 +290,7 @@ export async function verifyPasswordResetOtp(data: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    const payload = await parseAuthJson<{ ok?: boolean; message?: string; error?: string }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Failed to reset password" };
     }
@@ -310,10 +314,7 @@ export async function submitSupportTicket(data: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const payload = await parseJson<{ ok?: boolean; message?: string; error?: string }>(response).catch(() => ({
-      ok: false,
-      error: `Server returned an unexpected response (${response.status}).`,
-    }));
+    const payload = await parseAuthJson<{ ok?: boolean; message?: string; error?: string }>(response);
     if (!response.ok || !payload.ok) {
       return { ok: false, error: payload.error || "Failed to submit support ticket" };
     }
