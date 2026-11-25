@@ -230,19 +230,19 @@ export default function PublicDemoExperience() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-5 py-4 sm:px-8 lg:grid lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-9 lg:py-3 xl:gap-11 xl:py-5">
+    <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-5 px-5 py-4 sm:px-8 lg:grid lg:min-h-0 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-8 lg:py-2 xl:gap-11">
       {/* LEFT COLUMN */}
       <div className="flex flex-col justify-center lg:pr-4">
-        <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048]">
+        <div className="mb-2.5 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048] xl:mb-3.5">
           <span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" /> Meet your AI receptionist
         </div>
         <h1 className="max-w-xl font-[var(--font-newsreader)] text-[44px] font-medium leading-[0.99] tracking-[-1.9px] sm:text-[56px]">
           A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span>
         </h1>
-        <p className="mt-4 max-w-lg text-[14px] leading-6 text-[#66635B]">
+        <p className="mt-2.5 max-w-lg text-[13px] leading-5 text-[#66635B] xl:mt-3.5 xl:text-[14px] xl:leading-6">
           Experience how a Foolioo voice agent handles everyday institute enquiries. Choose a scenario, select a language and receive one live demo call.
         </p>
-        <div className="mt-5 grid max-w-lg grid-cols-3 gap-3 border-t border-[#E4DED2] pt-4 xl:mt-7 xl:pt-5">
+        <div className="mt-4 grid max-w-lg grid-cols-3 gap-3 border-t border-[#E4DED2] pt-3.5 xl:mt-6 xl:pt-4">
           {[
             { value: "01", label: "Choose a scenario" },
             { value: "02", label: "Request a call" },
@@ -254,7 +254,7 @@ export default function PublicDemoExperience() {
             </div>
           ))}
         </div>
-        <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/60 p-3 text-[12px] leading-5 text-[#68645C] xl:mt-7 xl:p-3.5">
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/60 p-2.5 text-[11.5px] leading-[18px] text-[#68645C] xl:mt-6 xl:p-3.5 xl:text-[12px] xl:leading-5">
           <span className="mt-0.5 text-[#FD7032]">✳</span>
           <p>
             <strong className="font-semibold text-[#292821]">Built for institute front desks.</strong> The showcase agent demonstrates admissions and student-support conversations. It is a curated demo, not a live institution&apos;s official support line.
@@ -263,7 +263,7 @@ export default function PublicDemoExperience() {
       </div>
 
       {/* RIGHT COLUMN (FORM CARD) */}
-      <div className="rounded-[20px] border border-[#E6E0D5] bg-[#FFFEFA] p-4 shadow-[0_20px_70px_rgba(50,42,27,0.07)] sm:p-5 xl:p-6">
+      <div className="rounded-[20px] border border-[#E6E0D5] bg-[#FFFEFA] p-4 shadow-[0_20px_70px_rgba(50,42,27,0.07)] lg:px-5 lg:py-3.5 xl:p-5">
         {status === "completed" ? (
           <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[27px] text-[#E96B32]">
@@ -359,18 +359,18 @@ export default function PublicDemoExperience() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[1.7px] text-[#A66A4A]">The live experience</p>
-                <h2 className="mt-0.5 font-[var(--font-newsreader)] text-[28px] leading-tight tracking-[-0.6px] xl:text-[32px]">Let’s get you on a call.</h2>
-                <p className="mt-1 text-[12px] leading-4 text-[#77736A]">No account or email required.</p>
+                <h2 className="font-[var(--font-newsreader)] text-[25px] leading-tight tracking-[-0.5px] xl:text-[30px]">Let’s get you on a call.</h2>
+                <p className="mt-0.5 text-[11.5px] leading-4 text-[#77736A]">No account or email required.</p>
               </div>
               <span className="rounded-full border border-[#E8E1D5] px-3 py-1 text-[9px] font-semibold uppercase tracking-[1px] text-[#77736A]">
                 Up to 2 min
               </span>
             </div>
 
-            <form onSubmit={submit} className="mt-3.5 space-y-3 xl:mt-4 xl:space-y-3.5">
+            <form onSubmit={submit} className="mt-2.5 space-y-2.5 xl:mt-3.5 xl:space-y-3">
               <fieldset>
-                <legend className="mb-2 text-[12px] font-semibold text-[#34332D]">01. What should the AI receptionist demonstrate?</legend>
-                <div className="grid gap-2">
+                <legend className="mb-1.5 text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">01. What should the AI receptionist demonstrate?</legend>
+                <div className="grid gap-1.5">
                   {scenarios.map((item) => (
                     <label
                       key={item.id}
@@ -403,11 +403,11 @@ export default function PublicDemoExperience() {
 
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-semibold text-[#34332D]">02. Conversation language</span>
+                  <span className="mb-1 block text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">02. Conversation language</span>
                   <select
                     value={language}
                     onChange={(event) => setLanguage(event.target.value)}
-                    className="h-10 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12px] outline-none focus:border-[#E99A70]"
+                    className="h-9 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12px] outline-none focus:border-[#E99A70] xl:h-10"
                   >
                     {languages.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -417,10 +417,10 @@ export default function PublicDemoExperience() {
                   </select>
                 </label>
                 <div>
-                  <label htmlFor="demo-phone" className="mb-1.5 block text-[12px] font-semibold text-[#34332D]">
+                  <label htmlFor="demo-phone" className="mb-1 block text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">
                     03. Your phone number
                   </label>
-                  <div className="flex h-10 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70]">
+                  <div className="flex h-9 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70] xl:h-10">
                     <select
                       aria-label="Country calling code"
                       value={countryCode}
@@ -442,7 +442,7 @@ export default function PublicDemoExperience() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-[#F7F4ED] px-3 py-2 xl:p-3">
+              <div className="rounded-lg bg-[#F7F4ED] px-3 py-2">
                 <label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-4 text-[#666158]">
                   <input
                     type="checkbox"
@@ -467,7 +467,7 @@ export default function PublicDemoExperience() {
               <button
                 type="submit"
                 disabled={status === "submitting" || !consent || (Boolean(siteKey) && !captchaToken)}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40 xl:h-11"
               >
                 {status === "submitting" ? "Requesting your call…" : "Request my live demo call"}
                 <span aria-hidden="true">↗</span>
