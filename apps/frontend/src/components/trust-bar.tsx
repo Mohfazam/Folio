@@ -89,65 +89,18 @@ export const TrustBar = () => {
   return (
     <section
       id="customers"
-      className="w-full border-t border-b border-[#E9E8E1] bg-[#FBF9F2] py-16 md:py-20"
+      className="w-full border-t border-b border-[#E9E8E1] bg-[#FBF9F2] py-14 md:py-16"
     >
       <div className="mx-auto max-w-[1240px] px-6 md:px-10">
-        {/* Editorial Customer Proof Card */}
-        <div className="mx-auto max-w-[920px] rounded-2xl border border-[#E3DFD3] bg-white p-6 shadow-[0_6px_24px_rgba(27,28,24,0.04)] sm:p-8">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
-            <div className="max-w-[580px]">
-              <p className="font-['Newsreader'] text-[21px] font-normal italic leading-[1.35] text-[#1B1C18] sm:text-[24px]">
-                &ldquo;We processed 1,840 prospective tenants without hiring an outsourced call center—and every qualified visit synced straight into our CRM.&rdquo;
-              </p>
-
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E3DFD3] bg-[#F5F3EC]">
-                  <span className="font-['Space_Grotesk'] text-[12px] font-bold text-[#1B1C18]">
-                    AM
-                  </span>
-                </div>
-                <div>
-                  <p className="font-['Space_Grotesk'] text-[13px] font-bold text-[#1B1C18]">
-                    Ananya Mehta
-                  </p>
-                  <p className="font-['Space_Grotesk'] text-[12px] text-[#525552]">
-                    VP Operations, Guild Real Estate
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 flex-row gap-4 border-t border-[#E9E8E1] pt-4 md:flex-col md:border-l md:border-t-0 md:pl-7 md:pt-0">
-              <div>
-                <p className="font-['Space_Grotesk'] text-[24px] font-bold leading-none text-[#1B1C18] tabular-nums">
-                  1,840
-                </p>
-                <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#525552]">
-                  Tenant leads qualified
-                </p>
-              </div>
-              <div>
-                <p className="font-['Space_Grotesk'] text-[24px] font-bold leading-none text-[#166534] tabular-nums">
-                  ~77%
-                </p>
-                <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#525552]">
-                  Lower cost vs. BPO reps
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Standardized Monochrome Customer Logo Strip */}
-        <div className="mt-12 text-center">
-          <p className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.3px] text-[#525552]">
-            Trusted by operations &amp; revenue teams at high-growth companies
+        <div className="text-center">
+          <p className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.2px] text-[#525552]">
+            Trusted by outbound &amp; revenue teams at high-growth companies
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-x-10 gap-y-5 md:gap-x-14 lg:gap-x-16">
             {logos.map((logo) => (
               <div
                 key={logo.name}
-                className="flex h-8 items-center gap-2.5 text-[#525552] opacity-75 transition-opacity duration-200 hover:opacity-100"
+                className="flex h-8 items-center gap-2.5 text-[#525552] opacity-80 transition-opacity duration-200 hover:opacity-100"
               >
                 <span className="text-[#1B1C18]">{logo.icon}</span>
                 <span className="font-['Space_Grotesk'] text-[13px] font-bold tracking-[0.08em] text-[#1B1C18]">
@@ -155,6 +108,36 @@ export const TrustBar = () => {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Dedicated Editorial Customer Quote */}
+        <div className="mx-auto mt-10 max-w-[880px] rounded-2xl border border-[#E3DFD3] bg-white px-6 py-5 shadow-[0_4px_20px_rgba(27,28,24,0.03)] sm:px-8">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="max-w-[580px]">
+              <p className="font-['Newsreader'] text-[19px] font-normal italic leading-[1.35] text-[#1B1C18]">
+                &ldquo;We processed 1,840 prospective leads without hiring an outsourced call center.&rdquo;
+              </p>
+              <div className="mt-2.5 flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E9E8E1] font-['Space_Grotesk'] text-[11px] font-bold text-[#1B1C18]">
+                  AM
+                </span>
+                <span className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                  Ananya Mehta
+                </span>
+                <span className="font-['Space_Grotesk'] text-[12px] text-[#525552]">
+                  · VP Operations, Guild Real Estate
+                </span>
+              </div>
+            </div>
+            <div className="shrink-0 rounded-xl border border-[#EAE6DC] bg-[#FBF9F2] px-4 py-2.5 text-left sm:text-right">
+              <p className="font-['Space_Grotesk'] text-[16px] font-bold text-[#1B1C18] tabular-nums">
+                1,840 leads
+              </p>
+              <p className="font-['Space_Grotesk'] text-[11px] text-[#525552]">
+                ~77% lower cost vs. BPO
+              </p>
+            </div>
           </div>
         </div>
       </div>
