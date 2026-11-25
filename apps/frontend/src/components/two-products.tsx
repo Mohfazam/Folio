@@ -192,7 +192,7 @@ const StatusPill = ({
     tone?: "neutral" | "success" | "purple" | "warning";
 }) => {
     const tones = {
-        neutral: "border-[#E9E8E1] bg-white text-[#747878]",
+        neutral: "border-[#E9E8E1] bg-white text-[#525552]",
         success: "border-[#CDEBDD] bg-[#EFFAF4] text-[#23835D]",
         purple: "border-[#DDD6FE] bg-[#F5F3FF] text-[#6D4BC3]",
         warning: "border-[#F2DEC0] bg-[#FFF8EC] text-[#9A651C]",
@@ -291,7 +291,7 @@ const WorkflowPanel = ({
         <section id="products" className="rounded-xl border border-[#E9E8E1] bg-white p-5 shadow-[0_2px_12px_rgba(28,29,24,0.03)] md:p-6">
             <div className="flex items-start justify-between gap-3">
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#858984]">
+                    <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#525552]">
                         Execution map
                     </p>
                     <h3 className="mt-1 font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">
@@ -344,7 +344,7 @@ const WorkflowPanel = ({
                                     <span className="block font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">
                                         {step.shortTitle}
                                     </span>
-                                    <span className="mt-0.5 block font-['Space_Grotesk'] text-[10px] text-[#898D86]">
+                                    <span className="mt-0.5 block font-['Space_Grotesk'] text-[10px] text-[#5F6360]">
                                         {isComplete
                                             ? "Completed in this example"
                                             : isCurrent
@@ -371,13 +371,13 @@ const WorkflowPanel = ({
             </div>
 
             <div className="mt-4 rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-3.5">
-                <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.8px] text-[#858984]">
+                <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.8px] text-[#525552]">
                     Selected stage
                 </p>
                 <p className="mt-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
                     {workflowSteps[selectedIndex].title}
                 </p>
-                <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#747878]">
+                <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#525552]">
                     {workflowSteps[selectedIndex].description}
                 </p>
             </div>
@@ -402,7 +402,7 @@ const ConversationPanel = ({
                     <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                         Lead qualification call
                     </p>
-                    <p className="font-['Space_Grotesk'] text-[10px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[10px] text-[#5F6360]">
                         Sample conversation · Real-time transcript concept
                     </p>
                 </div>
@@ -419,7 +419,7 @@ const ConversationPanel = ({
                     AI
                 </span>
                 <div className="max-w-[88%] rounded-xl rounded-tl-sm border border-[#E9E8E1] bg-white p-3.5">
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Agent · Opening script
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[12px] leading-[20px] text-[#343630]">
@@ -430,7 +430,7 @@ const ConversationPanel = ({
 
             <div className="flex items-start justify-end gap-2.5">
                 <div className="max-w-[88%] rounded-xl rounded-tr-sm border border-[#E9E8E1] bg-[#F3F1EA] p-3.5">
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Prospect · Response
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[12px] leading-[20px] text-[#343630]">
@@ -472,7 +472,7 @@ const ConversationPanel = ({
 
                     <div className="mt-3 space-y-2.5">
                         <div className="rounded-lg border border-[#EFE5D4] bg-white p-3">
-                            <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                            <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                                 Prospect asks
                             </p>
                             <p className="mt-1 font-['Space_Grotesk'] text-[12px] leading-[19px] text-[#343630]">
@@ -502,7 +502,7 @@ const ConversationPanel = ({
             )}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E9E8E1] pt-4">
-                <div className="flex items-center gap-2 text-[#747878]">
+                <div className="flex items-center gap-2 text-[#525552]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#2CA879]" />
                     <span className="font-['Space_Grotesk'] text-[10px]">
                         Transcript shown with sample data
@@ -535,7 +535,7 @@ const DecisionTracePanel = ({
         <section className="rounded-xl border border-[#E9E8E1] bg-white p-5 shadow-[0_2px_12px_rgba(28,29,24,0.03)] md:p-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#858984]">
+                    <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#525552]">
                         Explainable execution
                     </p>
                     <h3 className="mt-1 font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">
@@ -547,7 +547,7 @@ const DecisionTracePanel = ({
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-lg bg-[#FBFAF6] p-3.5">
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Current stage
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">
@@ -555,7 +555,7 @@ const DecisionTracePanel = ({
                     </p>
                 </div>
                 <div className="rounded-lg bg-[#FBFAF6] p-3.5">
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Decision status
                     </p>
                     <p className="mt-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">
@@ -566,7 +566,7 @@ const DecisionTracePanel = ({
 
             <div className="mt-4 space-y-3">
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Trigger
                     </p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#454840]">
@@ -577,7 +577,7 @@ const DecisionTracePanel = ({
                 </div>
                 <div className="h-px bg-[#EEEDE7]" />
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Permitted action
                     </p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#454840]">
@@ -588,7 +588,7 @@ const DecisionTracePanel = ({
                 </div>
                 <div className="h-px bg-[#EEEDE7]" />
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Referenced configuration
                     </p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#454840]">
@@ -623,7 +623,7 @@ const HumanEscalationPanel = () => (
                 <h4 className="mt-1 font-['Space_Grotesk'] text-[16px] font-semibold text-[#292B26]">
                     How a call reaches your team
                 </h4>
-                <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#747878]">
+                <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#525552]">
                     When a configured escalation condition is met, the agent prepares the conversation context and routes the prospect to the right human team.
                 </p>
             </div>
@@ -638,7 +638,7 @@ const HumanEscalationPanel = () => (
                 <p className="mt-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">
                     01 · Escalation detected
                 </p>
-                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#747878]">
+                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#525552]">
                     The prospect requests a person, or the request falls outside the agent&apos;s approved scope.
                 </p>
             </div>
@@ -649,7 +649,7 @@ const HumanEscalationPanel = () => (
                 <p className="mt-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">
                     02 · Context packaged
                 </p>
-                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#747878]">
+                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#525552]">
                     The handoff summary includes the reason, transcript, captured answers and outstanding questions.
                 </p>
             </div>
@@ -660,7 +660,7 @@ const HumanEscalationPanel = () => (
                 <p className="mt-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">
                     03 · Team takes over
                 </p>
-                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#747878]">
+                <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#525552]">
                     The configured routing destination receives the context so the prospect does not need to repeat everything.
                 </p>
             </div>
@@ -669,7 +669,7 @@ const HumanEscalationPanel = () => (
         <div className="mt-4 rounded-lg border border-[#E8E1F7] bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#898D86]">
+                    <p className="font-['Space_Grotesk'] text-[9px] font-semibold uppercase tracking-[0.7px] text-[#5F6360]">
                         Example handoff summary
                     </p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">
@@ -680,23 +680,23 @@ const HumanEscalationPanel = () => (
             </div>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#898D86]">Handoff reason</p>
+                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#5F6360]">Handoff reason</p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#454840]">Out-of-scope question</p>
                 </div>
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#898D86]">Captured need</p>
+                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#5F6360]">Captured need</p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#454840]">2-bedroom apartment</p>
                 </div>
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#898D86]">Missing detail</p>
+                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#5F6360]">Missing detail</p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#454840]">Budget confirmation</p>
                 </div>
                 <div>
-                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#898D86]">Destination</p>
+                    <p className="font-['Space_Grotesk'] text-[9px] uppercase tracking-[0.6px] text-[#5F6360]">Destination</p>
                     <p className="mt-1 font-['Space_Grotesk'] text-[11px] font-medium text-[#454840]">Property sales team</p>
                 </div>
             </div>
-            <p className="mt-3 border-t border-[#EEEAF5] pt-3 font-['Space_Grotesk'] text-[9px] leading-[16px] text-[#898D86]">
+            <p className="mt-3 border-t border-[#EEEAF5] pt-3 font-['Space_Grotesk'] text-[9px] leading-[16px] text-[#5F6360]">
                 Demo only. No call is transferred and no team is notified by this frontend interaction.
             </p>
         </div>
@@ -706,14 +706,14 @@ const HumanEscalationPanel = () => (
 const IntegrationFlow = () => (
     <section className="mt-6 rounded-xl border border-[#E9E8E1] bg-white p-5 md:p-6">
         <div className="max-w-[560px]">
-            <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#858984]">
+            <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.1px] text-[#525552]">
                 One connected platform
             </p>
             <h3 className="mt-1 font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">
                 From campaign to completed outcome
             </h3>
-            <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#747878]">
-                Campaigns initiate the outreach. The voice agent handles the configured conversation. Outcomes return to the workflow for follow-up.
+            <p className="mt-1.5 font-['Space_Grotesk'] text-[11px] leading-[18px] text-[#525552]">
+                Campaigns start the calls. The voice agent follows your script. Results sync back to your CRM right away.
             </p>
         </div>
 
@@ -724,7 +724,7 @@ const IntegrationFlow = () => (
                 </span>
                 <div>
                     <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">Campaigns</p>
-                    <p className="font-['Space_Grotesk'] text-[10px] text-[#858984]">Audience & scheduling</p>
+                    <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">Audience & scheduling</p>
                 </div>
             </div>
             <span className="hidden text-[#A3A59F] md:block">
@@ -736,7 +736,7 @@ const IntegrationFlow = () => (
                 </span>
                 <div>
                     <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">Voice Agent</p>
-                    <p className="font-['Space_Grotesk'] text-[10px] text-[#7862B5]">Controlled execution</p>
+                    <p className="font-['Space_Grotesk'] text-[10px] text-[#7862B5]">Rule-bound calls</p>
                 </div>
             </div>
             <span className="hidden text-[#A3A59F] md:block">
@@ -748,14 +748,14 @@ const IntegrationFlow = () => (
                 </span>
                 <div>
                     <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#292B26]">Outcomes</p>
-                    <p className="font-['Space_Grotesk'] text-[10px] text-[#858984]">Results & follow-up</p>
+                    <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">Results & follow-up</p>
                 </div>
             </div>
         </div>
     </section>
 );
 
-const DeterministicAgentPanel = () => {
+const Fixed RateAgentPanel = () => {
     const [selectedStep, setSelectedStep] = useState<WorkflowStepId>("qualification");
     const [showGuardrailExample, setShowGuardrailExample] = useState(false);
     const [activeAgentView, setActiveAgentView] = useState<"workflow" | "escalation">("workflow");
@@ -783,12 +783,12 @@ const DeterministicAgentPanel = () => {
                 <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
                     <div className="max-w-[650px]">
                         <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1.2px] text-[#7852D6]">
-                            Deterministic voice execution
+                            Rule-guided voice calls
                         </p>
                         <h3 className="mt-2 font-['Newsreader'] text-[29px] font-normal leading-[1.12] tracking-[-0.5px] text-[#1B1C18] sm:text-[36px]">
                             Every conversation follows a defined path.
                         </h3>
-                        <p className="mt-3 max-w-[610px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#747878] md:text-[13px]">
+                        <p className="mt-3 max-w-[610px] font-['Space_Grotesk'] text-[12px] leading-[21px] text-[#525552] md:text-[13px]">
                             Configure the conversation, control which actions the agent can take, and route exceptions to your team with the context they need.
                         </p>
                     </div>
@@ -796,7 +796,7 @@ const DeterministicAgentPanel = () => {
                     <GlassTabs<"workflow" | "escalation">
                         value={activeAgentView}
                         onChange={setActiveAgentView}
-                        ariaLabel="Deterministic agent views"
+                        ariaLabel="Fixed Rate agent views"
                         idPrefix="agent-view"
                         className="w-full md:w-[390px] md:shrink-0"
                         options={[
@@ -828,7 +828,7 @@ const DeterministicAgentPanel = () => {
                                     </span>
                                     <div>
                                         <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">Defined conversation paths</p>
-                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#858984]">Explicit stages & conditions</p>
+                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#525552]">Clear steps & conditions</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 rounded-lg border border-[#E9E8E1] bg-white p-3.5">
@@ -836,8 +836,8 @@ const DeterministicAgentPanel = () => {
                                         <Icon name="shield" className="h-[18px] w-[18px]" />
                                     </span>
                                     <div>
-                                        <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">Guardrail contracts</p>
-                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#858984]">Approved actions & knowledge</p>
+                                        <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">Safety rules</p>
+                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#525552]">Approved answers & limits</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 rounded-lg border border-[#E9E8E1] bg-white p-3.5">
@@ -846,7 +846,7 @@ const DeterministicAgentPanel = () => {
                                     </span>
                                     <div>
                                         <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#292B26]">Human handoff</p>
-                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#858984]">Context-aware escalation</p>
+                                        <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#525552]">Smart team escalation</p>
                                     </div>
                                 </div>
                             </div>
@@ -884,7 +884,7 @@ const DeterministicAgentPanel = () => {
                 <IntegrationFlow />
 
                 <p className="mt-4 text-center font-['Space_Grotesk'] text-[9px] leading-[16px] text-[#9A9D96]">
-                    Product walkthrough only. Workflow steps, transcript and decision events are illustrative until connected to the production agent runtime.
+                    Interactive preview. Steps, sample transcript, and rules shown here are examples of a live outbound campaign.
                 </p>
             </div>
         </div>
@@ -895,12 +895,12 @@ export const TwoProducts = () => {
     const [activeTab, setActiveTab] = useState<"campaigns" | "agent">("campaigns");
 
     return (
-      <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] pt-20 pb-16 md:pt-28 md:pb-24">
+      <section id="products" className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] pt-20 pb-16 md:pt-28 md:pb-24">
         <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
           {/* Section header */}
           <div className="flex flex-col items-center text-center">
-            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#747878]">
-              PRODUCT ARCHITECTURE
+            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#525552]">
+              HOW FOOLIOO WORKS
             </span>
             <h2 className="mt-4 max-w-[620px]">
               <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[52px]">
@@ -910,9 +910,9 @@ export const TwoProducts = () => {
                 experience.
               </span>
             </h2>
-            <p className="mt-4 max-w-[540px] font-['Space_Grotesk'] text-[14px] font-normal leading-[22px] tracking-[0.1px] text-[#747878] md:text-[15px]">
-              Foolioo separates campaign orchestration from conversational execution, giving teams
-              control over outreach and every voice interaction.
+            <p className="mt-4 max-w-[540px] font-['Space_Grotesk'] text-[14px] font-normal leading-[22px] tracking-[0.1px] text-[#525552] md:text-[15px]">
+              Foolioo separates campaign setup from live calling, giving your team
+              complete control over outreach batches and every voice conversation.
             </p>
           </div>
 
@@ -925,7 +925,7 @@ export const TwoProducts = () => {
             className="mx-auto mt-8 max-w-[430px]"
             options={[
               { value: "campaigns", label: "Foolioo Campaigns" },
-              { value: "agent", label: "Deterministic Agent" },
+              { value: "agent", label: "Rule-Guided Agent" },
             ]}
           />
 
@@ -937,7 +937,7 @@ export const TwoProducts = () => {
           >
             {activeTab === "agent" ? (
               <div key="agent-product" className="foolioo-glass-panel">
-                <DeterministicAgentPanel />
+                <Fixed RateAgentPanel />
               </div>
             ) : (
               /* Campaign orchestration view */
@@ -951,7 +951,7 @@ export const TwoProducts = () => {
                       <span className="h-3 w-3 rounded-full bg-[#10B981]/80" />
                     </div>
 
-                    <div className="flex h-7 items-center rounded-md border border-[#E9E8E1] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#747878] shadow-2xs">
+                    <div className="flex h-7 items-center rounded-md border border-[#E9E8E1] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#525552] shadow-2xs">
                       <span className="text-[#A1A1AA]">https://</span>
                       <span className="font-medium text-[#1B1C18]">
                         foolioo.app/campaigns/
@@ -972,7 +972,7 @@ export const TwoProducts = () => {
                       {/* Connection rate */}
                       <div className="flex flex-col justify-between rounded-lg border border-[#E9E8E1] bg-white p-4 shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#525552]">
                             CONNECTION RATE
                           </span>
                           <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#22A06B]">
@@ -980,10 +980,10 @@ export const TwoProducts = () => {
                           </span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
-                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18]">
+                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18] tabular-nums">
                             48.5%
                           </span>
-                          <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] text-[#525552]">
                             vs industry avg 24%
                           </span>
                         </div>
@@ -995,22 +995,22 @@ export const TwoProducts = () => {
                       {/* Connected minutes */}
                       <div className="flex flex-col justify-between rounded-lg border border-[#E9E8E1] bg-white p-4 shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#525552]">
                             CONNECTED MINUTES
                           </span>
-                          <span className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[10px] text-[#525552]">
                             Today
                           </span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
-                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18]">
+                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18] tabular-nums">
                             525 min
                           </span>
-                          <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] text-[#525552]">
                             (Avg: 3m 42s)
                           </span>
                         </div>
-                        <p className="mt-2 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                        <p className="mt-2 font-['Space_Grotesk'] text-[11px] text-[#525552]">
                           142 completed outbound conversations
                         </p>
                       </div>
@@ -1018,22 +1018,22 @@ export const TwoProducts = () => {
                       {/* Effective cost */}
                       <div className="flex flex-col justify-between rounded-lg border border-[#E9E8E1] bg-white p-4 shadow-2xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#525552]">
                             EFFECTIVE COST
                           </span>
                           <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#22A06B]">
-                            Deterministic
+                            Fixed Rate
                           </span>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
-                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18]">
-                            ₹4.15
+                          <span className="font-['Space_Grotesk'] text-[32px] font-bold text-[#1B1C18] tabular-nums">
+                            ₹4.20
                           </span>
-                          <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                          <span className="font-['Space_Grotesk'] text-[11px] text-[#525552]">
                             / minute
                           </span>
                         </div>
-                        <p className="mt-2 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                        <p className="mt-2 font-['Space_Grotesk'] text-[11px] text-[#525552]">
                           vs outsourced call center rep (₹18/min)
                         </p>
                       </div>
@@ -1044,11 +1044,11 @@ export const TwoProducts = () => {
                       <div>
                         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E9E8E1] pb-4">
                           <div>
-                            <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.9px] text-[#858984]">
-                              Campaign Orchestration · Illustrative Queue
+                            <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.9px] text-[#525552]">
+                              Campaign Queue · Live Preview
                             </p>
                             <p className="mt-1 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
-                              Inbound Tenant Callback Batch (1,800 Leads)
+                              Outbound Tenant Follow-up Batch (1,800 Leads)
                             </p>
                           </div>
 
@@ -1060,26 +1060,26 @@ export const TwoProducts = () => {
 
                         <div className="mt-4 grid grid-cols-3 gap-3">
                           <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
-                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">
                               Queued
                             </p>
-                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18] tabular-nums">
                               1,800
                             </p>
                           </div>
                           <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
-                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">
                               Dialed Today
                             </p>
-                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18] tabular-nums">
                               642
                             </p>
                           </div>
                           <div className="rounded-lg border border-[#E9E8E1] bg-[#FCFBF8] p-3">
-                            <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                            <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">
                               Qualified &amp; Synced
                             </p>
-                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#23835D]">
+                            <p className="mt-1 font-['Space_Grotesk'] text-[18px] font-bold text-[#23835D] tabular-nums">
                               214
                             </p>
                           </div>
@@ -1104,11 +1104,11 @@ export const TwoProducts = () => {
                                   <div>
                                     <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
                                       {contact.name}
-                                      <span className="ml-1.5 font-normal text-[#747878]">
+                                      <span className="ml-1.5 font-normal text-[#525552]">
                                         · {contact.role}
                                       </span>
                                     </p>
-                                    <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                                    <p className="font-['Space_Grotesk'] text-[10px] text-[#525552]">
                                       {contact.phone} · {contact.detail}
                                     </p>
                                   </div>

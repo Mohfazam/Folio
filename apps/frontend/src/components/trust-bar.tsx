@@ -89,7 +89,7 @@ export const TrustBar = () => {
   return (
     <section
       id="customers"
-      className="w-full border-t border-b border-[#E9E8E1] bg-[#FBF9F2] py-14 md:py-16"
+      className="w-full scroll-mt-20 border-t border-b border-[#E9E8E1] bg-[#FBF9F2] py-14 md:py-16"
     >
       <div className="mx-auto max-w-[1240px] px-6 md:px-10">
         <div className="text-center">

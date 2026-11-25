@@ -130,10 +130,7 @@ export const OutboundCalls = ({ isLoggedIn = false }: { isLoggedIn?: boolean }) 
   const pct = Math.round((currentDialed / activePreset.total) * 100);
 
   return (
-    <section
-      id="products"
-      className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
-    >
+    <section className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-14">
           {/* Left Column (7 cols): Interactive Outbound Dialer Card */}
@@ -187,6 +184,15 @@ export const OutboundCalls = ({ isLoggedIn = false }: { isLoggedIn?: boolean }) 
                 >
                   {paused ? "Resume" : "Pause"}
                 </button>
+                {liveTick > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLiveTick(0)}
+                    className="rounded-md border border-[#E3DFD3] bg-white px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#525552] transition hover:bg-[#F5F3EC] hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032]"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
             </div>
 

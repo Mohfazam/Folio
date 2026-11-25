@@ -107,7 +107,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
   return (
     <section
       id="pricing"
-      className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
+      className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
     >
       <div className="mx-auto w-full max-w-[1280px] px-6 md:px-10">
         {/* Section Header */}
@@ -167,10 +167,10 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
         </div>
 
         {/* Option B: Asymmetric 3 + 1 Split Grid (Free Trial rail on left + 3 paid plans on right) */}
-        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-stretch">
-          {/* Left Rail (3 cols): Free Trial Starter Card */}
+        <div className="mt-12 grid grid-cols-1 gap-5 xl:grid-cols-12 xl:items-stretch">
+          {/* Left Rail (3 cols on xl): Free Trial Starter Card */}
           <div
-            className={`relative flex flex-col justify-between rounded-2xl p-6 transition-all duration-200 lg:col-span-3 ${
+            className={`relative flex flex-col justify-between rounded-2xl p-5 xl:col-span-3 xl:p-6 transition-all duration-200 ${
               isTrialExpired
                 ? "border-2 border-[#FECACA] bg-[#FEF2F2]/70 shadow-[0_4px_20px_rgba(153,27,27,0.05)]"
                 : isTrialHighlighted
@@ -271,8 +271,8 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             </div>
           </div>
 
-          {/* Right Group (9 cols): 3 Paid Monthly Tiers */}
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:col-span-9">
+          {/* Right Group (9 cols on xl): 3 Paid Monthly Tiers */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3 xl:col-span-9">
             {PAID_PLANS.map((plan) => {
               const isRecommendedFit = plan.id === recommendedTierId;
               const isCurrentUserPlan = normalizedPlan === plan.id;
@@ -295,7 +295,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
               return (
                 <div
                   key={plan.id}
-                  className={`relative flex w-full flex-col justify-between rounded-2xl p-6 transition-all duration-200 ${
+                  className={`relative flex w-full flex-col justify-between rounded-2xl p-5 xl:p-6 transition-all duration-200 ${
                     isElevated
                       ? "border-2 border-[#1B1C18] bg-white shadow-[0_14px_40px_rgba(27,28,24,0.08)]"
                       : "border border-[#E3DFD3] bg-white shadow-[0_4px_20px_rgba(27,28,24,0.03)]"
@@ -333,7 +333,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                           </span>
                         )}
                         <div className="flex items-baseline gap-1">
-                          <span className="font-['Space_Grotesk'] text-[34px] font-bold tracking-[-0.8px] text-[#1B1C18] tabular-nums">
+                          <span className="whitespace-nowrap font-['Space_Grotesk'] text-[30px] xl:text-[34px] font-bold tracking-[-0.8px] text-[#1B1C18] tabular-nums">
                             {plan.price}
                           </span>
                           <span className="font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552]">

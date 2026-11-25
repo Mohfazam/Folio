@@ -32,7 +32,7 @@ export const CallsIntoAnswers = () => {
   return (
     <section
       id="resources"
-      className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
+      className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
     >
       <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
         <div className="flex flex-col items-center text-center">
