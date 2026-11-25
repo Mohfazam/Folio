@@ -183,7 +183,7 @@ export function BillingDashboard({
         planId: settled.planId,
         planName: settled.planName,
         creditsGranted: settled.creditsGranted,
-        newCreditsBalance: billingQuery.data.creditsBalance,
+        newCreditsBalance: billingQuery.data.creditsBalance ?? null,
         paymentId: settled.paymentId ?? "confirmed_via_webhook",
         orderId: settled.orderId,
         method: settled.method ?? null,
@@ -643,7 +643,7 @@ export function BillingDashboard({
 
               <p className="font-['Space_Grotesk'] text-[13px] text-[#264D3B]">
                 Your workspace now has the <strong className="font-semibold capitalize">{receipt.planId}</strong> plan entitlement and{" "}
-                <strong className="font-semibold">{formatCredits(receipt.newCreditsBalance)} total credits</strong> ready for calls.
+                <strong className="font-semibold">{formatCredits(receipt.newCreditsBalance ?? 0)} total credits</strong> ready for calls.
               </p>
 
               <div className="flex flex-wrap items-center gap-2 pt-1 font-mono text-[11px] text-[#264D3B]">
