@@ -1,5 +1,29 @@
-import nodemailer, { type Transporter } from "nodemailer";
+import dns from "node:dns";
+import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
 import { env } from "../config/env.js";
+
+dns.setDefaultResultOrder("ipv4first");
+
+const EMAIL_SEND_TIMEOUT_MS = 8_000;
+
+async function sendMailWithTimeout(
+  transporter: Transporter,
+  mailOptions: SendMailOptions,
+): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`SMTP sendMail timed out after ${EMAIL_SEND_TIMEOUT_MS}ms`));
+        }, EMAIL_SEND_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 let supportTransporter: Transporter | null = null;
 let authTransporter: Transporter | null = null;
@@ -84,13 +108,13 @@ export async function sendSupportTicketEmail(options: {
 
   try {
     await Promise.all([
-      transporter.sendMail({
+      sendMailWithTimeout(transporter, {
         from: env.smtp.supportFrom,
         to: email,
         subject: `[Support Ticket Received] ${subject}`,
         html: userHtml,
       }),
-      transporter.sendMail({
+      sendMailWithTimeout(transporter, {
         from: env.smtp.supportFrom,
         to: env.smtp.supportUser,
         replyTo: email,
@@ -222,7 +246,7 @@ export async function sendAuthOtpEmail(options: {
   const html = buildAuthOtpEmailHtml(otp);
 
   try {
-    await transporter.sendMail({
+    await sendMailWithTimeout(transporter, {
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo verification code`,
@@ -253,7 +277,7 @@ export async function sendPasswordResetOtpEmail(options: {
   }
 
   try {
-    await transporter.sendMail({
+    await sendMailWithTimeout(transporter, {
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo password reset code`,
@@ -290,7 +314,7 @@ export async function sendSupportOtpEmail(options: {
   }
 
   try {
-    await transporter.sendMail({
+    await sendMailWithTimeout(transporter, {
       from: env.smtp.supportFrom,
       to,
       subject: `Your support verification code: ${otp}`,
