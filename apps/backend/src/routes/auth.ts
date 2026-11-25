@@ -598,12 +598,42 @@ export async function verifyPasswordResetOtpRoute(req: Request, res: Response) {
 /**
  * POST /api/auth/sync
  *
- * Provisions the signed-in Supabase identity (Google OAuth) and its initial workspace.
+ * Provisions the signed-in user's workspace.
+ * Handles both:
+ * - Supabase OAuth users (Google login): have req.supabaseUser, need workspace provisioning
+ * - Custom JWT users (Email/Password or OTP): have req.user and req.clientId already, may already have workspace
  */
 export async function syncAuthUserRoute(req: Request, res: Response) {
   try {
+    // Case 1: Custom JWT user (Email/Password or OTP signup) - already has user + clientId
+    if (req.user && req.clientId) {
+      const [client] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, req.clientId))
+        .limit(1);
+
+      if (!client) {
+        return res.status(404).json({ ok: false, error: "Workspace not found" });
+      }
+
+      // Update last login
+      await db
+        .update(users)
+        .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+        .where(eq(users.id, req.user.id));
+
+      return res.status(200).json({
+        ok: true,
+        user: publicUser(req.user),
+        client,
+        requiresPhoneVerification: false,
+      });
+    }
+
+    // Case 2: Supabase OAuth user (Google login) - needs workspace provisioning
     if (!req.supabaseUser) {
-      return res.status(401).json({ ok: false, error: "Authenticated Supabase session is required" });
+      return res.status(401).json({ ok: false, error: "Authenticated session is required" });
     }
 
     const profile = readProfile(req);
