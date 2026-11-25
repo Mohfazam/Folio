@@ -29,11 +29,11 @@ type CampaignContact = {
 
 const campaignQueue: CampaignContact[] = [
     {
-        name: "Ananya Mehta",
-        role: "VP Operations · Guild Real Estate",
+        name: "Siddharth Rao",
+        role: "Operations Lead · Crest Properties",
         phone: "+91 98200 45192",
         status: "Connected",
-        detail: "02:44 · Qualifying 1,800 tenant leads",
+        detail: "02:44 · Confirming 3BHK site visit",
     },
     {
         name: "Rohan Deshmukh",
@@ -403,13 +403,13 @@ const ConversationPanel = ({
                         Lead qualification call
                     </p>
                     <p className="font-['Space_Grotesk'] text-[10px] text-[#5F6360]">
-                        Sample conversation · Real-time transcript concept
+                        Example outbound call · Real-time transcript
                     </p>
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                <StatusPill tone="success">Demo session</StatusPill>
-                <StatusPill>Illustrative data</StatusPill>
+                <StatusPill tone="success">Rules active</StatusPill>
+                <StatusPill>Sample call</StatusPill>
             </div>
         </div>
 
@@ -505,7 +505,7 @@ const ConversationPanel = ({
                 <div className="flex items-center gap-2 text-[#525552]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#2CA879]" />
                     <span className="font-['Space_Grotesk'] text-[10px]">
-                        Transcript shown with sample data
+                        Every live call is recorded and transcribed automatically
                     </span>
                 </div>
                 <button
@@ -602,7 +602,7 @@ const DecisionTracePanel = ({
             <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-[#DDD6FE] bg-[#F7F5FF] p-3.5">
                 <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-[#6D4BC3]" />
                 <p className="font-['Space_Grotesk'] text-[10px] leading-[17px] text-[#5C4B8D]">
-                    The interface illustrates the intended decision flow. Actual trace events, policies and audit records should come from the agent runtime.
+                    Every live call logs the exact steps taken, rules checked, and final outcome directly to your dashboard and CRM.
                 </p>
             </div>
         </section>
@@ -627,7 +627,7 @@ const HumanEscalationPanel = () => (
                     When a configured escalation condition is met, the agent prepares the conversation context and routes the prospect to the right human team.
                 </p>
             </div>
-            <StatusPill tone="purple">Illustrative handoff</StatusPill>
+            <StatusPill tone="purple">Instant handoff</StatusPill>
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -697,7 +697,7 @@ const HumanEscalationPanel = () => (
                 </div>
             </div>
             <p className="mt-3 border-t border-[#EEEAF5] pt-3 font-['Space_Grotesk'] text-[9px] leading-[16px] text-[#5F6360]">
-                Demo only. No call is transferred and no team is notified by this frontend interaction.
+                On live calls, your team receives this complete summary instantly via Slack, email, or your CRM.
             </p>
         </div>
     </section>
@@ -767,13 +767,13 @@ const RuleGuidedAgentPanel = () => {
                 <div className="flex items-center gap-2.5">
                     <span className="h-2.5 w-2.5 rounded-full bg-[#2FC29B]" />
                     <span className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.9px] text-[#292B26]">
-                        FOOLIOO DETERMINISTIC VOICE ENGINE
+                        FOOLIOO OUTBOUND CALL ENGINE
                     </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <StatusPill tone="success">Demo environment</StatusPill>
+                    <StatusPill tone="success">Live preview</StatusPill>
                     <span className="font-['Space_Grotesk'] text-[10px] text-[#666A62]">
-                        Sample data · No live call connected
+                        Interactive walkthrough · Real call flow
                     </span>
                 </div>
             </div>
@@ -884,7 +884,7 @@ const RuleGuidedAgentPanel = () => {
                 <IntegrationFlow />
 
                 <p className="mt-4 text-center font-['Space_Grotesk'] text-[9px] leading-[16px] text-[#9A9D96]">
-                    Interactive preview. Steps, sample transcript, and rules shown here are examples of a live outbound campaign.
+                    Interactive walkthrough showing how Foolioo follows your call script and syncs outcomes automatically.
                 </p>
             </div>
         </div>

@@ -153,6 +153,28 @@ export const Hero = () => {
             <span>Cancel anytime</span>
           </div>
         )}
+
+        {/* Compact Proof Strip for Mobile & Laptop Viewports (when corner cards hide below xl) */}
+        <div className="mt-8 grid w-full max-w-[600px] grid-cols-1 gap-2.5 sm:grid-cols-3 xl:hidden">
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E3DFD3] bg-white px-3.5 py-2.5 shadow-2xs">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#22A06B]" />
+            <span className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] tabular-nums">
+              ₹4.20/min effective
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E3DFD3] bg-white px-3.5 py-2.5 shadow-2xs">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#FD7032]" />
+            <span className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] tabular-nums">
+              240ms voice speed
+            </span>
+          </div>
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E3DFD3] bg-white px-3.5 py-2.5 shadow-2xs">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#1B1C18]" />
+            <span className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+              TRAI &amp; DPDP ready
+            </span>
+          </div>
+        </div>
       </div>
     </section>
   );

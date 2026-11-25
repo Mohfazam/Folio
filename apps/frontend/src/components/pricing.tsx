@@ -5,6 +5,7 @@ import Link from "next/link";
 
 interface PricingProps {
   currentPlan?: string | null;
+  isLoggedIn?: boolean;
 }
 
 type PaidPlanId = "growth" | "pro" | "scale";
@@ -79,9 +80,10 @@ const PAID_PLANS: PaidPlan[] = [
   },
 ];
 
-export const Pricing = ({ currentPlan = null }: PricingProps) => {
+export const Pricing = ({ currentPlan = null, isLoggedIn = false }: PricingProps) => {
   const [monthlyCalls, setMonthlyCalls] = useState<number>(1500);
 
+  const isSignedIn = isLoggedIn || Boolean(currentPlan);
   const normalizedPlan = currentPlan?.trim().toLowerCase() ?? null;
   const isOnTrial = normalizedPlan === "trial";
   const isTrialExpired = normalizedPlan === "expired";
@@ -253,7 +255,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             </div>
 
             <div className="mt-7 pt-3">
-              {currentPlan ? (
+              {isSignedIn ? (
                 <Link
                   href={isTrialExpired ? "/dashboard/billing?plan=pro" : "/dashboard"}
                   className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCD8CC] bg-white font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
@@ -367,7 +369,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                   </div>
 
                   <div className="mt-7 pt-3">
-                    {currentPlan ? (
+                    {isSignedIn ? (
                       <Link
                         href={`/dashboard/billing?plan=${plan.id}`}
                         className="block w-full"

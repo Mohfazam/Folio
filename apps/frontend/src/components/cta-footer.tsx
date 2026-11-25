@@ -13,7 +13,7 @@ const FOOTER_SECTIONS = [
       { label: "Dialer", href: "/product/dialer" },
       { label: "Voice Agent", href: "/product/voice-agent" },
       { label: "Real-time QA", href: "/product/real-time-qa" },
-      { label: "State Machine", href: "/product/state-machine" },
+      { label: "Call Scripts & Rules", href: "/product/state-machine" },
       { label: "Integrations", href: "/product/integrations" },
       { label: "Pricing", href: "/#pricing" },
     ],
@@ -22,7 +22,7 @@ const FOOTER_SECTIONS = [
     title: "Solutions",
     links: [
       { label: "Outbound Sales", href: "/solutions/outbound-sales" },
-      { label: "Inbound Support", href: "/solutions/inbound-support" },
+      { label: "Appointment Reminders", href: "/solutions/appointment-reminders" },
       { label: "Property Logistics", href: "/solutions/property-logistics" },
       { label: "Healthcare", href: "/solutions/healthcare" },
       { label: "Financial Services", href: "/solutions/financial-services" },
@@ -88,30 +88,30 @@ export const CtaFooter = () => {
 
   return (
     <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2]">
-      {/* CTA Card Container */}
+      {/* High-Contrast Dark Editorial CTA Card Container */}
       <div className="mx-auto w-full max-w-[1240px] px-6 py-20 md:px-10 md:py-28">
-        <div className="relative overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white p-8 text-center shadow-[0_10px_36px_rgba(27,28,24,0.05)] md:p-16 lg:p-20">
+        <div className="relative overflow-hidden rounded-2xl border border-[#32332D] bg-[#1B1C18] p-8 text-center shadow-[0_20px_50px_rgba(27,28,24,0.18)] md:p-16 lg:p-20">
           {/* Corner decorative crosshair marks */}
-          <span aria-hidden="true" className="absolute left-3.5 top-3.5 font-['Space_Grotesk'] text-[14px] text-[#7A7E7C]">+</span>
-          <span aria-hidden="true" className="absolute right-3.5 top-3.5 font-['Space_Grotesk'] text-[14px] text-[#7A7E7C]">+</span>
-          <span aria-hidden="true" className="absolute bottom-3.5 left-3.5 font-['Space_Grotesk'] text-[14px] text-[#7A7E7C]">+</span>
-          <span aria-hidden="true" className="absolute bottom-3.5 right-3.5 font-['Space_Grotesk'] text-[14px] text-[#7A7E7C]">+</span>
+          <span aria-hidden="true" className="absolute left-4 top-4 font-['Space_Grotesk'] text-[14px] text-[#6B6E68]">+</span>
+          <span aria-hidden="true" className="absolute right-4 top-4 font-['Space_Grotesk'] text-[14px] text-[#6B6E68]">+</span>
+          <span aria-hidden="true" className="absolute bottom-4 left-4 font-['Space_Grotesk'] text-[14px] text-[#6B6E68]">+</span>
+          <span aria-hidden="true" className="absolute bottom-4 right-4 font-['Space_Grotesk'] text-[14px] text-[#6B6E68]">+</span>
 
-          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#525552]">
+          <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.6px] text-[#FDAD86]">
             GET STARTED TODAY
           </span>
 
           <h2 className="mx-auto mt-4 max-w-[720px]">
-            <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[54px]">
+            <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#FBF9F2] sm:text-[46px] md:text-[54px]">
               Outbound calls that move work
             </span>
-            <span className="block text-[36px] leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[54px]">
-              <span className="font-['Newsreader'] font-normal italic">forward.</span>{" "}
+            <span className="block text-[36px] leading-[1.12] tracking-[-0.8px] text-[#FBF9F2] sm:text-[46px] md:text-[54px]">
+              <span className="font-['Newsreader'] font-normal italic text-[#FDAD86]">forward.</span>{" "}
               <span className="font-['Space_Grotesk'] font-medium">Start in minutes.</span>
             </span>
           </h2>
 
-          <p className="mx-auto mt-5 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] text-[#525552]">
+          <p className="mx-auto mt-5 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] text-[#D2D0C8]">
             Start your first outbound calling campaign in minutes with clear scripts, quality checks, and instant CRM updates.
           </p>
 
@@ -121,16 +121,16 @@ export const CtaFooter = () => {
                 {user ? (
                   <Link
                     href="/dashboard"
-                    className="flex h-11 w-full items-center justify-center rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-200 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 sm:w-auto"
+                    className="flex h-11 w-full items-center justify-center rounded-md bg-[#FD7032] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#E55E22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1B1C18] sm:w-auto"
                   >
-                    Go to Dashboard
+                    Go to Dashboard →
                   </Link>
                 ) : (
                   <Link
                     href="/sign-up"
-                    className="flex h-11 w-full items-center justify-center rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-200 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 sm:w-auto"
+                    className="flex h-11 w-full items-center justify-center rounded-md bg-[#FD7032] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#E55E22] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1B1C18] sm:w-auto"
                   >
-                    Start 7-day free trial
+                    Start 7-day free trial →
                   </Link>
                 )}
               </>
@@ -138,14 +138,14 @@ export const CtaFooter = () => {
 
             <Link
               href="/live-demo"
-              className="flex h-11 w-full items-center justify-center rounded-md border border-[#DCD8CC] bg-[#F5F3EC] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#E9E8E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 sm:w-auto"
+              className="flex h-11 w-full items-center justify-center rounded-md border border-[#3E4039] bg-[#262822] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-[#FBF9F2] transition-colors duration-200 hover:border-[#5C5F56] hover:bg-[#2F312A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1B1C18] sm:w-auto"
             >
               Do a Trial Call
             </Link>
           </div>
 
           {!isLoading && !user && (
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-['Space_Grotesk'] text-[12px] text-[#525552]">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 font-['Space_Grotesk'] text-[12px] text-[#B8B6AE]">
               <span>7-day free trial</span>
               <span aria-hidden="true">•</span>
               <span>No credit card required</span>

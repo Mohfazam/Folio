@@ -42,8 +42,8 @@ export const VoiceAgent = () => {
     <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-14">
-          {/* Left Column: Interactive Flow & Guardrail Card */}
-          <div className="overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white shadow-[0_12px_36px_rgba(27,28,24,0.06)] lg:col-span-7">
+          {/* Right Column on Desktop: Interactive Flow & Guardrail Card */}
+          <div className="order-2 overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white shadow-[0_12px_36px_rgba(27,28,24,0.06)] lg:col-span-7">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E9E8E1] bg-[#FAFAF8] px-5 py-4">
               <div>
                 <p className="font-['Space_Grotesk'] text-[13.5px] font-bold text-[#1B1C18]">
@@ -166,8 +166,8 @@ export const VoiceAgent = () => {
             </div>
           </div>
 
-          {/* Right Column: Copy & CTA */}
-          <div className="flex flex-col lg:col-span-5">
+          {/* Left Column on Desktop: Copy & CTA (Alternating Z-pattern) */}
+          <div className="order-1 flex flex-col lg:col-span-5">
             <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#525552]">
               RULE-GUIDED AGENTS
             </span>

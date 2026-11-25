@@ -1,17 +1,54 @@
 export const Integrations = () => {
   const integrations = [
     {
-      name: "Salesforce",
-      description: "Two-way CRM sync",
+      name: "Sheets & CSV",
+      description: "Upload lead lists in seconds",
       icon: (
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#00A1E0" aria-hidden="true">
-          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18" />
+          <path d="M3 15h18" />
+          <path d="M9 3v18" />
+        </svg>
+      ),
+    },
+    {
+      name: "WhatsApp",
+      description: "Follow-ups & hot lead alerts",
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#22A06B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        </svg>
+      ),
+    },
+    {
+      name: "Google Calendar",
+      description: "Auto-book visits & demos",
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+          <path d="m9 16 2 2 4-4" />
+        </svg>
+      ),
+    },
+    {
+      name: "Zoho CRM",
+      description: "Two-way lead & deal sync",
+      icon: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="8" height="8" rx="1.5" />
+          <rect x="13" y="4" width="8" height="8" rx="1.5" stroke="#2563EB" />
+          <rect x="3" y="14" width="8" height="6" rx="1.5" stroke="#16A34A" />
+          <rect x="13" y="14" width="8" height="6" rx="1.5" stroke="#D97706" />
         </svg>
       ),
     },
     {
       name: "HubSpot",
-      description: "Deals & contact updates",
+      description: "Contacts, notes & call logs",
       icon: (
         <svg width="26" height="26" viewBox="0 0 24 24" fill="#FF7A59" aria-hidden="true">
           <circle cx="12" cy="12" r="5" />
@@ -22,49 +59,12 @@ export const Integrations = () => {
       ),
     },
     {
-      name: "Zendesk",
-      description: "Automated ticket logs",
+      name: "Webhooks & API",
+      description: "Connect any custom tool",
       icon: (
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#03363D" aria-hidden="true">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15H8v-6h3v6zm5 0h-3V7h3v10z" />
-        </svg>
-      ),
-    },
-    {
-      name: "Zapier",
-      description: "5,000+ workflow triggers",
-      icon: (
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#FF4A00" aria-hidden="true">
-          <path d="M13 2L4 14h7v8l9-12h-7z" />
-        </svg>
-      ),
-    },
-    {
-      name: "Twilio",
-      description: "Phone & carrier routing",
-      icon: (
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="#F22F46" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" stroke="#F22F46" strokeWidth="2.5" fill="none" />
-          <circle cx="9" cy="9" r="1.5" />
-          <circle cx="15" cy="9" r="1.5" />
-          <circle cx="9" cy="15" r="1.5" />
-          <circle cx="15" cy="15" r="1.5" />
-        </svg>
-      ),
-    },
-    {
-      name: "Slack",
-      description: "Call alerts & summaries",
-      icon: (
-        <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 15a2 2 0 1 0-2 2h2v-2z" fill="#E01E5A" />
-          <path d="M7 15a2 2 0 0 0 4 0V9a2 2 0 0 0-4 0v6z" fill="#E01E5A" />
-          <path d="M9 6a2 2 0 1 0-2-2v2h2z" fill="#36C5F0" />
-          <path d="M9 7a2 2 0 0 0 0 4h6a2 2 0 0 0 0-4H9z" fill="#36C5F0" />
-          <path d="M18 9a2 2 0 1 0 2-2h-2v2z" fill="#2EB67D" />
-          <path d="M17 9a2 2 0 0 0-4 0v6a2 2 0 0 0 4 0V9z" fill="#2EB67D" />
-          <path d="M15 18a2 2 0 1 0 2 2v-2h-2z" fill="#ECB22E" />
-          <path d="M15 17a2 2 0 0 0 0-4H9a2 2 0 0 0 0 4h6z" fill="#ECB22E" />
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1B1C18" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
       ),
     },
@@ -79,12 +79,12 @@ export const Integrations = () => {
           </span>
           <h2 className="mt-4 max-w-[620px]">
             <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[52px]">
-              Works with the tools you{" "}
-              <span className="italic">already use.</span>
+              Works with the tools your{" "}
+              <span className="italic">team already uses.</span>
             </span>
           </h2>
           <p className="mt-4 max-w-[54ch] font-['Space_Grotesk'] text-[14.5px] font-normal leading-[23px] tracking-[0.1px] text-[#525552] md:text-[15px]">
-            Send call outcomes, recordings, and lead details straight to your CRM and Slack in real time.
+            Upload leads from spreadsheets and push call outcomes, recordings, and booked slots straight into your calendar, WhatsApp, or CRM.
           </p>
         </div>
 

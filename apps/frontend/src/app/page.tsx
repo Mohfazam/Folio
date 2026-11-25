@@ -11,6 +11,7 @@ import { VoiceAgent } from "@/components/voice-agent";
 import { CallsIntoAnswers } from "@/components/calls-into-answers";
 import { Integrations } from "@/components/integrations";
 import { Pricing } from "@/components/pricing";
+import { Faq } from "@/components/faq";
 import { CtaFooter } from "@/components/cta-footer";
 
 type WorkspaceClient = {
@@ -102,7 +103,7 @@ async function DynamicContent() {
       <VoiceAgent />
       <CallsIntoAnswers />
       <Integrations />
-      <Pricing currentPlan={currentPlan} />
+      <Pricing currentPlan={currentPlan} isLoggedIn={Boolean(user)} />
     </>
   );
 }
@@ -125,6 +126,7 @@ export default function Home() {
         <DynamicContent />
       </Suspense>
 
+      <Faq />
       <CtaFooter />
     </main>
   );
