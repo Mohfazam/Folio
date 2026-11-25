@@ -230,46 +230,56 @@ export default function PublicDemoExperience() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-[1220px] flex-col justify-center gap-5 px-5 py-4 sm:px-8 lg:grid lg:max-h-full lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-8 lg:py-1.5 xl:gap-14 xl:px-12 2xl:max-w-[1280px] 2xl:gap-16">
+    <section className="mx-auto flex w-full max-w-[1160px] flex-col justify-center gap-8 px-4 py-6 sm:px-8 sm:py-10 lg:grid lg:grid-cols-[1fr_minmax(0,500px)] lg:items-center lg:gap-12 lg:py-8 xl:gap-16">
       {/* LEFT COLUMN */}
-      <div className="flex flex-col justify-center lg:pr-4">
-        <div className="mb-2.5 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048] [@media(min-height:840px)]:mb-4 [@media(min-height:840px)]:px-3.5 [@media(min-height:840px)]:py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" /> Meet your AI receptionist
+      <div className="mx-auto w-full max-w-[540px] lg:mx-0 lg:max-w-none">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/80 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#FD7032]" />
+          Meet your AI receptionist
         </div>
-        <h1 className="max-w-xl font-[var(--font-newsreader)] text-[38px] font-medium leading-[0.99] tracking-[-1.7px] sm:text-[46px] [@media(min-height:840px)]:text-[58px] [@media(min-height:840px)]:tracking-[-2px]">
+
+        <h1 className="mt-4 font-[var(--font-newsreader)] text-[36px] font-medium leading-[1.03] tracking-[-1.4px] text-[#1B1C18] sm:text-[48px] sm:tracking-[-1.8px] xl:text-[54px] xl:tracking-[-2px]">
           A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span>
         </h1>
-        <p className="mt-2.5 max-w-lg text-[13px] leading-5 text-[#66635B] [@media(min-height:840px)]:mt-4 [@media(min-height:840px)]:text-[15px] [@media(min-height:840px)]:leading-[25px]">
+
+        <p className="mt-3.5 max-w-[460px] text-[14px] leading-[22px] text-[#66635B] sm:mt-4 sm:text-[15px] sm:leading-[25px]">
           Experience how a Foolioo voice agent handles everyday institute enquiries. Choose a scenario, select a language and receive one live demo call.
         </p>
-        <div className="mt-4 grid max-w-lg grid-cols-3 gap-4 border-t border-[#E4DED2] pt-3.5 xl:gap-5 [@media(min-height:840px)]:mt-8 [@media(min-height:840px)]:pt-6">
+
+        <div className="mt-6 grid max-w-[460px] grid-cols-3 gap-3 border-t border-[#E4DED2] pt-5 sm:mt-7 sm:gap-5 sm:pt-6">
           {[
             { value: "01", label: "Choose a scenario" },
             { value: "02", label: "Request a call" },
             { value: "03", label: "Talk naturally" },
           ].map((item) => (
             <div key={item.value}>
-              <p className="font-[var(--font-newsreader)] text-[24px] italic text-[#FD7032] [@media(min-height:840px)]:text-[28px]">{item.value}</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-[#77736A] [@media(min-height:840px)]:mt-1 [@media(min-height:840px)]:text-[12px]">{item.label}</p>
+              <p className="font-[var(--font-newsreader)] text-[24px] italic leading-none text-[#FD7032] sm:text-[28px]">
+                {item.value}
+              </p>
+              <p className="mt-1.5 text-[11.5px] leading-4 text-[#77736A] sm:text-[12px]">
+                {item.label}
+              </p>
             </div>
           ))}
         </div>
-        <div className="mt-4 flex items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/60 p-2.5 text-[11.5px] leading-[18px] text-[#68645C] [@media(min-height:840px)]:mt-8 [@media(min-height:840px)]:p-4 [@media(min-height:840px)]:text-[12.5px] [@media(min-height:840px)]:leading-[21px]">
-          <span className="mt-0.5 text-[#FD7032]">✳</span>
+
+        <div className="mt-6 flex max-w-[460px] items-start gap-3 rounded-xl border border-[#E8E1D5] bg-white/70 p-3.5 text-[12px] leading-[19px] text-[#68645C] sm:mt-7 sm:p-4 sm:text-[12.5px] sm:leading-[20px]">
+          <span className="mt-0.5 shrink-0 text-[#FD7032]">✳</span>
           <p>
-            <strong className="font-semibold text-[#292821]">Built for institute front desks.</strong> The showcase agent demonstrates admissions and student-support conversations. It is a curated demo, not a live institution&apos;s official support line.
+            <strong className="font-semibold text-[#292821]">Built for institute front desks.</strong>{" "}
+            The showcase agent demonstrates admissions and student-support conversations. It is a curated demo, not a live institution&apos;s official support line.
           </p>
         </div>
       </div>
 
       {/* RIGHT COLUMN (FORM CARD) */}
-      <div className="rounded-[22px] border border-[#E6E0D5] bg-[#FFFEFA] p-4 shadow-[0_20px_70px_rgba(50,42,27,0.07)] lg:px-5 lg:py-3 xl:px-7 [@media(min-height:840px)]:py-6 [@media(min-height:920px)]:p-8">
+      <div className="mx-auto w-full max-w-[500px] rounded-[22px] border border-[#E6E0D5] bg-[#FFFEFA] p-5 shadow-[0_20px_60px_rgba(50,42,27,0.06)] sm:p-7 lg:mx-0">
         {status === "completed" ? (
-          <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[27px] text-[#E96B32]">
+          <div className="flex min-h-[380px] flex-col items-center justify-center py-6 text-center sm:min-h-[430px]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FCE9DD] text-[24px] text-[#E96B32] sm:h-16 sm:w-16 sm:text-[27px]">
               ✓
             </div>
-            <p className="mt-6 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
+            <p className="mt-5 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
               {callOutcome === "no_answer"
                 ? "Call unanswered"
                 : callOutcome === "busy"
@@ -278,7 +288,7 @@ export default function PublicDemoExperience() {
                     ? "Call ended"
                     : "Demo completed"}
             </p>
-            <h2 className="mt-2 font-[var(--font-newsreader)] text-[36px] leading-tight">
+            <h2 className="mt-2 font-[var(--font-newsreader)] text-[28px] leading-tight text-[#1B1C18] sm:text-[34px]">
               Thank you for trying Foolioo.
             </h2>
             <p className="mt-3 max-w-sm text-[13px] leading-6 text-[#716D64]">
@@ -295,21 +305,24 @@ export default function PublicDemoExperience() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="mt-7 rounded-full border border-[#DCD5C8] px-5 py-2.5 text-[12px] font-semibold hover:border-[#FD7032]"
+              className="mt-6 rounded-full border border-[#DCD5C8] px-5 py-2.5 text-[12px] font-semibold text-[#1B1C18] transition hover:border-[#FD7032]"
             >
               Return now
             </button>
           </div>
         ) : status === "queued" ? (
-          <div className="flex min-h-[420px] flex-col items-center justify-center text-center" aria-live="polite">
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[#E96B32]">
+          <div
+            className="flex min-h-[380px] flex-col items-center justify-center py-6 text-center sm:min-h-[430px]"
+            aria-live="polite"
+          >
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#FCE9DD] text-[#E96B32] sm:h-16 sm:w-16">
               <span className="absolute inset-0 animate-ping rounded-full bg-[#FD7032]/25" />
               <span className="relative h-3 w-3 rounded-full bg-[#E96B32]" />
             </div>
-            <p className="mt-6 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
+            <p className="mt-5 text-[10px] font-semibold uppercase tracking-[1.8px] text-[#A66A4A]">
               {liveCallPhase === "in_progress" ? "Live call in progress" : "Connecting your call"}
             </p>
-            <h2 className="mt-2 font-[var(--font-newsreader)] text-[34px] leading-tight">
+            <h2 className="mt-2 font-[var(--font-newsreader)] text-[28px] leading-tight text-[#1B1C18] sm:text-[32px]">
               {liveCallPhase === "in_progress"
                 ? "Your AI receptionist is on the line."
                 : "Dialling your phone now…"}
@@ -321,7 +334,7 @@ export default function PublicDemoExperience() {
             </p>
 
             {/* Live step tracker */}
-            <div className="mt-6 flex w-full max-w-xs items-center justify-between rounded-xl border border-[#EAE5DB] bg-[#F9F7F1] px-4 py-3 text-left text-[11px]">
+            <div className="mt-6 flex w-full max-w-xs items-center justify-between rounded-xl border border-[#EAE5DB] bg-[#F9F7F1] px-3.5 py-3 text-left text-[11px] sm:px-4">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
                 <span className="font-medium text-[#292821]">Queued</span>
@@ -356,28 +369,36 @@ export default function PublicDemoExperience() {
           </div>
         ) : (
           <>
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-[9.5px] font-semibold uppercase tracking-[1.6px] text-[#A66A4A]">The live experience</p>
-                <h2 className="font-[var(--font-newsreader)] text-[22px] leading-tight tracking-[-0.4px] [@media(min-height:840px)]:mt-1 [@media(min-height:840px)]:text-[33px] [@media(min-height:840px)]:tracking-[-0.7px]">Let’s get you on a call.</h2>
-                <p className="text-[11px] leading-3.5 text-[#77736A] [@media(min-height:840px)]:mt-1 [@media(min-height:840px)]:text-[12.5px] [@media(min-height:840px)]:leading-4">No account or email required.</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[1.6px] text-[#A66A4A]">
+                  The live experience
+                </p>
+                <h2 className="mt-1 font-[var(--font-newsreader)] text-[26px] leading-tight tracking-[-0.5px] text-[#1B1C18] sm:text-[31px] sm:tracking-[-0.7px]">
+                  Let’s get you on a call.
+                </h2>
+                <p className="mt-1 text-[12px] leading-4 text-[#77736A] sm:text-[12.5px]">
+                  No account or email required.
+                </p>
               </div>
-              <span className="rounded-full border border-[#E8E1D5] px-3 py-1 text-[9px] font-semibold uppercase tracking-[1px] text-[#77736A]">
+              <span className="shrink-0 rounded-full border border-[#E8E1D5] bg-[#FAF8F3] px-2.5 py-1 text-[9.5px] font-semibold uppercase tracking-[1px] text-[#77736A]">
                 Up to 2 min
               </span>
             </div>
 
-            <form onSubmit={submit} className="mt-2 space-y-2 [@media(min-height:840px)]:mt-5 [@media(min-height:840px)]:space-y-4">
+            <form onSubmit={submit} className="mt-4 space-y-3.5 sm:mt-5 sm:space-y-4">
               <fieldset>
-                <legend className="mb-1 text-[11px] font-semibold text-[#34332D] [@media(min-height:840px)]:mb-2 [@media(min-height:840px)]:text-[12.5px]">01. What should the AI receptionist demonstrate?</legend>
-                <div className="grid gap-1 [@media(min-height:840px)]:gap-2.5">
+                <legend className="mb-2 text-[12px] font-semibold text-[#34332D] sm:text-[12.5px]">
+                  01. What should the AI receptionist demonstrate?
+                </legend>
+                <div className="grid gap-2">
                   {scenarios.map((item) => (
                     <label
                       key={item.id}
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-1.5 transition xl:gap-3.5 xl:px-4 [@media(min-height:840px)]:py-3 ${
+                      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition sm:gap-3.5 sm:px-4 sm:py-3 ${
                         scenario === item.id
                           ? "border-[#E99A70] bg-[#FFF7F1]"
-                          : "border-[#EAE5DB] hover:border-[#CFC5B5]"
+                          : "border-[#EAE5DB] bg-white hover:border-[#CFC5B5]"
                       }`}
                     >
                       <input
@@ -386,28 +407,36 @@ export default function PublicDemoExperience() {
                         value={item.id}
                         checked={scenario === item.id}
                         onChange={() => setScenario(item.id)}
-                        className="accent-[#E96B32]"
+                        className="shrink-0 accent-[#E96B32]"
                       />
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#F2EEE6] text-[9.5px] font-semibold text-[#8A8174] [@media(min-height:840px)]:h-8 [@media(min-height:840px)]:w-8 [@media(min-height:840px)]:rounded-lg [@media(min-height:840px)]:text-[11px]">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F2EEE6] text-[10.5px] font-semibold text-[#8A8174] sm:h-8 sm:w-8 sm:text-[11px]">
                         {item.icon}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[11.5px] font-semibold leading-tight text-[#34332D] [@media(min-height:840px)]:text-[13px]">{item.title}</span>
-                        <span className="block text-[9.5px] leading-3.5 text-[#77736A] [@media(min-height:840px)]:mt-0.5 [@media(min-height:840px)]:text-[11px] [@media(min-height:840px)]:leading-4">{item.description}</span>
+                        <span className="block text-[12.5px] font-semibold leading-tight text-[#34332D] sm:text-[13px]">
+                          {item.title}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-4 text-[#77736A]">
+                          {item.description}
+                        </span>
                       </span>
-                      {scenario === item.id ? <span className="text-[#E96B32]">✓</span> : null}
+                      {scenario === item.id ? (
+                        <span className="shrink-0 text-[13px] font-medium text-[#E96B32]">✓</span>
+                      ) : null}
                     </label>
                   ))}
                 </div>
               </fieldset>
 
-              <div className="grid gap-2.5 sm:grid-cols-2 xl:gap-3.5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3.5">
                 <label className="block">
-                  <span className="mb-0.5 block text-[11px] font-semibold text-[#34332D] [@media(min-height:840px)]:mb-1.5 [@media(min-height:840px)]:text-[12.5px]">02. Conversation language</span>
+                  <span className="mb-1.5 block text-[12px] font-semibold text-[#34332D] sm:text-[12.5px]">
+                    02. Conversation language
+                  </span>
                   <select
                     value={language}
                     onChange={(event) => setLanguage(event.target.value)}
-                    className="h-8 w-full rounded-lg border border-[#E4DED3] bg-white px-2.5 text-[11.5px] outline-none focus:border-[#E99A70] xl:px-3 [@media(min-height:840px)]:h-10 [@media(min-height:840px)]:text-[12.5px]"
+                    className="h-10 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12.5px] text-[#1B1C18] outline-none transition focus:border-[#E99A70]"
                   >
                     {languages.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -416,16 +445,20 @@ export default function PublicDemoExperience() {
                     ))}
                   </select>
                 </label>
+
                 <div>
-                  <label htmlFor="demo-phone" className="mb-0.5 block text-[11px] font-semibold text-[#34332D] [@media(min-height:840px)]:mb-1.5 [@media(min-height:840px)]:text-[12.5px]">
+                  <label
+                    htmlFor="demo-phone"
+                    className="mb-1.5 block text-[12px] font-semibold text-[#34332D] sm:text-[12.5px]"
+                  >
                     03. Your phone number
                   </label>
-                  <div className="flex h-8 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70] [@media(min-height:840px)]:h-10">
+                  <div className="flex h-10 overflow-hidden rounded-lg border border-[#E4DED3] bg-white transition focus-within:border-[#E99A70]">
                     <select
                       aria-label="Country calling code"
                       value={countryCode}
                       onChange={(event) => setCountryCode(event.target.value)}
-                      className="w-[82px] border-r border-[#EAE5DB] bg-[#FAF8F3] px-2 text-[12px] outline-none"
+                      className="w-[78px] shrink-0 border-r border-[#EAE5DB] bg-[#FAF8F3] px-2 text-[12px] text-[#1B1C18] outline-none"
                     >
                       <option value="+91">IN +91</option>
                     </select>
@@ -436,19 +469,19 @@ export default function PublicDemoExperience() {
                       inputMode="numeric"
                       autoComplete="tel-national"
                       placeholder="98765 43210"
-                      className="min-w-0 flex-1 px-3 text-[12px] outline-none"
+                      className="min-w-0 flex-1 px-3 text-[12.5px] text-[#1B1C18] outline-none placeholder:text-[#A39D92]"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg bg-[#F7F4ED] px-2.5 py-1.5 xl:px-3.5 [@media(min-height:840px)]:py-3">
-                <label className="flex cursor-pointer items-start gap-2 text-[9.5px] leading-[14px] text-[#666158] xl:gap-2.5 [@media(min-height:840px)]:text-[10.5px] [@media(min-height:840px)]:leading-[17px]">
+              <div className="rounded-xl border border-[#EFECE4] bg-[#F7F4ED] px-3.5 py-2.5 sm:py-3">
+                <label className="flex cursor-pointer items-start gap-2.5 text-[10.5px] leading-[16px] text-[#666158] sm:leading-[17px]">
                   <input
                     type="checkbox"
                     checked={consent}
                     onChange={(event) => setConsent(event.target.checked)}
-                    className="mt-0.5 accent-[#E96B32]"
+                    className="mt-0.5 shrink-0 accent-[#E96B32]"
                   />
                   <span>
                     I agree to receive one automated AI demo call from Foolioo at the number provided. I confirm I own this number or have permission to use it. I understand this is an AI-generated call, it is not recorded, and I can end it at any time.
@@ -456,10 +489,17 @@ export default function PublicDemoExperience() {
                 </label>
               </div>
 
-              {siteKey ? <div ref={captchaRef} className="min-h-[48px] origin-left scale-[0.92] [@media(min-height:840px)]:min-h-[65px] [@media(min-height:840px)]:scale-100" /> : null}
+              {siteKey ? (
+                <div className="overflow-hidden">
+                  <div
+                    ref={captchaRef}
+                    className="min-h-[65px] origin-left max-[380px]:scale-[0.88]"
+                  />
+                </div>
+              ) : null}
 
               {message && status === "error" ? (
-                <p role="alert" className="text-[11px] leading-5 text-[#B34E35]">
+                <p role="alert" className="text-[11.5px] leading-5 text-[#B34E35]">
                   {message}
                 </p>
               ) : null}
@@ -467,13 +507,13 @@ export default function PublicDemoExperience() {
               <button
                 type="submit"
                 disabled={status === "submitting" || !consent || (Boolean(siteKey) && !captchaToken)}
-                className="flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[11.5px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40 [@media(min-height:840px)]:h-11 [@media(min-height:840px)]:text-[13px]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[13px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
               >
                 {status === "submitting" ? "Requesting your call…" : "Request my live demo call"}
                 <span aria-hidden="true">↗</span>
               </button>
 
-              <p className="text-center text-[9px] leading-3.5 text-[#969084] [@media(min-height:840px)]:text-[10px] [@media(min-height:840px)]:leading-4">
+              <p className="text-center text-[10px] leading-4 text-[#969084]">
                 One demo call per phone number every hour. Calls are available from 9 AM to 8 PM IST and last up to two minutes.
               </p>
             </form>
