@@ -230,7 +230,7 @@ export default function PublicDemoExperience() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center gap-5 px-5 py-4 sm:px-8 lg:grid lg:min-h-0 lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-8 lg:py-2 xl:gap-11">
+    <section className="mx-auto flex w-full max-w-6xl flex-col justify-center gap-5 px-5 py-4 sm:px-8 lg:grid lg:max-h-full lg:grid-cols-[0.88fr_1.12fr] lg:items-center lg:gap-8 lg:py-1.5 xl:gap-11">
       {/* LEFT COLUMN */}
       <div className="flex flex-col justify-center lg:pr-4">
         <div className="mb-2.5 inline-flex w-fit items-center gap-2 rounded-full border border-[#E7D8C8] bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#8B6048] xl:mb-3.5">
@@ -263,7 +263,7 @@ export default function PublicDemoExperience() {
       </div>
 
       {/* RIGHT COLUMN (FORM CARD) */}
-      <div className="rounded-[20px] border border-[#E6E0D5] bg-[#FFFEFA] p-4 shadow-[0_20px_70px_rgba(50,42,27,0.07)] lg:px-5 lg:py-3.5 xl:p-5">
+      <div className="rounded-[20px] border border-[#E6E0D5] bg-[#FFFEFA] p-4 shadow-[0_20px_70px_rgba(50,42,27,0.07)] lg:px-5 lg:py-3 xl:px-6 xl:py-4">
         {status === "completed" ? (
           <div className="flex min-h-[420px] flex-col items-center justify-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#FCE9DD] text-[27px] text-[#E96B32]">
@@ -358,23 +358,23 @@ export default function PublicDemoExperience() {
           <>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[1.7px] text-[#A66A4A]">The live experience</p>
-                <h2 className="font-[var(--font-newsreader)] text-[25px] leading-tight tracking-[-0.5px] xl:text-[30px]">Let’s get you on a call.</h2>
-                <p className="mt-0.5 text-[11.5px] leading-4 text-[#77736A]">No account or email required.</p>
+                <p className="text-[9.5px] font-semibold uppercase tracking-[1.6px] text-[#A66A4A]">The live experience</p>
+                <h2 className="font-[var(--font-newsreader)] text-[22px] leading-tight tracking-[-0.4px] xl:text-[28px]">Let’s get you on a call.</h2>
+                <p className="text-[11px] leading-3.5 text-[#77736A]">No account or email required.</p>
               </div>
               <span className="rounded-full border border-[#E8E1D5] px-3 py-1 text-[9px] font-semibold uppercase tracking-[1px] text-[#77736A]">
                 Up to 2 min
               </span>
             </div>
 
-            <form onSubmit={submit} className="mt-2.5 space-y-2.5 xl:mt-3.5 xl:space-y-3">
+            <form onSubmit={submit} className="mt-2 space-y-2 xl:mt-3 xl:space-y-2.5">
               <fieldset>
-                <legend className="mb-1.5 text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">01. What should the AI receptionist demonstrate?</legend>
-                <div className="grid gap-1.5">
+                <legend className="mb-1 text-[11px] font-semibold text-[#34332D] xl:text-[12px]">01. What should the AI receptionist demonstrate?</legend>
+                <div className="grid gap-1 xl:gap-1.5">
                   {scenarios.map((item) => (
                     <label
                       key={item.id}
-                      className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-2.5 transition ${
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-1.5 transition xl:px-3.5 xl:py-2 ${
                         scenario === item.id
                           ? "border-[#E99A70] bg-[#FFF7F1]"
                           : "border-[#EAE5DB] hover:border-[#CFC5B5]"
@@ -388,12 +388,12 @@ export default function PublicDemoExperience() {
                         onChange={() => setScenario(item.id)}
                         className="accent-[#E96B32]"
                       />
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F2EEE6] text-[10px] font-semibold text-[#8A8174]">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#F2EEE6] text-[9.5px] font-semibold text-[#8A8174] xl:h-7 xl:w-7">
                         {item.icon}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[12px] font-semibold text-[#34332D]">{item.title}</span>
-                        <span className="block text-[10px] leading-4 text-[#77736A]">{item.description}</span>
+                        <span className="block text-[11.5px] font-semibold leading-tight text-[#34332D] xl:text-[12px]">{item.title}</span>
+                        <span className="block text-[9.5px] leading-3.5 text-[#77736A] xl:text-[10px]">{item.description}</span>
                       </span>
                       {scenario === item.id ? <span className="text-[#E96B32]">✓</span> : null}
                     </label>
@@ -401,13 +401,13 @@ export default function PublicDemoExperience() {
                 </div>
               </fieldset>
 
-              <div className="grid gap-3.5 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2 xl:gap-3.5">
                 <label className="block">
-                  <span className="mb-1 block text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">02. Conversation language</span>
+                  <span className="mb-0.5 block text-[11px] font-semibold text-[#34332D] xl:mb-1 xl:text-[12px]">02. Conversation language</span>
                   <select
                     value={language}
                     onChange={(event) => setLanguage(event.target.value)}
-                    className="h-9 w-full rounded-lg border border-[#E4DED3] bg-white px-3 text-[12px] outline-none focus:border-[#E99A70] xl:h-10"
+                    className="h-8 w-full rounded-lg border border-[#E4DED3] bg-white px-2.5 text-[11.5px] outline-none focus:border-[#E99A70] xl:h-9 xl:text-[12px]"
                   >
                     {languages.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -417,10 +417,10 @@ export default function PublicDemoExperience() {
                   </select>
                 </label>
                 <div>
-                  <label htmlFor="demo-phone" className="mb-1 block text-[11.5px] font-semibold text-[#34332D] xl:text-[12px]">
+                  <label htmlFor="demo-phone" className="mb-0.5 block text-[11px] font-semibold text-[#34332D] xl:mb-1 xl:text-[12px]">
                     03. Your phone number
                   </label>
-                  <div className="flex h-9 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70] xl:h-10">
+                  <div className="flex h-8 overflow-hidden rounded-lg border border-[#E4DED3] bg-white focus-within:border-[#E99A70] xl:h-9">
                     <select
                       aria-label="Country calling code"
                       value={countryCode}
@@ -442,8 +442,8 @@ export default function PublicDemoExperience() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-[#F7F4ED] px-3 py-2">
-                <label className="flex cursor-pointer items-start gap-2.5 text-[10px] leading-4 text-[#666158]">
+              <div className="rounded-lg bg-[#F7F4ED] px-2.5 py-1.5 xl:px-3 xl:py-2">
+                <label className="flex cursor-pointer items-start gap-2 text-[9.5px] leading-[14px] text-[#666158] xl:text-[10px] xl:leading-4">
                   <input
                     type="checkbox"
                     checked={consent}
@@ -456,7 +456,7 @@ export default function PublicDemoExperience() {
                 </label>
               </div>
 
-              {siteKey ? <div ref={captchaRef} className="min-h-[54px]" /> : null}
+              {siteKey ? <div ref={captchaRef} className="min-h-[48px] origin-left scale-[0.94] xl:scale-100" /> : null}
 
               {message && status === "error" ? (
                 <p role="alert" className="text-[11px] leading-5 text-[#B34E35]">
@@ -467,13 +467,13 @@ export default function PublicDemoExperience() {
               <button
                 type="submit"
                 disabled={status === "submitting" || !consent || (Boolean(siteKey) && !captchaToken)}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[12px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40 xl:h-11"
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[#1B1C18] px-5 text-[11.5px] font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-40 xl:h-10 xl:text-[12px]"
               >
                 {status === "submitting" ? "Requesting your call…" : "Request my live demo call"}
                 <span aria-hidden="true">↗</span>
               </button>
 
-              <p className="text-center text-[9px] leading-4 text-[#969084]">
+              <p className="text-center text-[9px] leading-3.5 text-[#969084]">
                 One demo call per phone number every hour. Calls are available from 9 AM to 8 PM IST and last up to two minutes.
               </p>
             </form>
