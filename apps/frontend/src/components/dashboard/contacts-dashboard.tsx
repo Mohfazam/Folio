@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
@@ -1253,6 +1255,7 @@ export function ContactsDashboard({
   startInImportMode = false,
 }: ContactsDashboardProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [contactsList, setContactsList] = useState<ContactRecord[]>(initialContacts);
   const [totalCount, setTotalCount] = useState<number>(initialTotal);
   const [activeFilters, setActiveFilters] = useState<ContactFilters>(initialFilters);
@@ -1550,16 +1553,53 @@ export function ContactsDashboard({
     setContactsList((prev) => prev.filter((item) => item.id !== contact.id));
     setTotalCount((prev) => Math.max(0, prev - 1));
 
+    const evictContactFromCache = (targetId: string) => {
+      setContactsList((prev) => prev.filter((item) => item.id !== targetId));
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: ["dashboard", "contacts"] },
+        (cached) => {
+          if (!cached || !Array.isArray(cached.contacts)) return cached;
+          const filtered = cached.contacts.filter(
+            (item) =>
+              !(
+                typeof item === "object" &&
+                item !== null &&
+                "id" in item &&
+                (item as { id?: unknown }).id === targetId
+              ),
+          );
+          if (filtered.length === cached.contacts.length) return cached;
+          return {
+            ...cached,
+            contacts: filtered,
+            total: typeof cached.total === "number" ? Math.max(0, cached.total - 1) : filtered.length,
+          };
+        },
+      );
+    };
+
     try {
       const result = await deleteContactAction(contact.id);
-      if (!result.ok) {
+      const alreadyGone =
+        !result.ok &&
+        (result.status === 404 || /not found/i.test(result.error));
+      if (!result.ok && !alreadyGone) {
         setContactsList(previousContacts);
         setTotalCount(previousTotal);
         setActionError(result.error);
         return;
       }
-      setNotice(`${displayName(contact)} was deleted.`);
+      evictContactFromCache(contact.id);
+      setNotice(
+        alreadyGone
+          ? `${displayName(contact)} was already removed. Synced contact list.`
+          : `${displayName(contact)} was deleted.`,
+      );
       setPendingDeleteContact(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "contacts"] }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+      ]);
       void executeQuery(activeFilters, { silent: true });
       router.refresh();
     } catch (cause) {

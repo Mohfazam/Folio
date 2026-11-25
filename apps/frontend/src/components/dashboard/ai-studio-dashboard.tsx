@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
@@ -68,6 +70,7 @@ function Field({ title, children }: { title: string; children: ReactNode }) { re
 
 export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent, profile: initialProfile, voices, languages, error: initialError }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [tab,setTab] = useState<Tab>("knowledge");
   const [entries,setEntries] = useState(initialEntries);
   const [agentState, setAgentState] = useState<Record<string, unknown>>(initialAgent);
@@ -140,17 +143,51 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
     setPendingDeleteEntry(entry);
   }
 
+  const evictEntryFromCache = (targetId: string) => {
+    setEntries((current) => current.filter((e) => e.id !== targetId));
+    queryClient.setQueriesData<Record<string, unknown>>(
+      { queryKey: dashboardKeys.knowledgeBase() },
+      (cached) => {
+        if (!cached || !Array.isArray(cached.entries)) return cached;
+        const filtered = cached.entries.filter(
+          (item) =>
+            !(
+              typeof item === "object" &&
+              item !== null &&
+              "id" in item &&
+              (item as { id?: unknown }).id === targetId
+            ),
+        );
+        return filtered.length === cached.entries.length ? cached : { ...cached, entries: filtered };
+      },
+    );
+  };
+
   async function confirmRemoveEntry() {
     const entry = pendingDeleteEntry;
     if (!entry) return;
     const previousEntries = entries;
     setBusy(true);
-    setEntries(current=>current.filter(e=>e.id!==entry.id));
+    evictEntryFromCache(entry.id);
     const result = await deleteKnowledgeEntryAction(entry.id);
     setBusy(false);
     setPendingDeleteEntry(null);
-    if (!result.ok) { setEntries(previousEntries); setError(result.error); return; }
-    setNotice("Knowledge entry deleted.");
+    const alreadyGone =
+      !result.ok &&
+      (result.status === 404 || /not found/i.test(result.error));
+    if (!result.ok && !alreadyGone) {
+      setEntries(previousEntries);
+      setError(result.error);
+      return;
+    }
+    if (alreadyGone) {
+      evictEntryFromCache(entry.id);
+    }
+    setNotice(alreadyGone ? "Knowledge entry was already removed. Synced library." : "Knowledge entry deleted.");
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     router.refresh();
   }
   async function saveAgent(event: FormEvent<HTMLFormElement>) {

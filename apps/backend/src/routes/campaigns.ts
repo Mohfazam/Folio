@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { campaigns, calls, callQueue } from "@repo/db";
+import { campaigns, calls, callQueue, contacts } from "@repo/db";
 
 const VALID_TYPES = [
   "outreach_sales",
@@ -453,7 +453,8 @@ export async function updateCampaignRoute(req: Request, res: Response) {
 /**
  * DELETE /api/campaigns/:id
  *
- * Delete a campaign.
+ * Delete a campaign (draft, active, paused, or completed), cancelling any pending
+ * queued calls and preserving historical call logs by detaching foreign keys.
  */
 export async function deleteCampaignRoute(req: Request, res: Response) {
   try {
@@ -462,14 +463,63 @@ export async function deleteCampaignRoute(req: Request, res: Response) {
       return res.status(400).json({ ok: false, error: "Campaign ID is required" });
     }
 
-    const [deleted] = await db
-      .delete(campaigns)
-      .where(and(
-        eq(campaigns.id, id),
-        eq(campaigns.clientId, req.clientId!),
-        eq(campaigns.status, "draft"),
-      ))
-      .returning();
+    const clientId = req.clientId!;
+
+    const deleted = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ id: campaigns.id })
+        .from(campaigns)
+        .where(and(eq(campaigns.id, id), eq(campaigns.clientId, clientId)))
+        .limit(1);
+
+      if (!existing) {
+        return null;
+      }
+
+      // 1. Remove unrun pending queue entries and reset those contacts back to pending
+      const removedPending = await tx
+        .delete(callQueue)
+        .where(and(
+          eq(callQueue.campaignId, id),
+          eq(callQueue.clientId, clientId),
+          eq(callQueue.status, "pending"),
+        ))
+        .returning({ contactId: callQueue.contactId });
+
+      const pendingContactIds = Array.from(
+        new Set(removedPending.map((row) => row.contactId).filter(Boolean)),
+      );
+      if (pendingContactIds.length > 0) {
+        await tx
+          .update(contacts)
+          .set({ status: "pending", updatedAt: new Date() })
+          .where(and(
+            eq(contacts.clientId, clientId),
+            eq(contacts.status, "queued"),
+            inArray(contacts.id, pendingContactIds),
+          ));
+      }
+
+      // 2. Detach remaining historical/in-progress call_queue rows so calls.queueEntryId stays intact
+      await tx
+        .update(callQueue)
+        .set({ campaignId: null, updatedAt: new Date() })
+        .where(and(eq(callQueue.campaignId, id), eq(callQueue.clientId, clientId)));
+
+      // 3. Detach historical calls rows so call logs & billing records remain preserved
+      await tx
+        .update(calls)
+        .set({ campaignId: null })
+        .where(and(eq(calls.campaignId, id), eq(calls.clientId, clientId)));
+
+      // 4. Delete the campaign itself
+      const [deletedCampaign] = await tx
+        .delete(campaigns)
+        .where(and(eq(campaigns.id, id), eq(campaigns.clientId, clientId)))
+        .returning();
+
+      return deletedCampaign ?? null;
+    });
 
     if (!deleted) {
       return res.status(404).json({ ok: false, error: `Campaign ${id} not found` });
