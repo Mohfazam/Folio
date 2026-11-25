@@ -156,7 +156,16 @@ export const Hero = () => {
         )}
       </div>
 
-      {commented_voice_sample_block}
+      {/* ========================================================================
+       * UPCOMING VOICE SAMPLE HERO (COMMENTED UNTIL RECORDING IS ADDED TO /public)
+       * To enable later:
+       *   1. Add audio file(s) under apps/frontend/public/ (e.g. /public/samples/outbound-renewal.mp3)
+       *   2. Uncomment the audio sample player card below and replace the active Hero layout
+       * ========================================================================
+      <div className="mx-auto mt-12 max-w-[640px] rounded-2xl border border-[#E3DFD3] bg-white p-5 shadow-sm">
+        <audio controls preload="none" src="/samples/outbound-renewal.mp3" className="w-full" />
+      </div>
+      ======================================================================== */}
     </section>
   );
 };
