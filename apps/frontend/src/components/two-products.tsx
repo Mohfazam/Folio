@@ -755,7 +755,7 @@ const IntegrationFlow = () => (
     </section>
 );
 
-const Fixed RateAgentPanel = () => {
+const RuleGuidedAgentPanel = () => {
     const [selectedStep, setSelectedStep] = useState<WorkflowStepId>("qualification");
     const [showGuardrailExample, setShowGuardrailExample] = useState(false);
     const [activeAgentView, setActiveAgentView] = useState<"workflow" | "escalation">("workflow");
@@ -796,7 +796,7 @@ const Fixed RateAgentPanel = () => {
                     <GlassTabs<"workflow" | "escalation">
                         value={activeAgentView}
                         onChange={setActiveAgentView}
-                        ariaLabel="Fixed Rate agent views"
+                        ariaLabel="Rule-guided agent views"
                         idPrefix="agent-view"
                         className="w-full md:w-[390px] md:shrink-0"
                         options={[
@@ -937,7 +937,7 @@ export const TwoProducts = () => {
           >
             {activeTab === "agent" ? (
               <div key="agent-product" className="foolioo-glass-panel">
-                <Fixed RateAgentPanel />
+                <RuleGuidedAgentPanel />
               </div>
             ) : (
               /* Campaign orchestration view */
