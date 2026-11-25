@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { ConfirmDialog, useDialogFocusTrap } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
@@ -91,6 +92,7 @@ function Metric({ label, value, hint }: { label: string; value: number; hint: st
 
 export function FollowUpsDashboard({ followUps, total, contacts, initialError, initialStatus }: Props) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState(initialStatus || "open");
   const [priority, setPriority] = useState("all");
   const [query, setQuery] = useState("");
@@ -162,21 +164,53 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     setPendingDeleteItem(item);
   }
 
+  const evictFollowUpFromCache = (targetId: string) => {
+    setItems((current) => current.filter((row) => row.id !== targetId));
+    queryClient.setQueriesData<Record<string, unknown>>(
+      { queryKey: ["dashboard", "follow-ups"] },
+      (cached) => {
+        if (!cached || !Array.isArray(cached.followUps)) return cached;
+        const filtered = cached.followUps.filter(
+          (row) =>
+            !(
+              typeof row === "object" &&
+              row !== null &&
+              "id" in row &&
+              (row as { id?: unknown }).id === targetId
+            ),
+        );
+        if (filtered.length === cached.followUps.length) return cached;
+        return {
+          ...cached,
+          followUps: filtered,
+          total: typeof cached.total === "number" ? Math.max(0, cached.total - 1) : filtered.length,
+        };
+      },
+    );
+  };
+
   async function confirmRemoveItem() {
     const item = pendingDeleteItem;
     if (!item) return;
     const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
-    setItems((current) => current.filter((row) => row.id !== item.id));
+    evictFollowUpFromCache(item.id);
     const result = await deleteFollowUpAction(item.id);
     setBusyId(null);
     setPendingDeleteItem(null);
-    if (!result.ok) {
+    const alreadyGone =
+      !result.ok &&
+      (result.status === 404 || /not found/i.test(result.error));
+    if (!result.ok && !alreadyGone) {
       setItems(previousItems);
       setError(result.error);
       return;
     }
-    setNotice("Follow-up deleted.");
+    if (alreadyGone) {
+      evictFollowUpFromCache(item.id);
+    }
+    setNotice(alreadyGone ? "Follow-up was already removed. Synced queue." : "Follow-up deleted.");
+    await queryClient.invalidateQueries({ queryKey: ["dashboard", "follow-ups"] });
     router.refresh();
   }
 
