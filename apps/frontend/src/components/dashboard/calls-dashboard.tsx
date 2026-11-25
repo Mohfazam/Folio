@@ -588,6 +588,12 @@ export function CallsDashboard({
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
                     {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
+                    {call.recordingUrl ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#7852D6]" title="Call recording available">
+                        <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                        Recording
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
