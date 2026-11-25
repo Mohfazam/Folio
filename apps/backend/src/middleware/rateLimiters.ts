@@ -35,7 +35,7 @@ export const globalRateLimiter = rateLimit({
  */
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  limit: 60, // 60 requests per 15 min per IP
+  limit: env.isProduction ? 120 : 600,
   standardHeaders: "draft-7",
   legacyHeaders: false,
   validate: { xForwardedForHeader: false },

@@ -16,7 +16,7 @@ import {
 import { FOOLIOO_SESSION_COOKIE } from "@/lib/auth/dashboard-request";
 
 const AUTH_WINDOW_MS = 60_000;
-const AUTH_MAX_ATTEMPTS = 5;
+const AUTH_MAX_ATTEMPTS = process.env.NODE_ENV === "production" ? 8 : 60;
 const authAttempts = new Map<string, number[]>();
 
 export type AuthState = {
