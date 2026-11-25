@@ -1112,7 +1112,7 @@ export async function streamCallRecordingRoute(req: Request, res: Response) {
  * Updates the existing call record and callRecordings table.
  */
 export async function updateCallRecordingRoute(req: Request, res: Response) {
-  const { deliveryId, plivoCallId, recordingUrl, durationSeconds } = req.body ?? {};
+  const { deliveryId, plivoCallId, plivoRecordingId, recordingUrl, durationSeconds } = req.body ?? {};
 
   if (!recordingUrl || (!deliveryId && !plivoCallId)) {
     return res.status(400).json({
@@ -1137,7 +1137,7 @@ export async function updateCallRecordingRoute(req: Request, res: Response) {
       const [found] = await db
         .select()
         .from(calls)
-        .where(eq(calls.deliveryId, plivoCallId))
+        .where(like(calls.deliveryId, `%${plivoCallId}%`))
         .limit(1);
       call = found;
     }
@@ -1159,6 +1159,7 @@ export async function updateCallRecordingRoute(req: Request, res: Response) {
       .values({
         callId: call.id,
         clientId: call.clientId,
+        plivoRecordingId: plivoRecordingId ?? null,
         sourceUrl: recordingUrl,
         durationSeconds: durationSeconds ?? call.durationSeconds ?? null,
         fileFormat: "mp3",
@@ -1167,6 +1168,7 @@ export async function updateCallRecordingRoute(req: Request, res: Response) {
         metadata: {
           deliveryId,
           plivoCallId,
+          plivoRecordingId,
         },
       })
       .onConflictDoNothing();
