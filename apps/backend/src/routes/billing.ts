@@ -122,18 +122,28 @@ function verifyRazorpaySignature(orderId: string, paymentId: string, signature: 
     .createHmac("sha256", env.razorpay.keySecret)
     .update(`${orderId}|${paymentId}`)
     .digest("hex");
+  if (signature.length !== generated.length) return false;
   return crypto.timingSafeEqual(Buffer.from(generated), Buffer.from(signature));
 }
 
 export async function verifyBillingPaymentRoute(req: Request, res: Response) {
   try {
-    const { planId, razorpay_order_id, razorpay_payment_id, razorpaySignature, idempotencyKey } = req.body as {
+    const {
+      planId,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      razorpaySignature,
+      idempotencyKey,
+    } = req.body as {
       planId: string;
       razorpay_order_id: string;
       razorpay_payment_id: string;
-      razorpaySignature: string;
+      razorpay_signature?: string;
+      razorpaySignature?: string;
       idempotencyKey?: string;
     };
+    const signature = razorpay_signature || razorpaySignature;
 
     if (!planId || !PLAN_DEFINITIONS[planId]) {
       return res.status(400).json({ ok: false, error: "Invalid plan ID" });
@@ -145,7 +155,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
     const clientId = req.clientId!;
 
     // Verify signature
-    if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpaySignature)) {
+    if (!signature || !verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, signature)) {
       return res.status(400).json({ ok: false, error: "Invalid payment signature", verified: false });
     }
 
@@ -181,7 +191,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
     if (payment.status !== "captured") {
       await db
         .update(billingOrders)
-        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpaySignature, updatedAt: new Date() })
+        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpaySignature: signature, updatedAt: new Date() })
         .where(eq(billingOrders.id, order.id));
       return res.status(400).json({ ok: false, error: `Payment status: ${payment.status}`, verified: false });
     }
@@ -192,7 +202,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
       .set({
         status: "paid",
         razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature,
+        razorpaySignature: signature,
         paidAt: new Date(),
         updatedAt: new Date(),
       })
