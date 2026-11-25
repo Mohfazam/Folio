@@ -21,11 +21,26 @@ export function plivoVoiceRoute(req: Request, res: Response) {
 
     if (record?.sessionState?.recordCall) {
       console.log(`[plivo-voice] ⏺️ Activating Plivo call recording for ${callUuid}...`);
-      plivoClient.calls.record(callUuid, { fileFormat: "mp3" }).then((rec: any) => {
-        console.log(`[plivo-voice] ⏺️ Recording active:`, rec?.recordingId ?? rec?.url ?? rec);
-      }).catch((err: any) => {
-        console.warn(`[plivo-voice] Plivo recording notice:`, err?.message ?? err);
-      });
+      const recordingCallbackUrl = `${env.publicUrl}/plivo-recording`;
+      plivoClient.calls
+        .record(callUuid, {
+          fileFormat: "mp3",
+          callbackUrl: recordingCallbackUrl,
+          callbackMethod: "POST",
+        })
+        .then((rec: any) => {
+          console.log(`[plivo-voice] ⏺️ Recording active:`, rec?.recordingId ?? rec?.url ?? rec);
+          if (rec?.url) {
+            record.sessionState.setRecording({
+              available: true,
+              storageKey: rec.url,
+              mimeType: "audio/mp3",
+            });
+          }
+        })
+        .catch((err: any) => {
+          console.warn(`[plivo-voice] Plivo recording notice:`, err?.message ?? err);
+        });
     }
   }
 
