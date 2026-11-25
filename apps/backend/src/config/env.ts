@@ -65,6 +65,12 @@ export const env = {
     authFrom: optional("AUTH_EMAIL_FROM", '"Foolioo Auth" <auth@foolioo.app>'),
     supportFrom: optional("SUPPORT_EMAIL_FROM", '"Foolioo Support" <support@foolioo.app>'),
   },
+  /** Razorpay Payment Configuration */
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID?.trim() || "",
+    keySecret: process.env.RAZORPAY_KEY_SECRET?.trim() || "",
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET?.trim() || "",
+  },
 };
 
 /**
