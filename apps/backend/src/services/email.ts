@@ -13,9 +13,9 @@ function createTransporter(user: string, pass: string): Transporter | null {
     host: env.smtp.host,
     port: env.smtp.port,
     secure: env.smtp.secure || env.smtp.port === 465,
-    connectionTimeout: 8_000,
-    greetingTimeout: 8_000,
-    socketTimeout: 10_000,
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 7_000,
     auth: {
       user: user || env.smtp.authUser,
       pass: pass || env.smtp.authPass,
