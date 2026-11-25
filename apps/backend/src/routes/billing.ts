@@ -181,7 +181,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
     if (payment.status !== "captured") {
       await db
         .update(billingOrders)
-        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpaySignature, updatedAt: new Date() })
+        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpay_signature, updatedAt: new Date() })
         .where(eq(billingOrders.id, order.id));
       return res.status(400).json({ ok: false, error: `Payment status: ${payment.status}`, verified: false });
     }
@@ -192,7 +192,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
       .set({
         status: "paid",
         razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature,
+        razorpay_signature,
         paidAt: new Date(),
         updatedAt: new Date(),
       })
@@ -283,7 +283,7 @@ export async function billingWebhookRoute(req: Request, res: Response) {
           .set({
             status: "paid",
             razorpayPaymentId: payment.id,
-            razorpaySignature: "",
+            razorpay_signature: "",
             paidAt: new Date(),
             updatedAt: new Date(),
           })
