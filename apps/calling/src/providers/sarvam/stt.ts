@@ -15,7 +15,7 @@ export interface SttHandlers {
 }
 
 export interface SttSession {
-  sendAudio: (mulawChunk: Buffer) => void;
+  sendAudio: (mulawChunk: Buffer) => boolean;
   close: () => void;
 }
 
@@ -33,6 +33,22 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
     "Api-Subscription-Key": KEY,
     debug: false,
   });
+
+  let opened = false;
+  let intentionallyClosed = false;
+  let failureReported = false;
+  let rejectOpenFailure: ((error: Error) => void) | null = null;
+  const openFailure = new Promise<never>((_, reject) => {
+    rejectOpenFailure = reject;
+  });
+
+  const reportFailure = (message: string) => {
+    if (intentionallyClosed || failureReported) return;
+    failureReported = true;
+    const error = new Error(message);
+    if (opened) handlers.onError?.(message);
+    else rejectOpenFailure?.(error);
+  };
 
   socket.on("message", (msg) => {
     switch ((msg as any).event) {
@@ -55,33 +71,61 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
       }
       case "error":
         console.error(`[stt.ts] ❌ Sarvam error event:`, JSON.stringify(msg));
-        handlers.onError?.(`${(msg as any).code}: ${(msg as any).message}`);
+        reportFailure(`${(msg as any).code}: ${(msg as any).message}`);
         break;
       default:
         break;
     }
   });
 
-  socket.on("error", (err) => handlers.onError?.(err.message));
+  socket.on("error", (err) => reportFailure(err.message));
   socket.on("close", (event) => {
-    handlers.onClose?.(event?.code, event?.reason);
+    if (intentionallyClosed) return;
+    if (opened) {
+      handlers.onClose?.(event?.code, event?.reason);
+    } else {
+      reportFailure("Sarvam STT WebSocket closed before opening");
+    }
   });
 
   // NOTE: do NOT call socket.connect() here. The SDK already opens the connection.
+  let openTimeoutTimer: NodeJS.Timeout | null = null;
   const openTimeout = new Promise<never>((_, reject) => {
-    const t = setTimeout(() => reject(new Error("Sarvam STT connect timeout (3500ms)")), 3500);
-    t.unref();
+    openTimeoutTimer = setTimeout(() => reject(new Error("Sarvam STT connect timeout (3500ms)")), 3500);
+    openTimeoutTimer.unref();
   });
-  await Promise.race([socket.waitForOpen(), openTimeout]);
+  try {
+    await Promise.race([socket.waitForOpen(), openFailure, openTimeout]);
+    opened = true;
+  } catch (error) {
+    intentionallyClosed = true;
+    try {
+      socket.close();
+    } catch {
+      // The socket may already have closed while its connection was opening.
+    }
+    throw error;
+  } finally {
+    if (openTimeoutTimer) clearTimeout(openTimeoutTimer);
+  }
 
   return {
     sendAudio: (chunk) => {
-      if (socket.readyState !== 1) return; // 1 = OPEN
-      socket.sendRealtimeAudioInput({
-        event: "audio_input",
-        audio: chunk.toString("base64"),
-      });
+      if (socket.readyState !== 1) return false; // 1 = OPEN
+      try {
+        socket.sendRealtimeAudioInput({
+          event: "audio_input",
+          audio: chunk.toString("base64"),
+        });
+        return true;
+      } catch (error) {
+        reportFailure(error instanceof Error ? error.message : String(error));
+        return false;
+      }
     },
-    close: () => socket.close(),
+    close: () => {
+      intentionallyClosed = true;
+      socket.close();
+    },
   };
 }

@@ -81,6 +81,11 @@ export async function openSarvamTtsStream(
     send_completion_event: "true",
   });
 
+  let opened = false;
+  let rejectOpenFailure: ((error: Error) => void) | null = null;
+  const openFailure = new Promise<never>((_, reject) => {
+    rejectOpenFailure = reject;
+  });
   let resolveCompletion!: () => void;
   let rejectCompletion!: (error: Error) => void;
   let closed = false;
@@ -98,6 +103,16 @@ export async function openSarvamTtsStream(
     if (closed) return;
     closed = true;
     rejectCompletion(error);
+    if (!opened) rejectOpenFailure?.(error);
+  };
+
+  const abort = () => {
+    fail(new Error("TTS stream aborted"));
+    try {
+      socket.close();
+    } catch {
+      // ignore
+    }
   };
 
   socket.on("message", (message) => {
@@ -118,25 +133,31 @@ export async function openSarvamTtsStream(
     if (!closed) fail(new Error("Sarvam TTS stream closed before completion"));
   });
 
-  const openTimeout = new Promise<never>((_, reject) => {
-    const t = setTimeout(() => reject(new Error("Sarvam TTS WebSocket connect timeout (2500ms)")), 2500);
-    t.unref();
-  });
-  await Promise.race([socket.waitForOpen(), openTimeout]);
   if (options?.signal?.aborted) {
-    socket.close();
-    throw new Error("TTS stream aborted");
+    abort();
+  } else {
+    options?.signal?.addEventListener("abort", abort, { once: true });
   }
-
-  const abort = () => {
-    fail(new Error("TTS stream aborted"));
+  let openTimeoutTimer: NodeJS.Timeout | null = null;
+  const openTimeout = new Promise<never>((_, reject) => {
+    openTimeoutTimer = setTimeout(() => reject(new Error("Sarvam TTS WebSocket connect timeout (2500ms)")), 2500);
+    openTimeoutTimer.unref();
+  });
+  try {
+    await Promise.race([socket.waitForOpen(), openFailure, openTimeout]);
+    if (closed || options?.signal?.aborted) throw new Error("TTS stream aborted");
+    opened = true;
+  } catch (error) {
+    options?.signal?.removeEventListener("abort", abort);
     try {
       socket.close();
     } catch {
-      // ignore
+      // The socket may already have closed while its connection was opening.
     }
-  };
-  options?.signal?.addEventListener("abort", abort, { once: true });
+    throw error;
+  } finally {
+    if (openTimeoutTimer) clearTimeout(openTimeoutTimer);
+  }
 
   const speaker = options?.speaker ?? "priya";
   const languageCode = options?.languageCode ?? "en-IN";

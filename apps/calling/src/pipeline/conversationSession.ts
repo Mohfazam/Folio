@@ -66,8 +66,13 @@ export function createConversationSession(
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
   let activeTurn: AbortController | null = null;
   let turnInProgress = false; // serialize turns to prevent history corruption
+  let turnInterrupted = false;
   let queuedTurn: { text: string; language?: string } | null = null;
   let sttReconnectAttempts = 0;
+  let sttConnecting = false;
+  let sttReconnectTimer: NodeJS.Timeout | null = null;
+  let pendingSttFailure: { message: string; session?: SttSession } | null = null;
+  let sttConnectedOnce = false;
   let greetingStarted = false;
   let greetingDelivered = false;
   let currentLanguage = normalizeLanguageCode(options?.language ?? options?.sessionState?.language);
@@ -209,9 +214,6 @@ export function createConversationSession(
       });
 
     const currentGen = ++generationId;
-    history.push({ role: "assistant", content: greetingText });
-    options?.sessionState?.addAssistantTurn(greetingText);
-
     try {
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
       // Use pre-warmed audio synthesized during phone ringing for 0ms startup delay
@@ -223,16 +225,12 @@ export function createConversationSession(
             pace: speechRate,
           });
 
-      if (closed || (generationId !== currentGen && greetingDelivered)) {
-        // If caller already spoke and greeting was superseded, clean up
-        if (history.length > 0 && history[history.length - 1]?.content === greetingText) {
-          history.pop();
-        }
-        return;
-      }
+      if (closed || generationId !== currentGen) return;
 
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
+      history.push({ role: "assistant", content: greetingText });
+      options?.sessionState?.addAssistantTurn(greetingText);
       greetingDelivered = true;
       conversationalEngine.markIntroCompleted();
       conversationalEngine.setLastAssistantReply(greetingText);
@@ -242,6 +240,7 @@ export function createConversationSession(
     } catch (err: any) {
       console.error(`${tag} Greeting error:`, err?.message ?? err);
       options?.sessionState?.recordError("tts", "tts_synthesis", err?.message ?? "Greeting error");
+      if (closed || generationId !== currentGen) return;
       // Automatic retry with concise greeting fallback to prevent silent calls
       try {
         const fallbackText = "Hello! Can you hear me okay?";
@@ -250,8 +249,10 @@ export function createConversationSession(
           languageCode: currentLanguage,
           pace: speechRate,
         });
-        if (!closed) {
+        if (!closed && generationId === currentGen) {
           callbacks.playAudio(retryAudio);
+          history.push({ role: "assistant", content: fallbackText });
+          options?.sessionState?.addAssistantTurn(fallbackText);
           greetingDelivered = true;
           conversationalEngine.markIntroCompleted();
           silenceWatchdog?.reset();
@@ -263,8 +264,9 @@ export function createConversationSession(
   }
 
   async function speakImmediateResponse(responseText: string, lang: string, shouldHangup = false) {
+    interruptForCallerSpeech(true);
     const currentGen = ++generationId;
-    interruptForCallerSpeech();
+    turnInterrupted = false;
     turnInProgress = true;
     silenceWatchdog?.reset(true);
     const cleanText = responseText.replace(/\[(?:HANGUP|END_CALL|HANG_UP)\]/gi, "").trim();
@@ -316,6 +318,7 @@ export function createConversationSession(
       queuedTurn = { text: trimmed, language };
       return;
     }
+    turnInterrupted = false;
     turnInProgress = true;
 
     const previousLanguage = currentLanguage;
@@ -533,7 +536,9 @@ export function createConversationSession(
     }
   }
 
-  function interruptForCallerSpeech() {
+  function interruptForCallerSpeech(force = false) {
+    if (!force && turnInProgress && turnInterrupted) return;
+    if (turnInProgress) turnInterrupted = true;
     generationId++;
     activeTurn?.abort();
     activeTurn = null;
@@ -542,9 +547,54 @@ export function createConversationSession(
   }
 
   // ── STT Connection with auto-reconnect ─────────────────────────
+  function handleSttFailure(
+    message: string,
+    failedSession?: SttSession,
+    stage: "stt_stream" | "stt_connection" = "stt_stream"
+  ) {
+    if (closed || (failedSession && stt && stt !== failedSession)) return;
+
+    console.error(`${tag} STT error: ${message}`);
+    options?.sessionState?.recordError("stt", stage, message);
+
+    if (failedSession && stt === failedSession) {
+      stt = null;
+      try {
+        failedSession.close();
+      } catch (error) {
+        console.warn(`${tag} STT socket close warning:`, error);
+      }
+    }
+
+    if (sttConnecting) {
+      pendingSttFailure = { message, session: failedSession };
+      return;
+    }
+    if (sttReconnectTimer) return;
+    if (sttReconnectAttempts >= STT_RECONNECT_MAX_ATTEMPTS) {
+      console.error(`${tag} ❌ STT reconnect attempts exhausted — hanging up call`);
+      callbacks.hangup?.("STT connection failed after retries");
+      return;
+    }
+
+    sttReconnectAttempts++;
+    metricsCollector.recordSttReconnect();
+    console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
+    sttReconnectTimer = setTimeout(() => {
+      sttReconnectTimer = null;
+      void connectStt();
+    }, STT_RECONNECT_DELAY_MS);
+  }
+
   async function connectStt() {
+    if (closed || sttConnecting) return;
+    sttConnecting = true;
+    let session: SttSession | null = null;
+    let connectionError: string | null = null;
+    let connectionFailure: unknown;
+
     try {
-      const session = await openSttSession({
+      session = await openSttSession({
         onSpeechStart: () => {
           silenceWatchdog?.pause(12000);
           console.log(`${tag} ⚡ Speech detected; pausing silence watchdog`);
@@ -554,14 +604,10 @@ export function createConversationSession(
           // Do not barge-in before the opening greeting has actually started playing
           if (!greetingDelivered) return;
           const trimmed = text?.trim();
-          if (!trimmed || isNoiseOrFiller(trimmed)) return;
+          if (!trimmed || isNoiseOrFiller(trimmed) || !turnInProgress) return;
 
-          // Only evaluate barge-in if the AI is actively speaking or generating audio
-          if (!turnInProgress) return;
-
-          // Robust barge-in check: filters acoustic echo, passive backchannels,
-          // ambient room chatter & TV noise, while instantly allowing genuine interruption
-          // commands, active questions, language switches, and substantive caller turns
+          // Filter acoustic echo, passive backchannels, room chatter, and TV noise
+          // while allowing clear interruption commands and substantive caller turns
           const lastAssistant = conversationalEngine.getState().lastAssistantReply || "";
           if (!shouldBargeIn(trimmed, { lastAssistantReply: lastAssistant, currentLanguage })) {
             return;
@@ -668,23 +714,18 @@ export function createConversationSession(
           handleCallerTurn(finalTrimmed, language);
         },
         onError: (message) => {
-          console.error(`${tag} STT error: ${message}`);
-          options?.sessionState?.recordError("stt", "stt_stream", message);
+          if (session && stt === session) handleSttFailure(message, session);
+          else connectionError = message;
         },
         onClose: (code, reason) => {
           console.warn(`${tag} ⚠️ STT socket closed (code=${code}, reason=${reason ?? "unknown"})`);
-          if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
-            stt = null;
-            sttReconnectAttempts++;
-            metricsCollector.recordSttReconnect();
-            console.warn(`${tag} 🔄 STT dropped unexpectedly — reconnecting (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
-            setTimeout(() => {
-              if (!closed) connectStt();
-            }, STT_RECONNECT_DELAY_MS);
-          }
+          const message = `Sarvam STT WebSocket closed (code=${code ?? "unknown"}, reason=${reason ?? "unknown"})`;
+          if (session && stt === session) handleSttFailure(message, session);
+          else connectionError = message;
         },
       });
 
+      if (connectionError) throw new Error(connectionError);
       if (closed) {
         session.close();
         return;
@@ -692,29 +733,40 @@ export function createConversationSession(
 
       stt = session;
       sttReconnectAttempts = 0; // reset on successful connect
-      options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
-      console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
-      for (const chunk of pending) session.sendAudio(chunk);
-      pending.length = 0;
-    } catch (err: any) {
-      console.error(`${tag} could not open STT:`, err?.message ?? err);
-      options?.sessionState?.recordError("stt", "stt_connection", err?.message ?? "STT connection failed");
-
-      // ── Auto-reconnect logic ──
-      if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
-        sttReconnectAttempts++;
-        metricsCollector.recordSttReconnect();
-        console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
-        setTimeout(() => {
-          if (!closed) connectStt();
-        }, STT_RECONNECT_DELAY_MS);
-      } else if (!closed) {
-        console.warn(`${tag} ⚠️ STT reconnect attempts reached limit — cooling down and retrying in 4s (call stays connected)`);
-        sttReconnectAttempts = 0;
-        setTimeout(() => {
-          if (!closed) connectStt();
-        }, 4000);
+      if (!sttConnectedOnce) {
+        sttConnectedOnce = true;
+        options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
       }
+      console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
+      while (pending.length > 0 && stt === session) {
+        const chunk = pending[0];
+        if (!chunk || !session.sendAudio(chunk)) break;
+        pending.shift();
+      }
+    } catch (err: any) {
+      if (session && stt !== session) {
+        try {
+          session.close();
+        } catch (closeError) {
+          console.warn(`${tag} STT socket close warning:`, closeError);
+        }
+      }
+      connectionFailure = err;
+    } finally {
+      sttConnecting = false;
+    }
+
+    if (connectionFailure) {
+      pendingSttFailure = null;
+      const message = connectionFailure instanceof Error
+        ? connectionFailure.message
+        : String(connectionFailure);
+      console.error(`${tag} could not open STT: ${message}`);
+      handleSttFailure(message, session ?? undefined, "stt_connection");
+    } else if (pendingSttFailure) {
+      const failure = pendingSttFailure;
+      pendingSttFailure = null;
+      handleSttFailure(failure.message, failure.session);
     }
   }
 
@@ -724,9 +776,8 @@ export function createConversationSession(
 
   return {
     handleAudio(chunk) {
-      if (stt) {
-        stt.sendAudio(chunk);
-      } else if (pending.length < MAX_BUFFERED_CHUNKS) {
+      if (stt?.sendAudio(chunk)) return;
+      if (pending.length < MAX_BUFFERED_CHUNKS) {
         pending.push(chunk);
       }
     },
@@ -734,6 +785,7 @@ export function createConversationSession(
       if (closed) return; // idempotent
       closed = true;
       clearTimeout(maxDurationTimer);
+      if (sttReconnectTimer) clearTimeout(sttReconnectTimer);
       silenceWatchdog?.stop();
       generationId++;
       activeTurn?.abort();

@@ -134,6 +134,8 @@ export async function generateReplyStream(
   customInstructions?: string,
   modelProfile?: "showcase"
 ): Promise<string> {
+  if (signal?.aborted) return "";
+
   const contents = formatContents(conversationHistory);
   const sysInst = [
     SYSTEM_INSTRUCTION,
@@ -205,6 +207,8 @@ export async function generateReplyStream(
       model,
       config: {
         systemInstruction: sysInst,
+        maxOutputTokens: 200,
+        abortSignal: signal,
       },
       contents,
     });
