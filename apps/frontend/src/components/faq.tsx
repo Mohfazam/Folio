@@ -68,21 +68,24 @@ export const Faq = () => {
                   </span>
                   <span
                     aria-hidden="true"
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#E3DFD3] bg-[#FBF9F2] text-[#1B1C18] transition-transform duration-200 ${
-                      isOpen ? "rotate-45 border-[#1B1C18] bg-[#1B1C18] text-white" : ""
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[#1B1C18] transition-colors duration-200 ${
+                      isOpen
+                        ? "border-[#1B1C18] bg-[#1B1C18] text-white"
+                        : "border-[#DCD8CC] bg-[#FBF9F2] text-[#1B1C18]"
                     }`}
                   >
                     <svg
-                      width="13"
-                      height="13"
+                      width="14"
+                      height="14"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
-                      strokeWidth="2.2"
+                      strokeWidth="2"
                       strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                     >
-                      <path d="M12 5v14" />
-                      <path d="M5 12h14" />
+                      <path d="m6 9 6 6 6-6" />
                     </svg>
                   </span>
                 </button>
