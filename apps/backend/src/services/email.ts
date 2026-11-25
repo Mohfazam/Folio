@@ -1,29 +1,5 @@
-import dns from "node:dns";
-import nodemailer, { type SendMailOptions, type Transporter } from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import { env } from "../config/env.js";
-
-dns.setDefaultResultOrder("ipv4first");
-
-const EMAIL_SEND_TIMEOUT_MS = 8_000;
-
-async function sendMailWithTimeout(
-  transporter: Transporter,
-  mailOptions: SendMailOptions,
-): Promise<void> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    await Promise.race([
-      transporter.sendMail(mailOptions),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(() => {
-          reject(new Error(`SMTP sendMail timed out after ${EMAIL_SEND_TIMEOUT_MS}ms`));
-        }, EMAIL_SEND_TIMEOUT_MS);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 let supportTransporter: Transporter | null = null;
 let authTransporter: Transporter | null = null;
@@ -37,9 +13,6 @@ function createTransporter(user: string, pass: string): Transporter | null {
     host: env.smtp.host,
     port: env.smtp.port,
     secure: env.smtp.secure || env.smtp.port === 465,
-    connectionTimeout: 5_000,
-    greetingTimeout: 5_000,
-    socketTimeout: 7_000,
     auth: {
       user: user || env.smtp.authUser,
       pass: pass || env.smtp.authPass,
@@ -108,13 +81,13 @@ export async function sendSupportTicketEmail(options: {
 
   try {
     await Promise.all([
-      sendMailWithTimeout(transporter, {
+      transporter.sendMail({
         from: env.smtp.supportFrom,
         to: email,
         subject: `[Support Ticket Received] ${subject}`,
         html: userHtml,
       }),
-      sendMailWithTimeout(transporter, {
+      transporter.sendMail({
         from: env.smtp.supportFrom,
         to: env.smtp.supportUser,
         replyTo: email,
@@ -123,6 +96,11 @@ export async function sendSupportTicketEmail(options: {
       }),
     ]);
     return { ok: true };
+  } catch (err: unknown) {
+    console.error("[nodemailer/support] Failed to send support ticket email:", err);
+    throw err;
+  }
+}
   } catch (err: unknown) {
     console.error("[nodemailer/support] Failed to send support ticket email:", err);
     throw err;
