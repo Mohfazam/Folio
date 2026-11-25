@@ -8,6 +8,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const EMAIL_AUTH_DISABLED = true;
+
 function VisibilityIcon({ visible }: { visible: boolean }) {
   return visible ? (
     <svg viewBox="0 0 20 20" className="h-[17px] w-[17px]" fill="none" aria-hidden="true">
@@ -122,6 +124,15 @@ function SignUpContent() {
         </div>
       </div>
 
+      {EMAIL_AUTH_DISABLED && (
+        <div
+          role="status"
+          className="mt-4 rounded-lg border border-[#E6E2D5] bg-[#F8F6EF] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11.5px] leading-5 text-[#666862]"
+        >
+          Email sign-up is temporarily disabled. Please use <strong className="font-semibold text-[#1B1C18]">Continue with Google</strong> above.
+        </div>
+      )}
+
       {state?.success ? (
         <div
           role="status"
@@ -146,6 +157,7 @@ function SignUpContent() {
             autoComplete="name"
             maxLength={50}
             error={state?.fieldErrors?.name?.[0]}
+            disabled={EMAIL_AUTH_DISABLED}
             required
           />
           <Input
@@ -156,6 +168,7 @@ function SignUpContent() {
             placeholder="you@company.com"
             autoComplete="email"
             error={state?.fieldErrors?.email?.[0]}
+            disabled={EMAIL_AUTH_DISABLED}
             required
           />
 
@@ -172,55 +185,59 @@ function SignUpContent() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 error={state?.fieldErrors?.password?.[0]}
+                disabled={EMAIL_AUTH_DISABLED}
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((current) => !current)}
+                disabled={EMAIL_AUTH_DISABLED}
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 aria-pressed={showPassword}
-                className="absolute right-2 top-[36px] inline-flex h-8 w-8 items-center justify-center rounded-md text-[#85877F] transition-colors hover:bg-[#F2F0EA] hover:text-[#51496A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A995D7]"
+                className="absolute right-2 top-[36px] inline-flex h-8 w-8 items-center justify-center rounded-md text-[#85877F] transition-colors hover:bg-[#F2F0EA] hover:text-[#51496A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A995D7] disabled:pointer-events-none disabled:opacity-40"
               >
                 <VisibilityIcon visible={showPassword} />
               </button>
             </div>
 
-            <div className="rounded-lg border border-[#ECE9E1] bg-[#FCFBF8] px-3 py-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#777970]">
-                  Password strength
-                </span>
-                <span
-                  className="font-['Space_Grotesk'] text-[10px] font-semibold"
-                  style={{ color: strength.color }}
-                  aria-live="polite"
-                >
-                  {strength.label}
-                </span>
-              </div>
-              <div className="mt-2 grid grid-cols-4 gap-1.5" aria-label={`Password strength: ${strength.label}`}>
-                {[0, 1, 2, 3].map((index) => (
+            {!EMAIL_AUTH_DISABLED && (
+              <div className="rounded-lg border border-[#ECE9E1] bg-[#FCFBF8] px-3 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-['Space_Grotesk'] text-[10px] font-medium text-[#777970]">
+                    Password strength
+                  </span>
                   <span
-                    key={index}
-                    className="h-1 rounded-full transition-colors duration-300"
-                    style={{ backgroundColor: index < strength.score ? strength.color : "#E7E5DE" }}
-                  />
-                ))}
-              </div>
-              <ul className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 font-['Space_Grotesk'] text-[10px]">
-                {requirementItems.map((item) => (
-                  <li
-                    key={item.key}
-                    className={`flex items-center gap-1.5 transition-colors ${
-                      item.met ? "font-medium text-[#39855D]" : "text-[#85877F]"
-                    }`}
+                    className="font-['Space_Grotesk'] text-[10px] font-semibold"
+                    style={{ color: strength.color }}
+                    aria-live="polite"
                   >
-                    <span aria-hidden="true">{item.met ? "✓" : "○"}</span>
-                    <span>{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    {strength.label}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-4 gap-1.5" aria-label={`Password strength: ${strength.label}`}>
+                  {[0, 1, 2, 3].map((index) => (
+                    <span
+                      key={index}
+                      className="h-1 rounded-full transition-colors duration-300"
+                      style={{ backgroundColor: index < strength.score ? strength.color : "#E7E5DE" }}
+                    />
+                  ))}
+                </div>
+                <ul className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1.5 font-['Space_Grotesk'] text-[10px]">
+                  {requirementItems.map((item) => (
+                    <li
+                      key={item.key}
+                      className={`flex items-center gap-1.5 transition-colors ${
+                        item.met ? "font-medium text-[#39855D]" : "text-[#85877F]"
+                      }`}
+                    >
+                      <span aria-hidden="true">{item.met ? "✓" : "○"}</span>
+                      <span>{item.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           {state?.error && (
@@ -233,8 +250,8 @@ function SignUpContent() {
           )}
 
           <div className="pt-1">
-            <Button type="submit" loading={isPending}>
-              {isPending ? "Creating your account…" : "Create account"}
+            <Button type="submit" loading={isPending} disabled={EMAIL_AUTH_DISABLED}>
+              {EMAIL_AUTH_DISABLED ? "Email sign-up unavailable" : isPending ? "Creating your account…" : "Create account"}
             </Button>
           </div>
 
