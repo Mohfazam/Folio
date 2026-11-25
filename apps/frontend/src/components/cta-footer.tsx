@@ -112,7 +112,7 @@ export const CtaFooter = () => {
           </h2>
 
           <p className="mx-auto mt-5 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] text-[#525552]">
-            Launch your first outbound voice campaign in minutes with rule-guided scripts, real-time QA, and instant CRM sync.
+            Start your first outbound calling campaign in minutes with clear scripts, quality checks, and instant CRM updates.
           </p>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -168,7 +168,7 @@ export const CtaFooter = () => {
                 foolioo<span className="ml-[1px] not-italic text-[#FD7032]">.</span>
               </Link>
               <p className="mt-3 max-w-[220px] font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#525552]">
-                Outbound AI voice operations with deterministic rigor.
+                Outbound AI calling that follows your rules.
               </p>
             </div>
 

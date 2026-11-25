@@ -10,8 +10,8 @@ const STEPS = [
     pill: "1. Consent Check",
     heading: "01. Identity & TRAI Consent Verification",
     badge: "Mandatory Step",
-    body: "Confirm prospect name and record affirmative consent before sharing pricing or scheduling details.",
-    simNote: "Passed: Prospect confirmed consent for outbound follow-up.",
+    body: "Confirm who answered and get their permission before sharing pricing or booking a visit.",
+    simNote: "Passed: Contact gave permission to continue the call.",
   },
   {
     id: 2,
@@ -24,9 +24,9 @@ const STEPS = [
   {
     id: 3,
     pill: "3. Hard Guardrail",
-    heading: "Deterministic Guardrail Active",
+    heading: "Safety Rule Active",
     badge: "Zero Off-Script Claims",
-    body: "Blocks unauthorized security-deposit discounts or custom lease concessions unless approved by a supervisor.",
+    body: "Never offers security-deposit discounts or special lease terms without manager approval.",
     simNote: "Protected: Deposit discount request held for manager sign-off.",
   },
 ];
@@ -54,7 +54,7 @@ export const VoiceAgent = () => {
                 </p>
               </div>
               <span className="rounded-full bg-[#E3FCEF] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#166534]">
-                Strict Mode: Locked
+                Rules Locked
               </span>
             </div>
 
@@ -141,7 +141,7 @@ export const VoiceAgent = () => {
             {/* Footer with Simulate Agent */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E9E8E1] bg-[#FAFAF8] px-5 py-3.5">
               <span className="font-['Space_Grotesk'] text-[11.5px] font-medium text-[#525552] tabular-nums">
-                12 Test cases passed • 0 Hallucinations
+                12 test calls passed • 0 off-script answers
               </span>
 
               <div className="flex items-center gap-2.5">
@@ -169,7 +169,7 @@ export const VoiceAgent = () => {
           {/* Right Column: Copy & CTA */}
           <div className="flex flex-col lg:col-span-5">
             <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#525552]">
-              DETERMINISTIC AGENTS
+              RULE-GUIDED AGENTS
             </span>
 
             <h2 className="mt-4">
@@ -183,14 +183,14 @@ export const VoiceAgent = () => {
             </h2>
 
             <p className="mt-5 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552]">
-              No off-script promises or made-up answers. Define clear call steps, qualification criteria, and guardrails so every outbound call stays on-brand from greeting to booking.
+              No made-up answers or off-script promises. Set clear steps and boundaries so every call follows your exact rules from hello to booking.
             </p>
 
             <div className="mt-7 flex flex-col gap-3.5">
               {[
-                "Step-by-step rules keep outbound calls aligned with your approved script.",
-                "Guardrails prevent unauthorized pricing or policy exceptions.",
-                "Instant handoff notes flag high-priority prospects for your team.",
+                "Step-by-step rules keep every call aligned with your approved script.",
+                "Built-in safety rules block unapproved discounts or false promises.",
+                "Instant alerts notify your team when a hot lead wants a callback.",
               ].map((bullet, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] text-[9px] text-white">

@@ -3,28 +3,28 @@ export const CallsIntoAnswers = () => {
     {
       number: "01",
       accentClass: "bg-[#1B1C18]",
-      title: "High-Volume Outbound",
+      title: "Call More Leads Faster",
       description:
-        "Reach more leads every day with parallel dialing, consistent pacing, and automated follow-up retries.",
+        "Call hundreds of leads at once with smart pacing and automatic follow-up retries.",
       metric: "Up to 24x Faster Lead Contact",
-      context: "Vs. single-line manual dialing",
+      context: "Compared to dialing one by one",
     },
     {
       number: "02",
       accentClass: "bg-[#FD7032]",
-      title: "Real-time Structured QA",
+      title: "Automatic Call Quality Checks",
       description:
-        "Score every call automatically against script and compliance checks—flagging objections and missed rules immediately.",
-      metric: "99.2% Script & Rule Adherence",
+        "Check every call automatically against your script and flag objections or missed steps right away.",
+      metric: "99.2% Script Accuracy",
       context: "Across 14,200+ tracked calls",
     },
     {
       number: "03",
       accentClass: "bg-[#22A06B]",
-      title: "Automated Follow-up Summary",
+      title: "Instant Summaries & CRM Sync",
       description:
-        "Turn every call into clean CRM notes, booked calendar slots, and follow-up summaries right after hangup.",
-      metric: "<1s Post-Call CRM Sync",
+        "Save clean call notes, booked meetings, and follow-up summaries to your CRM the moment a call ends.",
+      metric: "<1s CRM Update After Hangup",
       context: "Zero manual post-call data entry",
     },
   ];
@@ -37,7 +37,7 @@ export const CallsIntoAnswers = () => {
       <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
         <div className="flex flex-col items-center text-center">
           <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.5px] text-[#525552]">
-            UNIFIED OPERATIONS
+            ALL-IN-ONE CALLING
           </span>
           <h2 className="mt-4 max-w-[640px]">
             <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[46px] md:text-[52px]">

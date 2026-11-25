@@ -94,7 +94,7 @@ export const TrustBar = () => {
       <div className="mx-auto max-w-[1240px] px-6 md:px-10">
         <div className="text-center">
           <p className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.2px] text-[#525552]">
-            Trusted by outbound &amp; revenue teams at high-growth companies
+            Trusted by sales and operations teams at growing companies
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-x-10 gap-y-5 md:gap-x-14 lg:gap-x-16">
             {logos.map((logo) => (

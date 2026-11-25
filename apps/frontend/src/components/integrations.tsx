@@ -2,7 +2,7 @@ export const Integrations = () => {
   const integrations = [
     {
       name: "Salesforce",
-      description: "Bidirectional CRM sync",
+      description: "Two-way CRM sync",
       icon: (
         <svg width="26" height="26" viewBox="0 0 24 24" fill="#00A1E0" aria-hidden="true">
           <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" />
@@ -41,7 +41,7 @@ export const Integrations = () => {
     },
     {
       name: "Twilio",
-      description: "Outbound voice trunking",
+      description: "Phone & carrier routing",
       icon: (
         <svg width="26" height="26" viewBox="0 0 24 24" fill="#F22F46" aria-hidden="true">
           <circle cx="12" cy="12" r="9" stroke="#F22F46" strokeWidth="2.5" fill="none" />
@@ -84,7 +84,7 @@ export const Integrations = () => {
             </span>
           </h2>
           <p className="mt-4 max-w-[54ch] font-['Space_Grotesk'] text-[14.5px] font-normal leading-[23px] tracking-[0.1px] text-[#525552] md:text-[15px]">
-            Push call outcomes, recordings, and lead fields straight into your CRM and team channels in real time.
+            Send call outcomes, recordings, and lead details straight to your CRM and Slack in real time.
           </p>
         </div>
 

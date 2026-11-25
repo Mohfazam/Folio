@@ -277,19 +277,19 @@ export const OutboundCalls = ({ isLoggedIn = false }: { isLoggedIn?: boolean }) 
               </span>
               <span className="block font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.8px] text-[#1B1C18] sm:text-[44px]">
                 calls{" "}
-                <span className="italic">with human poise.</span>
+                <span className="italic">that sound natural.</span>
               </span>
             </h2>
 
             <p className="mt-5 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552]">
-              Upload your lead list and set your call rules. Foolioo dials prospects automatically with natural conversation pacing—handling objections, answering questions, and booking meetings without manual follow-up.
+              Upload your contact list and set your call rules. Foolioo calls each lead automatically, answers questions, handles objections, and books meetings on your calendar.
             </p>
 
             <div className="mt-7 flex flex-col gap-3.5">
               {[
-                "Parallel dialing across calling windows with local caller ID presence.",
-                "Natural turn-taking and interruption recovery that sounds human.",
-                "Automatic disposition logging, call recordings, and CRM updates.",
+                "Calls multiple leads at once during your set hours using local caller ID.",
+                "Fast, natural replies that handle interruptions smoothly.",
+                "Automatic call notes, recordings, and instant CRM updates.",
               ].map((item, idx) => (
                 <div key={idx} className="flex items-start gap-3">
                   <span className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] text-[9px] text-white">

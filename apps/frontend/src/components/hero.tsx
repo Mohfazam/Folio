@@ -92,14 +92,13 @@ export const Hero = () => {
             for outbound AI calling
           </span>
           <span className="block font-['Newsreader'] text-[46px] font-normal italic leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            with deterministic rigor.
+            that follows your script.
           </span>
         </h1>
 
         {/* Subtitle (Outbound-only: our agents call your prospects) */}
         <p className="mt-6 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552] md:text-[16px]">
-          Foolioo calls your prospects automatically with parallel outbound dialing,
-          strict guardrails, and structured CRM outcomes—at{" "}
+          Foolioo calls your leads automatically, follows your exact rules, and logs every call outcome to your CRM—at{" "}
           <span className="font-semibold text-[#1B1C18] tabular-nums">₹4.20/minute</span>.
         </p>
 
@@ -344,7 +343,7 @@ export const HeroWithVoiceSample = () => {
           <div className="inline-flex items-center gap-2 rounded-full border border-[#E3DFD3] bg-white px-3 py-1 shadow-2xs">
             <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
             <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.1px] text-[#4A4843]">
-              Outbound AI Calling · SOC-2 Type II Certified
+              Outbound AI Calling · Reliable & Secure
             </span>
           </div>
 
@@ -361,7 +360,7 @@ export const HeroWithVoiceSample = () => {
           </h1>
 
           <p className="mt-6 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[25px] tracking-[0.1px] text-[#525552] md:text-[16px]">
-            Foolioo dials your prospects automatically with natural voice latency, strict script guardrails, and instant CRM updates—at{" "}
+            Foolioo calls your leads automatically with natural voice speed, strict script rules, and instant CRM updates—at{" "}
             <span className="font-semibold text-[#1B1C18] tabular-nums">₹4.20/minute</span>{" "}
             (~77% less than an outsourced call center).
           </p>

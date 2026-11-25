@@ -118,7 +118,7 @@ export default function Home() {
       <Suspense
         fallback={
           <div className="flex min-h-[800px] w-full items-center justify-center bg-[#FBF9F2] text-sm font-medium text-[#525552]">
-            Loading workspace modules...
+            Loading...
           </div>
         }
       >
