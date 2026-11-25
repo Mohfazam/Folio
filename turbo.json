@@ -5,7 +5,8 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"],
+      "env": ["BACKEND_API_URL", "TURNSTILE_SECRET_KEY"]
     },
     "lint": {
       "dependsOn": ["^lint"]
