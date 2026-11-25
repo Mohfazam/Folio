@@ -127,11 +127,11 @@ function verifyRazorpaySignature(orderId: string, paymentId: string, signature: 
 
 export async function verifyBillingPaymentRoute(req: Request, res: Response) {
   try {
-    const { planId, razorpay_order_id, razorpay_payment_id, razorpay_signature, idempotencyKey } = req.body as {
+    const { planId, razorpay_order_id, razorpay_payment_id, razorpaySignature, idempotencyKey } = req.body as {
       planId: string;
       razorpay_order_id: string;
       razorpay_payment_id: string;
-      razorpay_signature: string;
+      razorpaySignature: string;
       idempotencyKey?: string;
     };
 
@@ -145,7 +145,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
     const clientId = req.clientId!;
 
     // Verify signature
-    if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+    if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpaySignature)) {
       return res.status(400).json({ ok: false, error: "Invalid payment signature", verified: false });
     }
 
@@ -181,7 +181,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
     if (payment.status !== "captured") {
       await db
         .update(billingOrders)
-        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpay_signature, updatedAt: new Date() })
+        .set({ status: "failed", razorpayPaymentId: razorpay_payment_id, razorpaySignature, updatedAt: new Date() })
         .where(eq(billingOrders.id, order.id));
       return res.status(400).json({ ok: false, error: `Payment status: ${payment.status}`, verified: false });
     }
@@ -192,7 +192,7 @@ export async function verifyBillingPaymentRoute(req: Request, res: Response) {
       .set({
         status: "paid",
         razorpayPaymentId: razorpay_payment_id,
-        razorpay_signature,
+        razorpaySignature,
         paidAt: new Date(),
         updatedAt: new Date(),
       })
@@ -283,7 +283,7 @@ export async function billingWebhookRoute(req: Request, res: Response) {
           .set({
             status: "paid",
             razorpayPaymentId: payment.id,
-            razorpay_signature: "",
+            razorpaySignature: "",
             paidAt: new Date(),
             updatedAt: new Date(),
           })
