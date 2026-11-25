@@ -53,8 +53,9 @@ export const env = {
       process.env.SUPABASE_PUBLISHABLE_KEY?.trim() ||
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim(),
   },
-  /** SMTP Email Configuration */
+  /** SMTP / Email Configuration */
   smtp: {
+    brevoApiKey: process.env.BREVO_API_KEY?.trim() || "",
     host: optional("SMTP_HOST", ""),
     port: parseInt(optional("SMTP_PORT", "587"), 10),
     secure: process.env.SMTP_SECURE === "true",
