@@ -117,3 +117,69 @@ export async function dispatchCallCompleted(
 
   return result;
 }
+
+/**
+ * Dispatches an asynchronous recording update to the webhook once Plivo finishes MP3 processing.
+ */
+export async function dispatchCallRecording(
+  sessionState: CallSessionState,
+  recordingUrl: string,
+  durationSeconds?: number
+): Promise<void> {
+  const tag = sessionState.tag;
+  sessionState.setRecording({
+    available: true,
+    storageKey: recordingUrl,
+    durationSeconds,
+    mimeType: "audio/mp3",
+  });
+
+  const targetUrl = sessionState.callbackUrl || process.env.CALLBACK_URL;
+  if (!targetUrl) return;
+
+  const deliveryId = `${sessionState.requestId}:${sessionState.plivoCallId || "no-plivo-id"}`;
+
+  // 1. Post to dedicated recording endpoint (/api/calls/recording)
+  const recordingEndpoint = targetUrl.replace(/\/complete\/?$/, "/recording");
+  try {
+    const res = await fetch(recordingEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Folio-VoiceService/1.0",
+        ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        deliveryId,
+        plivoCallId: sessionState.plivoCallId,
+        recordingUrl,
+        durationSeconds,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (res.ok) {
+      console.log(`${tag} ⏺️ Recording delivery SUCCESS -> ${recordingEndpoint}`);
+      return;
+    }
+  } catch (err: any) {
+    console.warn(`${tag} ⚠️ Recording delivery endpoint error:`, err?.message ?? err);
+  }
+
+  // 2. Fallback: Re-send completed result with recording attached
+  try {
+    const result = sessionState.buildResult();
+    await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Folio-VoiceService/1.0",
+        ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
+      },
+      body: JSON.stringify(result),
+      signal: AbortSignal.timeout(10000),
+    });
+    console.log(`${tag} ⏺️ Re-dispatched complete call with recording to ${targetUrl}`);
+  } catch (err: any) {
+    console.warn(`${tag} ⚠️ Fallback call delivery with recording failed:`, err?.message ?? err);
+  }
+}

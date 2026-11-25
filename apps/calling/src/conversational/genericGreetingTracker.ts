@@ -46,7 +46,8 @@ export function isGenericGreeting(text: string): boolean {
 export function handleGenericGreeting(
   text: string,
   state: CallerIntentState,
-  threshold = 3
+  threshold = 2,
+  language = "en-IN"
 ): EdgeCaseAction | null {
   if (!isGenericGreeting(text)) {
     // Reset consecutive hello count if caller said a real sentence
@@ -57,20 +58,22 @@ export function handleGenericGreeting(
   state.consecutiveHelloCount++;
   state.totalHelloCount++;
 
-  // While still delivering intro, ignore early "hello" so she finishes her opening
-  if (!state.introCompleted && state.consecutiveHelloCount <= 2) {
-    return { type: "continue_intro" };
-  }
+  // Always mark intro completed on any caller greeting so we never swallow subsequent speech
+  state.introCompleted = true;
 
-  // Once threshold is reached (e.g. 3 consecutive "hellos"), stop and directly check audibility
+  // Once threshold is reached (e.g. 2 consecutive "hellos"), directly reassure audibility
   if (state.consecutiveHelloCount >= threshold) {
     state.hasAudioComplaint = true;
+    const isHindi = language.toLowerCase().startsWith("hi");
+    const replyText = isHindi
+      ? "Haanji, bilkul! Main aapko sun pa rahi hoon. Kya aapko meri aawaz aa rahi hai?"
+      : "Hello! Yes, I can hear you clearly! Can you hear me okay?";
     return {
       type: "audibility_check",
-      replyText: "Hello! Yes, you are audible! Can you hear me clearly?",
+      replyText,
     };
   }
 
-  // Pass through to Gemini so the AI answers naturally with full conversation context
+  // Pass through to the conversational LLM immediately so it acknowledges and advances the conversation
   return null;
 }

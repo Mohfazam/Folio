@@ -90,8 +90,10 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return false;
   }
 
-  // 2. Passive backchannels & solitary greetings
-  if (isBackchannel(clean) || isGenericGreeting(clean)) {
+  // 2. Reject ONLY passive backchannels (e.g. "uh-huh", "hmm", "haan", "acha")
+  // Do NOT reject greetings ("hello", "who is this") because when a caller says "hello",
+  // they are actively engaging or asking if someone is there.
+  if (isBackchannel(clean)) {
     return false;
   }
 
@@ -105,20 +107,25 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return true;
   }
 
-  // 5. Filter out common ambient room chatter & background TV noise FIRST
-  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
-    return false;
+  // 5. Caller greetings or inquiry ("hello", "who is this", "kaun bol raha hai", "speaking")
+  if (isGenericGreeting(clean)) {
+    return true;
   }
 
   // 6. Direct active question
   const isQuestion = QUESTION_PATTERNS.some((p) => p.test(clean));
   const words = clean.split(/\s+/);
-  if (isQuestion && words.length >= 2) {
+  if (isQuestion || clean.endsWith("?")) {
     return true;
   }
 
-  // 7. Substantive caller statement: must be at least 4 distinct words and >= 16 chars
-  if (words.length >= 4 && clean.length >= 16) {
+  // 7. Filter out common ambient room chatter & background TV noise
+  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
+    return false;
+  }
+
+  // 8. Substantive caller statement: at least 2 words or >= 8 chars
+  if (words.length >= 2 || clean.length >= 8) {
     return true;
   }
 

@@ -49,9 +49,12 @@ class BackendResponseError extends Error {
   }
 }
 
-async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
+async function loadAuthMe(accessToken: string): Promise<AuthMePayload | null> {
   const result = await getWorkspaceAuthMe(accessToken);
   if (!result.ok) {
+    if (result.status === 404 || result.status === 403) {
+      return null;
+    }
     throw new BackendResponseError(
       sanitizeUserError(result.error, "Unable to load your workspace profile right now. Please try again."),
       result.status,
@@ -63,7 +66,7 @@ async function loadAuthMe(accessToken: string): Promise<AuthMePayload> {
 async function loadAuthMeWithRefresh(
   supabase: DashboardAuthContext["supabase"],
   accessToken: string,
-): Promise<AuthMePayload> {
+): Promise<AuthMePayload | null> {
   try {
     return await loadAuthMe(accessToken);
   } catch (error) {
@@ -106,10 +109,10 @@ async function DashboardContent({ children }: { children: ReactNode }) {
   // reads use the same token and run concurrently; /api/auth/me is request-cached
   // for child Server Components such as the Overview page.
   const [onboarding, authMe] = await Promise.all([
-    getOnboardingState(auth.accessToken),
+    getOnboardingState(auth.accessToken).catch(() => null),
     loadAuthMeWithRefresh(auth.supabase, auth.accessToken),
   ]);
-  if (!onboarding || onboarding.status !== "completed") redirect("/onboarding");
+  if (!onboarding || onboarding.status !== "completed" || !authMe) redirect("/onboarding");
   const client = authMe.client ?? null;
   const timezone = asText(client?.timezone) ?? "Asia/Kolkata";
   const displayName =

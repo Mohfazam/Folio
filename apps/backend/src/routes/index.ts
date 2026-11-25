@@ -30,7 +30,7 @@ import {
 } from "./billing.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
-import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRoute, getCallRecordingRoute, streamCallRecordingRoute, callCompleteRoute } from "./calls.js";
+import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRoute, getCallRecordingRoute, streamCallRecordingRoute, callCompleteRoute, updateCallRecordingRoute } from "./calls.js";
 import { getCampaignsRoute, getCampaignLiveStatsRoute, getCampaignByIdRoute, createCampaignRoute, updateCampaignRoute, deleteCampaignRoute } from "./campaigns.js";
 import { getClientByIdRoute, getClientsRoute, updateClientRoute } from "./clients.js";
 import { bulkContactsRoute, deleteContactRoute, getContactByIdRoute, getContactsRoute, updateContactRoute } from "./contacts.js";
@@ -81,6 +81,7 @@ export function registerRoutes(app: Express) {
 
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
+  api.post("/calls/recording", requireWebhookSecret, updateCallRecordingRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
 
   // Anonymous public demo is isolated behind the trusted frontend proxy secret.

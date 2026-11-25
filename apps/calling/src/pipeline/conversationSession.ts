@@ -311,12 +311,11 @@ export function createConversationSession(
 
     // ── Turn serialization & fresh interrupt handling ──
     // If a turn is currently in progress and the caller speaks again,
-    // interrupt the in-progress AI response immediately and prioritize this latest utterance.
+    // interrupt the in-progress AI response immediately and start processing the new utterance.
     if (turnInProgress) {
       console.log(`${tag} 🔄 Interrupted ongoing turn with fresh caller utterance: "${trimmed.slice(0, 50)}..."`);
-      interruptForCallerSpeech();
-      queuedTurn = { text: trimmed, language };
-      return;
+      interruptForCallerSpeech(true);
+      turnInProgress = false;
     }
     turnInterrupted = false;
     turnInProgress = true;
@@ -348,14 +347,42 @@ export function createConversationSession(
     let firstSentenceLogged = false;
     let turnAudioBytes = 0;
     let sentenceCount = 0;
+    let fillerTimer: NodeJS.Timeout | null = null;
+
     try {
       const pendingSentences: string[] = [];
       let firstAudioLogged = false;
+
+      // For substantive utterances or questions, trigger a subtle filler after 900ms if Gemini audio hasn't started yet
+      const isSubstantiveOrQuestion = trimmed.length >= 18 || trimmed.includes("?") || /^(what|how|why|tell|can|kya|kaise|kitna)/i.test(trimmed);
+      if (isSubstantiveOrQuestion) {
+        fillerTimer = setTimeout(async () => {
+          if (firstAudioLogged || closed || generationId !== currentGen || !turnInProgress) return;
+          const filler = getRandomLatencyFiller(activeLanguage);
+          console.log(`${tag} 💬 Latency filler triggered (900ms): "${filler}"`);
+          try {
+            const fillerAudio = await convertTextToSpeech(filler, {
+              speaker,
+              languageCode: activeLanguage,
+              pace: speechRate,
+            });
+            if (!firstAudioLogged && !closed && generationId === currentGen && turnInProgress) {
+              callbacks.playAudio(fillerAudio);
+              turnAudioBytes += fillerAudio.length;
+            }
+          } catch {}
+        }, 900);
+        fillerTimer.unref();
+      }
 
       // Acquire warm TTS stream immediately (already connected from session start — 0ms connect delay)
       try {
         tts = await getWarmTtsStream(activeLanguage);
         tts.setAudioHandler((audioChunk) => {
+          if (fillerTimer) {
+            clearTimeout(fillerTimer);
+            fillerTimer = null;
+          }
           if (!firstAudioLogged) {
             firstAudioLogged = true;
             const audioMs = Math.round(performance.now() - turnStartedAt);
@@ -523,11 +550,17 @@ export function createConversationSession(
         } catch {}
       }
     } finally {
+      if (fillerTimer) {
+        clearTimeout(fillerTimer);
+        fillerTimer = null;
+      }
       if (activeTurn === controller) activeTurn = null;
-      turnInProgress = false;
+      if (generationId === currentGen) {
+        turnInProgress = false;
+      }
 
       // ── Process queued turn if one arrived during this turn ──
-      if (queuedTurn && !closed) {
+      if (queuedTurn && !closed && !turnInProgress) {
         const next = queuedTurn;
         queuedTurn = null;
         console.log(`${tag} ▶️ Processing queued turn: "${next.text.slice(0, 50)}..."`);
@@ -596,11 +629,11 @@ export function createConversationSession(
     try {
       session = await openSttSession({
         onSpeechStart: () => {
-          silenceWatchdog?.pause(12000);
+          silenceWatchdog?.pause(4000);
           console.log(`${tag} ⚡ Speech detected; pausing silence watchdog`);
         },
         onPartial: (text) => {
-          silenceWatchdog?.pause(12000);
+          silenceWatchdog?.pause(4000);
           // Do not barge-in before the opening greeting has actually started playing
           if (!greetingDelivered) return;
           const trimmed = text?.trim();
@@ -642,7 +675,11 @@ export function createConversationSession(
           }
 
           if (action.type === "continue_intro") {
-            console.log(`${tag} 🗣️ Early greeting during intro ("${finalTrimmed}") — allowing intro to finish`);
+            console.log(`${tag} 🗣️ Early greeting during intro ("${finalTrimmed}") — acknowledging immediately`);
+            greetingDelivered = true;
+            conversationalEngine.markIntroCompleted();
+            interruptForCallerSpeech();
+            handleCallerTurn(finalTrimmed, language);
             return;
           }
 

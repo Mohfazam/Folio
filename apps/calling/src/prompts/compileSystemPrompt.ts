@@ -173,6 +173,14 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
       }
     }
 
+    campaignLines.push(
+      "- Outbound Conversation Progression:",
+      "  • Step 1 (Purpose & Value): Immediately after the recipient answers or confirms audibility, state the specific reason for this call.",
+      "  • Step 2 (Dialogue & Points): Discuss key talking points conversationally (1-2 crisp sentences per turn). Do not wait for the caller to lead; guide them proactively.",
+      "  • Step 3 (Call To Action): Present the desired closing action (scheduling, information follow-up, or demonstration).",
+      "  • Step 4 (Graceful Farewell): Once the outcome is reached or the caller declines, deliver a warm one-sentence wrap-up and append [HANGUP]."
+    );
+
     if (cp.callToAction) campaignLines.push(`- Desired Call-To-Action (Closing): ${cp.callToAction}`);
     if (cp.fallbackOffer) campaignLines.push(`- Fallback Offer (if recipient is hesitant/busy): ${cp.fallbackOffer}`);
 

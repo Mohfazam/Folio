@@ -69,7 +69,7 @@ export class ConversationalEngine {
     }
 
     // 2. Generic greetings ("hello", "haanji", "yes speaking") tracking with threshold
-    const greetingAction = handleGenericGreeting(trimmed, this.state, 3);
+    const greetingAction = handleGenericGreeting(trimmed, this.state, 2, language);
     if (greetingAction) {
       return greetingAction;
     }

@@ -302,6 +302,32 @@ export async function callCompleteRoute(req: Request, res: Response) {
         .where(eq(calls.deliveryId, payload.deliveryId))
         .limit(1);
       if (duplicate) {
+        if (!isPublicDemoContact && payload.recording?.available && payload.recording.storageKey) {
+          try {
+            await tx
+              .update(calls)
+              .set({ recordingUrl: payload.recording.storageKey })
+              .where(eq(calls.id, duplicate.id));
+
+            await tx.insert(callRecordings).values({
+              callId: duplicate.id,
+              clientId: payload.clientId,
+              sourceUrl: payload.recording.storageKey,
+              durationSeconds: payload.recording.durationSeconds ?? payload.durationSeconds ?? null,
+              fileFormat: "mp3",
+              fileSizeBytes: payload.recording.sizeBytes ?? null,
+              status: "completed",
+              channels: 1,
+              metadata: {
+                deliveryId: payload.deliveryId,
+                plivoCallId: payload.plivoCallId,
+                mimeType: payload.recording.mimeType || "audio/mp3",
+              },
+            }).onConflictDoNothing();
+          } catch (dupRecErr) {
+            console.warn("[calls/complete] Failed to attach recording to duplicate call:", dupRecErr);
+          }
+        }
         return { duplicate: true as const, callId: duplicate.id, creditsCharged: duplicate.creditsCharged };
       }
       throw new Error("Failed to insert call record");
@@ -1077,5 +1103,78 @@ export async function streamCallRecordingRoute(req: Request, res: Response) {
       const message = err instanceof Error ? err.message : String(err);
       res.status(500).json({ ok: false, error: message });
     }
+  }
+}
+
+/**
+ * POST /api/calls/recording
+ * Machine-to-machine webhook endpoint called when Plivo finishes MP3 processing.
+ * Updates the existing call record and callRecordings table.
+ */
+export async function updateCallRecordingRoute(req: Request, res: Response) {
+  const { deliveryId, plivoCallId, recordingUrl, durationSeconds } = req.body ?? {};
+
+  if (!recordingUrl || (!deliveryId && !plivoCallId)) {
+    return res.status(400).json({
+      ok: false,
+      error: "Missing required fields: recordingUrl and (deliveryId or plivoCallId)",
+    });
+  }
+
+  try {
+    let call = null;
+
+    if (deliveryId) {
+      const [found] = await db
+        .select()
+        .from(calls)
+        .where(eq(calls.deliveryId, deliveryId))
+        .limit(1);
+      call = found;
+    }
+
+    if (!call && plivoCallId) {
+      const [found] = await db
+        .select()
+        .from(calls)
+        .where(eq(calls.deliveryId, plivoCallId))
+        .limit(1);
+      call = found;
+    }
+
+    if (!call) {
+      console.warn(`[calls/recording] No call matching deliveryId=${deliveryId} or plivoCallId=${plivoCallId}`);
+      return res.status(404).json({ ok: false, error: "Call record not found" });
+    }
+
+    // 1. Update call row with recordingUrl
+    await db
+      .update(calls)
+      .set({ recordingUrl })
+      .where(eq(calls.id, call.id));
+
+    // 2. Insert into callRecordings table
+    await db
+      .insert(callRecordings)
+      .values({
+        callId: call.id,
+        clientId: call.clientId,
+        sourceUrl: recordingUrl,
+        durationSeconds: durationSeconds ?? call.durationSeconds ?? null,
+        fileFormat: "mp3",
+        status: "completed",
+        channels: 1,
+        metadata: {
+          deliveryId,
+          plivoCallId,
+        },
+      })
+      .onConflictDoNothing();
+
+    console.log(`[calls/recording] ✅ Attached recording URL to call ${call.id}`);
+    return res.json({ ok: true, callId: call.id });
+  } catch (err: unknown) {
+    console.error("[calls/recording] Error attaching recording:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
   }
 }

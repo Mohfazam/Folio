@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { activeCallRegistry } from "../session/ActiveCallRegistry.js";
+import { dispatchCallRecording } from "../delivery/callDelivery.js";
 
 /**
  * Handles Plivo asynchronous recording completion callback.
@@ -25,6 +26,10 @@ export function plivoRecordingRoute(req: Request, res: Response) {
         mimeType: "audio/mp3",
       });
       console.log(`[plivo-recording] ✅ Attached recording URL to active call ${callUuid}`);
+
+      void dispatchCallRecording(record.sessionState, recordingUrl, durSec).catch((err) => {
+        console.error(`[plivo-recording] Error dispatching recording update:`, err?.message ?? err);
+      });
     }
   }
 

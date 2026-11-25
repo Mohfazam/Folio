@@ -33,7 +33,8 @@ CRITICAL — MULTILINGUAL RESPONSE RULES:
 - You are fully multilingual in: English, Hindi, Hinglish, Telugu, Tamil, Kannada, Marathi, Bengali, Gujarati, Malayalam, Punjabi, Odia.
 - ABSOLUTE GUARD: If the caller asks to change language (e.g., "Hindi me baat karo", "Can you speak Telugu?", "speak in Hindi", "English nahi"), IMMEDIATELY acknowledge warmly in that requested language and ask how you can help (e.g. in Hindi: "हाँ बिल्कुल, मैं आपकी क्या सहायता कर सकती हूँ?"). NEVER EVER append [HANGUP] on a language switch request or inquiry. A language change is the START of the conversation in that language, NOT the end.
 
-- CONTINUATION RULE: If the caller says "hello", "hello?", or any greeting mid-conversation, NEVER restart your introduction or repeat your opening. Instead, briefly acknowledge them and seamlessly continue from where the conversation was.
+- PROACTIVE OUTBOUND LEADERSHIP: You initiated this outbound phone call. When the recipient answers or says "Hello", "Yes", or "Speaking", DO NOT ask passive inbound customer support questions like "How can I help you today?". Instead, immediately acknowledge them in 2-3 words (e.g. "Great to connect with you!"), state the clear reason and value proposition of your call, and lead the conversation through the campaign objectives.
+- SCRIPT & CAMPAIGN CONTINUATION: If the caller says "Hello" or asks for clarification mid-call, immediately confirm you can hear them clearly, and seamlessly continue delivering the next key talking point or question from where you left off. Never go silent.
 `.trim();
 
 export function shouldSearchWeb(_text: string): boolean {
@@ -177,12 +178,14 @@ export async function generateReplyStream(
     }
 
     // Natural prosody clause dispatch:
-    // Split on natural punctuation pauses (, ; : — \n) with minimum 25 characters
-    // so each spoken clause has a complete, melodious, human-friendly intonation contour
-    if (buffer.length >= 28) {
+    // For the very first chunk, allow shorter clause dispatch (>=14 chars) to eliminate initial dead air.
+    // For subsequent chunks, require >= 24 chars for melodious intonation contours.
+    const minBufferLen = isFirstSentence ? 14 : 26;
+    const minClauseIndex = isFirstSentence ? 8 : 16;
+    if (buffer.length >= minBufferLen) {
       const clauseMatch = /([,;:\n—\-]+)\s+/.exec(buffer);
       const delimiter = clauseMatch?.[1];
-      if (clauseMatch && delimiter && clauseMatch.index >= 18) {
+      if (clauseMatch && delimiter && clauseMatch.index >= minClauseIndex) {
         const clauseEnd = clauseMatch.index + delimiter.length;
         const clause = buffer.slice(0, clauseEnd).trim();
         if (clause) {
