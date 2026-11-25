@@ -15,7 +15,7 @@ const PLAN_DEFINITIONS: Record<string, { amountPaise: number; credits: number; n
   growth: { amountPaise: 830000, credits: 12000, name: "Growth" },
   pro: { amountPaise: 1250000, credits: 18000, name: "Pro" },
   scale: { amountPaise: 1670000, credits: 24000, name: "Scale" },
-  dev_test: { amountPaise: 500, credits: 1, name: "Dev Test" },
+  dev_test: { amountPaise: 100, credits: 1, name: "Dev Test" },
 };
 
 function isDevTestAllowed(req: Request): boolean {
