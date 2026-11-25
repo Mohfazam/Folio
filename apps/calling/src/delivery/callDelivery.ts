@@ -124,7 +124,8 @@ export async function dispatchCallCompleted(
 export async function dispatchCallRecording(
   sessionState: CallSessionState,
   recordingUrl: string,
-  durationSeconds?: number
+  durationSeconds?: number,
+  plivoRecordingId?: string
 ): Promise<void> {
   const tag = sessionState.tag;
   sessionState.setRecording({
@@ -152,6 +153,7 @@ export async function dispatchCallRecording(
       body: JSON.stringify({
         deliveryId,
         plivoCallId: sessionState.plivoCallId,
+        plivoRecordingId,
         recordingUrl,
         durationSeconds,
       }),
