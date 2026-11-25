@@ -233,8 +233,8 @@ function SignUpContent() {
           )}
 
           <div className="pt-1">
-            <Button type="submit" loading={isPending}>
-              {isPending ? "Creating your account…" : "Create account"}
+            <Button type="submit" loading={isPending} disabled>
+              Create account (Temporarily disabled)
             </Button>
           </div>
 

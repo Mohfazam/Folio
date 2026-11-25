@@ -101,11 +101,6 @@ export async function sendSupportTicketEmail(options: {
     throw err;
   }
 }
-  } catch (err: unknown) {
-    console.error("[nodemailer/support] Failed to send support ticket email:", err);
-    throw err;
-  }
-}
 
 export function buildAuthOtpEmailHtml(otp: string): string {
   const currentYear = new Date().getFullYear();
@@ -224,7 +219,7 @@ export async function sendAuthOtpEmail(options: {
   const html = buildAuthOtpEmailHtml(otp);
 
   try {
-    await sendMailWithTimeout(transporter, {
+    await transporter.sendMail({
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo verification code`,
@@ -255,7 +250,7 @@ export async function sendPasswordResetOtpEmail(options: {
   }
 
   try {
-    await sendMailWithTimeout(transporter, {
+    await transporter.sendMail({
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo password reset code`,
@@ -292,7 +287,7 @@ export async function sendSupportOtpEmail(options: {
   }
 
   try {
-    await sendMailWithTimeout(transporter, {
+    await transporter.sendMail({
       from: env.smtp.supportFrom,
       to,
       subject: `Your support verification code: ${otp}`,
