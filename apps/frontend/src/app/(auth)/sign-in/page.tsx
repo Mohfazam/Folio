@@ -8,6 +8,8 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const EMAIL_AUTH_DISABLED = true;
+
 function VisibilityIcon({ visible }: { visible: boolean }) {
   return visible ? (
     <svg viewBox="0 0 20 20" className="h-[17px] w-[17px]" fill="none" aria-hidden="true">
@@ -78,6 +80,15 @@ function SignInContent() {
         </div>
       </div>
 
+      {EMAIL_AUTH_DISABLED && (
+        <div
+          role="status"
+          className="mt-4 rounded-lg border border-[#E6E2D5] bg-[#F8F6EF] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11.5px] leading-5 text-[#666862]"
+        >
+          Email sign-in is temporarily disabled. Please use <strong className="font-semibold text-[#1B1C18]">Continue with Google</strong> above.
+        </div>
+      )}
+
       {isVerified && (
         <div
           role="status"
@@ -97,6 +108,7 @@ function SignInContent() {
           placeholder="you@company.com"
           autoComplete="email"
           error={state?.fieldErrors?.email?.[0]}
+          disabled={EMAIL_AUTH_DISABLED}
           required
         />
 
@@ -110,19 +122,21 @@ function SignInContent() {
               placeholder="Enter your password"
               autoComplete="current-password"
               error={state?.fieldErrors?.password?.[0]}
+              disabled={EMAIL_AUTH_DISABLED}
               required
             />
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
+              disabled={EMAIL_AUTH_DISABLED}
               aria-label={showPassword ? "Hide password" : "Show password"}
               aria-pressed={showPassword}
-              className="absolute right-2 top-[36px] inline-flex h-8 w-8 items-center justify-center rounded-md text-[#85877F] transition-colors hover:bg-[#F2F0EA] hover:text-[#51496A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A995D7]"
+              className="absolute right-2 top-[36px] inline-flex h-8 w-8 items-center justify-center rounded-md text-[#85877F] transition-colors hover:bg-[#F2F0EA] hover:text-[#51496A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A995D7] disabled:pointer-events-none disabled:opacity-40"
             >
               <VisibilityIcon visible={showPassword} />
             </button>
           </div>
-          {capsLockOn && (
+          {capsLockOn && !EMAIL_AUTH_DISABLED && (
             <p role="status" className="-mt-1 font-['Space_Grotesk'] text-[11px] text-[#9A6700]">
               Caps Lock is on.
             </p>
@@ -133,16 +147,23 @@ function SignInContent() {
                 type="checkbox"
                 name="rememberMe"
                 value="true"
-                className="h-3.5 w-3.5 rounded border-[#D8D6CE] accent-[#7852D6] focus-visible:ring-2 focus-visible:ring-[#A995D7]"
+                disabled={EMAIL_AUTH_DISABLED}
+                className="h-3.5 w-3.5 rounded border-[#D8D6CE] accent-[#7852D6] focus-visible:ring-2 focus-visible:ring-[#A995D7] disabled:opacity-50"
               />
               Remember me
             </label>
-            <Link
-              href="/forgot-password"
-              className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878] underline decoration-transparent underline-offset-4 transition-colors hover:text-[#7852D6] hover:decoration-[#7852D6]"
-            >
-              Forgot password?
-            </Link>
+            {EMAIL_AUTH_DISABLED ? (
+              <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#A0A29C]">
+                Forgot password?
+              </span>
+            ) : (
+              <Link
+                href="/forgot-password"
+                className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878] underline decoration-transparent underline-offset-4 transition-colors hover:text-[#7852D6] hover:decoration-[#7852D6]"
+              >
+                Forgot password?
+              </Link>
+            )}
           </div>
         </div>
 
@@ -156,8 +177,8 @@ function SignInContent() {
         )}
 
         <div className="pt-1">
-          <Button type="submit" loading={isPending}>
-            {isPending ? "Signing in…" : "Sign in"}
+          <Button type="submit" loading={isPending} disabled={EMAIL_AUTH_DISABLED}>
+            {EMAIL_AUTH_DISABLED ? "Email sign-in unavailable" : isPending ? "Signing in…" : "Sign in"}
           </Button>
         </div>
       </form>
