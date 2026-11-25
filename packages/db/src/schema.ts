@@ -397,6 +397,36 @@ export const emailVerificationOtps = pgTable(
   ]
 );
 
+export const billingOrders = pgTable(
+  "billing_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    planId: text("plan_id").notNull(),
+    planName: text("plan_name").notNull(),
+    amountPaise: integer("amount_paise").notNull(),
+    creditsGranted: integer("credits_granted").notNull(),
+    currency: text("currency").notNull().default("INR"),
+    status: text("status").notNull().default("created"),
+    method: text("method"),
+    razorpayOrderId: text("razorpay_order_id").unique(),
+    razorpayPaymentId: text("razorpay_payment_id").unique(),
+    razorpaySignature: text("razorpay_signature"),
+    idempotencyKey: text("idempotency_key").unique(),
+    billingDetails: jsonb("billing_details").default({}),
+    notes: jsonb("notes").default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    paidAt: timestamp("paid_at"),
+  },
+  (table) => [
+    index("idx_billing_orders_client").on(table.clientId),
+    index("idx_billing_orders_razorpay_order").on(table.razorpayOrderId),
+    index("idx_billing_orders_idempotency").on(table.idempotencyKey),
+  ]
+);
+
 export const supportTickets = pgTable(
   "support_tickets",
   {
