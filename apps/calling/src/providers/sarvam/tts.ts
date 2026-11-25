@@ -65,6 +65,49 @@ export async function openSarvamTtsStream(
     send_completion_event: "true",
   });
 
+  let openingAbortListener: (() => void) | null = null;
+  let openTimeoutTimer: NodeJS.Timeout | null = null;
+  const openTimeout = new Promise<never>((_, reject) => {
+    openTimeoutTimer = setTimeout(
+      () => reject(new Error("Sarvam TTS WebSocket connect timeout (2500ms)")),
+      2500
+    );
+    openTimeoutTimer.unref();
+  });
+  const openAborted = new Promise<never>((_, reject) => {
+    if (!options?.signal) return;
+    if (options.signal.aborted) {
+      reject(new Error("TTS stream aborted"));
+      return;
+    }
+    openingAbortListener = () => {
+      try {
+        socket.close();
+      } catch {
+        // The socket may already have closed while its connection was opening.
+      } finally {
+        reject(new Error("TTS stream aborted"));
+      }
+    };
+    options.signal.addEventListener("abort", openingAbortListener, { once: true });
+  });
+
+  try {
+    await Promise.race([socket.waitForOpen(), openTimeout, openAborted]);
+  } catch (error) {
+    try {
+      socket.close();
+    } catch {
+      // The socket may already have closed while its connection was opening.
+    }
+    throw error;
+  } finally {
+    if (openTimeoutTimer) clearTimeout(openTimeoutTimer);
+    if (openingAbortListener) {
+      options?.signal?.removeEventListener("abort", openingAbortListener);
+    }
+  }
+
   let resolveCompletion!: () => void;
   let rejectCompletion!: (error: Error) => void;
   let completed = false;
@@ -102,11 +145,6 @@ export async function openSarvamTtsStream(
     if (!completed) fail(new Error("Sarvam TTS stream closed before completion"));
   });
 
-  const openTimeout = new Promise<never>((_, reject) => {
-    const t = setTimeout(() => reject(new Error("Sarvam TTS WebSocket connect timeout (2500ms)")), 2500);
-    t.unref();
-  });
-  await Promise.race([socket.waitForOpen(), openTimeout]);
   if (options?.signal?.aborted) {
     socket.close();
     throw new Error("TTS stream aborted");

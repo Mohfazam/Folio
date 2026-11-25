@@ -174,6 +174,11 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
     if (cp.callToAction) campaignLines.push(`- Desired Call-To-Action (Closing): ${cp.callToAction}`);
     if (cp.fallbackOffer) campaignLines.push(`- Fallback Offer (if recipient is hesitant/busy): ${cp.fallbackOffer}`);
+    if (cp.keyTalkingPoints?.length) {
+      campaignLines.push(
+        "- Campaign delivery: Cover each relevant talking point naturally across the conversation. Keep each turn concise, respond to the caller before continuing after an interruption, and do not skip or repeat points. Do not recite the list as a monologue. Respect the caller's decision to end the call or opt out."
+      );
+    }
 
     sections.push(campaignLines.join("\n"));
   }

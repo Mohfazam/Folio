@@ -58,8 +58,13 @@ export function createConversationSession(
   let generationId = 0; // increments on each turn to invalidate stale/interrupted responses
   let activeTurn: AbortController | null = null;
   let turnInProgress = false; // serialize turns to prevent history corruption
+  let turnInterrupted = false;
   let queuedTurn: { text: string; language?: string } | null = null;
   let sttReconnectAttempts = 0;
+  let sttConnecting = false;
+  let sttReconnectTimer: NodeJS.Timeout | null = null;
+  let pendingSttFailure: { message: string; session?: SttSession } | null = null;
+  let sttConnectedOnce = false;
   let greetingStarted = false;
   let greetingDelivered = false;
   let silenceTimer: NodeJS.Timeout | null = null;
@@ -149,8 +154,6 @@ export function createConversationSession(
       : options?.greetingText || "Hello! Can you hear me okay?";
 
     const currentGen = ++generationId;
-    history.push({ role: "assistant", content: greetingText });
-    options?.sessionState?.addAssistantTurn(greetingText);
 
     try {
       console.log(`${tag} 🤖 AI Greeting: "${greetingText}"`);
@@ -160,16 +163,12 @@ export function createConversationSession(
         pace: speechRate,
       });
 
-      if (closed || (generationId !== currentGen && greetingDelivered)) {
-        // If caller already spoke and greeting was superseded, clean up
-        if (history.length > 0 && history[history.length - 1]?.content === greetingText) {
-          history.pop();
-        }
-        return;
-      }
+      if (closed || generationId !== currentGen) return;
 
       console.log(`${tag} 🔊 Playing greeting to caller (${audio.length} bytes)`);
       callbacks.playAudio(audio);
+      history.push({ role: "assistant", content: greetingText });
+      options?.sessionState?.addAssistantTurn(greetingText);
       greetingDelivered = true;
       resetSilenceTimer();
       options?.sessionState?.recordGreetingPlayed(Math.round(performance.now() - sessionStartTime));
@@ -195,6 +194,7 @@ export function createConversationSession(
       return;
     }
     turnInProgress = true;
+    turnInterrupted = false;
 
     const previousLanguage = currentLanguage;
     const currentGen = ++generationId;
@@ -379,6 +379,8 @@ export function createConversationSession(
   }
 
   function interruptForCallerSpeech() {
+    if (turnInProgress && turnInterrupted) return;
+    if (turnInProgress) turnInterrupted = true;
     generationId++;
     activeTurn?.abort();
     activeTurn = null;
@@ -395,9 +397,54 @@ export function createConversationSession(
   }
 
   // ── STT Connection with auto-reconnect ─────────────────────────
+  function handleSttFailure(
+    message: string,
+    failedSession?: SttSession,
+    stage: "stt_stream" | "stt_connection" = "stt_stream"
+  ) {
+    if (closed || (failedSession && stt && stt !== failedSession)) return;
+
+    console.error(`${tag} STT error: ${message}`);
+    options?.sessionState?.recordError("stt", stage, message);
+
+    if (failedSession && stt === failedSession) {
+      stt = null;
+      try {
+        failedSession.close();
+      } catch (error) {
+        console.warn(`${tag} STT socket close warning:`, error);
+      }
+    }
+
+    if (sttConnecting) {
+      pendingSttFailure = { message, session: failedSession };
+      return;
+    }
+    if (sttReconnectTimer) return;
+    if (sttReconnectAttempts >= STT_RECONNECT_MAX_ATTEMPTS) {
+      console.error(`${tag} ❌ STT reconnect attempts exhausted — hanging up call`);
+      callbacks.hangup?.("STT connection failed after retries");
+      return;
+    }
+
+    sttReconnectAttempts++;
+    metricsCollector.recordSttReconnect();
+    console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
+    sttReconnectTimer = setTimeout(() => {
+      sttReconnectTimer = null;
+      void connectStt();
+    }, STT_RECONNECT_DELAY_MS);
+  }
+
   async function connectStt() {
+    if (closed || sttConnecting) return;
+    sttConnecting = true;
+    let session: SttSession | null = null;
+    let connectionError: string | null = null;
+    let connectionFailure: unknown;
+
     try {
-      const session = await openSttSession({
+      session = await openSttSession({
         onSpeechStart: () => {
           resetSilenceTimer();
           console.log(`${tag} ⚡ Speech detected; waiting for transcript confirmation`);
@@ -410,7 +457,9 @@ export function createConversationSession(
           // Only barge-in on meaningful phrases with at least 2 distinct words or >=14 chars
           if (trimmed.length >= 14 || trimmed.split(/\s+/).length >= 2) {
             resetSilenceTimer();
-            interruptForCallerSpeech();
+            if (turnInProgress && activeTurn && !activeTurn.signal.aborted) {
+              interruptForCallerSpeech();
+            }
             if (process.env.NODE_ENV !== "production") {
               console.log(`${tag} ... ${trimmed}`);
             }
@@ -425,15 +474,16 @@ export function createConversationSession(
             return;
           }
           greetingDelivered = true;
-          interruptForCallerSpeech();
+          if (!turnInProgress) interruptForCallerSpeech();
           handleCallerTurn(finalTrimmed, language);
         },
         onError: (message) => {
-          console.error(`${tag} STT error: ${message}`);
-          options?.sessionState?.recordError("stt", "stt_stream", message);
+          if (session && stt === session) handleSttFailure(message, session);
+          else connectionError = message;
         },
       });
 
+      if (connectionError) throw new Error(connectionError);
       if (closed) {
         session.close();
         return;
@@ -441,26 +491,40 @@ export function createConversationSession(
 
       stt = session;
       sttReconnectAttempts = 0; // reset on successful connect
-      options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
-      console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
-      for (const chunk of pending) session.sendAudio(chunk);
-      pending.length = 0;
-    } catch (err: any) {
-      console.error(`${tag} could not open STT:`, err?.message ?? err);
-      options?.sessionState?.recordError("stt", "stt_connection", err?.message ?? "STT connection failed");
-
-      // ── Auto-reconnect logic ──
-      if (!closed && sttReconnectAttempts < STT_RECONNECT_MAX_ATTEMPTS) {
-        sttReconnectAttempts++;
-        metricsCollector.recordSttReconnect();
-        console.warn(`${tag} 🔄 Attempting STT reconnect (${sttReconnectAttempts}/${STT_RECONNECT_MAX_ATTEMPTS}) in ${STT_RECONNECT_DELAY_MS}ms...`);
-        setTimeout(() => {
-          if (!closed) connectStt();
-        }, STT_RECONNECT_DELAY_MS);
-      } else if (!closed) {
-        console.error(`${tag} ❌ STT reconnect attempts exhausted — hanging up call`);
-        callbacks.hangup?.("STT connection failed after retries");
+      if (!sttConnectedOnce) {
+        sttConnectedOnce = true;
+        options?.sessionState?.recordSttConnectTime(Math.round(performance.now() - sessionStartTime));
       }
+      console.log(`${tag} STT connected, flushing ${pending.length} buffered chunks`);
+      while (pending.length > 0 && stt === session) {
+        const chunk = pending[0];
+        if (!chunk || !session.sendAudio(chunk)) break;
+        pending.shift();
+      }
+    } catch (err: any) {
+      if (session && stt !== session) {
+        try {
+          session.close();
+        } catch (closeError) {
+          console.warn(`${tag} STT socket close warning:`, closeError);
+        }
+      }
+      connectionFailure = err;
+    } finally {
+      sttConnecting = false;
+    }
+
+    if (connectionFailure) {
+      pendingSttFailure = null;
+      const message = connectionFailure instanceof Error
+        ? connectionFailure.message
+        : String(connectionFailure);
+      console.error(`${tag} could not open STT: ${message}`);
+      handleSttFailure(message, session ?? undefined, "stt_connection");
+    } else if (pendingSttFailure) {
+      const failure = pendingSttFailure;
+      pendingSttFailure = null;
+      handleSttFailure(failure.message, failure.session);
     }
   }
 
@@ -470,9 +534,8 @@ export function createConversationSession(
 
   return {
     handleAudio(chunk) {
-      if (stt) {
-        stt.sendAudio(chunk);
-      } else if (pending.length < MAX_BUFFERED_CHUNKS) {
+      if (stt?.sendAudio(chunk)) return;
+      if (pending.length < MAX_BUFFERED_CHUNKS) {
         pending.push(chunk);
       }
     },
@@ -481,6 +544,7 @@ export function createConversationSession(
       closed = true;
       clearTimeout(maxDurationTimer);
       if (silenceTimer) clearTimeout(silenceTimer);
+      if (sttReconnectTimer) clearTimeout(sttReconnectTimer);
       generationId++;
       activeTurn?.abort();
       callbacks.clearAudio();

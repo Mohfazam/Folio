@@ -59,6 +59,12 @@ Build it:
 pnpm --filter @repo/calling build
 ```
 
+Run the calling-service tests:
+
+```sh
+pnpm --filter @repo/calling test
+```
+
 The HTTP service exposes `/health`, `/dial`, `/active-calls`, and `/metrics`; Plivo uses `/plivo-voice`, `/plivo-hangup`, and `/media-stream`. `/dial`, `/active-calls`, and `/metrics` require `CALLING_SERVICE_SECRET`.
 
 ### Backend development
