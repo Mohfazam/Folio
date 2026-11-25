@@ -26,82 +26,6 @@ function createTransporter(user: string, pass: string): Transporter | null {
   });
 }
 
-function parseFromAddress(from: string): { name?: string; email: string } {
-  const match = from.match(/^\s*"?([^"<]+?)"?\s*<([^>]+)>\s*$/);
-  if (match) {
-    return { name: match[1]!.trim(), email: match[2]!.trim() };
-  }
-  return { email: from.trim() };
-}
-
-async function sendViaBrevoApi(options: {
-  from: string;
-  to: string;
-  subject: string;
-  text?: string;
-  html?: string;
-  replyTo?: string;
-}): Promise<void> {
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": env.smtp.brevoApiKey,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      sender: parseFromAddress(options.from),
-      to: [{ email: options.to }],
-      subject: options.subject,
-      ...(options.html ? { htmlContent: options.html } : {}),
-      ...(options.text ? { textContent: options.text } : {}),
-      ...(options.replyTo ? { replyTo: { email: options.replyTo } } : {}),
-    }),
-    signal: AbortSignal.timeout(8_000),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Brevo API error (${response.status}): ${body}`);
-  }
-}
-
-async function deliverEmail(options: {
-  transporter: Transporter | null;
-  from: string;
-  to: string;
-  subject: string;
-  text?: string;
-  html?: string;
-  replyTo?: string;
-}): Promise<boolean> {
-  if (env.smtp.brevoApiKey) {
-    await sendViaBrevoApi({
-      from: options.from,
-      to: options.to,
-      subject: options.subject,
-      text: options.text,
-      html: options.html,
-      replyTo: options.replyTo,
-    });
-    return true;
-  }
-
-  if (!options.transporter) {
-    return false;
-  }
-
-  await options.transporter.sendMail({
-    from: options.from,
-    to: options.to,
-    subject: options.subject,
-    text: options.text,
-    html: options.html,
-    replyTo: options.replyTo,
-  });
-  return true;
-}
-
 export function getAuthTransporter(): Transporter | null {
   if (!authTransporter && env.smtp.host) {
     authTransporter = createTransporter(env.smtp.authUser, env.smtp.authPass);
@@ -129,7 +53,7 @@ export async function sendSupportTicketEmail(options: {
   const { name, email, subject, message, contactPhone } = options;
   const transporter = getSupportTransporter();
 
-  if (!env.smtp.brevoApiKey && !transporter) {
+  if (!transporter) {
     console.log(`[nodemailer/dev-fallback] 📧 [SUPPORT TICKET] From: ${name} <${email}> | Subject: ${subject}`);
     return { ok: true };
   }
@@ -160,15 +84,13 @@ export async function sendSupportTicketEmail(options: {
 
   try {
     await Promise.all([
-      deliverEmail({
-        transporter,
+      transporter.sendMail({
         from: env.smtp.supportFrom,
         to: email,
         subject: `[Support Ticket Received] ${subject}`,
         html: userHtml,
       }),
-      deliverEmail({
-        transporter,
+      transporter.sendMail({
         from: env.smtp.supportFrom,
         to: env.smtp.supportUser,
         replyTo: email,
@@ -292,7 +214,7 @@ export async function sendAuthOtpEmail(options: {
   const { to, otp } = options;
   const transporter = getAuthTransporter();
 
-  if (!env.smtp.brevoApiKey && !transporter) {
+  if (!transporter) {
     console.log(`[nodemailer/dev-fallback] 📧 [AUTH OTP] To: ${to} | Code: ${otp}`);
     return { ok: true };
   }
@@ -300,8 +222,7 @@ export async function sendAuthOtpEmail(options: {
   const html = buildAuthOtpEmailHtml(otp);
 
   try {
-    await deliverEmail({
-      transporter,
+    await transporter.sendMail({
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo verification code`,
@@ -326,14 +247,13 @@ export async function sendPasswordResetOtpEmail(options: {
   const { to, otp } = options;
   const transporter = getAuthTransporter();
 
-  if (!env.smtp.brevoApiKey && !transporter) {
+  if (!transporter) {
     console.log(`[nodemailer/dev-fallback] 📧 [PASSWORD RESET OTP] To: ${to} | Code: ${otp}`);
     return { ok: true };
   }
 
   try {
-    await deliverEmail({
-      transporter,
+    await transporter.sendMail({
       from: env.smtp.authFrom,
       to,
       subject: `${otp} is your Foolioo password reset code`,
@@ -364,14 +284,13 @@ export async function sendSupportOtpEmail(options: {
   const { to, otp } = options;
   const transporter = getSupportTransporter();
 
-  if (!env.smtp.brevoApiKey && !transporter) {
+  if (!transporter) {
     console.log(`[nodemailer/dev-fallback] 📧 [SUPPORT OTP] To: ${to} | Code: ${otp}`);
     return { ok: true };
   }
 
   try {
-    await deliverEmail({
-      transporter,
+    await transporter.sendMail({
       from: env.smtp.supportFrom,
       to,
       subject: `Your support verification code: ${otp}`,
