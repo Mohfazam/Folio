@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1876,12 +1876,31 @@ export function CampaignsDashboard({
   const liveStatsRequestInFlight = useRef(false);
 
   useEffect(() => {
-    setLiveCampaigns({});
-    setOptimisticCreated((prev) =>
-      prev.filter((item) => !initialCampaigns.some((serverItem) => serverItem.id === item.id)),
-    );
-    setOptimisticPatches({});
-    setDeletedIds(new Set());
+    const serverIds = new Set(initialCampaigns.map((item) => item.id));
+    setLiveCampaigns((prev) => {
+      const next: Record<string, LiveCampaignSnapshot> = {};
+      for (const [id, snapshot] of Object.entries(prev)) {
+        if (serverIds.has(id)) next[id] = snapshot;
+      }
+      return next;
+    });
+    setOptimisticCreated((prev) => prev.filter((item) => !serverIds.has(item.id)));
+    setOptimisticPatches((prev) => {
+      const next: Record<string, Partial<Campaign>> = {};
+      for (const [id, patch] of Object.entries(prev)) {
+        if (serverIds.has(id)) next[id] = patch;
+      }
+      return next;
+    });
+    // Retain deletedIds until the server list confirms the campaign is absent
+    setDeletedIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (serverIds.has(id)) next.add(id);
+      }
+      return next;
+    });
   }, [initialCampaigns]);
 
   const campaigns = useMemo(() => {
@@ -2303,6 +2322,54 @@ export function CampaignsDashboard({
     router.refresh();
   };
 
+  const purgeCampaignFromClientState = useCallback(
+    (targetId: string) => {
+      setDeletedIds((prev) => {
+        const next = new Set(prev);
+        next.add(targetId);
+        return next;
+      });
+      setOptimisticCreated((prev) => prev.filter((item) => item.id !== targetId));
+      setOptimisticPatches((prev) => {
+        if (!(targetId in prev)) return prev;
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+      setLiveCampaigns((prev) => {
+        if (!(targetId in prev)) return prev;
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+      setDetailSelection((curr) => (curr?.campaignId === targetId ? null : curr));
+
+      // Evict the deleted campaign from every cached campaigns query immediately
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: ["dashboard", "campaigns"] },
+        (cached) => {
+          if (!cached || !Array.isArray(cached.campaigns)) return cached;
+          const filtered = cached.campaigns.filter(
+            (item) =>
+              !(
+                typeof item === "object" &&
+                item !== null &&
+                "id" in item &&
+                (item as { id?: unknown }).id === targetId
+              ),
+          );
+          if (filtered.length === cached.campaigns.length) return cached;
+          return {
+            ...cached,
+            campaigns: filtered,
+            total: typeof cached.total === "number" ? Math.max(0, cached.total - 1) : filtered.length,
+          };
+        },
+      );
+    },
+    [queryClient],
+  );
+
   const confirmDeleteCampaign = async () => {
     if (!deletingCampaign || deleteBusy) return;
     const targetId = deletingCampaign.id;
@@ -2311,23 +2378,29 @@ export function CampaignsDashboard({
     setDeleteBusy(true);
     const result = await withTransientRetry(() => deleteDraftCampaignAction(targetId));
     setDeleteBusy(false);
-    if (!result.ok) {
+
+    const alreadyGoneInDb =
+      !result.ok &&
+      (result.status === 404 || /not found/i.test(result.error));
+
+    if (!result.ok && !alreadyGoneInDb) {
       setNotice(`Could not delete campaign: ${result.error}`);
       setDeletingCampaign(null);
       return;
     }
 
-    setDeletedIds((prev) => {
-      const next = new Set(prev);
-      next.add(targetId);
-      return next;
-    });
-    setOptimisticCreated((prev) => prev.filter((item) => item.id !== targetId));
-    setDetailSelection((curr) => (curr?.campaignId === targetId ? null : curr));
+    purgeCampaignFromClientState(targetId);
     setDeletingCampaign(null);
-    setNotice(`Deleted campaign "${deletedName}".`);
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() });
-    void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
+    setNotice(
+      alreadyGoneInDb
+        ? `Campaign "${deletedName}" was already removed. Synced your campaign list.`
+        : `Deleted campaign "${deletedName}".`,
+    );
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "campaigns"] }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+      queryClient.invalidateQueries({ queryKey: ["dashboard", "calls"] }),
+    ]);
     router.refresh();
   };
 
