@@ -7,10 +7,11 @@ interface PricingProps {
   currentPlan?: string | null;
 }
 
-type PlanId = "trial" | "growth" | "pro" | "scale";
+type PaidPlanId = "growth" | "pro" | "scale";
+type PlanId = "trial" | PaidPlanId;
 
-type PlanCard = {
-  id: PlanId;
+type PaidPlan = {
+  id: PaidPlanId;
   name: string;
   originalPrice?: string;
   price: string;
@@ -23,23 +24,7 @@ type PlanCard = {
   featuredByDefault?: boolean;
 };
 
-const PLANS: PlanCard[] = [
-  {
-    id: "trial",
-    name: "Free Trial",
-    price: "₹0",
-    period: "/7 days",
-    description: "Test live outbound calls before picking a monthly plan.",
-    roughlyCalls: "~30 calls",
-    creditsSummary: "360 included credits",
-    estimateSummary: "~60 min of talk time",
-    features: [
-      "No credit card required",
-      "Custom call scripts & branching",
-      "Live call recordings & transcripts",
-      "Instant CRM webhook sync",
-    ],
-  },
+const PAID_PLANS: PaidPlan[] = [
   {
     id: "growth",
     name: "Growth",
@@ -112,6 +97,13 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
 
   const estimatedMinutes = Math.round(monthlyCalls * 2);
 
+  const recommendedName =
+    recommendedTierId === "trial"
+      ? "Free Trial"
+      : PAID_PLANS.find((p) => p.id === recommendedTierId)?.name ?? "Pro";
+
+  const isTrialHighlighted = recommendedTierId === "trial" || isOnTrial || isTrialExpired;
+
   return (
     <section
       id="pricing"
@@ -146,9 +138,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
               </label>
               <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#525552] tabular-nums">
                 About ~{estimatedMinutes.toLocaleString("en-IN")} minutes of talk time · Best plan:{" "}
-                <span className="font-bold text-[#1B1C18]">
-                  {PLANS.find((p) => p.id === recommendedTierId)?.name}
-                </span>
+                <span className="font-bold text-[#1B1C18]">{recommendedName}</span>
               </p>
             </div>
 
@@ -176,161 +166,247 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
           </div>
         </div>
 
-        {/* Option A: Even 4-Column Responsive Grid (2x2 on laptop, 4-across on xl desktop) */}
-        <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {PLANS.map((plan) => {
-            const isTrialCard = plan.id === "trial";
-            const isRecommendedFit = plan.id === recommendedTierId;
-            const isCurrentUserPlan =
-              (isTrialCard && (isOnTrial || isTrialExpired)) ||
-              (!isTrialCard && normalizedPlan === plan.id);
-            const isElevated = plan.id === "pro" || isRecommendedFit;
+        {/* Option B: Asymmetric 3 + 1 Split Grid (Free Trial rail on left + 3 paid plans on right) */}
+        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-stretch">
+          {/* Left Rail (3 cols): Free Trial Starter Card */}
+          <div
+            className={`relative flex flex-col justify-between rounded-2xl p-6 transition-all duration-200 lg:col-span-3 ${
+              isTrialExpired
+                ? "border-2 border-[#FECACA] bg-[#FEF2F2]/70 shadow-[0_4px_20px_rgba(153,27,27,0.05)]"
+                : isTrialHighlighted
+                  ? "border-2 border-[#1B1C18] bg-white shadow-[0_12px_32px_rgba(27,28,24,0.07)]"
+                  : "border border-[#E3DFD3] bg-[#FCFBF8] shadow-[0_4px_18px_rgba(27,28,24,0.025)]"
+            }`}
+          >
+            {(isTrialExpired || isOnTrial || recommendedTierId === "trial") && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span
+                  className={`whitespace-nowrap rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[1.2px] shadow-xs ${
+                    isTrialExpired
+                      ? "bg-[#991B1B] text-white"
+                      : isOnTrial
+                        ? "bg-[#644ABB] text-white"
+                        : "bg-[#FD7032] text-white"
+                  }`}
+                >
+                  {isTrialExpired
+                    ? "TRIAL EXPIRED"
+                    : isOnTrial
+                      ? "CURRENT PLAN"
+                      : "BEST FIT FOR YOU"}
+                </span>
+              </div>
+            )}
 
-            let badgeText: string | null = null;
-            let badgeTone = "bg-[#1B1C18] text-white";
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
+                  Free Trial
+                </h3>
+                <span className="rounded-md bg-[#F5F3EC] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-bold text-[#1B1C18] tabular-nums">
+                  ~30 calls
+                </span>
+              </div>
 
-            if (isTrialCard && isTrialExpired) {
-              badgeText = "TRIAL EXPIRED";
-              badgeTone = "bg-[#991B1B] text-white";
-            } else if (isCurrentUserPlan) {
-              badgeText = "CURRENT PLAN";
-              badgeTone = "bg-[#644ABB] text-white";
-            } else if (isRecommendedFit) {
-              badgeText = "BEST FIT FOR YOU";
-              badgeTone = "bg-[#FD7032] text-white";
-            } else if (plan.featuredByDefault) {
-              badgeText = "RECOMMENDED";
-              badgeTone = "bg-[#1B1C18] text-white";
-            }
+              <p className="mt-2 font-['Space_Grotesk'] text-[12.5px] leading-[1.45] text-[#525552]">
+                {isTrialExpired
+                  ? "Your trial credits are used up. Pick a monthly plan to keep calling."
+                  : "Try live outbound calls first before picking a monthly plan."}
+              </p>
 
-            return (
-              <div
-                key={plan.id}
-                className={`relative flex w-full flex-col justify-between rounded-2xl p-5 transition-all duration-200 ${
-                  isTrialCard && isTrialExpired
-                    ? "border-2 border-[#FECACA] bg-[#FEF2F2]/60"
-                    : isElevated
-                      ? "border-2 border-[#1B1C18] bg-white shadow-[0_14px_36px_rgba(27,28,24,0.08)]"
-                      : isTrialCard
-                        ? "border border-[#E3DFD3] bg-[#FCFBF8] shadow-[0_4px_16px_rgba(27,28,24,0.025)]"
-                        : "border border-[#E3DFD3] bg-white shadow-[0_4px_16px_rgba(27,28,24,0.03)]"
-                }`}
-              >
-                {badgeText && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[1.2px] shadow-xs ${badgeTone}`}
-                    >
-                      {badgeText}
+              <div className="my-5 border-t border-[#E9E8E1] pt-5">
+                <div className="flex items-baseline gap-1">
+                  <span className="font-['Space_Grotesk'] text-[34px] font-bold tracking-[-0.8px] text-[#1B1C18] tabular-nums">
+                    ₹0
+                  </span>
+                  <span className="font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552]">
+                    /7 days
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-col gap-0.5">
+                  <span className="font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] tabular-nums">
+                    360 included credits
+                  </span>
+                  <span className="font-['Space_Grotesk'] text-[11.5px] text-[#525552] tabular-nums">
+                    ~60 min of talk time
+                  </span>
+                </div>
+              </div>
+
+              <ul className="flex flex-col gap-2.5">
+                {[
+                  "No credit card required",
+                  "Custom call scripts & branching",
+                  "Live recordings & transcripts",
+                  "Instant CRM webhook sync",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#E3FCEF] text-[9.5px] font-bold text-[#166534]">
+                      ✓
                     </span>
-                  </div>
-                )}
-
-                <div>
-                  {/* Header row */}
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="font-['Space_Grotesk'] text-[18px] font-bold text-[#1B1C18]">
-                      {plan.name}
-                    </h3>
-                    <span className="rounded-md bg-[#F5F3EC] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-bold text-[#1B1C18] tabular-nums">
-                      {plan.roughlyCalls}
+                    <span className="font-['Space_Grotesk'] text-[12.5px] leading-[1.4] text-[#2D2F2B]">
+                      {item}
                     </span>
-                  </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-                  <p className="mt-2 min-h-[40px] font-['Space_Grotesk'] text-[12.5px] leading-[1.45] text-[#525552]">
-                    {plan.description}
-                  </p>
+            <div className="mt-7 pt-3">
+              {currentPlan ? (
+                <Link
+                  href={isTrialExpired ? "/dashboard/billing?plan=pro" : "/dashboard"}
+                  className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCD8CC] bg-white font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                >
+                  {isTrialExpired ? "Upgrade to Pro →" : "Go to Dashboard"}
+                </Link>
+              ) : (
+                <Link
+                  href="/sign-up"
+                  className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCD8CC] bg-white font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                >
+                  Start free trial
+                </Link>
+              )}
+            </div>
+          </div>
 
-                  {/* Price & Credits */}
-                  <div className="my-5 border-t border-[#E9E8E1] pt-5">
-                    <div className="flex flex-wrap items-baseline gap-1.5">
-                      {plan.originalPrice && (
-                        <span className="font-['Space_Grotesk'] text-[16px] font-medium text-[#6C706E] line-through tabular-nums">
-                          {plan.originalPrice}
+          {/* Right Group (9 cols): 3 Paid Monthly Tiers */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:col-span-9">
+            {PAID_PLANS.map((plan) => {
+              const isRecommendedFit = plan.id === recommendedTierId;
+              const isCurrentUserPlan = normalizedPlan === plan.id;
+              const isElevated = plan.id === "pro" || isRecommendedFit;
+
+              let badgeText: string | null = null;
+              let badgeTone = "bg-[#1B1C18] text-white";
+
+              if (isCurrentUserPlan) {
+                badgeText = "CURRENT PLAN";
+                badgeTone = "bg-[#644ABB] text-white";
+              } else if (isRecommendedFit) {
+                badgeText = "BEST FIT FOR YOU";
+                badgeTone = "bg-[#FD7032] text-white";
+              } else if (plan.featuredByDefault) {
+                badgeText = "RECOMMENDED";
+                badgeTone = "bg-[#1B1C18] text-white";
+              }
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative flex w-full flex-col justify-between rounded-2xl p-6 transition-all duration-200 ${
+                    isElevated
+                      ? "border-2 border-[#1B1C18] bg-white shadow-[0_14px_40px_rgba(27,28,24,0.08)]"
+                      : "border border-[#E3DFD3] bg-white shadow-[0_4px_20px_rgba(27,28,24,0.03)]"
+                  }`}
+                >
+                  {badgeText && (
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                      <span
+                        className={`whitespace-nowrap rounded-full px-3 py-1 font-['Space_Grotesk'] text-[9.5px] font-bold uppercase tracking-[1.4px] shadow-xs ${badgeTone}`}
+                      >
+                        {badgeText}
+                      </span>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-['Space_Grotesk'] text-[19px] font-bold text-[#1B1C18]">
+                        {plan.name}
+                      </h3>
+                      <span className="rounded-md bg-[#F5F3EC] px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-bold text-[#1B1C18] tabular-nums">
+                        {plan.roughlyCalls}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 min-h-[42px] font-['Space_Grotesk'] text-[12.5px] leading-[1.45] text-[#525552]">
+                      {plan.description}
+                    </p>
+
+                    <div className="my-5 border-t border-[#E9E8E1] pt-5">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        {plan.originalPrice && (
+                          <span className="font-['Space_Grotesk'] text-[17px] font-medium text-[#6C706E] line-through tabular-nums">
+                            {plan.originalPrice}
+                          </span>
+                        )}
+                        <div className="flex items-baseline gap-1">
+                          <span className="font-['Space_Grotesk'] text-[34px] font-bold tracking-[-0.8px] text-[#1B1C18] tabular-nums">
+                            {plan.price}
+                          </span>
+                          <span className="font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552]">
+                            {plan.period}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-col gap-0.5">
+                        <span className="font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] tabular-nums">
+                          {plan.creditsSummary}
                         </span>
-                      )}
-                      <div className="flex items-baseline gap-0.5">
-                        <span className="font-['Space_Grotesk'] text-[32px] font-bold tracking-[-0.8px] text-[#1B1C18] tabular-nums">
-                          {plan.price}
-                        </span>
-                        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#525552]">
-                          {plan.period}
+                        <span className="font-['Space_Grotesk'] text-[11.5px] text-[#525552] tabular-nums">
+                          {plan.estimateSummary}
                         </span>
                       </div>
                     </div>
 
-                    <div className="mt-3 flex flex-col gap-0.5">
-                      <span className="font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] tabular-nums">
-                        {plan.creditsSummary}
-                      </span>
-                      <span className="font-['Space_Grotesk'] text-[11.5px] text-[#525552] tabular-nums">
-                        {plan.estimateSummary}
-                      </span>
-                    </div>
+                    <ul className="flex flex-col gap-2.5">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-2">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#E3FCEF] text-[9.5px] font-bold text-[#166534]">
+                            ✓
+                          </span>
+                          <span className="font-['Space_Grotesk'] text-[12.5px] leading-[1.4] text-[#2D2F2B]">
+                            {feature}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
-                  {/* Concise Features List */}
-                  <ul className="flex flex-col gap-2.5">
-                    {plan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-2">
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#E3FCEF] text-[9.5px] font-bold text-[#166534]">
-                          ✓
-                        </span>
-                        <span className="font-['Space_Grotesk'] text-[12.5px] leading-[1.4] text-[#2D2F2B]">
-                          {feature}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Card CTA */}
-                <div className="mt-7 pt-3">
-                  {isTrialCard ? (
-                    currentPlan ? (
+                  <div className="mt-7 pt-3">
+                    {currentPlan ? (
                       <Link
-                        href={isTrialExpired ? "/dashboard/billing?plan=pro" : "/dashboard"}
-                        className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCD8CC] bg-white font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                        href={`/dashboard/billing?plan=${plan.id}`}
+                        className="block w-full"
                       >
-                        {isTrialExpired ? "Upgrade to Pro →" : "Go to Dashboard"}
+                        <button
+                          type="button"
+                          className={`flex h-10 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[12.5px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 ${
+                            isElevated
+                              ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
+                              : "border border-[#DCD8CC] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
+                          }`}
+                        >
+                          {normalizedPlan === plan.id
+                            ? `Buy More Credits`
+                            : `Upgrade to ${plan.name}`}
+                        </button>
                       </Link>
                     ) : (
                       <Link
-                        href="/sign-up"
-                        className="flex h-10 w-full items-center justify-center rounded-xl border border-[#DCD8CC] bg-white font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18] transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                        href={`/sign-in?redirect=${encodeURIComponent(`/dashboard/billing?plan=${plan.id}`)}`}
+                        className="block w-full"
                       >
-                        Start free trial
+                        <button
+                          type="button"
+                          className={`flex h-10 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[12.5px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 ${
+                            isElevated
+                              ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
+                              : "border border-[#DCD8CC] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
+                          }`}
+                        >
+                          Sign in to buy {plan.name}
+                        </button>
                       </Link>
-                    )
-                  ) : currentPlan ? (
-                    <Link
-                      href={`/dashboard/billing?plan=${plan.id}`}
-                      className={`flex h-10 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[12.5px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 ${
-                        isElevated
-                          ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
-                          : "border border-[#DCD8CC] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
-                      }`}
-                    >
-                      {normalizedPlan === plan.id
-                        ? `Buy More Credits`
-                        : `Upgrade to ${plan.name}`}
-                    </Link>
-                  ) : (
-                    <Link
-                      href={`/sign-in?redirect=${encodeURIComponent(`/dashboard/billing?plan=${plan.id}`)}`}
-                      className={`flex h-10 w-full items-center justify-center rounded-xl font-['Space_Grotesk'] text-[12.5px] font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 ${
-                        isElevated
-                          ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
-                          : "border border-[#DCD8CC] bg-[#F5F3EC] text-[#1B1C18] hover:bg-[#E9E8E1]"
-                      }`}
-                    >
-                      Sign in to buy {plan.name}
-                    </Link>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
