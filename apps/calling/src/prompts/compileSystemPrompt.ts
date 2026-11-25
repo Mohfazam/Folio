@@ -167,6 +167,7 @@ ${b?.supportPhone ? `Escalation / Human Support Phone: ${b.supportPhone}` : ""}`
 
     if (cp.keyTalkingPoints && cp.keyTalkingPoints.length > 0) {
       campaignLines.push("- Key Talking Points to weave in naturally:");
+      campaignLines.push("- Cover every relevant talking point across the conversation. Do not skip them or recite them as a list; keep each turn concise and prioritize the caller's questions.");
       for (const point of cp.keyTalkingPoints) {
         campaignLines.push(`  • ${point}`);
       }
