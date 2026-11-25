@@ -193,10 +193,18 @@ export async function registerUserRoute(req: Request, res: Response) {
       attempts: 0,
     });
 
-    await sendAuthOtpEmail({
-      to: rawEmail,
-      otp,
-    });
+    try {
+      await sendAuthOtpEmail({
+        to: rawEmail,
+        otp,
+      });
+    } catch (emailErr: unknown) {
+      console.error("[auth/register] Failed to send verification email:", emailErr);
+      return res.status(502).json({
+        ok: false,
+        error: "Account created, but we could not send the verification email right now. Please try resending the code.",
+      });
+    }
 
     return res.status(200).json({
       ok: true,
@@ -263,10 +271,18 @@ export async function sendAuthOtpRoute(req: Request, res: Response) {
       attempts: 0,
     });
 
-    await sendAuthOtpEmail({
-      to: rawEmail,
-      otp,
-    });
+    try {
+      await sendAuthOtpEmail({
+        to: rawEmail,
+        otp,
+      });
+    } catch (emailErr: unknown) {
+      console.error("[auth/register] Failed to send verification email:", emailErr);
+      return res.status(502).json({
+        ok: false,
+        error: "Account created, but we could not send the verification email right now. Please try resending the code.",
+      });
+    }
 
     return res.status(200).json({
       ok: true,
@@ -515,7 +531,15 @@ export async function requestPasswordResetOtpRoute(req: Request, res: Response) 
         expiresAt,
         attempts: 0,
       });
-      await sendPasswordResetOtpEmail({ to: rawEmail, otp });
+      try {
+        await sendPasswordResetOtpEmail({ to: rawEmail, otp });
+      } catch (emailErr: unknown) {
+        console.error("[auth/password-reset/request] Failed to send reset email:", emailErr);
+        return res.status(502).json({
+          ok: false,
+          error: "Could not send the password reset email right now. Please try again.",
+        });
+      }
     }
 
     return res.status(200).json({

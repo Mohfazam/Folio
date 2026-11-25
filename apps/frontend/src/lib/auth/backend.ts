@@ -23,7 +23,7 @@ type ApiEnvelope<T> = {
   onboarding?: T;
 };
 
-const BACKEND_REQUEST_TIMEOUT_MS = 12_000;
+const BACKEND_REQUEST_TIMEOUT_MS = 25_000;
 
 function backendBaseUrl() {
   const raw =
