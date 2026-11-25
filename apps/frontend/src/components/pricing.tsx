@@ -110,7 +110,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
             </span>
           </h2>
           <p className="mt-4 max-w-[56ch] font-['Space_Grotesk'] text-[14.5px] font-normal leading-[23px] tracking-[0.1px] text-[#525552] md:text-[15px]">
-            Flexible credit-based billing (~1 credit = 10 seconds of connected talk time) with no hidden platform surcharges.
+            Simple credit billing (~1 credit = 10 seconds of talk time). Pay only for the calls you run, with no hidden fees.
           </p>
         </div>
 
@@ -122,10 +122,10 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                 htmlFor="monthly-call-slider"
                 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.8px] text-[#525552]"
               >
-                Estimate Monthly Outbound Volume
+                How many calls do you make per month?
               </label>
               <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#525552] tabular-nums">
-                Estimated talk time: ~{estimatedMinutes.toLocaleString("en-IN")} min/mo · Best fit:{" "}
+                About ~{estimatedMinutes.toLocaleString("en-IN")} minutes of talk time · Best plan:{" "}
                 <span className="font-bold text-[#1B1C18] capitalize">{recommendedTierId}</span>
               </p>
             </div>
@@ -178,7 +178,7 @@ export const Pricing = ({ currentPlan = null }: PricingProps) => {
                           : "bg-[#1B1C18] text-white"
                       }`}
                     >
-                      {isRecommendedFit ? "BEST FOR YOUR VOLUME" : "RECOMMENDED"}
+                      {isRecommendedFit ? "BEST FIT FOR YOU" : "RECOMMENDED"}
                     </span>
                   </div>
                 )}
