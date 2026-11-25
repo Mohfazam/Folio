@@ -2,6 +2,21 @@ export type StandardPurchasablePlanId = "growth" | "pro" | "scale";
 export type LocalDevTestPlanId = "dev_test";
 export type PurchasablePlanId = StandardPurchasablePlanId | LocalDevTestPlanId;
 
+export type OneTimePlanDefinition = {
+  id: PurchasablePlanId;
+  name: string;
+  badge?: string;
+  originalPriceInr?: number;
+  priceInr: number;
+  amountPaise: number;
+  credits: number;
+  estimateLabel: string;
+  roughlyCalls: string;
+  description: string;
+  features: string[];
+  highlighted: boolean;
+};
+
 export type BillingOrderRecord = {
   orderId: string;
   paymentId: string | null;
@@ -15,9 +30,14 @@ export type BillingOrderRecord = {
 };
 
 export type BillingStatusResponse = {
+  ok: boolean;
   currentPlanTier?: string | null;
   creditsBalance?: number | null;
   creditsAllowance?: number | null;
+  creditsUsed?: number | null;
+  status?: string;
+  lastPurchasedPlanId?: string | null;
+  lastPurchasedAt?: string | null;
   orders?: BillingOrderRecord[];
 };
 
@@ -60,7 +80,7 @@ export type VerifyBillingPaymentResponse = {
   planId: string;
   planName: string;
   creditsGranted: number;
-  newCreditsBalance: number | null | undefined;
+  newCreditsBalance: number | null;
   paymentId: string;
   orderId: string;
   method: string | null;

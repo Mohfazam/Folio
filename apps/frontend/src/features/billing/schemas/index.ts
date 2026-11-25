@@ -57,7 +57,7 @@ export const verifyBillingPaymentResponseSchema = z.object({
   planId: z.string().trim().min(1),
   planName: z.string().trim().min(1),
   creditsGranted: z.number().nonnegative(),
-  newCreditsBalance: z.number().nonnegative().nullable().optional(),
+  newCreditsBalance: z.number().nonnegative().nullable().optional().default(null),
   paymentId: z.string().trim().min(1),
   orderId: z.string().trim().min(1),
   method: z.string().nullable().optional().default(null),
