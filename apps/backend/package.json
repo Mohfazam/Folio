@@ -28,6 +28,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
     "nodemailer": "^10.4.0",
+    "razorpay": "^2.9.8",
     "ws": "^8.21.3"
   },
   "devDependencies": {
