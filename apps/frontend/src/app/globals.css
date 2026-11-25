@@ -5,9 +5,28 @@
   --font-newsreader: var(--font-newsreader);
 }
 
+:root {
+  --surface-canvas: #FBF9F2;
+  --surface-elevated: #FFFFFF;
+  --surface-subtle: #F5F3EC;
+  --border-hairline: #E9E8E1;
+  --text-primary: #1B1C18;
+  --text-secondary: #525552;
+  --text-muted: #5F6360;
+  --brand-accent: #FD7032;
+  --brand-accent-soft: #FDAD86;
+}
+
 html {
   scroll-behavior: smooth;
+  background-color: var(--surface-canvas);
+  color: var(--text-primary);
 }
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -15,4 +34,19 @@ html {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

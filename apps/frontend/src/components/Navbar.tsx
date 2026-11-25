@@ -9,6 +9,7 @@ import { User } from "@supabase/supabase-js";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -22,22 +23,31 @@ const Navbar = () => {
   ];
 
   const navItem =
-    "whitespace-nowrap font-['Space_Grotesk'] text-[13px] font-medium leading-[18px] tracking-[0.1px] text-[#55534F] transition-colors duration-200 hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4";
+    "whitespace-nowrap rounded-sm font-['Space_Grotesk'] text-[13px] font-medium leading-[18px] tracking-[0.1px] text-[#4A4843] transition-colors duration-200 hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-4 focus-visible:ring-offset-[#FBF9F2]";
 
   const primaryButton =
-    "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-2";
+    "inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold tracking-[0.1px] text-white shadow-[0_3px_10px_rgba(27,28,24,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] hover:shadow-[0_5px_16px_rgba(27,28,24,0.16)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]";
 
   const handleNavClick = () => {
     setMenuOpen(false);
   };
 
   useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 18);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
 
     const getInitialUser = async () => {
       try {
-        const user = await getCurrentUser(supabase);
-        if (mounted) setUser(user);
+        const currentUser = await getCurrentUser(supabase);
+        if (mounted) setUser(currentUser);
       } catch (error) {
         console.error("Failed to fetch user:", error);
       } finally {
@@ -65,16 +75,26 @@ const Navbar = () => {
   }, [supabase]);
 
   return (
-    <nav className="relative z-50 w-full border-b border-[#EAE6DC] bg-[#FBF9F2]/90 shadow-[0_2px_12px_rgba(34,30,20,0.035)] backdrop-blur-xl">
-      {/* Main Navbar */}
-      <div className="mx-auto flex h-[76px] w-full items-center justify-between px-5 sm:px-7 md:px-10 lg:px-8 xl:px-24">
+    <header
+      className={`sticky top-0 z-50 w-full border-b transition-all duration-200 ${
+        scrolled
+          ? "border-[#E3DFD3] bg-[#FBF9F2]/92 shadow-[0_4px_20px_rgba(27,28,24,0.05)] backdrop-blur-md"
+          : "border-[#EAE6DC] bg-[#FBF9F2]/85 backdrop-blur-sm"
+      }`}
+    >
+      <nav
+        aria-label="Primary navigation"
+        className={`mx-auto flex w-full max-w-[1280px] items-center justify-between px-5 transition-[height] duration-200 sm:px-7 md:px-10 ${
+          scrolled ? "h-[66px]" : "h-[76px]"
+        }`}
+      >
         {/* Brand and Desktop Navigation */}
-        <div className="flex min-w-0 items-center gap-7 xl:gap-11">
+        <div className="flex min-w-0 items-center gap-8 xl:gap-11">
           <Link
             href="/"
             onClick={handleNavClick}
             aria-label="Foolioo home"
-            className="group inline-flex shrink-0 items-center gap-[9px] rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] focus-visible:ring-offset-4"
+            className="group inline-flex shrink-0 items-center gap-[9px] rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-4 focus-visible:ring-offset-[#FBF9F2]"
           >
             <Image
               src="/Foolioo.svg"
@@ -93,7 +113,7 @@ const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden items-center gap-5 lg:flex xl:gap-7">
+          <div className="hidden items-center gap-6 lg:flex xl:gap-7">
             {navLinks.map((item) => (
               <a key={item.label} href={item.href} className={navItem}>
                 {item.label}
@@ -142,7 +162,7 @@ const Navbar = () => {
           aria-expanded={menuOpen}
           aria-controls="mobile-navigation"
           onClick={() => setMenuOpen((open) => !open)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#24231F] transition-colors hover:bg-[#F0EDE5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDAD86] lg:hidden"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#24231F] transition-colors hover:bg-[#F0EDE5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] lg:hidden"
         >
           {menuOpen ? (
             <svg
@@ -177,7 +197,7 @@ const Navbar = () => {
             </svg>
           )}
         </button>
-      </div>
+      </nav>
 
       {/* Mobile Menu */}
       {menuOpen && (
@@ -252,7 +272,7 @@ const Navbar = () => {
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 };
 

@@ -11,6 +11,7 @@ import { VoiceAgent } from "@/components/voice-agent";
 import { CallsIntoAnswers } from "@/components/calls-into-answers";
 import { Integrations } from "@/components/integrations";
 import { Pricing } from "@/components/pricing";
+import { Faq } from "@/components/faq";
 import { CtaFooter } from "@/components/cta-footer";
 
 type WorkspaceClient = {
@@ -42,76 +43,67 @@ async function DynamicContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  let currentPlan = null;
-  let planLoadError: string | null = null;
+  let currentPlan: string | null = null;
 
   if (user) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("No access token is available for the signed-in user.");
-      }
+      if (session?.access_token) {
+        const backendUrl = (
+          process.env.BACKEND_API_URL?.trim() ||
+          process.env.NEXT_PUBLIC_API_URL?.trim() ||
+          "http://localhost:4000"
+        ).replace(/\/+$/, "");
 
-      const backendUrl = (process.env.BACKEND_API_URL?.trim() || process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:4000").replace(/\/+$/, "");
+        const response = await fetch(`${backendUrl}/api/clients`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: "no-store",
+        });
 
-      const response = await fetch(`${backendUrl}/api/clients`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        cache: "no-store",
-      });
-
-      if (response.status !== 403) {
-        const payload: unknown = await response.json();
-        if (
-          !response.ok ||
-          typeof payload !== "object" ||
-          payload === null ||
-          !("clients" in payload) ||
-          !Array.isArray(payload.clients)
-        ) {
-          throw new Error(`Unable to load workspace plan (${response.status}).`);
-        }
-
-        const clientRecord = payload.clients.find(isWorkspaceClient);
-        if (clientRecord) {
-          const tier = clientRecord.planTier;
-          if (tier.toLowerCase() === "trial") {
-            if (clientRecord.status !== "trialing") {
-              currentPlan = "Expired";
-            } else if (clientRecord.trialEndsAt) {
-              const trialEndsAt = new Date(clientRecord.trialEndsAt).getTime();
-              if (!Number.isFinite(trialEndsAt)) {
-                throw new Error("The workspace has an invalid trial end date.");
+        if (response.ok) {
+          const payload: unknown = await response.json();
+          if (
+            typeof payload === "object" &&
+            payload !== null &&
+            "clients" in payload &&
+            Array.isArray(payload.clients)
+          ) {
+            const clientRecord = payload.clients.find(isWorkspaceClient);
+            if (clientRecord) {
+              const tier = clientRecord.planTier;
+              if (tier.toLowerCase() === "trial") {
+                if (clientRecord.status !== "trialing") {
+                  currentPlan = "Expired";
+                } else if (clientRecord.trialEndsAt) {
+                  const trialEndsAt = new Date(clientRecord.trialEndsAt).getTime();
+                  if (Number.isFinite(trialEndsAt)) {
+                    currentPlan = hasTrialExpired(clientRecord.trialEndsAt) ? "Expired" : "Trial";
+                  } else {
+                    currentPlan = "Trial";
+                  }
+                } else {
+                  currentPlan = "Trial";
+                }
+              } else {
+                currentPlan = tier;
               }
-              currentPlan = hasTrialExpired(clientRecord.trialEndsAt) ? "Expired" : "Trial";
-            } else {
-              currentPlan = "Trial";
             }
-          } else {
-            currentPlan = tier;
           }
         }
       }
     } catch (error) {
-      console.error("[home] Failed to fetch workspace plan from Neon:", error);
-      planLoadError = "We couldn't load your current plan. Please refresh the page.";
+      // Fail silently on the landing page and fall back to default pricing view
+      console.warn("[home] Workspace plan unavailable, falling back to default pricing:", error);
     }
   }
 
   return (
     <>
-      {/* Pass the boolean to OutboundCalls */}
       <OutboundCalls isLoggedIn={Boolean(user)} />
-      
       <VoiceAgent />
       <CallsIntoAnswers />
       <Integrations />
-      
-      {planLoadError && (
-        <p role="status" className="mx-auto max-w-[1240px] px-6 pb-4 text-sm text-red-700 md:px-10">
-          {planLoadError}
-        </p>
-      )}
-      <Pricing currentPlan={currentPlan} />
+      <Pricing currentPlan={currentPlan} isLoggedIn={Boolean(user)} />
     </>
   );
 }
@@ -123,10 +115,10 @@ export default function Home() {
       <Hero />
       <TwoProducts />
       <TrustBar />
-      
-      <Suspense 
+
+      <Suspense
         fallback={
-          <div className="flex w-full min-h-[800px] items-center justify-center bg-[#FBF9F2] text-[#747878]">
+          <div className="flex min-h-[800px] w-full items-center justify-center bg-[#FBF9F2] text-sm font-medium text-[#525552]">
             Loading...
           </div>
         }
@@ -134,6 +126,7 @@ export default function Home() {
         <DynamicContent />
       </Suspense>
 
+      <Faq />
       <CtaFooter />
     </main>
   );
