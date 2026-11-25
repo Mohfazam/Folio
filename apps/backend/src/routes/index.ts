@@ -22,6 +22,12 @@ import {
   verifyPasswordResetOtpRoute,
 } from "./auth.js";
 import { submitSupportTicketRoute } from "./support.js";
+import {
+  createBillingOrderRoute,
+  verifyBillingPaymentRoute,
+  billingWebhookRoute,
+  getBillingStatusRoute,
+} from "./billing.js";
 import { getBusinessProfileRoute, upsertBusinessProfileRoute } from "./businessProfile.js";
 import { getOnboardingRoute, saveOnboardingRoute } from "./onboarding.js";
 import { getCallsRoute, getLiveCallsRoute, getCallByIdRoute, getCallTranscriptRoute, getCallRecordingRoute, streamCallRecordingRoute, callCompleteRoute } from "./calls.js";
@@ -70,6 +76,9 @@ export function registerRoutes(app: Express) {
   // Support endpoints (via Nodemailer support@foolioo.app)
   api.post("/support/ticket", authRateLimiter, submitSupportTicketRoute);
 
+  // Billing endpoints (webhook is public, others require auth)
+  api.post("/billing/webhook", billingWebhookRoute);
+
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
@@ -80,6 +89,11 @@ export function registerRoutes(app: Express) {
 
   // All other API routes require a provisioned user and are scoped to that user's workspace.
   api.use(requireAuth, requireWorkspace);
+
+  // Billing endpoints (authenticated)
+  api.post("/billing/order", authRateLimiter, createBillingOrderRoute);
+  api.post("/billing/verify", authRateLimiter, verifyBillingPaymentRoute);
+  api.get("/billing/status", authRateLimiter, getBillingStatusRoute);
 
   // New-user setup is scoped to the authenticated workspace.
   api.get("/onboarding", getOnboardingRoute);
