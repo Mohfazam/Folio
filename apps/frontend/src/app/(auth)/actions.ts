@@ -16,7 +16,7 @@ import {
 import { FOOLIOO_SESSION_COOKIE } from "@/lib/auth/dashboard-request";
 
 const AUTH_WINDOW_MS = 60_000;
-const AUTH_MAX_ATTEMPTS = 5;
+const AUTH_MAX_ATTEMPTS = process.env.NODE_ENV === "production" ? 8 : 60;
 const authAttempts = new Map<string, number[]>();
 
 export type AuthState = {
@@ -106,11 +106,16 @@ export async function signInAction(prevState: AuthState, formData: FormData): Pr
     return { fieldErrors: validated.error.flatten().fieldErrors };
   }
 
-  // 1. Direct Email + Password authentication via backend
-  const result = await loginWithEmail({
-    email: validated.data.email,
-    password: validated.data.password,
-  });
+  let result: Awaited<ReturnType<typeof loginWithEmail>>;
+  try {
+    result = await loginWithEmail({
+      email: validated.data.email,
+      password: validated.data.password,
+    });
+  } catch (error) {
+    console.error("[auth] loginWithEmail failed:", error);
+    return { error: "Could not reach the authentication server. Please try again." };
+  }
 
   if (!result.ok) {
     if (result.requiresVerification) {
@@ -145,12 +150,18 @@ export async function signUpAction(prevState: AuthState, formData: FormData): Pr
     return { fieldErrors: validated.error.flatten().fieldErrors };
   }
 
-  // Direct backend registration: creates user, hashes password, sends 6-digit OTP from auth@foolioo.app
-  const result = await registerWithEmail({
-    name: validated.data.name,
-    email: validated.data.email,
-    password: validated.data.password,
-  });
+  // Direct backend registration with network/timeout protection so isPending never hangs
+  let result: Awaited<ReturnType<typeof registerWithEmail>>;
+  try {
+    result = await registerWithEmail({
+      name: validated.data.name,
+      email: validated.data.email,
+      password: validated.data.password,
+    });
+  } catch (error) {
+    console.error("[auth] registerWithEmail failed:", error);
+    return { error: "Could not reach the server to create your account. Please try again." };
+  }
 
   if (!result.ok) {
     return { error: result.error || "Could not create account. Please try again." };
@@ -173,7 +184,14 @@ export async function verifyOtpAction(prevState: AuthState, formData: FormData):
     return { error: "Please enter the 6-digit verification code." };
   }
 
-  const result = await verifyAuthOtp(email, otp);
+  let result: Awaited<ReturnType<typeof verifyAuthOtp>>;
+  try {
+    result = await verifyAuthOtp(email, otp);
+  } catch (error) {
+    console.error("[auth] verifyAuthOtp failed:", error);
+    return { error: "Could not verify your code right now. Please try again." };
+  }
+
   if (!result.ok) {
     return { error: result.error || "Invalid or expired verification code." };
   }
@@ -193,12 +211,22 @@ export async function verifyOtpAction(prevState: AuthState, formData: FormData):
 
 export async function resendOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
   if (!email) return { ok: false, error: "Email address is required" };
-  return requestAuthOtp(email);
+  try {
+    return await requestAuthOtp(email);
+  } catch (error) {
+    console.error("[auth] requestAuthOtp failed:", error);
+    return { ok: false, error: "Could not resend verification code. Please try again." };
+  }
 }
 
 export async function resendPasswordResetOtpAction(email: string): Promise<{ ok: boolean; message?: string; error?: string }> {
   if (!email) return { ok: false, error: "Email address is required" };
-  return requestPasswordResetOtp(email);
+  try {
+    return await requestPasswordResetOtp(email);
+  } catch (error) {
+    console.error("[auth] requestPasswordResetOtp failed:", error);
+    return { ok: false, error: "Could not resend reset code. Please try again." };
+  }
 }
 
 export async function signOutAction(): Promise<void> {
@@ -224,7 +252,14 @@ export async function forgotPasswordAction(prevState: AuthState, formData: FormD
     return { fieldErrors: { email: ["Please enter a valid email address."] } };
   }
 
-  const result = await requestPasswordResetOtp(email);
+  let result: Awaited<ReturnType<typeof requestPasswordResetOtp>>;
+  try {
+    result = await requestPasswordResetOtp(email);
+  } catch (error) {
+    console.error("[auth] requestPasswordResetOtp failed:", error);
+    return { error: "Could not send a password reset code. Please try again." };
+  }
+
   if (!result.ok) {
     return { error: result.error || "Could not send a password reset code." };
   }
@@ -242,11 +277,18 @@ export async function resetPasswordAction(prevState: AuthState, formData: FormDa
     return { error: "Enter your email and the 6-digit reset code." };
   }
 
-  const result = await verifyPasswordResetOtp({
-    email,
-    otp,
-    password: validated.data.password,
-  });
+  let result: Awaited<ReturnType<typeof verifyPasswordResetOtp>>;
+  try {
+    result = await verifyPasswordResetOtp({
+      email,
+      otp,
+      password: validated.data.password,
+    });
+  } catch (error) {
+    console.error("[auth] verifyPasswordResetOtp failed:", error);
+    return { error: "Could not reset your password. Please try again." };
+  }
+
   if (!result.ok) {
     return { error: result.error || "Could not reset your password." };
   }
