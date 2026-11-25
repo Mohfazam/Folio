@@ -27,7 +27,7 @@ export function plivoRecordingRoute(req: Request, res: Response) {
       });
       console.log(`[plivo-recording] ✅ Attached recording URL to active call ${callUuid}`);
 
-      void dispatchCallRecording(record.sessionState, recordingUrl, durSec).catch((err) => {
+      void dispatchCallRecording(record.sessionState, recordingUrl, durSec, recordingId).catch((err) => {
         console.error(`[plivo-recording] Error dispatching recording update:`, err?.message ?? err);
       });
     }
