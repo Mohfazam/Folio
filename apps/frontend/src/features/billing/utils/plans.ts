@@ -65,6 +65,23 @@ export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = 
     ],
     highlighted: false,
   },
+  dev_test: {
+    id: "dev_test",
+    name: "Dev Test",
+    badge: "LOCALHOST ONLY",
+    priceInr: 5,
+    amountPaise: 500,
+    credits: 1,
+    estimateLabel: "~10 sec",
+    roughlyCalls: "~1 test call",
+    description: "A ₹5 localhost-only plan for validating Razorpay checkout and verification.",
+    features: [
+      "Localhost checkout test",
+      "Payment verification test",
+      "Hidden outside localhost development",
+    ],
+    highlighted: false,
+  },
 };
 
 export const ONE_TIME_PLAN_LIST: OneTimePlanDefinition[] = [
@@ -76,7 +93,7 @@ export const ONE_TIME_PLAN_LIST: OneTimePlanDefinition[] = [
 export function isPurchasablePlanId(value: string | null | undefined): value is PurchasablePlanId {
   if (!value) return false;
   const cleaned = value.trim().toLowerCase();
-  return cleaned === "growth" || cleaned === "pro" || cleaned === "scale";
+  return cleaned === "growth" || cleaned === "pro" || cleaned === "scale" || cleaned === "dev_test";
 }
 
 export function formatInr(amountInr: number): string {
