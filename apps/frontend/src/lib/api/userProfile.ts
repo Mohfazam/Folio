@@ -79,3 +79,24 @@ export async function updateUserProfile(payload: UpdateUserProfilePayload): Prom
 
   return data.user;
 }
+
+/**
+ * Update user UI & notification preferences (theme, email alerts, call alerts).
+ */
+export async function updateUserPreferences(payload: UserPreferences): Promise<UserPreferences> {
+  const response = await fetch("/api/user/preferences", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Failed to update preferences");
+  }
+
+  return data.preferences;
+}
