@@ -132,11 +132,11 @@ export default function SupportPage() {
             </h1>
 
             <p className="mt-3 font-['Space_Grotesk'] text-[14px] leading-[22px] text-[#747878]">
-              Raise a complaint, report a call or billing issue, or ask a question. Every submission is
-              logged directly as an open ticket for our team.
+              Raise a complaint, report a call or billing issue, or ask a question. Every submission
+              is logged directly as an open ticket for our team.
             </p>
 
-            <div className="mt-6 space-y-3 rounded-2xl border border-[#EAE7DE] bg-[#FCFBF7] p-5 font-['Space_Grotesk'] text-[13px]">
+            <div className="mt-6 space-y-4 rounded-2xl border border-[#EAE7DE] bg-[#FCFBF7] p-5 font-['Space_Grotesk'] text-[13px]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-medium uppercase tracking-[0.8px] text-[#747878]">
@@ -158,11 +158,24 @@ export default function SupportPage() {
                 </button>
               </div>
 
-              <div className="border-t border-[#EAE7DE] pt-3 text-[#55534F]">
-                <p className="font-medium text-[#1B1C18]">Include relevant context when possible</p>
-                <p className="mt-0.5 text-[12px] leading-[18px] text-[#747878]">
-                  Share campaign IDs, call IDs, or timestamps so our team can trace logs quickly.
+              <div className="border-t border-[#EAE7DE] pt-4">
+                <p className="text-[11px] font-medium uppercase tracking-[0.8px] text-[#747878]">
+                  Helpful context to include
                 </p>
+                <ul className="mt-2 space-y-1.5 text-[12px] leading-[18px] text-[#55534F]">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#FD7032]" />
+                    <span>Campaign ID or specific Call ID for routing and audio issues</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#FD7032]" />
+                    <span>Approximate timestamp and destination number if a call dropped</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[#FD7032]" />
+                    <span>Invoice or Razorpay payment reference for billing queries</span>
+                  </li>
+                </ul>
               </div>
             </div>
           </aside>
@@ -216,7 +229,7 @@ export default function SupportPage() {
                   <div
                     role="radiogroup"
                     aria-label="Category"
-                    className="flex flex-wrap gap-2"
+                    className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3"
                   >
                     {TICKET_CATEGORIES.map((cat) => {
                       const active = formData.category === cat;
@@ -227,7 +240,7 @@ export default function SupportPage() {
                           role="radio"
                           aria-checked={active}
                           onClick={() => setFormData({ ...formData, category: cat })}
-                          className={`rounded-full border px-3.5 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium transition ${
+                          className={`rounded-lg border px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-medium transition ${
                             active
                               ? "border-[#1B1C18] bg-[#1B1C18] text-white"
                               : "border-[#EAE7DE] bg-[#FCFBF7] text-[#55534F] hover:border-[#D5D1C5] hover:text-[#1B1C18]"
@@ -278,11 +291,12 @@ export default function SupportPage() {
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+                <div className="flex flex-col gap-3 border-t border-[#F0EDE4] pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
-                    Logged directly to <span className="font-medium text-[#1B1C18]">support@foolioo.app</span>
+                    Logged directly to{" "}
+                    <span className="font-medium text-[#1B1C18]">support@foolioo.app</span>
                   </p>
-                  <Button type="submit" loading={loading}>
+                  <Button type="submit" loading={loading} className="w-full sm:w-auto sm:px-6">
                     {loading ? "Submitting ticket…" : "Submit Support Ticket"}
                   </Button>
                 </div>
