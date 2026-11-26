@@ -136,3 +136,60 @@ export function validateTimezone(tz: unknown): { valid: boolean; value?: string;
     return { valid: false, error: `Invalid IANA timezone identifier: '${trimmed}'` };
   }
 }
+
+export function validateUserPreferences(prefs: unknown): {
+  valid: boolean;
+  value?: import("../types/userProfile.js").UpdateUserPreferencesInput;
+  error?: string;
+} {
+  if (prefs === null || typeof prefs !== "object" || Array.isArray(prefs)) {
+    return { valid: false, error: "Preferences must be a JSON object" };
+  }
+
+  const p = prefs as Record<string, unknown>;
+  const result: import("../types/userProfile.js").UpdateUserPreferencesInput = {};
+
+  if ("theme" in p && p.theme !== undefined) {
+    if (p.theme !== "light" && p.theme !== "dark" && p.theme !== "system") {
+      return { valid: false, error: "Theme must be 'light', 'dark', or 'system'" };
+    }
+    result.theme = p.theme;
+  }
+
+  if ("emailNotifications" in p && p.emailNotifications !== undefined) {
+    if (typeof p.emailNotifications !== "boolean") {
+      return { valid: false, error: "emailNotifications must be a boolean" };
+    }
+    result.emailNotifications = p.emailNotifications;
+  }
+
+  if ("callAlerts" in p && p.callAlerts !== undefined) {
+    if (typeof p.callAlerts !== "boolean") {
+      return { valid: false, error: "callAlerts must be a boolean" };
+    }
+    result.callAlerts = p.callAlerts;
+  }
+
+  if ("weeklyReport" in p && p.weeklyReport !== undefined) {
+    if (typeof p.weeklyReport !== "boolean") {
+      return { valid: false, error: "weeklyReport must be a boolean" };
+    }
+    result.weeklyReport = p.weeklyReport;
+  }
+
+  if ("audioPlaybackSpeed" in p && p.audioPlaybackSpeed !== undefined) {
+    if (typeof p.audioPlaybackSpeed !== "number" || p.audioPlaybackSpeed < 0.5 || p.audioPlaybackSpeed > 2.5) {
+      return { valid: false, error: "audioPlaybackSpeed must be a number between 0.5 and 2.5" };
+    }
+    result.audioPlaybackSpeed = p.audioPlaybackSpeed;
+  }
+
+  if ("locale" in p && p.locale !== undefined) {
+    if (typeof p.locale !== "string" || p.locale.length > 20) {
+      return { valid: false, error: "locale must be a string up to 20 characters" };
+    }
+    result.locale = p.locale.trim();
+  }
+
+  return { valid: true, value: result };
+}
