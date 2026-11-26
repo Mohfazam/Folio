@@ -67,7 +67,7 @@ export async function dialRoute(req: Request, res: Response) {
 
   const now = Date.now();
 
-  if (!callbackUrl || !process.env.WEBHOOK_SECRET?.trim()) {
+  if (!callbackUrl || !(process.env.WEBHOOK_SECRET?.trim() || process.env.CALLING_WEBHOOK_SECRET?.trim())) {
     return res.status(503).json({
       ok: false,
       error: "CALLBACK_URL and WEBHOOK_SECRET must be configured before outbound calling",
