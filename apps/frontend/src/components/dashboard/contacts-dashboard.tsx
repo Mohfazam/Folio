@@ -926,7 +926,7 @@ function ImportPanel({
       ) : null}
 
       <div className="mt-3 rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[10px] leading-5 text-[#565B5B]">
-        Required columns: <strong>fullName</strong> (or name) and <strong>phoneNumber</strong>. Optional columns include email, companyName, jobTitle, city, state, country, lifecycleStage, accountTier, tags and optOut. Ten-digit Indian mobile numbers are normalized with +91.
+        Required columns: <strong>Full Name</strong> and <strong>Phone Number</strong>. Optional columns include email, company name, job title, city, state, country. Ten-digit Indian mobile numbers are normalized with +91.
       </div>
 
       {rows.length > 0 ? (
