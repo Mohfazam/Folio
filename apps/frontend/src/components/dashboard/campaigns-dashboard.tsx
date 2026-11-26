@@ -1426,6 +1426,7 @@ function CampaignDetailView({
           </div>
 
           <div
+            data-campaign-menu-container
             className="flex shrink-0 items-center gap-2"
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
@@ -2070,7 +2071,10 @@ export function CampaignsDashboard({
   useEffect(() => {
     if (!openMenuId && !filterPopoverOpen) return;
     const handleOutsidePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
+      const target = event.target as Element | null;
+      if (target?.closest?.("[data-campaign-menu-container]")) {
+        return;
+      }
       if (
         filterPopoverOpen &&
         filterPopoverContainerRef.current &&
@@ -3442,6 +3446,7 @@ export function CampaignsDashboard({
                     </div>
 
                     <div
+                      data-campaign-menu-container
                       className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
                       onMouseDown={(event) => event.stopPropagation()}
                       onClick={(event) => event.stopPropagation()}
