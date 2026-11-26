@@ -118,6 +118,26 @@ export async function requireWorkspace(req: Request, res: Response, next: NextFu
   }
 }
 
+function isFounderEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const raw = process.env.FOUNDER_ADMIN_EMAILS?.trim();
+  if (!raw) return false;
+  const allowedEmails = raw
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return allowedEmails.includes(email.trim().toLowerCase());
+}
+
+export function requireInternalAdmin(req: Request, res: Response, next: NextFunction) {
+  const userEmail = req.user?.email ?? req.supabaseUser?.email;
+  if (req.user?.role === "internal_admin" || isFounderEmail(userEmail)) {
+    return next();
+  }
+
+  return res.status(403).json({ ok: false, error: "Founder / internal administrator access is required" });
+}
+
 export function requireClientAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== "client_admin" && req.user?.role !== "internal_admin") {
     return res.status(403).json({ ok: false, error: "Workspace administrator access is required" });

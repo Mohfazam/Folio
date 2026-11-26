@@ -31,7 +31,13 @@ const FAQ_ITEMS = [
 ];
 
 export const Faq = () => {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openIndices, setOpenIndices] = useState<number[]>([0]);
+
+  const toggleItem = (idx: number) => {
+    setOpenIndices((prev) =>
+      prev.includes(idx) ? prev.filter((item) => item !== idx) : [...prev, idx]
+    );
+  };
 
   return (
     <section
@@ -53,12 +59,12 @@ export const Faq = () => {
 
         <div className="mt-10 divide-y divide-[#E3DFD3] overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white shadow-[0_4px_20px_rgba(27,28,24,0.03)]">
           {FAQ_ITEMS.map((item, idx) => {
-            const isOpen = openIndex === idx;
+            const isOpen = openIndices.includes(idx);
             return (
               <div key={item.question}>
                 <button
                   type="button"
-                  onClick={() => setOpenIndex(isOpen ? null : idx)}
+                  onClick={() => toggleItem(idx)}
                   aria-expanded={isOpen}
                   aria-controls={`faq-answer-${idx}`}
                   className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left transition-colors hover:bg-[#FCFBF8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FD7032]"
@@ -90,14 +96,18 @@ export const Faq = () => {
                   </span>
                 </button>
 
-                {isOpen && (
-                  <div
-                    id={`faq-answer-${idx}`}
-                    className="px-6 pb-5 pt-0.5 font-['Space_Grotesk'] text-[14px] leading-[22px] text-[#525552]"
-                  >
-                    {item.answer}
+                <div
+                  id={`faq-answer-${idx}`}
+                  className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${
+                    isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="px-6 pb-5 pt-0.5 font-['Space_Grotesk'] text-[14px] leading-[22px] text-[#525552]">
+                      {item.answer}
+                    </div>
                   </div>
-                )}
+                </div>
               </div>
             );
           })}

@@ -952,7 +952,7 @@ export const TwoProducts = () => {
                     </div>
 
                     <div className="flex h-7 items-center rounded-md border border-[#E9E8E1] bg-white px-3 font-['Space_Grotesk'] text-[11px] text-[#525552] shadow-2xs">
-                      <span className="text-[#A1A1AA]">https://</span>
+                      <span className="text-[#63666A]">https://</span>
                       <span className="font-medium text-[#1B1C18]">
                         foolioo.app/campaigns/
                       </span>
@@ -960,7 +960,7 @@ export const TwoProducts = () => {
 
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
-                      <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#22A06B]">
+                      <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#156943]">
                         Sample Queue
                       </span>
                     </div>
@@ -975,7 +975,7 @@ export const TwoProducts = () => {
                           <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#525552]">
                             CONNECTION RATE
                           </span>
-                          <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#22A06B]">
+                          <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#156943]">
                             +24.5%
                           </span>
                         </div>
@@ -1021,7 +1021,7 @@ export const TwoProducts = () => {
                           <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.6px] text-[#525552]">
                             EFFECTIVE COST
                           </span>
-                          <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#22A06B]">
+                          <span className="rounded bg-[#E3FCEF] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#156943]">
                             Fixed Rate
                           </span>
                         </div>

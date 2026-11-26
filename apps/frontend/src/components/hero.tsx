@@ -54,51 +54,51 @@ export const Hero = () => {
   return (
     <section
       id="demo"
-      className="relative mx-auto w-full max-w-7xl overflow-hidden px-6 pb-20 pt-10 md:px-10 md:pb-28 md:pt-16 lg:px-12"
+      className="relative mx-auto w-full max-w-[1440px] overflow-hidden px-6 pb-20 pt-10 md:px-10 md:pb-28 md:pt-16 lg:px-12"
     >
-      {/* Floating cards for desktop view */}
-      <div className="pointer-events-none absolute left-2 top-16 hidden xl:block">
+      {/* Floating cards for wide desktop viewports (2xl+ so they never overlap central headline) */}
+      <div className="pointer-events-none absolute left-4 top-14 hidden 2xl:block">
         <div className="pointer-events-auto">
           <Hero_top_left />
         </div>
       </div>
 
-      <div className="pointer-events-none absolute right-6 top-12 hidden xl:block">
+      <div className="pointer-events-none absolute right-4 top-12 hidden 2xl:block">
         <div className="pointer-events-auto">
           <Hero_top_right />
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-12 left-8 hidden xl:block">
+      <div className="pointer-events-none absolute bottom-12 left-8 hidden 2xl:block">
         <div className="pointer-events-auto">
           <Hero_bottom_left />
         </div>
       </div>
 
-      <div className="pointer-events-none absolute bottom-12 right-8 hidden xl:block">
+      <div className="pointer-events-none absolute bottom-12 right-8 hidden 2xl:block">
         <div className="pointer-events-auto">
           <Hero_bottom_right />
         </div>
       </div>
 
-      {/* Central hero content (Outbound-only calling operations) */}
-      <div className="mx-auto flex max-w-210 flex-col items-center text-center">
+      {/* Central hero content (Enterprise communication automation) */}
+      <div className="relative z-10 mx-auto flex max-w-[760px] flex-col items-center text-center">
         {/* Main headline */}
         <h1 className="tracking-tight">
-          <span className="block font-['Newsreader'] text-[46px] font-normal leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            A complete system
+          <span className="block font-['Newsreader'] text-[42px] font-normal leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[52px] md:text-[62px]">
+            Enterprise communication
           </span>
-          <span className="block font-['Space_Grotesk'] text-[46px] font-medium leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            for outbound AI calling
+          <span className="block font-['Space_Grotesk'] text-[42px] font-medium leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[52px] md:text-[62px]">
+            automation across every
           </span>
-          <span className="block font-['Newsreader'] text-[46px] font-normal italic leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            that follows your script.
+          <span className="block font-['Newsreader'] text-[42px] font-normal italic leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[52px] md:text-[62px]">
+            channel and workflow.
           </span>
         </h1>
 
-        {/* Subtitle (Outbound-only: our agents call your prospects) */}
-        <p className="mt-6 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552] md:text-[16px]">
-          Foolioo calls your leads automatically, follows your exact rules, and logs every call outcome to your CRM—at{" "}
+        {/* Subtitle */}
+        <p className="mt-6 max-w-[56ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552] md:text-[16px]">
+          Automate outbound &amp; inbound calls, email, SMS, queries, and MCP tool workflows under your exact rules—starting at{" "}
           <span className="font-semibold text-[#1B1C18] tabular-nums">₹4.20/minute</span>.
         </p>
 
@@ -155,7 +155,7 @@ export const Hero = () => {
         )}
 
         {/* Compact Proof Strip for Mobile & Laptop Viewports (when corner cards hide below xl) */}
-        <div className="mt-8 grid w-full max-w-[600px] grid-cols-1 gap-2.5 sm:grid-cols-3 xl:hidden">
+        <div className="mt-8 grid w-full max-w-[600px] grid-cols-1 gap-2.5 sm:grid-cols-3 2xl:hidden">
           <div className="flex items-center justify-center gap-2 rounded-xl border border-[#E3DFD3] bg-white px-3.5 py-2.5 shadow-2xs">
             <span className="h-2 w-2 shrink-0 rounded-full bg-[#22A06B]" />
             <span className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] tabular-nums">
