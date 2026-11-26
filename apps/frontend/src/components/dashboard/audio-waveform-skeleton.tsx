@@ -1,4 +1,3 @@
-﻿// audio-waveform-skeleton
+// audio-waveform-skeleton
 // Created as part of Foolioo Call Recording integration
-export const audio-waveform-skeleton_version = '1.0.0';
-
+export const audioWaveformSkeletonVersion = "1.0.0";
