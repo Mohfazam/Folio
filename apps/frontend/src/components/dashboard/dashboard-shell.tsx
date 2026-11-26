@@ -271,8 +271,8 @@ function NavEntry({
       : "border border-transparent font-medium text-[#444748]",
     item.enabled || item.setupAction
       ? active
-        ? ""
-        : "hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+        ? "cursor-pointer"
+        : "cursor-pointer hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
       : "cursor-default text-[#747878]",
   ].join(" ");
 
@@ -489,7 +489,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="group flex w-full items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[13.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
+                    className="group flex w-full cursor-pointer items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[13.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
                     title="Search (Ctrl or Cmd + K)"
                   >
                     <Icon name="search" className="h-4 w-4 shrink-0 text-[#666A68] group-hover:text-[#1B1C18]" />
@@ -646,7 +646,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   aria-haspopup="menu"
                   aria-label="Open user menu"
                   title="Your profile & options"
-                  className={`flex w-full items-center gap-2.5 rounded-[10px] border border-[#E6E4DC] px-2.5 py-2.5 text-left transition-colors hover:bg-[#ECEBE4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-start ${
+                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[10px] border border-[#E6E4DC] px-2.5 py-2.5 text-left transition-colors hover:bg-[#ECEBE4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center lg:justify-start ${
                     userMenuOpen || isRouteActive("/dashboard/profile")
                       ? "bg-[#E9E8E1]"
                       : "bg-white/80"
@@ -726,7 +726,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                           setSettingsSection("workspace");
                           setSettingsOpen(true);
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
                       >
                         <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="2" y="2" width="12" height="12" rx="2" />
@@ -745,7 +745,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                           handleSignOut();
                         }}
                         disabled={signingOut}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:opacity-50"
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
@@ -794,7 +794,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               onClick={() => setMobileDrawerOpen(true)}
               aria-expanded={mobileDrawerOpen}
               aria-label="More workspace navigation"
-              className="flex min-h-[44px] min-w-0 flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center font-['Space_Grotesk'] text-[10px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]"
+              className="flex min-h-[44px] min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center font-['Space_Grotesk'] text-[10px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" />
@@ -841,7 +841,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       type="button"
                       onClick={() => setMobileDrawerOpen(false)}
                       aria-label="Close navigation"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-[6px] text-[#444748] hover:bg-[#ECEBE4]"
+                      className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-[6px] text-[#444748] hover:bg-[#ECEBE4]"
                     >
                       <Icon name="close" className="h-4 w-4" />
                     </button>
@@ -931,7 +931,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       setMobileDrawerOpen(false);
                       setSearchOpen(true);
                     }}
-                    className="flex min-h-[44px] w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
                   >
                     <Icon name="search" className="h-4 w-4" />
                     <span>Search</span>
@@ -939,7 +939,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <Link
                     href="/dashboard/settings"
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="flex min-h-[44px] w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
                   >
                     <Icon name="settings" className="h-4 w-4" />
                     <span>Settings</span>
@@ -991,7 +991,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     placeholder="Search Foolioo"
                     className="min-w-0 flex-1 bg-transparent font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none placeholder:text-[#A0A3A2]"
                   />
-                  <button type="button" onClick={() => setSearchOpen(false)} className="rounded p-1 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close search">
+                  <button type="button" onClick={() => setSearchOpen(false)} className="cursor-pointer rounded p-1 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close search">
                     <Icon name="close" className="h-4 w-4" />
                   </button>
                 </div>
@@ -1015,7 +1015,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         key={item.href}
                         type="button"
                         onClick={() => openSetupAction(item.setupAction!)}
-                        className="flex w-full items-center justify-between rounded-[5px] px-3 py-2.5 text-left transition-colors hover:bg-[#F5F4ED]"
+                        className="flex w-full cursor-pointer items-center justify-between rounded-[5px] px-3 py-2.5 text-left transition-colors hover:bg-[#F5F4ED]"
                       >
                         <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
                           <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
@@ -1052,7 +1052,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     <h2 id="workspace-settings-title" className="mt-1 font-['Newsreader'] text-[26px] text-[#1B1C18]">{settingsSection === "plan" ? "Upgrade your workspace" : "Workspace settings"}</h2>
                     <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">{profile.workspaceName}</p>
                   </div>
-                  <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" className="rounded-[4px] p-2 text-[#747878] hover:bg-[#F5F4ED]">×</button>
+                  <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" className="cursor-pointer rounded-[4px] p-2 text-[#747878] hover:bg-[#F5F4ED]">×</button>
                 </div>
 
                 <div className="mt-5 rounded-[7px] border border-[#E9E8E1] bg-[#FBFAF6] p-4">
@@ -1065,7 +1065,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       type="button"
                       onClick={copyWorkspaceId}
                       disabled={!profile.workspaceId}
-                      className="shrink-0 rounded-[4px] border border-[#D8D8D1] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="shrink-0 cursor-pointer rounded-[4px] border border-[#D8D8D1] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {copiedWorkspaceId ? "Copied" : "Copy ID"}
                     </button>
@@ -1084,7 +1084,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we&apos;ll get back to you within one business day.</p>
                 </div>
                 <div className="mt-5 flex justify-end">
-                  <button type="button" onClick={() => setSettingsOpen(false)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>
+                  <button type="button" onClick={() => setSettingsOpen(false)} className="cursor-pointer rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>
                 </div>
               </section>
             </div>
