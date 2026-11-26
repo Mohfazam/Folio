@@ -222,8 +222,8 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB] px-4 py-4 sm:px-5">
-      <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#5C5F5C]">{label}</p>
-      <p className="mt-2 font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
+      <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">{label}</p>
+      <p className="mt-2 font-['Newsreader'] text-[32px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
       <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{detail}</p>
     </div>
   );
@@ -515,7 +515,7 @@ export function CallsDashboard({
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Calls
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#5C5F5C]">
+          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
             Review call outcomes, conversation summaries, recordings and AI-generated insights.
           </p>
         </div>
@@ -542,7 +542,7 @@ export function CallsDashboard({
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
-          <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">
+          <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#A33A32]">
             Calls could not be loaded: {initialError}
           </p>
           <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8D3028]">
@@ -555,8 +555,8 @@ export function CallsDashboard({
         <section className="overflow-hidden rounded-[8px] border border-[#E8E3F2] bg-white" aria-live="polite">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3 sm:px-5">
             <div>
-              <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Live call activity</h2>
-              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#666A68]">Updates automatically while calls are queued or in progress.</p>
+              <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">Live call activity</h2>
+              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#85877F]">Updates automatically while calls are queued or in progress.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="purple">{formatNumber(liveStatus.pendingCount)} pending</Badge>
@@ -607,15 +607,15 @@ export function CallsDashboard({
       <section className="overflow-hidden rounded-[8px] border border-[#ECEBE5] bg-white">
         <div className="border-b border-[#ECEBE5] p-4 sm:p-5">
           <div className="mb-4">
-            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Call history</h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Call history</h2>
+            <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">
               Search and filter calls recorded in this workspace.
             </p>
           </div>
 
           <form onSubmit={handleApplyCallFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <label className="sm:col-span-2 xl:col-span-2">
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">SEARCH</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">SEARCH</span>
               <input
                 type="search"
                 name="search"
@@ -623,12 +623,12 @@ export function CallsDashboard({
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Contact, phone or summary"
                 maxLength={200}
-                className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
               />
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">OUTCOME</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">OUTCOME</span>
               <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All outcomes</option>
                 <option value="connected">Connected</option>
@@ -641,7 +641,7 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">SENTIMENT</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">SENTIMENT</span>
               <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All sentiments</option>
                 <option value="positive">Positive</option>
@@ -651,7 +651,7 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">INTEREST</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">INTEREST</span>
               <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All levels</option>
                 <option value="high">High</option>
@@ -662,12 +662,12 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">FROM</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">FROM</span>
               <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">TO</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">TO</span>
               <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
@@ -695,7 +695,7 @@ export function CallsDashboard({
           <>
             {trimmedSearch && !hasDirectMatch ? (
               <div className="border-b border-[#ECEBE5] bg-[#FFFEFB] px-4 py-2.5 sm:px-5">
-                <p className="font-['Space_Grotesk'] text-[13px] text-[#5C5F5C]">
+                <p className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
                   No exact match for <span className="font-semibold text-[#1B1C18]">"{trimmedSearch}"</span> — showing closest matches sorted by similarity.
                 </p>
               </div>
@@ -712,10 +712,10 @@ export function CallsDashboard({
                     className="grid gap-3 px-4 py-4 transition-colors hover:bg-[#FFFEFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7852D6] sm:px-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(130px,0.7fr)_minmax(150px,0.8fr)_auto] lg:items-center"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                      <p className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                         {call.contactName || "Unknown contact"}
                       </p>
-                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[13px] text-[#5C5F5C]">
+                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[13px] text-[#747878]">
                         {call.phoneNumber || "No phone number"}
                         {call.campaignName ? ` · ${call.campaignName}` : ""}
                       </p>
@@ -740,7 +740,7 @@ export function CallsDashboard({
 
                     <div className="flex items-center justify-between gap-4 lg:justify-end">
                       <div className="text-left lg:text-right">
-                        <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
+                        <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
                         <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
                       </div>
                       <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6]">Details →</span>
@@ -757,8 +757,8 @@ export function CallsDashboard({
                 <path d="M6.5 3.5h3l1.5 4-2 1.8a15 15 0 0 0 5.7 5.7l1.8-2 4 1.5v3c0 1.1-.9 2-2 2A15.5 15.5 0 0 1 4.5 5.5c0-1.1.9-2 2-2Z" />
               </svg>
             </span>
-            <h3 className="mt-4 font-['Newsreader'] text-[25px] text-[#1B1C18]">{total === 0 ? "No calls recorded yet" : "No calls match these filters"}</h3>
-            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#666A68]">
+            <h3 className="mt-4 font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">{total === 0 ? "No calls recorded yet" : "No calls match these filters"}</h3>
+            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#85877F]">
               {total === 0 ? "Completed calls will appear here with their outcomes, summaries and conversation details." : "Try changing your search, date range or filters."}
             </p>
             {total === 0 ? (
@@ -770,7 +770,7 @@ export function CallsDashboard({
         )}
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
-          <p className="font-['Space_Grotesk'] text-[12px] tabular-nums text-[#666A68]">
+          <p className="font-['Space_Grotesk'] text-[12px] tabular-nums text-[#85877F]">
             Showing {formatNumber(firstResult)}–{formatNumber(lastResult)} of {formatNumber(total)} calls
           </p>
           <div className="flex items-center gap-2">
@@ -782,7 +782,7 @@ export function CallsDashboard({
             >
               Previous
             </Link>
-            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[12px] tabular-nums text-[#5C5F5C]">Page {currentPage} / {pageCount}</span>
+            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[12px] tabular-nums text-[#747878]">Page {currentPage} / {pageCount}</span>
             <Link
               aria-disabled={filters.offset + filters.limit >= total}
               tabIndex={filters.offset + filters.limit >= total ? -1 : 0}

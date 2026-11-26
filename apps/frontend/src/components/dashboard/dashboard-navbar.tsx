@@ -17,13 +17,13 @@ export function DashboardNavbar({ rightSlot }: { rightSlot?: React.ReactNode }) 
         <nav aria-label="Dashboard navigation" className="flex items-center gap-5">
           <Link
             href="/dashboard"
-            className="whitespace-nowrap font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
+            className="whitespace-nowrap font-['Space_Grotesk'] text-[14px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
           >
             Overview
           </Link>
           <Link
             href="/support"
-            className="whitespace-nowrap font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
+            className="whitespace-nowrap font-['Space_Grotesk'] text-[14px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
           >
             Help &amp; Support
           </Link>

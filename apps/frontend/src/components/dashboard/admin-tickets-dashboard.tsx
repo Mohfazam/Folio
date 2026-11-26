@@ -189,19 +189,19 @@ export function AdminTicketsDashboard() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-[#ECEBE5] pb-5">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
+          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
             FOUNDER OPS
           </p>
           <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Support tickets
           </h1>
-          <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">
+          <p className="mt-1 font-['Space_Grotesk'] text-[14px] text-[#747878]">
             Founder-only inbox for incoming complaints and tickets from{" "}
-            <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[11px]">
+            <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[13px]">
               /support
             </code>{" "}
             stored in{" "}
-            <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[11px]">
+            <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[13px]">
               support_tickets
             </code>
             .
@@ -209,17 +209,17 @@ export function AdminTicketsDashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="rounded-full border border-[#F0DFB8] bg-[#FFFAEC] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8A6826]">
+          <span className="rounded-full border border-[#F0DFB8] bg-[#FFFAEC] px-3 py-1 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8A6826]">
             {openCount} open
           </span>
-          <span className="rounded-full border border-[#E5E1D5] bg-[#F7F5EF] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]">
+          <span className="rounded-full border border-[#E5E1D5] bg-[#F7F5EF] px-3 py-1 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]">
             {total} total
           </span>
           <button
             type="button"
             onClick={() => void refetch()}
             disabled={isFetching}
-            className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition hover:bg-[#F5F4ED] disabled:opacity-60"
+            className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition hover:bg-[#F5F4ED] disabled:opacity-60"
           >
             {isFetching ? "Syncing…" : "Refresh"}
           </button>
@@ -231,7 +231,7 @@ export function AdminTicketsDashboard() {
       {displayedError ? (
         <div
           role="alert"
-          className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
+          className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[14px] text-[#A33A32]"
         >
           {displayedError}
         </div>
@@ -255,7 +255,7 @@ export function AdminTicketsDashboard() {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setStatusFilter(tab.id)}
-                  className={`rounded-[6px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] transition ${
+                  className={`rounded-[6px] px-3 py-1.5 font-['Space_Grotesk'] text-[14px] transition ${
                     active
                       ? "bg-[#1B1C18] font-semibold text-white"
                       : "border border-[#E5E4DC] bg-white text-[#565B5B] hover:text-[#1B1C18]"
@@ -272,7 +272,7 @@ export function AdminTicketsDashboard() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search name, email, subject, or message..."
-            className="h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6] sm:w-72"
+            className="h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none focus:border-[#7852D6] sm:w-72"
           />
         </div>
 
@@ -289,9 +289,9 @@ export function AdminTicketsDashboard() {
         ) : tickets.length === 0 ? (
           <div className="px-5 py-14 text-center">
             <h2 className="font-['Newsreader'] text-[24px] text-[#1B1C18]">No support tickets found</h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">
+            <p className="mt-1 font-['Space_Grotesk'] text-[14px] text-[#747878]">
               Submissions from{" "}
-              <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[11px]">
+              <code className="rounded bg-[#F5F4ED] px-1.5 py-0.5 font-mono text-[13px]">
                 /support
               </code>{" "}
               will appear here.
@@ -315,24 +315,24 @@ export function AdminTicketsDashboard() {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+                        <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">
                           {ticket.subject}
                         </h2>
                         <span
-                          className={`inline-flex rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${badgeClass}`}
+                          className={`inline-flex rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold capitalize ${badgeClass}`}
                         >
                           {ticket.status.replaceAll("_", " ")}
                         </span>
                       </div>
 
-                      <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                      <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#747878]">
                         From <strong className="font-semibold text-[#1B1C18]">{ticket.name}</strong>{" "}
                         ({ticket.email})
                         {ticket.contactPhone ? ` · ${ticket.contactPhone}` : ""} ·{" "}
                         {formatTicketTime(ticket.createdAt)}
                       </p>
 
-                      <p className="mt-2 line-clamp-2 whitespace-pre-line font-['Space_Grotesk'] text-[12.5px] leading-5 text-[#3B3E3B]">
+                      <p className="mt-2 line-clamp-2 whitespace-pre-line font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#3B3E3B]">
                         {ticket.message}
                       </p>
 
@@ -342,7 +342,7 @@ export function AdminTicketsDashboard() {
                           e.stopPropagation();
                           setSelectedTicketId(ticket.id);
                         }}
-                        className="mt-2 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:underline"
+                        className="mt-2 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB] hover:underline"
                       >
                         Open detailed window →
                       </button>
@@ -365,7 +365,7 @@ export function AdminTicketsDashboard() {
                             nextStatus: e.target.value,
                           })
                         }
-                        className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] outline-none focus:border-[#7852D6] disabled:opacity-50"
+                        className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] outline-none focus:border-[#7852D6] disabled:opacity-50"
                       >
                         <option value="open">Open</option>
                         <option value="in_progress">In Progress</option>
@@ -399,11 +399,11 @@ export function AdminTicketsDashboard() {
             <div className="flex items-start justify-between gap-4 border-b border-[#ECEBE5] pb-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
+                  <span className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
                     TICKET DETAILS
                   </span>
                   <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${
+                    className={`inline-flex rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold capitalize ${
                       STATUS_BADGE[selectedTicket.status] ??
                       "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]"
                     }`}
@@ -424,21 +424,21 @@ export function AdminTicketsDashboard() {
                 data-autofocus="true"
                 onClick={() => setSelectedTicketId(null)}
                 aria-label="Close ticket window"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#DCDDD6] bg-[#FAF9F5] font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] hover:bg-[#F0EFE9]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#DCDDD6] bg-[#FAF9F5] font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] hover:bg-[#F0EFE9]"
               >
                 ✕
               </button>
             </div>
 
-            <dl className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-[#ECEBE5] bg-[#FAF9F5] p-4 font-['Space_Grotesk'] text-[12px] sm:grid-cols-2">
+            <dl className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-[#ECEBE5] bg-[#FAF9F5] p-4 font-['Space_Grotesk'] text-[14px] sm:grid-cols-2">
               <div>
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Submitted By
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#1B1C18]">{selectedTicket.name}</dd>
               </div>
               <div>
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Email
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -451,7 +451,7 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Phone Number
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -459,7 +459,7 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Received At (IST)
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -467,20 +467,20 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Ticket ID
                 </dt>
-                <dd className="mt-0.5 break-all font-mono text-[11px] text-[#525552]">
+                <dd className="mt-0.5 break-all font-mono text-[13px] text-[#525552]">
                   {selectedTicket.id}
                 </dd>
               </div>
             </dl>
 
             <div className="mt-5">
-              <h3 className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+              <h3 className="font-['Space_Grotesk'] text-[13px] font-bold uppercase tracking-[0.08em] text-[#747878]">
                 Full Complaint / Message
               </h3>
-              <div className="mt-2 whitespace-pre-wrap rounded-xl border border-[#ECEBE5] bg-[#FCFBF8] p-4 font-['Space_Grotesk'] text-[13px] leading-[22px] text-[#1B1C18]">
+              <div className="mt-2 whitespace-pre-wrap rounded-xl border border-[#ECEBE5] bg-[#FCFBF8] p-4 font-['Space_Grotesk'] text-[14px] leading-[22px] text-[#1B1C18]">
                 {selectedTicket.message}
               </div>
             </div>
@@ -489,11 +489,11 @@ export function AdminTicketsDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label
                   htmlFor="ticket-reply-box"
-                  className="font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#1B1C18]"
+                  className="font-['Space_Grotesk'] text-[13px] font-bold uppercase tracking-[0.08em] text-[#1B1C18]"
                 >
                   Reply from support@foolioo.app → {selectedTicket.email}
                 </label>
-                <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                <span className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
                   Sent automatically via email
                 </span>
               </div>
@@ -504,7 +504,7 @@ export function AdminTicketsDashboard() {
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder={`Write your response to ${selectedTicket.name} (${selectedTicket.email})...`}
-                className="mt-2 w-full rounded-lg border border-[#DCDDD6] bg-white p-3 font-['Space_Grotesk'] text-[12.5px] leading-[20px] text-[#1B1C18] placeholder-[#747878] outline-none focus:border-[#7852D6]"
+                className="mt-2 w-full rounded-lg border border-[#DCDDD6] bg-white p-3 font-['Space_Grotesk'] text-[14px] leading-[20px] text-[#1B1C18] placeholder-[#747878] outline-none focus:border-[#7852D6]"
               />
 
               {actionError ? (
@@ -547,7 +547,7 @@ export function AdminTicketsDashboard() {
                       status: replyStatusAfterSend,
                     })
                   }
-                  className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#FD7032] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] shadow-xs transition hover:bg-[#e56228] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#FD7032] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] shadow-xs transition hover:bg-[#e56228] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {replyMutation.isPending
                     ? "Sending email…"
@@ -560,7 +560,7 @@ export function AdminTicketsDashboard() {
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="modal-ticket-status"
-                  className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]"
+                  className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]"
                 >
                   Update Status:
                 </label>
@@ -574,7 +574,7 @@ export function AdminTicketsDashboard() {
                       nextStatus: e.target.value,
                     })
                   }
-                  className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                  className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] outline-none focus:border-[#7852D6]"
                 >
                   <option value="open">Open</option>
                   <option value="in_progress">In Progress</option>
@@ -586,7 +586,7 @@ export function AdminTicketsDashboard() {
               <button
                 type="button"
                 onClick={() => setSelectedTicketId(null)}
-                className="h-9 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                className="h-9 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F]"
               >
                 Done
               </button>

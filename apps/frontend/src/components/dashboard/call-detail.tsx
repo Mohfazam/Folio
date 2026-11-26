@@ -102,7 +102,7 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[7px] border border-[#ECEBE5] bg-[#FFFEFB] p-3.5">
       <p className="font-['Space_Grotesk'] text-[12px] font-semibold uppercase tracking-[0.06em] text-[#92938C]">{label}</p>
-      <p className="mt-1.5 break-words font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{value}</p>
+      <p className="mt-1.5 break-words font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">{value}</p>
     </div>
   );
 }
@@ -117,27 +117,12 @@ export function CallDetailView({
   if (!call) {
     return (
       <div className="space-y-5">
-<Link
-  href="/dashboard/calls"
-  className="group inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
->
-  <svg
-    viewBox="0 0 24 24"
-    className="h-3.5 w-3.5 text-[#5C5F5C] transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-[#1B1C18]"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="m15 18-6-6 6-6" />
-  </svg>
-  <span>Back to calls</span>
-</Link>
+        <Link href="/dashboard/calls" className="inline-flex items-center gap-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6] hover:text-[#6040B4]">
+          ← Back to calls
+        </Link>
         <div className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-5 py-5">
-          <h1 className="font-['Newsreader'] text-[30px] text-[#1B1C18]">Call details unavailable</h1>
-          <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{error ?? "Unable to load this call."}</p>
+          <h1 className="font-['Newsreader'] text-[32px] leading-tight text-[#1B1C18] sm:text-[36px]">Call details unavailable</h1>
+          <p className="mt-2 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#A33A32]">{error ?? "Unable to load this call."}</p>
         </div>
       </div>
     );
@@ -151,29 +136,14 @@ export function CallDetailView({
   return (
     <div className="space-y-6">
       <header>
-<Link
-  href="/dashboard/calls"
-  className="group inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
->
-  <svg
-    viewBox="0 0 24 24"
-    className="h-3.5 w-3.5 text-[#5C5F5C] transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-[#1B1C18]"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="m15 18-6-6 6-6" />
-  </svg>
-  <span>Back to calls</span>
-</Link>
+        <Link href="/dashboard/calls" className="inline-flex items-center gap-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6] hover:text-[#6040B4]">
+          ← Back to calls
+        </Link>
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#9A8ABF]">Call record</p>
-            <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.7px] text-[#1B1C18]">{contactName}</h1>
-            <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#5C5F5C]">{call.phoneNumber || "No phone number"} · {formatDate(call.startedAt)}</p>
+            <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-[1.12] tracking-[-0.7px] text-[#1B1C18] sm:text-[42px]">{contactName}</h1>
+            <p className="mt-2 font-['Space_Grotesk'] text-[14px] text-[#747878]">{call.phoneNumber || "No phone number"} · {formatDate(call.startedAt)}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone={outcomeTone}>{call.outcome.replaceAll("_", " ")}</Badge>
@@ -194,10 +164,10 @@ export function CallDetailView({
         <div className="space-y-5">
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
             <div className="mb-4">
-              <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Call summary</h2>
-              <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#666A68]">Post-call summary and next-step signals.</p>
+              <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Call summary</h2>
+              <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">Post-call summary and next-step signals.</p>
             </div>
-            <p className="whitespace-pre-wrap font-['Space_Grotesk'] text-[14px] leading-[1.65] text-[#2F3230]">{call.summary || "No summary is available for this call."}</p>
+            <p className="whitespace-pre-wrap font-['Space_Grotesk'] text-[14px] leading-6 text-[#444748]">{call.summary || "No summary is available for this call."}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {call.followUpRequested ? <Badge tone="purple">Follow-up requested</Badge> : <Badge>No follow-up requested</Badge>}
               {call.sentiment ? <Badge tone={call.sentiment === "positive" ? "green" : call.sentiment === "negative" ? "red" : "neutral"}>{call.sentiment} sentiment</Badge> : null}
@@ -205,8 +175,8 @@ export function CallDetailView({
             </div>
             {call.objectionsRaised.length > 0 ? (
               <div className="mt-5 border-t border-[#F0EFE9] pt-4">
-                <h3 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Objections raised</h3>
-                <ul className="mt-2 list-disc space-y-1 pl-5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#5C5F5C]">
+                <h3 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Objections raised</h3>
+                <ul className="mt-2 list-disc space-y-1 pl-5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">
                   {call.objectionsRaised.map((objection, index) => <li key={`${index}-${objection}`}>{objection}</li>)}
                 </ul>
               </div>
@@ -218,8 +188,8 @@ export function CallDetailView({
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Conversation transcript</h2>
-                <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#5C5F5C]">Recorded conversation turns from the call.</p>
+                <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Conversation transcript</h2>
+                <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">Recorded conversation turns from the call.</p>
               </div>
             </div>
 
@@ -229,7 +199,7 @@ export function CallDetailView({
 
         <aside className="space-y-5">
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Contact details</h2>
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Contact details</h2>
             <div className="mt-4 space-y-3">
               <DetailRow label="Name" value={contactName} />
               <DetailRow label="Email" value={call.contact?.email} />
@@ -244,20 +214,20 @@ export function CallDetailView({
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Campaign</h2>
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Campaign</h2>
             {call.campaign?.name ? (
               <>
-                <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{call.campaign.name}</p>
-                {call.campaign.type ? <p className="mt-1 font-['Space_Grotesk'] text-[12px] capitalize text-[#666A68]">{call.campaign.type.replaceAll("_", " ")}</p> : null}
-                {call.campaign.primaryObjective ? <p className="mt-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#5C5F5C]">{call.campaign.primaryObjective}</p> : null}
+                <p className="mt-3 font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">{call.campaign.name}</p>
+                {call.campaign.type ? <p className="mt-1 font-['Space_Grotesk'] text-[12px] capitalize text-[#85877F]">{call.campaign.type.replaceAll("_", " ")}</p> : null}
+                {call.campaign.primaryObjective ? <p className="mt-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">{call.campaign.primaryObjective}</p> : null}
               </>
             ) : (
-              <p className="mt-3 font-['Space_Grotesk'] text-[13px] text-[#666A68]">This call is not linked to a campaign.</p>
+              <p className="mt-3 font-['Space_Grotesk'] text-[13px] text-[#85877F]">This call is not linked to a campaign.</p>
             )}
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Usage & billing</h2>
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Usage & billing</h2>
             <div className="mt-4 space-y-3">
               <DetailRow label="Credits charged" value={`${call.creditsCharged} credits`} strong />
               <DetailRow label="Call duration" value={formatDuration(call.durationSeconds)} />
@@ -267,7 +237,7 @@ export function CallDetailView({
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18]">Call metadata</h2>
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Call metadata</h2>
             <div className="mt-4 space-y-3">
               <DetailRow label="Call ID" value={call.id} mono />
               <DetailRow label="Contact ID" value={call.contactId} mono />
@@ -295,8 +265,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex min-w-0 items-start justify-between gap-3">
-      <span className="shrink-0 font-['Space_Grotesk'] text-[12px] text-[#666A68]">{label}</span>
-      <span className={`min-w-0 break-all text-right font-['Space_Grotesk'] ${strong ? "text-[12px] font-bold text-[#1B1C18]" : mono ? "text-[12px] text-[#5C5F5C]" : "text-[13px] text-[#444748]"} ${mono ? "font-mono" : ""}`}>
+      <span className="shrink-0 font-['Space_Grotesk'] text-[12px] text-[#85877F]">{label}</span>
+      <span className={`min-w-0 break-all text-right font-['Space_Grotesk'] ${strong ? "text-[14px] font-bold text-[#1B1C18]" : mono ? "text-[11px] text-[#747878]" : "text-[13px] text-[#444748]"} ${mono ? "font-mono" : ""}`}>
         {value || "—"}
       </span>
     </div>

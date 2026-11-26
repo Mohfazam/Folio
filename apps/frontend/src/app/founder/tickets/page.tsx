@@ -56,13 +56,13 @@ async function FounderQueueContent() {
   if (!allowed) {
     return (
       <section className="mx-auto mt-8 max-w-lg rounded-2xl border border-[#EAE7DE] bg-white p-8 text-center shadow-sm">
-        <span className="inline-flex rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[1.1px] text-[#A33A32]">
+        <span className="inline-flex rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[1.1px] text-[#A33A32]">
           Restricted · Founder Access Only
         </span>
         <h1 className="mt-4 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18]">
           Founder queue access required
         </h1>
-        <p className="mt-2.5 font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#525552]">
+        <p className="mt-2.5 font-['Space_Grotesk'] text-[14px] leading-[20px] text-[#525552]">
           {auth
             ? "Your signed-in account does not have internal_admin founder permissions."
             : "Sign in with an internal_admin account to view incoming support tickets."}
@@ -70,13 +70,13 @@ async function FounderQueueContent() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
             href={auth ? "/dashboard" : "/sign-in?redirect=/founder/tickets"}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F]"
           >
             {auth ? "Go to Workspace" : "Sign In"}
           </Link>
           <Link
             href="/"
-            className="inline-flex h-10 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F3EC]"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] hover:bg-[#F5F3EC]"
           >
             Back to Home
           </Link>
@@ -98,12 +98,12 @@ export default function FounderTicketsPage() {
             <span className="font-['Newsreader'] text-[28px] font-medium italic tracking-[-1.4px]">
               foolioo<span className="text-[#FD7032]">.</span>
             </span>
-            <span className="ml-2 rounded-full border border-[#E7DEFF] bg-[#F4F0FF] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[1px] text-[#644ABB]">
+            <span className="ml-2 rounded-full border border-[#E7DEFF] bg-[#F4F0FF] px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold uppercase tracking-[1px] text-[#644ABB]">
               Founders
             </span>
           </Link>
 
-          <div className="flex items-center gap-4 font-['Space_Grotesk'] text-[13px]">
+          <div className="flex items-center gap-4 font-['Space_Grotesk'] text-[14px]">
             <Link href="/dashboard" className="text-[#55534F] hover:text-[#1B1C18]">
               Workspace
             </Link>

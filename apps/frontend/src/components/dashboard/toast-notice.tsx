@@ -19,7 +19,7 @@ export function ToastNotice({
       aria-live="polite"
       className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-4 md:bottom-6"
     >
-      <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
+      <div className="pointer-events-auto inline-flex max-w-[92vw] items-center gap-2.5 rounded-full border border-[#2C2E28] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[14px] font-medium text-white shadow-[0_12px_32px_rgba(27,28,24,0.24)] transition-all duration-200">
         <span
           className={`h-2 w-2 shrink-0 rounded-full ${isError ? "bg-[#F87171]" : "bg-[#4ADE80]"}`}
           aria-hidden="true"

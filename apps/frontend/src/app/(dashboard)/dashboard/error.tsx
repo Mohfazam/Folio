@@ -41,17 +41,17 @@ export default function DashboardRouteError({
         role="alert"
         className="rounded-xl border border-[#F0D8D4] bg-[#FFF8F7] p-6 sm:p-8"
       >
-        <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#A33A32]">
+        <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#A33A32]">
           WORKSPACE RECOVERY
         </p>
-        <h1 className="mt-2 font-['Newsreader'] text-[28px] leading-tight text-[#1B1C18] sm:text-[32px]">
+        <h1 className="mt-2 font-['Newsreader'] text-[32px] leading-tight text-[#1B1C18] sm:text-[36px]">
           This view ran into an unexpected error
         </h1>
-        <p className="mt-2 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
+        <p className="mt-2 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">
           {safeMessage}
         </p>
         {error?.digest ? (
-          <p className="mt-3 font-mono text-[11px] text-[#7A271A]">
+          <p className="mt-3 font-mono text-[13px] text-[#7A271A]">
             Error ID: {error.digest}
           </p>
         ) : null}
@@ -61,13 +61,13 @@ export default function DashboardRouteError({
             type="button"
             disabled={isRetrying}
             onClick={handleTryAgain}
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition hover:bg-[#34352F] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition hover:bg-[#34352F] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             {isRetrying ? "Retrying…" : "Try again"}
           </button>
           <Link
             href="/dashboard"
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#DCDCD4] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#DCDCD4] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Back to Overview
           </Link>

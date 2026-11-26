@@ -118,7 +118,7 @@ export function ConfirmDialog({
         tabIndex={-1}
         className="w-full max-w-[420px] rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.22)] outline-none sm:p-6"
       >
-        <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.09em] text-[#A33A32]">
+        <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.09em] text-[#A33A32]">
           CONFIRM ACTION
         </p>
         <h2
@@ -129,7 +129,7 @@ export function ConfirmDialog({
         </h2>
         <p
           id="confirm-dialog-desc"
-          className="mt-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]"
+          className="mt-2 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#666A68]"
         >
           {description}
         </p>
@@ -138,7 +138,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition hover:bg-[#F5F4ED] disabled:opacity-50"
+            className="rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition hover:bg-[#F5F4ED] disabled:opacity-50"
           >
             {cancelLabel}
           </button>
@@ -147,7 +147,7 @@ export function ConfirmDialog({
             data-autofocus="true"
             onClick={onConfirm}
             disabled={busy}
-            className="rounded-[5px] bg-[#A33A32] px-4 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition hover:bg-[#8A2E27] disabled:opacity-50"
+            className="rounded-[5px] bg-[#A33A32] px-4 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition hover:bg-[#8A2E27] disabled:opacity-50"
           >
             {busy ? "Working…" : confirmLabel}
           </button>
