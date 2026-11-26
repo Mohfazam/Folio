@@ -100,3 +100,32 @@ export async function updateUserPreferences(payload: UserPreferences): Promise<U
 
   return data.preferences;
 }
+
+export interface UpdateWorkspaceDetailsPayload {
+  name?: string;
+  contactPersonName?: string | null;
+  timezone?: string;
+  callingHoursStart?: string;
+  callingHoursEnd?: string;
+}
+
+/**
+ * Update unverified workspace attributes (name, contactPersonName, timezone, calling hours).
+ */
+export async function updateWorkspaceDetails(payload: UpdateWorkspaceDetailsPayload): Promise<Record<string, unknown>> {
+  const response = await fetch("/api/user/workspace", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Failed to update workspace details");
+  }
+
+  return data.workspace;
+}
