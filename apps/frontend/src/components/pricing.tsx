@@ -188,7 +188,7 @@ export const Pricing = ({ currentPlan = null, isLoggedIn = false }: PricingProps
                       ? "bg-[#991B1B] text-white"
                       : isOnTrial
                         ? "bg-[#644ABB] text-white"
-                        : "bg-[#FD7032] text-white"
+                        : "bg-[#FD7032] text-[#1B1C18]"
                   }`}
                 >
                   {isTrialExpired
@@ -288,7 +288,7 @@ export const Pricing = ({ currentPlan = null, isLoggedIn = false }: PricingProps
                 badgeTone = "bg-[#644ABB] text-white";
               } else if (isRecommendedFit) {
                 badgeText = "BEST FIT FOR YOU";
-                badgeTone = "bg-[#FD7032] text-white";
+                badgeTone = "bg-[#FD7032] text-[#1B1C18]";
               } else if (plan.featuredByDefault) {
                 badgeText = "RECOMMENDED";
                 badgeTone = "bg-[#1B1C18] text-white";

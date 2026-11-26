@@ -69,7 +69,7 @@ export const VoiceAgent = () => {
                       onClick={() => setActiveStep(s.id)}
                       className={`rounded-full px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
                         selected
-                          ? "bg-[#FD7032] text-white"
+                          ? "bg-[#FD7032] text-[#1B1C18]"
                           : "border border-[#E3DFD3] bg-white text-[#2D2F2B] hover:border-[#1B1C18]"
                       }`}
                     >
