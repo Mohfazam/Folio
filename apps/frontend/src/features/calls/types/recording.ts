@@ -1,4 +1,4 @@
-﻿// Created as part of Foolioo Call Recording integration
+// Created as part of Foolioo Call Recording integration
 export const recording_version = '1.0.0';
 
 export type RecordingStatusPhase =
