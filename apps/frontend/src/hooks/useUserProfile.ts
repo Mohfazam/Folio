@@ -54,37 +54,65 @@ export function useUserProfile(): UseUserProfileReturn {
     setIsSaving(true);
     setError(null);
     setSaveSuccess(false);
+
+    // Snapshot previous state for optimistic rollback
+    const previousUser = user;
+    if (user) {
+      setUser({
+        ...user,
+        ...(payload.displayName !== undefined ? { displayName: payload.displayName } : {}),
+        ...(payload.avatarUrl !== undefined ? { avatarUrl: payload.avatarUrl } : {}),
+        ...(payload.bio !== undefined ? { bio: payload.bio } : {}),
+        ...(payload.jobTitle !== undefined ? { jobTitle: payload.jobTitle } : {})
+      });
+    }
+
     try {
       const updated = await updateUserProfile(payload);
       setUser(updated);
       setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
       return updated;
     } catch (err) {
+      // Rollback on failure
+      setUser(previousUser);
       const msg = err instanceof Error ? err.message : "Failed to update profile";
       setError(msg);
       throw err;
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [user]);
 
   const handleUpdatePreferences = useCallback(async (payload: UserPreferences) => {
     setIsSaving(true);
     setError(null);
     setSaveSuccess(false);
+
+    // Snapshot previous preferences for optimistic rollback
+    const previousPrefs = preferences;
+    if (preferences) {
+      setPreferences({
+        ...preferences,
+        ...payload
+      });
+    }
+
     try {
       const updated = await updateUserPreferences(payload);
       setPreferences(updated);
       setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
       return updated;
     } catch (err) {
+      setPreferences(previousPrefs);
       const msg = err instanceof Error ? err.message : "Failed to update preferences";
       setError(msg);
       throw err;
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [preferences]);
 
   const handleRemoveAvatar = useCallback(async () => {
     setIsSaving(true);
