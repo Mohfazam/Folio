@@ -215,8 +215,20 @@ export async function cleanupWorkerQueueRoute(req: Request, res: Response) {
     if (completedOrExhaustedToDelete.length > 0) {
       const idsToDelete = completedOrExhaustedToDelete.map((q) => q.id);
       for (const id of idsToDelete) {
-        await db.delete(callQueue).where(eq(callQueue.id, id));
-        completedPurgedCount++;
+        try {
+          await db.transaction(async (tx) => {
+            // Nullify foreign key reference in calls to satisfy constraint while keeping call history intact
+            await tx
+              .update(calls)
+              .set({ queueEntryId: null })
+              .where(eq(calls.queueEntryId, id));
+
+            await tx.delete(callQueue).where(eq(callQueue.id, id));
+          });
+          completedPurgedCount++;
+        } catch (delErr) {
+          console.error(`[worker-queue-cleanup] Error deleting queue entry ${id}:`, delErr);
+        }
       }
       console.log(`[worker-queue-cleanup] 🧹 Purged ${completedPurgedCount} completed queue records already stored in calls`);
     }
