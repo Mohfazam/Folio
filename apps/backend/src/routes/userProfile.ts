@@ -110,3 +110,42 @@ export async function updateUserProfileRoute(req: Request, res: Response): Promi
     res.status(500).json({ ok: false, error: "Failed to update user profile" });
   }
 }
+
+/**
+ * PATCH /api/user/preferences
+ * Allows users to update UI theme, notification toggles, and audio playback settings.
+ */
+export async function updateUserPreferencesRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Unauthorized" });
+      return;
+    }
+
+    const validation = validateUserPreferences(req.body);
+    if (!validation.valid) {
+      res.status(400).json({ ok: false, error: validation.error });
+      return;
+    }
+
+    const updated = await updateUserPreferencesService(userId, validation.value || {});
+    if (!updated) {
+      res.status(404).json({ ok: false, error: "User not found" });
+      return;
+    }
+
+    await recordUserAuditLog(userId, req.clientId || null, "user.preferences.updated", {
+      preferences: validation.value
+    });
+
+    res.status(200).json({
+      ok: true,
+      message: "Preferences updated successfully",
+      preferences: updated
+    });
+  } catch (error) {
+    console.error("[UserProfileRoute] Error updating user preferences:", error);
+    res.status(500).json({ ok: false, error: "Failed to update user preferences" });
+  }
+}
