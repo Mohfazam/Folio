@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { env } from "../../config/env.js";
 
 const genAI = new GoogleGenAI({ apiKey: env.geminiApiKey });
-const PRIMARY_MODEL = "gemini-3.1-flash-lite";
+const PRIMARY_MODEL = "gemini-2.5-flash";
 const FALLBACK_MODEL = "gemini-2.5-flash-lite";
 
 const SYSTEM_INSTRUCTION = `
