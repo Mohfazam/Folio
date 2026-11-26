@@ -17,6 +17,14 @@ const TICKET_CATEGORIES = [
 
 type TicketCategory = (typeof TICKET_CATEGORIES)[number];
 
+function RequiredMark() {
+  return (
+    <span className="ml-0.5 text-[#FD7032]" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
 export default function SupportPage() {
   const [formData, setFormData] = useState<{
     name: string;
@@ -204,7 +212,12 @@ export default function SupportPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Input
                     id="name"
-                    label="Your name"
+                    label={
+                      <>
+                        Your name
+                        <RequiredMark />
+                      </>
+                    }
                     placeholder="Aarav Sharma"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -214,7 +227,12 @@ export default function SupportPage() {
                   <Input
                     id="email"
                     type="email"
-                    label="Work email"
+                    label={
+                      <>
+                        Work email
+                        <RequiredMark />
+                      </>
+                    }
                     placeholder="you@company.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -225,6 +243,7 @@ export default function SupportPage() {
                 <div className="flex flex-col gap-2">
                   <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18]">
                     Category
+                    <RequiredMark />
                   </span>
                   <div
                     role="radiogroup"
@@ -256,7 +275,12 @@ export default function SupportPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Input
                     id="subject"
-                    label="Subject"
+                    label={
+                      <>
+                        Subject
+                        <RequiredMark />
+                      </>
+                    }
                     placeholder="e.g. Call dropped mid-conversation"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
@@ -279,6 +303,7 @@ export default function SupportPage() {
                     className="font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18]"
                   >
                     Complaint / Message details
+                    <RequiredMark />
                   </label>
                   <textarea
                     id="message"
