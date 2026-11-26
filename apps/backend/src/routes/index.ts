@@ -22,7 +22,7 @@ import {
   requestPasswordResetOtpRoute,
   verifyPasswordResetOtpRoute,
 } from "./auth.js";
-import { submitSupportTicketRoute, getSupportTicketsRoute, updateSupportTicketStatusRoute } from "./support.js";
+import { submitSupportTicketRoute, getSupportTicketsRoute, updateSupportTicketStatusRoute, replySupportTicketRoute } from "./support.js";
 import {
   createBillingOrderRoute,
   verifyBillingPaymentRoute,
@@ -79,6 +79,7 @@ export function registerRoutes(app: Express) {
   api.post("/support/ticket", authRateLimiter, submitSupportTicketRoute);
   api.get("/support/tickets", requireAuth, requireInternalAdmin, getSupportTicketsRoute);
   api.patch("/support/tickets/:id", requireAuth, requireInternalAdmin, updateSupportTicketStatusRoute);
+  api.post("/support/tickets/:id/reply", requireAuth, requireInternalAdmin, replySupportTicketRoute);
 
   // Billing endpoints (webhook is public, others require auth)
   api.post("/billing/webhook", billingWebhookRoute);

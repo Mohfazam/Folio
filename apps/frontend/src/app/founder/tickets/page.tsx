@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
-import { AdminTicketsDashboard } from "@/components/dashboard/admin-tickets-dashboard";
+import { FounderTicketsProvider } from "@/components/dashboard/founder-tickets-provider";
 
 export const metadata: Metadata = {
   title: "Founder Support Queue · Foolioo",
@@ -85,7 +85,7 @@ async function FounderQueueContent() {
     );
   }
 
-  return <AdminTicketsDashboard />;
+  return <FounderTicketsProvider />;
 }
 
 export default function FounderTicketsPage() {
