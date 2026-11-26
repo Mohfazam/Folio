@@ -1,4 +1,3 @@
 ﻿// recordingPolicy.test
 // Created as part of Foolioo Call Recording integration
-export const recordingPolicy.test_version = '1.0.0';
-
+export const recordingPolicyTestVersion = "1.0.0";
