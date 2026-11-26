@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
 import { cancelQueuedCallAction, getLiveCallStatusAction } from "@/app/(dashboard)/dashboard/actions";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 export type CallRecord = {
   id: string;
@@ -196,17 +197,16 @@ function Badge({
   children: ReactNode;
   tone?: "neutral" | "green" | "purple" | "amber" | "red";
 }) {
-  const dots = {
-    neutral: "bg-[#8E918B]",
-    green: "bg-[#2F7A4D]",
-    purple: "bg-[#644ABB]",
-    amber: "bg-[#B87D1E]",
-    red: "bg-[#C24138]",
+  const tones = {
+    neutral: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
+    green: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
+    purple: "border-[#E8E3F2] bg-[#F7F4FC] text-[#705AA8]",
+    amber: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
+    red: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
   };
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#2E302B]">
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[tone]}`} aria-hidden="true" />
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -223,9 +223,9 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB] px-4 py-4 sm:px-5">
-      <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">{label}</p>
-      <p className="mt-2 font-['Newsreader'] text-[32px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
-      <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{detail}</p>
+      <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">{label}</p>
+      <p className="mt-2 font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
+      <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{detail}</p>
     </div>
   );
 }
@@ -434,7 +434,7 @@ export function CallsDashboard({
   const confirmCancelQueuedCall = async () => {
     const entry = pendingCancelEntry;
     if (!entry || cancellingQueueId) return;
-    const recipient = entry.contactName || entry.phoneNumber || "this recipient";
+    const recipient = entry.contactName || formatPhoneNumber(entry.phoneNumber) || "this recipient";
 
     setCancellingQueueId(entry.id);
     setQueueActionError(null);
@@ -516,14 +516,14 @@ export function CallsDashboard({
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Calls
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
+          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
             Review call outcomes, conversation summaries, recordings and AI-generated insights.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/testing"
-            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Place test call →
           </Link>
@@ -534,7 +534,7 @@ export function CallsDashboard({
       <ConfirmDialog
         open={pendingCancelEntry !== null}
         title="Cancel queued call?"
-        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || formatPhoneNumber(pendingCancelEntry?.phoneNumber) || "this recipient"}? It will not be attempted.`}
         confirmLabel="Cancel call"
         busy={cancellingQueueId !== null}
         onCancel={() => setPendingCancelEntry(null)}
@@ -543,10 +543,10 @@ export function CallsDashboard({
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
-          <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#A33A32]">
+          <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">
             Calls could not be loaded: {initialError}
           </p>
-          <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8D3028]">
+          <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028]">
             Try again
           </Link>
         </div>
@@ -556,8 +556,8 @@ export function CallsDashboard({
         <section className="overflow-hidden rounded-[8px] border border-[#E8E3F2] bg-white" aria-live="polite">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3 sm:px-5">
             <div>
-              <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">Live call activity</h2>
-              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#85877F]">Updates automatically while calls are queued or in progress.</p>
+              <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Live call activity</h2>
+              <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">Updates automatically while calls are queued or in progress.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="purple">{formatNumber(liveStatus.pendingCount)} pending</Badge>
@@ -565,18 +565,18 @@ export function CallsDashboard({
             </div>
           </div>
           {liveStatusError ? (
-            <p className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
+            <p className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
           ) : null}
           {queueActionError ? (
-            <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#A33A32]">{queueActionError}</p>
+            <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#A33A32]">{queueActionError}</p>
           ) : null}
           {liveStatus.entries.length > 0 ? (
             <div className="divide-y divide-[#F0EFE9]">
               {liveStatus.entries.slice(0, 8).map((entry) => (
                 <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
                   <div className="min-w-0">
-                    <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{entry.contactName || entry.phoneNumber || "Unknown recipient"}</p>
-                    <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[12px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}</p>
+                    <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{entry.contactName || formatPhoneNumber(entry.phoneNumber) || "Unknown recipient"}</p>
+                    <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[10px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${formatPhoneNumber(entry.phoneNumber)}` : ""}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={entry.status === "in_progress" ? "green" : "amber"}>{entry.status === "in_progress" ? "Calling now" : "Queued"}</Badge>
@@ -585,7 +585,7 @@ export function CallsDashboard({
                         type="button"
                         onClick={() => void handleCancelQueuedCall(entry)}
                         disabled={cancellingQueueId !== null}
-                        className="rounded-[5px] border border-[#E7C9C5] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-[5px] border border-[#E7C9C5] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {cancellingQueueId === entry.id ? "Cancelling…" : "Cancel"}
                       </button>
@@ -608,15 +608,15 @@ export function CallsDashboard({
       <section className="overflow-hidden rounded-[8px] border border-[#ECEBE5] bg-white">
         <div className="border-b border-[#ECEBE5] p-4 sm:p-5">
           <div className="mb-4">
-            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Call history</h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">
+            <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Call history</h2>
+            <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">
               Search and filter calls recorded in this workspace.
             </p>
           </div>
 
           <form onSubmit={handleApplyCallFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <label className="sm:col-span-2 xl:col-span-2">
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">SEARCH</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SEARCH</span>
               <input
                 type="search"
                 name="search"
@@ -624,13 +624,13 @@ export function CallsDashboard({
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Contact, phone or summary"
                 maxLength={200}
-                className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
               />
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">OUTCOME</span>
-              <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">OUTCOME</span>
+              <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All outcomes</option>
                 <option value="connected">Connected</option>
                 <option value="no_answer">No answer</option>
@@ -642,8 +642,8 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">SENTIMENT</span>
-              <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SENTIMENT</span>
+              <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All sentiments</option>
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
@@ -652,8 +652,8 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">INTEREST</span>
-              <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">INTEREST</span>
+              <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All levels</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
@@ -663,20 +663,20 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">FROM</span>
-              <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">FROM</span>
+              <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#747878]">TO</span>
-              <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">TO</span>
+              <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-6">
               <button
                 type="submit"
                 disabled={!canApplyCallFilter}
-                className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
+                className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Apply filters
               </button>
@@ -684,7 +684,7 @@ export function CallsDashboard({
                 type="button"
                 onClick={handleClearCallFilters}
                 disabled={!hasAnyAppliedOrSelectedCallFilter}
-                className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Clear
               </button>
@@ -696,7 +696,7 @@ export function CallsDashboard({
           <>
             {trimmedSearch && !hasDirectMatch ? (
               <div className="border-b border-[#ECEBE5] bg-[#FFFEFB] px-4 py-2.5 sm:px-5">
-                <p className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
                   No exact match for <span className="font-semibold text-[#1B1C18]">"{trimmedSearch}"</span> — showing closest matches sorted by similarity.
                 </p>
               </div>
@@ -713,51 +713,38 @@ export function CallsDashboard({
                     className="grid gap-3 px-4 py-4 transition-colors hover:bg-[#FFFEFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7852D6] sm:px-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(130px,0.7fr)_minmax(150px,0.8fr)_auto] lg:items-center"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                         {call.contactName || "Unknown contact"}
                       </p>
-                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[13px] text-[#747878]">
-                        {call.phoneNumber || "No phone number"}
+                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                        {formatPhoneNumber(call.phoneNumber) || "No phone number"}
                         {call.campaignName ? ` · ${call.campaignName}` : ""}
                       </p>
-                      <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{formatDate(call.startedAt)}</p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatDate(call.startedAt)}</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
                       {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
                       {call.recordingUrl ? (
-                        <span
-                          className="inline-flex items-center gap-1 rounded-[5px] border border-[#E6E5DD] bg-white px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#525552]"
-                          title="Saved audio recording available to play"
-                        >
-                          <svg className="h-2.5 w-2.5 text-[#525552]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                            <path d="M2.5 6.5v3M5.5 4v8M8.5 5.5v5M11.5 3.5v9M14 6.5v3" />
-                          </svg>
-                          Audio saved
+                        <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#7852D6]" title="Call recording available">
+                          <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                          Recording
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {call.interestLevel ? (
-                        <span className="inline-flex items-center rounded-[5px] border border-[#ECEBE5] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize text-[#525552]">
-                          {call.interestLevel} interest
-                        </span>
-                      ) : null}
-                      {call.sentiment ? (
-                        <span className="inline-flex items-center rounded-[5px] border border-[#ECEBE5] bg-white px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize text-[#666A68]">
-                          {call.sentiment}
-                        </span>
-                      ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {call.interestLevel ? <Badge tone={interestTone}>{call.interestLevel} interest</Badge> : null}
+                      {call.sentiment ? <Badge tone={call.sentiment === "positive" ? "green" : call.sentiment === "negative" ? "red" : "neutral"}>{call.sentiment}</Badge> : null}
                     </div>
 
                     <div className="flex items-center justify-between gap-4 lg:justify-end">
                       <div className="text-left lg:text-right">
-                        <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
-                        <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
+                        <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
+                        <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
                       </div>
-                      <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6]">Details →</span>
+                      <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6]">Details →</span>
                     </div>
                   </Link>
                 );
@@ -771,20 +758,20 @@ export function CallsDashboard({
                 <path d="M6.5 3.5h3l1.5 4-2 1.8a15 15 0 0 0 5.7 5.7l1.8-2 4 1.5v3c0 1.1-.9 2-2 2A15.5 15.5 0 0 1 4.5 5.5c0-1.1.9-2 2-2Z" />
               </svg>
             </span>
-            <h3 className="mt-4 font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">{total === 0 ? "No calls recorded yet" : "No calls match these filters"}</h3>
-            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#85877F]">
+            <h3 className="mt-4 font-['Newsreader'] text-[25px] text-[#1B1C18]">{total === 0 ? "No calls recorded yet" : "No calls match these filters"}</h3>
+            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">
               {total === 0 ? "Completed calls will appear here with their outcomes, summaries and conversation details." : "Try changing your search, date range or filters."}
             </p>
             {total === 0 ? (
-              <p className="mt-3 font-['Space_Grotesk'] text-[12px] text-[#92938C]">Test calls and campaign calls are recorded here after completion.</p>
+              <p className="mt-3 font-['Space_Grotesk'] text-[10px] text-[#92938C]">Test calls and campaign calls are recorded here after completion.</p>
             ) : (
-              <Link href="/dashboard/calls" className="mt-4 rounded-[5px] border border-[#DCDDD6] px-4 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]">Clear filters</Link>
+              <Link href="/dashboard/calls" className="mt-4 rounded-[5px] border border-[#DCDDD6] px-4 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]">Clear filters</Link>
             )}
           </div>
         )}
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
-          <p className="font-['Space_Grotesk'] text-[12px] tabular-nums text-[#85877F]">
+          <p className="font-['Space_Grotesk'] text-[10px] tabular-nums text-[#85877F]">
             Showing {formatNumber(firstResult)}–{formatNumber(lastResult)} of {formatNumber(total)} calls
           </p>
           <div className="flex items-center gap-2">
@@ -792,16 +779,16 @@ export function CallsDashboard({
               aria-disabled={filters.offset <= 0}
               tabIndex={filters.offset <= 0 ? -1 : 0}
               href={filterHref(filters, { offset: Math.max(0, filters.offset - filters.limit) })}
-              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold ${filters.offset <= 0 ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
+              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${filters.offset <= 0 ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
             >
               Previous
             </Link>
-            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[12px] tabular-nums text-[#747878]">Page {currentPage} / {pageCount}</span>
+            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">Page {currentPage} / {pageCount}</span>
             <Link
               aria-disabled={filters.offset + filters.limit >= total}
               tabIndex={filters.offset + filters.limit >= total ? -1 : 0}
               href={filterHref(filters, { offset: filters.offset + filters.limit })}
-              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold ${filters.offset + filters.limit >= total ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
+              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${filters.offset + filters.limit >= total ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
             >
               Next
             </Link>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useDashboardProfile } from "@/components/dashboard/dashboard-shell";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 type AccountDetails = {
   id: string;
@@ -39,8 +40,8 @@ function dateLabel(value: string | null) {
 function Detail({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="min-w-0 border-b border-[#ECEBE4] py-4 last:border-b-0">
-      <p className="font-['Space_Grotesk'] text-[12px] font-semibold uppercase tracking-[0.09em] text-[#858782]">{label}</p>
-      <p className={`mt-1.5 break-words text-[14px] text-[#24251F] ${mono ? "font-mono text-[13px]" : "font-['Space_Grotesk']"}`}>{value || "Not provided"}</p>
+      <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.09em] text-[#858782]">{label}</p>
+      <p className={`mt-1.5 break-words text-[13px] text-[#24251F] ${mono ? "font-mono text-[11px]" : "font-['Space_Grotesk']"}`}>{value || "Not provided"}</p>
     </div>
   );
 }
@@ -49,8 +50,8 @@ function Section({ title, description, children }: { title: string; description:
   return (
     <section className="rounded-[9px] border border-[#E9E8E1] bg-white p-5 sm:p-6">
       <div className="mb-2">
-        <h2 className="font-['Newsreader'] text-[24px] leading-tight text-[#1B1C18]">{title}</h2>
-        <p className="mt-1 font-['Space_Grotesk'] text-[13px] leading-5 text-[#777A74]">{description}</p>
+        <h2 className="font-['Newsreader'] text-[22px] text-[#1B1C18]">{title}</h2>
+        <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#777A74]">{description}</p>
       </div>
       {children}
     </section>
@@ -83,17 +84,17 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-semibold uppercase tracking-[0.12em] text-[#858782]">Account</p>
-          <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-[1.12] tracking-[-0.7px] text-[#1B1C18] sm:text-[42px]">Your profile</h1>
-          <p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#777A74]">Your personal account details and the workspace you currently belong to.</p>
+          <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#858782]">Account</p>
+          <h1 className="mt-1 font-['Newsreader'] text-[32px] leading-tight text-[#1B1C18]">Your profile</h1>
+          <p className="mt-2 max-w-xl font-['Space_Grotesk'] text-[12px] leading-5 text-[#777A74]">Your personal account details and the workspace you currently belong to.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <Link href="/dashboard/settings" className="rounded-[5px] border border-[#DCDCD4] px-3.5 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#34352F] transition-colors hover:bg-[#F5F4ED]">Account settings</Link>
+          <Link href="/dashboard/settings" className="rounded-[5px] border border-[#DCDCD4] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#34352F] transition-colors hover:bg-[#F5F4ED]">Account settings</Link>
           <button
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="inline-flex items-center gap-2 rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FBE8E6] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FBE8E6] disabled:opacity-50"
           >
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
@@ -112,11 +113,11 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <div className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-[#1B1C18] font-['Space_Grotesk'] text-[19px] font-semibold text-white">{initials(displayName)}</div>
         )}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">{displayName}</h2>
-          <p className="mt-1 truncate font-['Space_Grotesk'] text-[14px] text-[#777A74]">{account.email}</p>
+          <h2 className="truncate font-['Newsreader'] text-[25px] text-[#1B1C18]">{displayName}</h2>
+          <p className="mt-1 truncate font-['Space_Grotesk'] text-[12px] text-[#777A74]">{account.email}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${emailVerified ? "bg-[#E7F2E8] text-[#31613B]" : "bg-[#F5EBDD] text-[#8B5B24]"}`}>{emailVerified ? "Email verified" : "Email verification disabled"}</span>
-            <span className="rounded-full bg-[#ECEBE4] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#55574F]">{account.provider} sign-in</span>
+            <span className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${emailVerified ? "bg-[#E7F2E8] text-[#31613B]" : "bg-[#F5EBDD] text-[#8B5B24]"}`}>{emailVerified ? "Email verified" : "Email verification disabled"}</span>
+            <span className="rounded-full bg-[#ECEBE4] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#55574F]">{account.provider} sign-in</span>
           </div>
         </div>
       </section>
@@ -125,7 +126,7 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
         <Section title="Personal information" description="Details associated with your sign-in account.">
           <Detail label="Full name" value={displayName} />
           <Detail label="Email address" value={account.email} />
-          <Detail label="Phone number" value={account.phone ?? "Not provided"} />
+          <Detail label="Phone number" value={formatPhoneNumber(account.phone) || "Not provided"} />
           <Detail label="Phone verification" value={account.phone ? (phoneVerified ? "Verified" : "Phone verification disabled") : "No phone number added"} />
         </Section>
 
@@ -147,11 +148,11 @@ export function ProfileDashboard({ account }: { account: AccountDetails }) {
           <Detail label="Email status" value={emailVerified ? "Verified" : "Not required for now"} />
           <Detail label="Phone status" value={!account.phone ? "No phone number on account" : phoneVerified ? "Verified" : "Not required for now"} />
           <div className="pt-4">
-            <Link href="/dashboard/settings" className="inline-flex rounded-[5px] bg-[#1B1C18] px-3.5 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F]">Manage account settings</Link>
+            <Link href="/dashboard/settings" className="inline-flex rounded-[5px] bg-[#1B1C18] px-3.5 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]">Manage account settings</Link>
           </div>
         </Section>
       </div>
-      <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#92948D]">Profile details are read from your authenticated account and workspace. Editing personal identity details is not enabled here yet.</p>
+      <p className="font-['Space_Grotesk'] text-[10px] leading-5 text-[#92948D]">Profile details are read from your authenticated account and workspace. Editing personal identity details is not enabled here yet.</p>
     </div>
   );
 }

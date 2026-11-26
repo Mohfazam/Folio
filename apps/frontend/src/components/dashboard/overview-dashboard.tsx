@@ -17,6 +17,7 @@ import {
 import { dashboardKeys } from "@/lib/query/keys";
 import { fetchDashboardApi, DashboardApiError } from "@/lib/query/fetcher";
 import { useDashboardUiStore } from "@/stores/dashboard-ui-store";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -438,10 +439,10 @@ function SectionError({
       className="flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-[#F0D8D4] bg-[#FFF9F8] px-4 py-3"
     >
       <div className="min-w-0">
-        <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#8D3028]">
+        <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#8D3028]">
           {title} could not be loaded
         </p>
-        <p className="mt-0.5 break-words font-['Space_Grotesk'] text-[13px] leading-5 text-[#8D5A55]">
+        <p className="mt-0.5 break-words font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D5A55]">
           {safeError}
         </p>
       </div>
@@ -449,7 +450,7 @@ function SectionError({
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] border border-[#E5C4BF] bg-white px-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8D3028] transition-colors hover:bg-[#FDF2F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] border border-[#E5C4BF] bg-white px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028] transition-colors hover:bg-[#FDF2F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
         >
           <Icon kind="refresh" className="h-3.5 w-3.5" />
           Retry
@@ -468,7 +469,7 @@ function ProgressRing({ complete, total }: { complete: number; total: number }) 
       role="img"
       aria-label={`${complete} of ${total} required setup steps complete (${percentage}%)`}
     >
-      <div className="absolute inset-[4px] flex items-center justify-center rounded-full bg-[#F8F7F2] font-['Space_Grotesk'] text-[13px] font-bold tracking-[0.04em] text-[#1B1C18]">
+      <div className="absolute inset-[4px] flex items-center justify-center rounded-full bg-[#F8F7F2] font-['Space_Grotesk'] text-[11px] font-bold tracking-[0.04em] text-[#1B1C18]">
         {complete}/{total}
       </div>
     </div>
@@ -552,11 +553,11 @@ function SetupChecklist({
                     ? "Finish setting up your workspace"
                     : "Get your workspace ready for outbound voice"}
                 </h2>
-                <span className="rounded-full bg-[#E7DEFF] px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]">
+                <span className="rounded-full bg-[#E7DEFF] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
                   {progressPercent}% required complete
                 </span>
               </div>
-              <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] text-[#565B5B]">
+              <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#565B5B]">
                 {mandatorySteps.length - completedMandatoryCount} required{" "}
                 {mandatorySteps.length - completedMandatoryCount === 1 ? "step" : "steps"} remaining
                 to launch outbound campaigns.
@@ -612,14 +613,14 @@ function SetupChecklist({
                       className="flex w-full flex-wrap items-center gap-2 rounded-[4px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                     >
                       <span
-                        className={`font-['Space_Grotesk'] text-[14.5px] font-semibold ${
+                        className={`font-['Space_Grotesk'] text-[14px] font-semibold ${
                           step.complete ? "text-[#565B5B]" : "text-[#1B1C18]"
                         }`}
                       >
                         {step.title}
                       </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold ${
+                        className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${
                           step.complete
                             ? "bg-[#EFF8F1] text-[#34734B]"
                             : step.disabled
@@ -637,14 +638,14 @@ function SetupChecklist({
 
                     {isExpanded ? (
                       <div className="mt-1.5 space-y-1">
-                        <p className="max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">
+                        <p className="max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
                           {step.description}
                         </p>
-                        <p className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                        <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
                           {step.disabled && step.disabledReason ? step.disabledReason : step.detail}
                         </p>
                         {step.actionKey === "test-call" && skipTestCallError ? (
-                          <p role="alert" className="font-['Space_Grotesk'] text-[13px] text-[#A33A32]">
+                          <p role="alert" className="font-['Space_Grotesk'] text-[11px] text-[#A33A32]">
                             {skipTestCallError}
                           </p>
                         ) : null}
@@ -658,7 +659,7 @@ function SetupChecklist({
                       onClick={() => onAction(step.actionKey)}
                       disabled={step.disabled}
                       title={step.disabled ? step.disabledReason : undefined}
-                      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] px-3 font-['Space_Grotesk'] text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#929493] ${
+                      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-[6px] px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:cursor-not-allowed disabled:bg-[#F1F0EB] disabled:text-[#929493] ${
                         step.recommended
                           ? "bg-[#1B1C18] text-white hover:bg-[#34352F]"
                           : "border border-[#DCDDD6] bg-white text-[#1B1C18] hover:bg-[#F5F4ED]"
@@ -672,7 +673,7 @@ function SetupChecklist({
                         type="button"
                         onClick={handleSkipTestCall}
                         disabled={skippingTestCall}
-                        className="inline-flex h-8 shrink-0 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[14px] font-medium text-[#565B5B] transition-colors hover:bg-[#F5F4ED] disabled:opacity-60"
+                        className="inline-flex h-8 shrink-0 items-center justify-center rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#565B5B] transition-colors hover:bg-[#F5F4ED] disabled:opacity-60"
                       >
                         {skippingTestCall ? "Skipping…" : "Skip"}
                       </button>
@@ -739,18 +740,18 @@ function ActionCenter({
     >
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
             ACTION CENTER
           </p>
           <h2
             id="action-center-heading"
-            className="mt-1 font-['Newsreader'] text-[24px] font-semibold leading-tight text-[#1B1C18]"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
           >
             Recommended next actions
           </h2>
         </div>
         {visibleItems.length > 0 ? (
-          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]">
+          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]">
             {visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}
           </span>
         ) : null}
@@ -780,10 +781,10 @@ function ActionCenter({
             <Icon kind="check" className="h-4 w-4" />
           </span>
           <div>
-            <p className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+            <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
               You&apos;re all caught up.
             </p>
-            <p className="font-['Space_Grotesk'] text-[13px] text-[#666A68]">
+            <p className="font-['Space_Grotesk'] text-[11px] text-[#666A68]">
               No urgent configuration gaps, credit warnings, or unlaunched drafts require attention.
             </p>
           </div>
@@ -805,16 +806,16 @@ function ActionCenter({
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+                      <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                         {item.title}
                       </p>
                       <span
-                        className={`rounded-full border px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold leading-none ${tone.badge}`}
+                        className={`rounded-full border px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold leading-none ${tone.badge}`}
                       >
                         {tone.label}
                       </span>
                     </div>
-                    <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">
+                    <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
                       {item.description}
                     </p>
                   </div>
@@ -822,7 +823,7 @@ function ActionCenter({
                 <button
                   type="button"
                   onClick={item.onTrigger}
-                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 self-start rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition-colors hover:border-[#C5C6BE] hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:self-center"
+                  className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 self-start rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:border-[#C5C6BE] hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:self-center"
                 >
                   <span>{item.ctaLabel}</span>
                   <Icon kind="arrow" className="h-3 w-3" />
@@ -857,7 +858,7 @@ function MetricCard({
       className="group flex min-h-[126px] flex-col justify-between rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F4] p-4 shadow-[0_1px_2px_rgba(27,28,24,0.03)] transition-all hover:border-[#D3D1C7] hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] sm:p-5"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-['Space_Grotesk'] text-[14px] font-medium text-[#444748] sm:text-[14px]">
+        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] sm:text-[13px]">
           {label}
         </span>
         <span className="flex h-7 w-7 items-center justify-center rounded-[6px] bg-white text-[#565B5B] shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors group-hover:text-[#644ABB]">
@@ -867,16 +868,16 @@ function MetricCard({
 
       <div className="mt-3">
         <div className="flex items-baseline gap-2">
-          <p className="font-['Newsreader'] text-[32px] leading-none tracking-[-0.4px] text-[#1B1C18]">
+          <p className="font-['Newsreader'] text-[30px] leading-none tracking-[-0.4px] text-[#1B1C18]">
             {value}
           </p>
           {badge ? (
-            <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]">
+            <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
               {badge}
             </span>
           ) : null}
         </div>
-        <p className="mt-1.5 flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
+        <p className="mt-1.5 flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
           <span className="truncate">{subtext}</span>
           <span className="shrink-0 text-[#747878] opacity-0 transition-opacity group-hover:opacity-100">
             View →
@@ -929,23 +930,23 @@ function PerformanceAnalytics({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
             PERFORMANCE ANALYTICS
           </p>
           <h2
             id="performance-analytics-heading"
-            className="mt-1 font-['Newsreader'] text-[24px] font-semibold leading-tight text-[#1B1C18]"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
           >
             Call activity & outcomes
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#565B5B]">
+          <span className="rounded-full bg-[#F5F4ED] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#565B5B]">
             Avg talk: {totalCalls > 0 ? formatDuration(avgDuration) : "—"}
           </span>
           <Link
             href="/dashboard/analytics"
-            className="rounded font-['Space_Grotesk'] text-[14px] font-semibold text-[#644ABB] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="rounded font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Full analytics →
           </Link>
@@ -957,10 +958,10 @@ function PerformanceAnalytics({
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EFEAFB] text-[#644ABB]">
             <Icon kind="activity" className="h-5 w-5" />
           </span>
-          <p className="mt-3 font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
             Performance insights will appear after your first calls
           </p>
-          <p className="mt-1 max-w-[360px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#666A68]">
+          <p className="mt-1 max-w-[360px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
             No calls were recorded during {timeframeLabel.toLowerCase()}. Place a test call or launch
             a campaign to populate daily trends and outcome breakdowns.
           </p>
@@ -968,7 +969,7 @@ function PerformanceAnalytics({
             <button
               type="button"
               onClick={onPlaceTestCall}
-              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+              className="mt-4 inline-flex h-8 items-center gap-1.5 rounded-[6px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
             >
               Make a test call
               <Icon kind="arrow" className="h-3 w-3" />
@@ -979,16 +980,16 @@ function PerformanceAnalytics({
         <div className="mt-5 grid grid-cols-1 gap-6 xl:grid-cols-[1.45fr_1fr]">
           <div className="flex flex-col justify-between rounded-[10px] border border-[#ECEBE5] bg-[#FCFBF8] p-4">
             <div className="flex items-center justify-between gap-2">
-              <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
                 Daily call volume
               </p>
               {activePoint ? (
-                <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#644ABB]">
+                <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">
                   {String(activePoint.date ?? "")}: {recordNumber(activePoint, "totalCalls") ?? 0}{" "}
                   total · {recordNumber(activePoint, "connectedCalls") ?? 0} connected
                 </p>
               ) : (
-                <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[12px] text-[#666A68]">
+                <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[10px] text-[#666A68]">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-xs bg-[#DFD6F7]" />
                     Total
@@ -1002,7 +1003,7 @@ function PerformanceAnalytics({
             </div>
 
             {trendSlice.length === 0 ? (
-              <div className="flex h-40 items-center justify-center font-['Space_Grotesk'] text-[14px] text-[#747878]">
+              <div className="flex h-40 items-center justify-center font-['Space_Grotesk'] text-[12px] text-[#747878]">
                 No daily trend points in this range.
               </div>
             ) : (
@@ -1046,7 +1047,7 @@ function PerformanceAnalytics({
                           style={{ height: `${connectedRatioPct}%` }}
                         />
                       </div>
-                      <span className="mt-1.5 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                      <span className="mt-1.5 truncate font-['Space_Grotesk'] text-[9px] text-[#747878]">
                         {trendSlice.length <= 7 || idx % 2 === 0 ? shortDay : ""}
                       </span>
                     </button>
@@ -1058,10 +1059,10 @@ function PerformanceAnalytics({
 
           <div className="flex flex-col justify-between rounded-[10px] border border-[#ECEBE5] bg-[#FCFBF8] p-4">
             <div>
-              <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
                 Outcome breakdown
               </p>
-              <p className="mt-0.5 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
+              <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
                 Distribution across {formatNumber(totalCalls)} calls
               </p>
             </div>
@@ -1071,7 +1072,7 @@ function PerformanceAnalytics({
                 const pct = totalCalls > 0 ? Math.round((row.count / totalCalls) * 100) : 0;
                 return (
                   <div key={row.label}>
-                    <div className="flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[13px]">
+                    <div className="flex items-center justify-between gap-2 font-['Space_Grotesk'] text-[11px]">
                       <span className="text-[#444748]">{row.label}</span>
                       <span className="font-semibold tabular-nums text-[#1B1C18]">
                         {formatNumber(row.count)}{" "}
@@ -1146,19 +1147,19 @@ function QuotaPanel({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
             VOICE CREDITS & USAGE
           </p>
           <h2
             id="quota-heading"
-            className="mt-1 font-['Newsreader'] text-[24px] font-semibold leading-tight text-[#1B1C18]"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
           >
             Voice capacity
           </h2>
         </div>
         {statusTone ? (
           <span
-            className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${statusTone.badge}`}
+            className={`rounded-full px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${statusTone.badge}`}
           >
             {statusTone.label}
           </span>
@@ -1170,41 +1171,41 @@ function QuotaPanel({
           <p className="font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
             {formatNumber(remaining)}
           </p>
-          <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
+          <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
             {isTrial
               ? `credits remaining of ${formatNumber(allowance)} trial allowance`
               : `credits remaining of ${formatNumber(allowance)} monthly allowance`}
           </p>
         </div>
-        <span className="font-['Space_Grotesk'] text-[14px] font-semibold tabular-nums text-[#444748]">
+        <span className="font-['Space_Grotesk'] text-[12px] font-semibold tabular-nums text-[#444748]">
           {usedPercent}% used
         </span>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-2.5 rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] p-3 font-['Space_Grotesk']">
         <div>
-          <dt className="text-[12px] font-medium text-[#747878]">Consumed</dt>
-          <dd className="mt-0.5 text-[14px] font-semibold tabular-nums text-[#1B1C18]">
+          <dt className="text-[10px] font-medium text-[#747878]">Consumed</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
             {formatNumber(used)} credits
           </dd>
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-[#747878]">Reserved in queue</dt>
-          <dd className="mt-0.5 text-[14px] font-semibold tabular-nums text-[#1B1C18]">
+          <dt className="text-[10px] font-medium text-[#747878]">Reserved in queue</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
             {formatNumber(reserved)} credits
           </dd>
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-[#747878]">Daily call capacity</dt>
-          <dd className="mt-0.5 text-[14px] font-semibold tabular-nums text-[#1B1C18]">
+          <dt className="text-[10px] font-medium text-[#747878]">Daily call capacity</dt>
+          <dd className="mt-0.5 text-[12px] font-semibold tabular-nums text-[#1B1C18]">
             {formatNumber(callsRemainingToday)} / {formatNumber(maxCallsPerDay)} left
           </dd>
         </div>
         <div>
-          <dt className="text-[12px] font-medium text-[#747878]">
+          <dt className="text-[10px] font-medium text-[#747878]">
             {isTrial ? "Trial period" : "Cycle reset"}
           </dt>
-          <dd className="mt-0.5 truncate text-[14px] font-semibold text-[#1B1C18]">
+          <dd className="mt-0.5 truncate text-[12px] font-semibold text-[#1B1C18]">
             {isTrial
               ? trialEndsAt
                 ? `Ends ${formatShortDate(trialEndsAt, timezone)}`
@@ -1219,7 +1220,7 @@ function QuotaPanel({
       <div className="mt-3.5 flex items-center justify-between gap-2">
         <Link
           href="/dashboard/analytics"
-          className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#565B5B] hover:text-[#1B1C18] hover:underline"
+          className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#565B5B] hover:text-[#1B1C18] hover:underline"
         >
           View usage breakdown
         </Link>
@@ -1227,7 +1228,7 @@ function QuotaPanel({
           <button
             type="button"
             onClick={onUpgrade}
-            className="inline-flex h-7 items-center rounded-[6px] bg-[#644ABB] px-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#523AA3]"
+            className="inline-flex h-7 items-center rounded-[6px] bg-[#644ABB] px-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3]"
           >
             Add credits
           </button>
@@ -1344,12 +1345,12 @@ function WorkspaceHealth({
       aria-labelledby="workspace-health-heading"
     >
       <div>
-        <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+        <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
           OPERATIONAL READINESS
         </p>
         <h2
           id="workspace-health-heading"
-          className="mt-1 font-['Newsreader'] text-[24px] font-semibold leading-tight text-[#1B1C18]"
+          className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
         >
           Workspace health
         </h2>
@@ -1365,15 +1366,15 @@ function WorkspaceHealth({
             const inner = (
               <>
                 <div className="min-w-0">
-                  <p className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] group-hover:text-[#644ABB]">
+                  <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] group-hover:text-[#644ABB]">
                     {row.label}
                   </p>
-                  <p className="truncate font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                  <p className="truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
                     {row.meta}
                   </p>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold ${HEALTH_TONE_CLASSES[row.tone]}`}
+                  className={`shrink-0 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${HEALTH_TONE_CLASSES[row.tone]}`}
                 >
                   {row.statusLabel}
                 </span>
@@ -1438,19 +1439,19 @@ function RecentCalls({
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-5 py-4">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]">
             RECENT ACTIVITY
           </p>
           <h2
             id="recent-calls-heading"
-            className="mt-1 font-['Newsreader'] text-[24px] font-semibold leading-tight text-[#1B1C18]"
+            className="mt-1 font-['Newsreader'] text-[21px] font-semibold leading-tight text-[#1B1C18]"
           >
             Recent calls
           </h2>
         </div>
         <Link
           href="/dashboard/calls"
-          className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+          className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
         >
           View all calls
           <Icon kind="arrow" className="h-3 w-3" />
@@ -1462,10 +1463,10 @@ function RecentCalls({
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EFEAFB] text-[#644ABB]">
             <Icon kind="calls" className="h-5 w-5" />
           </span>
-          <p className="mt-3 font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+          <p className="mt-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
             No calls yet.
           </p>
-          <p className="mt-1 max-w-[340px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#666A68]">
+          <p className="mt-1 max-w-[340px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
             Your call activity will appear here once your AI agent starts making calls.
           </p>
           <button
@@ -1473,7 +1474,7 @@ function RecentCalls({
             onClick={onPlaceTestCall}
             disabled={!canPlaceTestCall}
             title={!canPlaceTestCall ? "Set up your AI agent and import contacts first." : undefined}
-            className="mt-4 inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:bg-[#E9E8E1] disabled:text-[#929493]"
+            className="mt-4 inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:bg-[#E9E8E1] disabled:text-[#929493]"
           >
             Place a test call
             <Icon kind="arrow" className="h-3 w-3" />
@@ -1490,7 +1491,8 @@ function RecentCalls({
               tone: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
             };
             const contactName = recordText(call, "contactName");
-            const phoneNumber = recordText(call, "phoneNumber");
+            const rawPhoneNumber = recordText(call, "phoneNumber");
+            const phoneNumber = rawPhoneNumber ? formatPhoneNumber(rawPhoneNumber) : null;
             const primaryLabel = contactName ?? phoneNumber ?? "Unknown contact";
             const summary = recordText(call, "summary");
             const interestLevel = recordText(call, "interestLevel");
@@ -1509,21 +1511,21 @@ function RecentCalls({
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
+                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                         {primaryLabel}
                       </p>
                       {contactName && phoneNumber ? (
-                        <span className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                        <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
                           {phoneNumber}
                         </span>
                       ) : null}
                       {interestLevel === "high" ? (
-                        <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB]">
+                        <span className="rounded-full bg-[#EFEAFB] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB]">
                           High intent
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-0.5 line-clamp-1 font-['Space_Grotesk'] text-[14px] text-[#565B5B]">
+                    <p className="mt-0.5 line-clamp-1 font-['Space_Grotesk'] text-[12px] text-[#565B5B]">
                       {summary ?? "No conversation summary recorded for this call."}
                     </p>
                   </div>
@@ -1531,11 +1533,11 @@ function RecentCalls({
 
                 <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:gap-1">
                   <span
-                    className={`rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold capitalize ${outcomeInfo.tone}`}
+                    className={`rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold capitalize ${outcomeInfo.tone}`}
                   >
                     {outcomeInfo.label}
                   </span>
-                  <span className="font-['Space_Grotesk'] text-[13px] tabular-nums text-[#747878]">
+                  <span className="font-['Space_Grotesk'] text-[11px] tabular-nums text-[#747878]">
                     {duration} · {startedAt}
                   </span>
                 </div>
@@ -1936,7 +1938,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
               </h1>
 
               {/* Workspace name */}
-              <div className="mt-2 flex flex-wrap items-center gap-2.5 font-['Space_Grotesk'] text-[14px] text-[#747878]">
+              <div className="mt-2 flex flex-wrap items-center gap-2.5 font-['Space_Grotesk'] text-[13px] text-[#747878]">
                 <span className="font-medium text-[#1B1C18]">{profile.workspaceName}</span>
               </div>
             </div>
@@ -1951,7 +1953,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
               id="overview-timeframe-select"
               value={timeframe}
               onChange={(event) => setTimeframe(event.target.value as OverviewTimeframe)}
-              className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#C5C6BE] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
+              className="h-9 rounded-[6px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#C5C6BE] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15"
             >
               {TIMEFRAME_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -1963,7 +1965,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
             <button
               type="button"
               onClick={headerPrimaryAction.onClick}
-              className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+              className="inline-flex h-9 items-center gap-2 rounded-[6px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
             >
               <span>{headerPrimaryAction.label}</span>
               <Icon kind="arrow" className="h-3.5 w-3.5" />
@@ -1978,7 +1980,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E1F3E6] text-[#25633A]">
               <Icon kind="check" className="h-3.5 w-3.5" />
             </span>
-            <p className="truncate font-['Space_Grotesk'] text-[14px] text-[#214D30]">
+            <p className="truncate font-['Space_Grotesk'] text-[12px] text-[#214D30]">
               <span className="font-semibold">Workspace setup complete.</span> Your command center
               is now tracking live operations.
             </p>
@@ -1986,7 +1988,7 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           <button
             type="button"
             onClick={markCompletionBannerDone}
-            className="shrink-0 font-['Space_Grotesk'] text-[13px] font-semibold text-[#25633A] hover:underline"
+            className="shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#25633A] hover:underline"
           >
             Dismiss
           </button>
@@ -1997,11 +1999,11 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2
             id="metrics-heading"
-            className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]"
+            className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#747878]"
           >
             KEY PERFORMANCE METRICS
           </h2>
-          <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
+          <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
             {timeframeLabel}
           </span>
         </div>
