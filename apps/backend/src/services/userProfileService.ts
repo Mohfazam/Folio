@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { users, clients } from "@repo/db";
+import { users, clients, auditLog } from "@repo/db";
 import type { UserProfileData, UserPreferences } from "../types/userProfile.js";
 
 export async function getUserProfileService(userId: string): Promise<{
@@ -227,4 +227,25 @@ export async function updateWorkspaceNonVerifiedService(
     .limit(1);
 
   return updated ? (updated as unknown as Record<string, unknown>) : null;
+}
+
+export async function recordUserAuditLog(
+  userId: string,
+  clientId: string | null,
+  action: string,
+  metadata: Record<string, unknown> = {}
+): Promise<void> {
+  try {
+    await db.insert(auditLog).values({
+      userId,
+      clientId: clientId || null,
+      action,
+      metadata: {
+        ...metadata,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error("[UserProfileService] Failed to record audit log:", err);
+  }
 }
