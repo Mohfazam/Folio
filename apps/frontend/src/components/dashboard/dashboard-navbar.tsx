@@ -25,7 +25,7 @@ export function DashboardNavbar({ rightSlot }: { rightSlot?: React.ReactNode }) 
             href="/support"
             className="whitespace-nowrap font-['Space_Grotesk'] text-[12.5px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
           >
-            Support
+            Help &amp; Support
           </Link>
         </nav>
       </div>
