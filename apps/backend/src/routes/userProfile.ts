@@ -269,3 +269,35 @@ export async function updateWorkspaceDetailsRoute(req: Request, res: Response): 
     res.status(500).json({ ok: false, error: "Failed to update workspace details" });
   }
 }
+
+/**
+ * GET /api/user/export
+ * Exports all user-associated profile and preference data in JSON format for GDPR/data transparency.
+ */
+export async function exportUserProfileDataRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Unauthorized" });
+      return;
+    }
+
+    const data = await getUserProfileService(userId);
+    if (!data) {
+      res.status(404).json({ ok: false, error: "User profile not found" });
+      return;
+    }
+
+    await recordUserAuditLog(userId, req.clientId || null, "user.data.exported");
+
+    res.status(200).json({
+      ok: true,
+      exportedAt: new Date().toISOString(),
+      profile: sanitizeUserProfileResponse(data.user),
+      preferences: data.preferences
+    });
+  } catch (error) {
+    console.error("[UserProfileRoute] Error exporting user profile data:", error);
+    res.status(500).json({ ok: false, error: "Failed to export user profile data" });
+  }
+}
