@@ -205,7 +205,7 @@ function Badge({
   };
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${tones[tone]}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${tones[tone]}`}>
       {children}
     </span>
   );
@@ -222,9 +222,9 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB] px-4 py-4 sm:px-5">
-      <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">{label}</p>
+      <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#5C5F5C]">{label}</p>
       <p className="mt-2 font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">{value}</p>
-      <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{detail}</p>
+      <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{detail}</p>
     </div>
   );
 }
@@ -515,14 +515,14 @@ export function CallsDashboard({
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Calls
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#5C5F5C]">
             Review call outcomes, conversation summaries, recordings and AI-generated insights.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/testing"
-            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Place test call →
           </Link>
@@ -545,7 +545,7 @@ export function CallsDashboard({
           <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">
             Calls could not be loaded: {initialError}
           </p>
-          <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028]">
+          <Link href="/dashboard/calls" className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8D3028]">
             Try again
           </Link>
         </div>
@@ -556,7 +556,7 @@ export function CallsDashboard({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3 sm:px-5">
             <div>
               <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Live call activity</h2>
-              <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">Updates automatically while calls are queued or in progress.</p>
+              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#666A68]">Updates automatically while calls are queued or in progress.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone="purple">{formatNumber(liveStatus.pendingCount)} pending</Badge>
@@ -564,18 +564,18 @@ export function CallsDashboard({
             </div>
           </div>
           {liveStatusError ? (
-            <p className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
+            <p className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#8A6826]">Live status could not refresh. Retrying automatically.</p>
           ) : null}
           {queueActionError ? (
-            <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#A33A32]">{queueActionError}</p>
+            <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#A33A32]">{queueActionError}</p>
           ) : null}
           {liveStatus.entries.length > 0 ? (
             <div className="divide-y divide-[#F0EFE9]">
               {liveStatus.entries.slice(0, 8).map((entry) => (
                 <div key={entry.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
                   <div className="min-w-0">
-                    <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">{entry.contactName || entry.phoneNumber || "Unknown recipient"}</p>
-                    <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[10px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}</p>
+                    <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{entry.contactName || entry.phoneNumber || "Unknown recipient"}</p>
+                    <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[12px] text-[#92938C]">{entry.campaignName || "Direct call"}{entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={entry.status === "in_progress" ? "green" : "amber"}>{entry.status === "in_progress" ? "Calling now" : "Queued"}</Badge>
@@ -584,7 +584,7 @@ export function CallsDashboard({
                         type="button"
                         onClick={() => void handleCancelQueuedCall(entry)}
                         disabled={cancellingQueueId !== null}
-                        className="rounded-[5px] border border-[#E7C9C5] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-[5px] border border-[#E7C9C5] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {cancellingQueueId === entry.id ? "Cancelling…" : "Cancel"}
                       </button>
@@ -608,14 +608,14 @@ export function CallsDashboard({
         <div className="border-b border-[#ECEBE5] p-4 sm:p-5">
           <div className="mb-4">
             <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Call history</h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#85877F]">
+            <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
               Search and filter calls recorded in this workspace.
             </p>
           </div>
 
           <form onSubmit={handleApplyCallFilters} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             <label className="sm:col-span-2 xl:col-span-2">
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SEARCH</span>
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">SEARCH</span>
               <input
                 type="search"
                 name="search"
@@ -628,8 +628,8 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">OUTCOME</span>
-              <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">OUTCOME</span>
+              <select name="outcome" value={outcomeInput} onChange={(event) => setOutcomeInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All outcomes</option>
                 <option value="connected">Connected</option>
                 <option value="no_answer">No answer</option>
@@ -641,8 +641,8 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">SENTIMENT</span>
-              <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">SENTIMENT</span>
+              <select name="sentiment" value={sentimentInput} onChange={(event) => setSentimentInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All sentiments</option>
                 <option value="positive">Positive</option>
                 <option value="neutral">Neutral</option>
@@ -651,8 +651,8 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">INTEREST</span>
-              <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">INTEREST</span>
+              <select name="interestLevel" value={interestInput} onChange={(event) => setInterestInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]">
                 <option value="">All levels</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
@@ -662,20 +662,20 @@ export function CallsDashboard({
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">FROM</span>
-              <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">FROM</span>
+              <input type="date" name="startDate" value={startDateInput} onChange={(event) => setStartDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <label>
-              <span className="mb-1.5 block font-['Space_Grotesk'] text-[10px] font-semibold text-[#747878]">TO</span>
-              <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
+              <span className="mb-1.5 block font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5F5C]">TO</span>
+              <input type="date" name="endDate" value={endDateInput} min={startDateInput || undefined} onChange={(event) => setEndDateInput(event.target.value)} className="h-10 w-full rounded-[5px] border border-[#E5E4DC] bg-[#FFFEFB] px-2 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none focus:border-[#7852D6]" />
             </label>
 
             <div className="flex items-end gap-2 sm:col-span-2 xl:col-span-6">
               <button
                 type="submit"
                 disabled={!canApplyCallFilter}
-                className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
+                className="h-10 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Apply filters
               </button>
@@ -683,7 +683,7 @@ export function CallsDashboard({
                 type="button"
                 onClick={handleClearCallFilters}
                 disabled={!hasAnyAppliedOrSelectedCallFilter}
-                className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Clear
               </button>
@@ -695,7 +695,7 @@ export function CallsDashboard({
           <>
             {trimmedSearch && !hasDirectMatch ? (
               <div className="border-b border-[#ECEBE5] bg-[#FFFEFB] px-4 py-2.5 sm:px-5">
-                <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                <p className="font-['Space_Grotesk'] text-[13px] text-[#5C5F5C]">
                   No exact match for <span className="font-semibold text-[#1B1C18]">"{trimmedSearch}"</span> — showing closest matches sorted by similarity.
                 </p>
               </div>
@@ -715,18 +715,18 @@ export function CallsDashboard({
                       <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                         {call.contactName || "Unknown contact"}
                       </p>
-                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[13px] text-[#5C5F5C]">
                         {call.phoneNumber || "No phone number"}
                         {call.campaignName ? ` · ${call.campaignName}` : ""}
                       </p>
-                      <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatDate(call.startedAt)}</p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{formatDate(call.startedAt)}</p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
                       {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
                       {call.recordingUrl ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#7852D6]" title="Call recording available">
+                        <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#7852D6]" title="Call recording available">
                           <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
                           Recording
                         </span>
@@ -741,9 +741,9 @@ export function CallsDashboard({
                     <div className="flex items-center justify-between gap-4 lg:justify-end">
                       <div className="text-left lg:text-right">
                         <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
-                        <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
+                        <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
                       </div>
-                      <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6]">Details →</span>
+                      <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6]">Details →</span>
                     </div>
                   </Link>
                 );
@@ -758,19 +758,19 @@ export function CallsDashboard({
               </svg>
             </span>
             <h3 className="mt-4 font-['Newsreader'] text-[25px] text-[#1B1C18]">{total === 0 ? "No calls recorded yet" : "No calls match these filters"}</h3>
-            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">
+            <p className="mt-2 max-w-[390px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#666A68]">
               {total === 0 ? "Completed calls will appear here with their outcomes, summaries and conversation details." : "Try changing your search, date range or filters."}
             </p>
             {total === 0 ? (
-              <p className="mt-3 font-['Space_Grotesk'] text-[10px] text-[#92938C]">Test calls and campaign calls are recorded here after completion.</p>
+              <p className="mt-3 font-['Space_Grotesk'] text-[12px] text-[#92938C]">Test calls and campaign calls are recorded here after completion.</p>
             ) : (
-              <Link href="/dashboard/calls" className="mt-4 rounded-[5px] border border-[#DCDDD6] px-4 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]">Clear filters</Link>
+              <Link href="/dashboard/calls" className="mt-4 rounded-[5px] border border-[#DCDDD6] px-4 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]">Clear filters</Link>
             )}
           </div>
         )}
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
-          <p className="font-['Space_Grotesk'] text-[10px] tabular-nums text-[#85877F]">
+          <p className="font-['Space_Grotesk'] text-[12px] tabular-nums text-[#666A68]">
             Showing {formatNumber(firstResult)}–{formatNumber(lastResult)} of {formatNumber(total)} calls
           </p>
           <div className="flex items-center gap-2">
@@ -778,16 +778,16 @@ export function CallsDashboard({
               aria-disabled={filters.offset <= 0}
               tabIndex={filters.offset <= 0 ? -1 : 0}
               href={filterHref(filters, { offset: Math.max(0, filters.offset - filters.limit) })}
-              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${filters.offset <= 0 ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
+              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold ${filters.offset <= 0 ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
             >
               Previous
             </Link>
-            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">Page {currentPage} / {pageCount}</span>
+            <span className="min-w-[70px] text-center font-['Space_Grotesk'] text-[12px] tabular-nums text-[#5C5F5C]">Page {currentPage} / {pageCount}</span>
             <Link
               aria-disabled={filters.offset + filters.limit >= total}
               tabIndex={filters.offset + filters.limit >= total ? -1 : 0}
               href={filterHref(filters, { offset: filters.offset + filters.limit })}
-              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold ${filters.offset + filters.limit >= total ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
+              className={`rounded-[5px] border px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold ${filters.offset + filters.limit >= total ? "pointer-events-none border-[#ECEBE5] text-[#B7B8B2]" : "border-[#DCDDD6] text-[#444748] hover:bg-[#F7F6F1]"}`}
             >
               Next
             </Link>
