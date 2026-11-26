@@ -1351,8 +1351,9 @@ function CampaignDetailView({
   const connectionRate =
     totalCalls > 0 ? `${((connectedCalls / totalCalls) * 100).toFixed(0)}%` : "0%";
   const progress = computeExecutionProgress(campaign);
+  const effectiveStatus = getEffectiveCampaignStatus(campaign);
   const displayName = cleanDisplayTitle(campaign.name);
-  const canEdit = campaign.status !== "completed";
+  const canEdit = effectiveStatus !== "completed";
 
   useEffect(() => {
     if (!canEdit && activeTab === "edit") {
@@ -1403,7 +1404,7 @@ function CampaignDetailView({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <StatusBadge status={campaign.status} />
+              <StatusBadge status={effectiveStatus} />
               <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
                 {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
               </span>
@@ -1428,8 +1429,8 @@ function CampaignDetailView({
             className="flex shrink-0 items-center gap-2"
             onClick={(event) => event.stopPropagation()}
           >
-            {campaign.status === "draft" ||
-            !["active", "paused", "completed"].includes(campaign.status.toLowerCase()) ? (
+            {effectiveStatus === "draft" ||
+            !["active", "paused", "completed"].includes(effectiveStatus) ? (
               <button
                 type="button"
                 onClick={() => onLaunch(campaign)}
@@ -1438,7 +1439,7 @@ function CampaignDetailView({
                 <Icon kind="rocket" className="h-3.5 w-3.5" />
                 Launch
               </button>
-            ) : campaign.status === "paused" ? (
+            ) : effectiveStatus === "paused" ? (
               <button
                 type="button"
                 disabled={statusBusy}
@@ -1448,7 +1449,7 @@ function CampaignDetailView({
                 <Icon kind="play" className="h-3.5 w-3.5" />
                 {statusBusy ? "Resuming…" : "Resume"}
               </button>
-            ) : campaign.status === "active" ? (
+            ) : effectiveStatus === "active" ? (
               <button
                 type="button"
                 disabled={statusBusy}
@@ -1828,6 +1829,16 @@ type LiveCampaignSnapshot = {
   stats: CampaignStats;
 };
 
+function getEffectiveCampaignStatus(campaign: Campaign): string {
+  const normalized = campaign.status.toLowerCase();
+  if (normalized === "completed") return "completed";
+  const progress = computeExecutionProgress(campaign);
+  if (progress.hasQueueData && progress.percent >= 100) {
+    return "completed";
+  }
+  return normalized || "draft";
+}
+
 function computeExecutionProgress(campaign: Campaign): {
   percent: number;
   label: string;
@@ -1923,7 +1934,7 @@ export function CampaignsDashboard({
       });
   }, [initialCampaigns, optimisticCreated, liveCampaigns, optimisticPatches, deletedIds]);
 
-  const hasActiveCampaigns = campaigns.some((campaign) => campaign.status === "active");
+  const hasActiveCampaigns = campaigns.some((campaign) => getEffectiveCampaignStatus(campaign) === "active");
 
   useEffect(() => {
     if (!hasActiveCampaigns) return;
@@ -2053,9 +2064,20 @@ export function CampaignsDashboard({
     return () => window.clearTimeout(handle);
   }, [queryInput]);
 
+  const filterPopoverContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!openMenuId && !filterPopoverOpen) return;
-    const handleDocClick = () => {
+    const handleOutsidePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        filterPopoverOpen &&
+        filterPopoverContainerRef.current &&
+        target &&
+        filterPopoverContainerRef.current.contains(target)
+      ) {
+        return;
+      }
       setOpenMenuId(null);
       setFilterPopoverOpen(false);
     };
@@ -2065,10 +2087,10 @@ export function CampaignsDashboard({
         setFilterPopoverOpen(false);
       }
     };
-    document.addEventListener("click", handleDocClick);
+    document.addEventListener("mousedown", handleOutsidePointerDown);
     document.addEventListener("keydown", handleEsc);
     return () => {
-      document.removeEventListener("click", handleDocClick);
+      document.removeEventListener("mousedown", handleOutsidePointerDown);
       document.removeEventListener("keydown", handleEsc);
     };
   }, [openMenuId, filterPopoverOpen]);
@@ -2413,7 +2435,7 @@ export function CampaignsDashboard({
       completed: 0,
     };
     for (const c of campaigns) {
-      const s = c.status.toLowerCase();
+      const s = getEffectiveCampaignStatus(c);
       if (s === "draft" || s === "active" || s === "paused" || s === "completed") {
         counts[s] += 1;
       }
@@ -2424,7 +2446,7 @@ export function CampaignsDashboard({
   const filteredCampaigns = useMemo(() => {
     const normalizedQuery = debouncedQuery.trim().toLowerCase();
     const list = campaigns.filter((campaign) => {
-      const normalizedStatus = campaign.status.toLowerCase();
+      const normalizedStatus = getEffectiveCampaignStatus(campaign);
       const matchesStatus =
         statusFilter === "all" ||
         normalizedStatus === statusFilter ||
@@ -3192,7 +3214,7 @@ export function CampaignsDashboard({
               ) : null}
             </label>
 
-            <div className="relative" onClick={(event) => event.stopPropagation()}>
+            <div ref={filterPopoverContainerRef} className="relative" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
               <button
                 type="button"
                 aria-expanded={filterPopoverOpen}
@@ -3349,6 +3371,7 @@ export function CampaignsDashboard({
               const connected = stats.connectedCalls ?? 0;
               const highIntent = stats.highInterestCalls ?? 0;
               const progress = computeExecutionProgress(campaign);
+              const effectiveStatus = getEffectiveCampaignStatus(campaign);
               const menuOpen = openMenuId === campaign.id;
               const isRowStatusBusy = Boolean(statusBusyIds[campaign.id]);
               const displayName = cleanDisplayTitle(campaign.name);
@@ -3367,7 +3390,7 @@ export function CampaignsDashboard({
                         <h3 className="truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] transition-colors group-hover:text-[#644ABB]">
                           {displayName}
                         </h3>
-                        <StatusBadge status={campaign.status} />
+                        <StatusBadge status={effectiveStatus} />
                         <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
                           {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
                         </span>
@@ -3421,8 +3444,8 @@ export function CampaignsDashboard({
                       className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      {campaign.status === "draft" ||
-                      !["active", "paused", "completed"].includes(campaign.status.toLowerCase()) ? (
+                      {effectiveStatus === "draft" ||
+                      !["active", "paused", "completed"].includes(effectiveStatus) ? (
                         <button
                           type="button"
                           onClick={() => openLaunch(campaign)}
@@ -3431,7 +3454,7 @@ export function CampaignsDashboard({
                           <Icon kind="rocket" className="h-3.5 w-3.5" />
                           Launch
                         </button>
-                      ) : campaign.status === "paused" ? (
+                      ) : effectiveStatus === "paused" ? (
                         <button
                           type="button"
                           disabled={isRowStatusBusy}
@@ -3441,7 +3464,7 @@ export function CampaignsDashboard({
                           <Icon kind="play" className="h-3.5 w-3.5" />
                           {isRowStatusBusy ? "Resuming…" : "Resume"}
                         </button>
-                      ) : campaign.status === "active" ? (
+                      ) : effectiveStatus === "active" ? (
                         <button
                           type="button"
                           disabled={isRowStatusBusy}
@@ -3500,7 +3523,7 @@ export function CampaignsDashboard({
                               <Icon kind="eye" className="h-3.5 w-3.5 text-[#747878]" />
                               View details
                             </button>
-                            {campaign.status !== "completed" ? (
+                            {effectiveStatus !== "completed" ? (
                               <button
                                 type="button"
                                 role="menuitem"
@@ -3547,7 +3570,7 @@ export function CampaignsDashboard({
                               <Icon kind="chart" className="h-3.5 w-3.5 text-[#747878]" />
                               View performance
                             </Link>
-                            {campaign.status === "active" ? (
+                            {effectiveStatus === "active" ? (
                               <button
                                 type="button"
                                 role="menuitem"
@@ -3559,7 +3582,7 @@ export function CampaignsDashboard({
                                 Pause campaign
                               </button>
                             ) : null}
-                            {campaign.status === "paused" ? (
+                            {effectiveStatus === "paused" ? (
                               <button
                                 type="button"
                                 role="menuitem"

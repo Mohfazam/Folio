@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
@@ -76,6 +76,93 @@ const OUTCOME_STYLES: Record<string, string> = {
   dropped_early: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
   failed: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
 };
+
+function normalizeSearchText(value: string | null | undefined): string {
+  return (value ?? "").toLowerCase().trim();
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+
+  const prev = Array.from({ length: b.length + 1 }, (_, idx) => idx);
+  for (let i = 1; i <= a.length; i++) {
+    let currPrev = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const nextVal = Math.min(
+        prev[j] + 1,
+        currPrev + 1,
+        prev[j - 1] + cost,
+      );
+      prev[j - 1] = currPrev;
+      currPrev = nextVal;
+    }
+    prev[b.length] = currPrev;
+  }
+  return prev[b.length];
+}
+
+function computeClosenessScore(call: CallRecord, rawQuery: string): number {
+  const query = normalizeSearchText(rawQuery);
+  if (!query) return 0;
+
+  const candidates = [
+    { text: normalizeSearchText(call.contactName), weight: 1.3 },
+    { text: normalizeSearchText(call.phoneNumber), weight: 1.2 },
+    { text: normalizeSearchText(call.campaignName), weight: 1.0 },
+    { text: normalizeSearchText(call.summary), weight: 0.9 },
+    { text: normalizeSearchText(call.outcome.replaceAll("_", " ")), weight: 0.8 },
+  ];
+
+  let bestScore = -1;
+
+  for (const { text, weight } of candidates) {
+    if (!text) continue;
+
+    if (text === query) {
+      bestScore = Math.max(bestScore, 100 * weight);
+      continue;
+    }
+
+    if (text.startsWith(query)) {
+      bestScore = Math.max(bestScore, (88 + (query.length / Math.max(text.length, 1)) * 10) * weight);
+      continue;
+    }
+
+    if (text.includes(query)) {
+      bestScore = Math.max(bestScore, (72 + (query.length / Math.max(text.length, 1)) * 14) * weight);
+      continue;
+    }
+
+    const words = text.split(/[\s._-]+/).filter(Boolean);
+    for (const word of words) {
+      if (word.startsWith(query)) {
+        bestScore = Math.max(bestScore, 78 * weight);
+      } else if (word.includes(query)) {
+        bestScore = Math.max(bestScore, 66 * weight);
+      }
+    }
+
+    const maxLen = Math.max(query.length, text.length, 1);
+    if (text.length <= query.length + 6) {
+      const dist = levenshteinDistance(query, text);
+      const similarity = Math.max(0, 1 - dist / maxLen);
+      bestScore = Math.max(bestScore, similarity * 60 * weight);
+    } else {
+      const step = Math.max(1, Math.floor(Math.max(query.length, 3) / 2));
+      for (let i = 0; i <= Math.max(0, text.length - query.length); i += step) {
+        const slice = text.slice(i, i + query.length);
+        const dist = levenshteinDistance(query, slice);
+        const similarity = Math.max(0, 1 - dist / Math.max(query.length, 1));
+        bestScore = Math.max(bestScore, similarity * 52 * weight);
+      }
+    }
+  }
+
+  return bestScore;
+}
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-IN").format(value);
@@ -370,9 +457,51 @@ export function CallsDashboard({
     setLiveRefreshKey((value) => value + 1);
     router.refresh();
   };
-  const connectedOnPage = calls.filter((call) => call.outcome === "connected").length;
-  const followUpsOnPage = calls.filter((call) => call.followUpRequested).length;
-  const creditsOnPage = calls.reduce((sum, call) => sum + call.creditsCharged, 0);
+
+  const trimmedSearch = searchInput.trim();
+  const { visibleCalls, hasDirectMatch } = useMemo(() => {
+    if (!trimmedSearch) {
+      return { visibleCalls: calls, hasDirectMatch: true };
+    }
+
+    const normalizedQuery = normalizeSearchText(trimmedSearch);
+    const ranked = calls.map((call, idx) => {
+      const fields = [
+        normalizeSearchText(call.contactName),
+        normalizeSearchText(call.phoneNumber),
+        normalizeSearchText(call.campaignName),
+        normalizeSearchText(call.summary),
+        normalizeSearchText(call.outcome.replaceAll("_", " ")),
+      ];
+      const isDirect = fields.some((val) => val.includes(normalizedQuery));
+      const score = computeClosenessScore(call, trimmedSearch);
+      return { call, idx, isDirect, score };
+    });
+
+    const anyDirect = ranked.some((entry) => entry.isDirect);
+    const sorted = [...ranked].sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.idx - b.idx;
+    });
+
+    if (anyDirect) {
+      return {
+        visibleCalls: sorted
+          .filter((entry) => entry.isDirect || entry.score >= 42)
+          .map((entry) => entry.call),
+        hasDirectMatch: true,
+      };
+    }
+
+    return {
+      visibleCalls: sorted.map((entry) => entry.call),
+      hasDirectMatch: false,
+    };
+  }, [calls, trimmedSearch]);
+
+  const connectedOnPage = visibleCalls.filter((call) => call.outcome === "connected").length;
+  const followUpsOnPage = visibleCalls.filter((call) => call.followUpRequested).length;
+  const creditsOnPage = visibleCalls.reduce((sum, call) => sum + call.creditsCharged, 0);
   const currentPage = Math.floor(filters.offset / filters.limit) + 1;
   const pageCount = Math.max(1, Math.ceil(total / filters.limit));
   const firstResult = total === 0 ? 0 : filters.offset + 1;
@@ -562,56 +691,65 @@ export function CallsDashboard({
           </form>
         </div>
 
-        {calls.length > 0 ? (
-          <div className="divide-y divide-[#F0EFE9]">
-            {calls.map((call) => {
-              const outcomeTone = call.outcome === "connected" ? "green" : call.outcome === "failed" ? "red" : call.outcome === "busy" || call.outcome === "dropped_early" ? "amber" : "neutral";
-              const interestTone = call.interestLevel === "high" ? "green" : call.interestLevel === "medium" ? "purple" : "neutral";
+        {visibleCalls.length > 0 ? (
+          <>
+            {trimmedSearch && !hasDirectMatch ? (
+              <div className="border-b border-[#ECEBE5] bg-[#FFFEFB] px-4 py-2.5 sm:px-5">
+                <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                  No exact match for <span className="font-semibold text-[#1B1C18]">"{trimmedSearch}"</span> — showing closest matches sorted by similarity.
+                </p>
+              </div>
+            ) : null}
+            <div className="divide-y divide-[#F0EFE9]">
+              {visibleCalls.map((call) => {
+                const outcomeTone = call.outcome === "connected" ? "green" : call.outcome === "failed" ? "red" : call.outcome === "busy" || call.outcome === "dropped_early" ? "amber" : "neutral";
+                const interestTone = call.interestLevel === "high" ? "green" : call.interestLevel === "medium" ? "purple" : "neutral";
 
-              return (
-                <Link
-                  key={call.id}
-                  href={`/dashboard/calls/${encodeURIComponent(call.id)}`}
-                  className="grid gap-3 px-4 py-4 transition-colors hover:bg-[#FFFEFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7852D6] sm:px-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(130px,0.7fr)_minmax(150px,0.8fr)_auto] lg:items-center"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
-                      {call.contactName || "Unknown contact"}
-                    </p>
-                    <p className="mt-1 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
-                      {call.phoneNumber || "No phone number"}
-                      {call.campaignName ? ` · ${call.campaignName}` : ""}
-                    </p>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatDate(call.startedAt)}</p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
-                    {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
-                    {call.recordingUrl ? (
-                      <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#7852D6]" title="Call recording available">
-                        <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-                        Recording
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {call.interestLevel ? <Badge tone={interestTone}>{call.interestLevel} interest</Badge> : null}
-                    {call.sentiment ? <Badge tone={call.sentiment === "positive" ? "green" : call.sentiment === "negative" ? "red" : "neutral"}>{call.sentiment}</Badge> : null}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4 lg:justify-end">
-                    <div className="text-left lg:text-right">
-                      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
-                      <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
+                return (
+                  <Link
+                    key={call.id}
+                    href={`/dashboard/calls/${encodeURIComponent(call.id)}`}
+                    className="grid gap-3 px-4 py-4 transition-colors hover:bg-[#FFFEFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#7852D6] sm:px-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(130px,0.7fr)_minmax(150px,0.8fr)_auto] lg:items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {call.contactName || "Unknown contact"}
+                      </p>
+                      <p className="mt-1 truncate font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                        {call.phoneNumber || "No phone number"}
+                        {call.campaignName ? ` · ${call.campaignName}` : ""}
+                      </p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatDate(call.startedAt)}</p>
                     </div>
-                    <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6]">Details →</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
+                      {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
+                      {call.recordingUrl ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#7852D6]" title="Call recording available">
+                          <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
+                          Recording
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {call.interestLevel ? <Badge tone={interestTone}>{call.interestLevel} interest</Badge> : null}
+                      {call.sentiment ? <Badge tone={call.sentiment === "positive" ? "green" : call.sentiment === "negative" ? "red" : "neutral"}>{call.sentiment}</Badge> : null}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 lg:justify-end">
+                      <div className="text-left lg:text-right">
+                        <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{formatDuration(call.durationSeconds)}</p>
+                        <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#92938C]">{formatNumber(call.creditsCharged)} credits</p>
+                      </div>
+                      <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6]">Details →</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         ) : (
           <div className="flex flex-col items-center px-5 py-14 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F2EEFA] text-[#705AA8]">
