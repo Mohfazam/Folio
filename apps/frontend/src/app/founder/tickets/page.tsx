@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Suspense } from "react";
-import { unstable_noStore as noStore } from "next/cache";
+import { connection } from "next/server";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 import { AdminTicketsDashboard } from "@/components/dashboard/admin-tickets-dashboard";
@@ -49,7 +49,7 @@ async function isInternalAdminSession(accessToken: string): Promise<boolean> {
 }
 
 export default async function FounderTicketsPage() {
-  noStore();
+  await connection();
   const auth = await getDashboardAuthContext();
   const allowed = auth ? await isInternalAdminSession(auth.accessToken) : false;
 
