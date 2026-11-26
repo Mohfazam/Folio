@@ -45,3 +45,13 @@ test("validateAvatarUrl rejects invalid protocols and malformed URLs", () => {
   assert.equal(validateAvatarUrl("javascript:alert(1)").valid, false);
   assert.equal(validateAvatarUrl("not-a-valid-url").valid, false);
 });
+
+test("guardAgainstPhoneNumberChange strictly rejects payloads containing phone fields", () => {
+  assert.equal(guardAgainstPhoneNumberChange({ displayName: "Bob" }).rejected, false);
+  assert.equal(guardAgainstPhoneNumberChange({}).rejected, false);
+
+  assert.equal(guardAgainstPhoneNumberChange({ phoneNumber: "+1234567890" }).rejected, true);
+  assert.equal(guardAgainstPhoneNumberChange({ phone: "+1234567890" }).rejected, true);
+  assert.equal(guardAgainstPhoneNumberChange({ phone_number: "+1234567890" }).rejected, true);
+  assert.equal(guardAgainstPhoneNumberChange({ callerIdNumber: "+1234567890" }).rejected, true);
+});
