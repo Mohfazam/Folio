@@ -2,6 +2,7 @@ import { Router, type Express } from "express";
 import {
   requireAuth,
   requireClientAdmin,
+  requireInternalAdmin,
   requireWebhookSecret,
   requireWorkerSecret,
   requireWorkspace,
@@ -21,7 +22,7 @@ import {
   requestPasswordResetOtpRoute,
   verifyPasswordResetOtpRoute,
 } from "./auth.js";
-import { submitSupportTicketRoute } from "./support.js";
+import { submitSupportTicketRoute, getSupportTicketsRoute, updateSupportTicketStatusRoute } from "./support.js";
 import {
   createBillingOrderRoute,
   verifyBillingPaymentRoute,
@@ -76,6 +77,8 @@ export function registerRoutes(app: Express) {
   api.get("/auth/me", authRateLimiter, requireAuth, getAuthMeRoute);
   // Support endpoints (via Nodemailer support@foolioo.app)
   api.post("/support/ticket", authRateLimiter, submitSupportTicketRoute);
+  api.get("/support/tickets", requireAuth, requireInternalAdmin, getSupportTicketsRoute);
+  api.patch("/support/tickets/:id", requireAuth, requireInternalAdmin, updateSupportTicketStatusRoute);
 
   // Billing endpoints (webhook is public, others require auth)
   api.post("/billing/webhook", billingWebhookRoute);

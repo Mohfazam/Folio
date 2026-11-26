@@ -118,6 +118,14 @@ export async function requireWorkspace(req: Request, res: Response, next: NextFu
   }
 }
 
+export function requireInternalAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== "internal_admin") {
+    return res.status(403).json({ ok: false, error: "Founder / internal administrator access is required" });
+  }
+
+  return next();
+}
+
 export function requireClientAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== "client_admin" && req.user?.role !== "internal_admin") {
     return res.status(403).json({ ok: false, error: "Workspace administrator access is required" });
