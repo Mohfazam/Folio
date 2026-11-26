@@ -129,3 +129,22 @@ export async function updateWorkspaceDetails(payload: UpdateWorkspaceDetailsPayl
 
   return data.workspace;
 }
+
+/**
+ * Remove user's custom avatar URL.
+ */
+export async function deleteUserAvatar(): Promise<boolean> {
+  const response = await fetch("/api/user/avatar", {
+    method: "DELETE",
+    headers: {
+      "Accept": "application/json"
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || "Failed to remove avatar");
+  }
+
+  return true;
+}
