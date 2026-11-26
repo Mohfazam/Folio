@@ -737,6 +737,14 @@ export function CallsDashboard({
                           </svg>
                           Audio saved
                         </span>
+                      ) : (call.startedAt && Date.now() - new Date(call.startedAt).getTime() < 120_000) ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E9E5F5] bg-[#FAF8FE] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#7852D6]"
+                          title="Recording is processing, usually ready within ~60s"
+                        >
+                          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#7852D6]" aria-hidden="true" />
+                          Processing audio…
+                        </span>
                       ) : null}
                     </div>
 
