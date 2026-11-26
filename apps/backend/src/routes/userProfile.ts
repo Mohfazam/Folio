@@ -73,6 +73,17 @@ export async function updateUserProfileRoute(req: Request, res: Response): Promi
       return;
     }
 
+    // Explicit rejection guard: email address changes require verification
+    const emailCheck = guardAgainstEmailChange((req.body || {}) as Record<string, unknown>);
+    if (emailCheck.rejected) {
+      res.status(400).json({
+        ok: false,
+        error: emailCheck.error,
+        code: "EMAIL_CHANGE_FORBIDDEN"
+      });
+      return;
+    }
+
     const validation = validateUserProfileUpdate(req.body);
     if (!validation.valid) {
       res.status(400).json({ ok: false, error: validation.error });
