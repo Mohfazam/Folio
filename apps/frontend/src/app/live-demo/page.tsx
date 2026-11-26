@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { connection } from "next/server";
 import PublicDemoExperience from "@/components/public-demo/public-demo-experience";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 async function getIsAuthenticated(): Promise<boolean> {
+  await connection();
   try {
     const authContext = await getDashboardAuthContext();
     return Boolean(authContext?.userId);
