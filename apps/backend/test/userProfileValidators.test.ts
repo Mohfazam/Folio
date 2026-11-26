@@ -98,3 +98,18 @@ test("validateTimezone accepts valid IANA timezones and rejects invalid identifi
   assert.equal(validateTimezone("").valid, false);
   assert.equal(validateTimezone(null).valid, false);
 });
+
+test("validateCallingHoursTime accepts valid 24h clock strings and normalizes format", () => {
+  assert.deepEqual(validateCallingHoursTime("09:00"), { valid: true, value: "09:00:00" });
+  assert.deepEqual(validateCallingHoursTime("17:30:45"), { valid: true, value: "17:30:45" });
+  assert.deepEqual(validateCallingHoursTime("00:00"), { valid: true, value: "00:00:00" });
+  assert.deepEqual(validateCallingHoursTime("23:59:59"), { valid: true, value: "23:59:59" });
+});
+
+test("validateCallingHoursTime rejects invalid hours and minutes", () => {
+  assert.equal(validateCallingHoursTime("25:00").valid, false);
+  assert.equal(validateCallingHoursTime("12:60").valid, false);
+  assert.equal(validateCallingHoursTime("9am").valid, false);
+  assert.equal(validateCallingHoursTime("").valid, false);
+  assert.equal(validateCallingHoursTime(null).valid, false);
+});
