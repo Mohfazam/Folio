@@ -105,3 +105,39 @@ export async function updateUserProfileService(
   const refreshed = await getUserProfileService(userId);
   return refreshed ? refreshed.user : null;
 }
+
+export async function updateUserPreferencesService(
+  userId: string,
+  input: import("../types/userProfile.js").UpdateUserPreferencesInput
+): Promise<UserPreferences | null> {
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing) {
+    return null;
+  }
+
+  const existingMeta = (existing.metadata && typeof existing.metadata === "object" ? existing.metadata : {}) as Record<string, unknown>;
+  const mergedMeta: Record<string, unknown> = { ...existingMeta };
+
+  if (input.theme !== undefined) mergedMeta.theme = input.theme;
+  if (input.emailNotifications !== undefined) mergedMeta.emailNotifications = input.emailNotifications;
+  if (input.callAlerts !== undefined) mergedMeta.callAlerts = input.callAlerts;
+  if (input.weeklyReport !== undefined) mergedMeta.weeklyReport = input.weeklyReport;
+  if (input.audioPlaybackSpeed !== undefined) mergedMeta.audioPlaybackSpeed = input.audioPlaybackSpeed;
+  if (input.locale !== undefined) mergedMeta.locale = input.locale;
+
+  await db
+    .update(users)
+    .set({
+      metadata: mergedMeta,
+      updatedAt: new Date()
+    })
+    .where(eq(users.id, userId));
+
+  const refreshed = await getUserProfileService(userId);
+  return refreshed ? refreshed.preferences : null;
+}
