@@ -55,3 +55,12 @@ test("guardAgainstPhoneNumberChange strictly rejects payloads containing phone f
   assert.equal(guardAgainstPhoneNumberChange({ phone_number: "+1234567890" }).rejected, true);
   assert.equal(guardAgainstPhoneNumberChange({ callerIdNumber: "+1234567890" }).rejected, true);
 });
+
+test("guardAgainstEmailChange strictly rejects payloads containing email fields", () => {
+  assert.equal(guardAgainstEmailChange({ displayName: "Bob" }).rejected, false);
+  assert.equal(guardAgainstEmailChange({}).rejected, false);
+
+  assert.equal(guardAgainstEmailChange({ email: "newemail@example.com" }).rejected, true);
+  assert.equal(guardAgainstEmailChange({ userEmail: "newemail@example.com" }).rejected, true);
+  assert.equal(guardAgainstEmailChange({ user_email: "newemail@example.com" }).rejected, true);
+});
