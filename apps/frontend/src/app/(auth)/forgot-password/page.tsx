@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
       <h1 className="font-['Newsreader'] text-[32px] font-normal text-[#1B1C18]">Reset password</h1>
       {EMAIL_AUTH_DISABLED ? (
         <div className="mt-5 rounded-lg border border-[#E6E3D8] bg-[#F8F6EF] p-4 font-['Space_Grotesk'] text-[12px] leading-5 text-[#666862]">
-          Email password reset is temporarily paused while SMTP delivery is unavailable on free-tier hosting. Sign in with Google instead.
+          Email password reset is temporarily paused. Sign in with Google instead.
         </div>
       ) : (
         <>
