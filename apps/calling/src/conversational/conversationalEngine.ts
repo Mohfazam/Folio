@@ -1,6 +1,6 @@
 import type { CallerIntentState, EdgeCaseAction } from "./types.js";
 import { isBackchannel } from "./backchannelDetector.js";
-import { handleGenericGreeting } from "./genericGreetingTracker.js";
+import { handleGenericGreeting, isGenericGreeting } from "./genericGreetingTracker.js";
 import { isAudioIssueUtterance, buildAudibilityResponse } from "./audioIssueDetector.js";
 import { isBusyUtterance, buildBusyCallbackResponse } from "./busyDetector.js";
 import { isOptOutUtterance, buildOptOutResponse } from "./optOutDetector.js";
@@ -66,6 +66,11 @@ export class ConversationalEngine {
     // 1. Passive backchannel while AI is speaking
     if (isBackchannel(trimmed)) {
       return { type: "ignore_filler" };
+    }
+
+    // 1b. Early hello during intro is ignored to let intro finish
+    if (!this.state.introCompleted && isGenericGreeting(trimmed)) {
+      return { type: "continue_intro" };
     }
 
     // 2. Generic greetings ("hello", "haanji", "yes speaking") tracking with threshold
