@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { Suspense } from "react";
+import { unstable_noStore as noStore } from "next/cache";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import { DashboardPageSkeleton } from "@/components/dashboard/dashboard-page-skeleton";
 import { AdminTicketsDashboard } from "@/components/dashboard/admin-tickets-dashboard";
-
-export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Founder Support Queue · Foolioo",
@@ -33,17 +32,24 @@ async function isInternalAdminSession(accessToken: string): Promise<boolean> {
     });
     if (!res.ok) return false;
     const data = (await res.json().catch(() => null)) as {
-      user?: { role?: string };
+      user?: { role?: string; email?: string };
       role?: string;
+      email?: string;
     } | null;
     const role = data?.user?.role ?? data?.role;
-    return role === "internal_admin";
+    const email = (data?.user?.email ?? data?.email ?? "").trim().toLowerCase();
+    const founderEmails = (process.env.FOUNDER_ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    return role === "internal_admin" || (Boolean(email) && founderEmails.includes(email));
   } catch {
     return false;
   }
 }
 
 export default async function FounderTicketsPage() {
+  noStore();
   const auth = await getDashboardAuthContext();
   const allowed = auth ? await isInternalAdminSession(auth.accessToken) : false;
 
