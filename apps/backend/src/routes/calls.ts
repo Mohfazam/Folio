@@ -291,6 +291,9 @@ export async function callCompleteRoute(req: Request, res: Response) {
         costTotal,
         recordingUrl: isPublicDemoContact ? null : payload.recording?.available ? payload.recording.storageKey ?? null : null,
         transcript: isPublicDemoContact ? null : payload.transcript,
+        // Store plivoCallId in metadata so recording webhook can look up this call
+        // even after the active-call-registry entry has expired on the calling service
+        metadata: { plivoCallId: payload.plivoCallId || null },
       })
       .onConflictDoNothing({ target: calls.deliveryId })
       .returning();
@@ -964,10 +967,12 @@ export async function getCallRecordingRoute(req: Request, res: Response) {
       });
     }
 
-    // Fallback: check legacy/direct calls.recordingUrl
+    // Fallback: check legacy/direct calls.recordingUrl or sync from Plivo on-demand
     const [callItem] = await db
       .select({
         id: calls.id,
+        deliveryId: calls.deliveryId,
+        metadata: calls.metadata,
         recordingUrl: calls.recordingUrl,
         durationSeconds: calls.durationSeconds,
         createdAt: calls.createdAt,
@@ -991,6 +996,104 @@ export async function getCallRecordingRoute(req: Request, res: Response) {
           createdAt: callItem.createdAt,
         },
       });
+    }
+
+    // On-demand self-healing fallback: If recording not in DB, query Plivo REST API directly
+    if (callItem && env.plivo?.authId && env.plivo?.authToken) {
+      let plivoCallId: string | null = null;
+      if (
+        callItem.metadata &&
+        typeof callItem.metadata === "object" &&
+        !Array.isArray(callItem.metadata) &&
+        "plivoCallId" in (callItem.metadata as Record<string, unknown>)
+      ) {
+        plivoCallId = String((callItem.metadata as Record<string, unknown>).plivoCallId || "");
+      }
+      if (!plivoCallId && callItem.deliveryId) {
+        const parts = callItem.deliveryId.split(":");
+        if (parts.length > 1 && parts[1] && parts[1] !== "no-plivo-id") {
+          plivoCallId = parts[1];
+        }
+      }
+
+      if (plivoCallId) {
+        try {
+          const basicAuth = Buffer.from(`${env.plivo.authId}:${env.plivo.authToken}`).toString("base64");
+          const plivoApiUrl = `https://api.plivo.com/v1/Account/${encodeURIComponent(env.plivo.authId)}/Recording/?call_uuid=${encodeURIComponent(plivoCallId)}`;
+          console.log(`[calls/recording] 🔍 Querying Plivo API on-demand for call ${plivoCallId}...`);
+          const plivoRes = await fetch(plivoApiUrl, {
+            headers: { Authorization: `Basic ${basicAuth}` },
+            signal: AbortSignal.timeout(6000),
+          });
+
+          if (plivoRes.ok) {
+            const plivoData = (await plivoRes.json()) as {
+              objects?: Array<{
+                recording_id?: string;
+                recording_url?: string;
+                record_url?: string;
+                recording_duration?: string;
+                recording_duration_ms?: string;
+              }>;
+            };
+
+            const obj = plivoData.objects?.[0];
+            const fetchedUrl = obj?.recording_url || obj?.record_url;
+            if (fetchedUrl) {
+              const durSec = obj?.recording_duration_ms
+                ? Math.round(Number(obj.recording_duration_ms) / 1000)
+                : obj?.recording_duration
+                  ? parseInt(obj.recording_duration, 10)
+                  : callItem.durationSeconds ?? null;
+
+              console.log(`[calls/recording] ✅ On-demand Plivo sync found recording: ${fetchedUrl}`);
+
+              // 1. Update calls row
+              await db
+                .update(calls)
+                .set({ recordingUrl: fetchedUrl })
+                .where(eq(calls.id, id));
+
+              // 2. Insert into callRecordings table
+              await db
+                .insert(callRecordings)
+                .values({
+                  callId: id,
+                  clientId: req.clientId!,
+                  sourceUrl: fetchedUrl,
+                  plivoRecordingId: obj?.recording_id ?? null,
+                  durationSeconds: durSec,
+                  fileFormat: "mp3",
+                  status: "completed",
+                  channels: 1,
+                  metadata: {
+                    syncedFromPlivo: true,
+                    plivoCallId,
+                    plivoRecordingId: obj?.recording_id,
+                  },
+                })
+                .onConflictDoNothing();
+
+              return res.json({
+                ok: true,
+                available: true,
+                recording: {
+                  id: callItem.id,
+                  callId: callItem.id,
+                  sourceUrl: fetchedUrl,
+                  durationSeconds: durSec,
+                  fileFormat: "mp3",
+                  status: "completed",
+                  streamUrl: `/api/calls/${id}/recording/stream`,
+                  createdAt: callItem.createdAt,
+                },
+              });
+            }
+          }
+        } catch (syncErr: unknown) {
+          console.warn("[calls/recording] On-demand Plivo API query failed:", syncErr);
+        }
+      }
     }
 
     return res.json({
@@ -1032,11 +1135,57 @@ export async function streamCallRecordingRoute(req: Request, res: Response) {
     let audioUrl = rec?.sourceUrl;
     if (!audioUrl) {
       const [callItem] = await db
-        .select({ recordingUrl: calls.recordingUrl })
+        .select({
+          recordingUrl: calls.recordingUrl,
+          deliveryId: calls.deliveryId,
+          metadata: calls.metadata,
+        })
         .from(calls)
         .where(and(eq(calls.id, id), eq(calls.clientId, req.clientId!)))
         .limit(1);
       audioUrl = callItem?.recordingUrl ?? undefined;
+
+      if (!audioUrl && callItem && env.plivo?.authId && env.plivo?.authToken) {
+        let plivoCallId: string | null = null;
+        if (
+          callItem.metadata &&
+          typeof callItem.metadata === "object" &&
+          !Array.isArray(callItem.metadata) &&
+          "plivoCallId" in (callItem.metadata as Record<string, unknown>)
+        ) {
+          plivoCallId = String((callItem.metadata as Record<string, unknown>).plivoCallId || "");
+        }
+        if (!plivoCallId && callItem.deliveryId) {
+          const parts = callItem.deliveryId.split(":");
+          if (parts.length > 1 && parts[1] && parts[1] !== "no-plivo-id") {
+            plivoCallId = parts[1];
+          }
+        }
+
+        if (plivoCallId) {
+          try {
+            const basicAuth = Buffer.from(`${env.plivo.authId}:${env.plivo.authToken}`).toString("base64");
+            const plivoApiUrl = `https://api.plivo.com/v1/Account/${encodeURIComponent(env.plivo.authId)}/Recording/?call_uuid=${encodeURIComponent(plivoCallId)}`;
+            const plivoRes = await fetch(plivoApiUrl, {
+              headers: { Authorization: `Basic ${basicAuth}` },
+              signal: AbortSignal.timeout(6000),
+            });
+            if (plivoRes.ok) {
+              const plivoData = (await plivoRes.json()) as {
+                objects?: Array<{ recording_url?: string; record_url?: string }>;
+              };
+              const obj = plivoData.objects?.[0];
+              const fetchedUrl = obj?.recording_url || obj?.record_url;
+              if (fetchedUrl) {
+                audioUrl = fetchedUrl;
+                await db.update(calls).set({ recordingUrl: fetchedUrl }).where(eq(calls.id, id));
+              }
+            }
+          } catch (e) {
+            console.warn("[calls/recording/stream] Quick Plivo sync fallback failed:", e);
+          }
+        }
+      }
     }
 
     if (!audioUrl) {
@@ -1142,6 +1291,15 @@ export async function updateCallRecordingRoute(req: Request, res: Response) {
       call = found;
     }
 
+    if (!call && plivoCallId) {
+      const [found] = await db
+        .select()
+        .from(calls)
+        .where(sql`${calls.metadata}->>'plivoCallId' = ${plivoCallId}`)
+        .limit(1);
+      call = found;
+    }
+
     if (!call) {
       console.warn(`[calls/recording] No call matching deliveryId=${deliveryId} or plivoCallId=${plivoCallId}`);
       return res.status(404).json({ ok: false, error: "Call record not found" });
@@ -1178,5 +1336,106 @@ export async function updateCallRecordingRoute(req: Request, res: Response) {
   } catch (err: unknown) {
     console.error("[calls/recording] Error attaching recording:", err);
     return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+}
+
+/**
+ * POST /api/calls/sync-recordings
+ * Scans Plivo's API for recorded audio and links them to matching workspace calls.
+ */
+export async function syncAllPlivoRecordingsRoute(req: Request, res: Response) {
+  if (!env.plivo?.authId || !env.plivo?.authToken) {
+    return res.status(503).json({ ok: false, error: "Plivo credentials not configured on backend" });
+  }
+
+  try {
+    const basicAuth = Buffer.from(`${env.plivo.authId}:${env.plivo.authToken}`).toString("base64");
+    const plivoRes = await fetch(
+      `https://api.plivo.com/v1/Account/${encodeURIComponent(env.plivo.authId)}/Recording/?limit=50`,
+      {
+        headers: { Authorization: `Basic ${basicAuth}` },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!plivoRes.ok) {
+      return res.status(plivoRes.status).json({
+        ok: false,
+        error: `Plivo API returned ${plivoRes.status}: ${plivoRes.statusText}`,
+      });
+    }
+
+    const data = (await plivoRes.json()) as {
+      objects?: Array<{
+        recording_id?: string;
+        call_uuid?: string;
+        recording_url?: string;
+        record_url?: string;
+        recording_duration?: string;
+        recording_duration_ms?: string;
+      }>;
+    };
+
+    const recordings = data.objects || [];
+    let syncedCount = 0;
+
+    for (const rec of recordings) {
+      const callUuid = rec.call_uuid;
+      const recUrl = rec.recording_url || rec.record_url;
+      if (!callUuid || !recUrl) continue;
+
+      const durSec = rec.recording_duration_ms
+        ? Math.round(Number(rec.recording_duration_ms) / 1000)
+        : rec.recording_duration
+          ? parseInt(rec.recording_duration, 10)
+          : null;
+
+      // Find call belonging to this workspace matching deliveryId or metadata
+      const [call] = await db
+        .select()
+        .from(calls)
+        .where(
+          and(
+            eq(calls.clientId, req.clientId!),
+            or(
+              like(calls.deliveryId, `%${callUuid}%`),
+              sql`${calls.metadata}->>'plivoCallId' = ${callUuid}`
+            )
+          )
+        )
+        .limit(1);
+
+      if (call) {
+        await db.update(calls).set({ recordingUrl: recUrl }).where(eq(calls.id, call.id));
+        await db
+          .insert(callRecordings)
+          .values({
+            callId: call.id,
+            clientId: req.clientId!,
+            sourceUrl: recUrl,
+            plivoRecordingId: rec.recording_id ?? null,
+            durationSeconds: durSec ?? call.durationSeconds,
+            fileFormat: "mp3",
+            status: "completed",
+            channels: 1,
+            metadata: {
+              syncedFromPlivo: true,
+              plivoCallId: callUuid,
+              plivoRecordingId: rec.recording_id,
+            },
+          })
+          .onConflictDoNothing();
+        syncedCount++;
+      }
+    }
+
+    return res.json({
+      ok: true,
+      syncedCount,
+      totalRecordingsInPlivo: recordings.length,
+    });
+  } catch (err: unknown) {
+    console.error("[calls/sync-recordings] Error:", err);
+    return res.status(500).json({ ok: false, error: "Failed to sync recordings from Plivo" });
   }
 }
