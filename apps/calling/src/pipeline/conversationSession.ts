@@ -12,6 +12,7 @@ import { isGenericGreeting } from "../conversational/genericGreetingTracker.js";
 import { isCallEndIntent, buildFastFarewell } from "../conversational/callEndDetector.js";
 import { shouldBargeIn } from "../conversational/bargeInDetector.js";
 import { getRandomLatencyFiller } from "../conversational/latencyFiller.js";
+import { filterAndBoostAudio } from "../utils/audioFilter.js";
 
 import type { CallSessionState } from "../session/CallSessionState.js";
 
@@ -813,9 +814,10 @@ export function createConversationSession(
 
   return {
     handleAudio(chunk) {
-      if (stt?.sendAudio(chunk)) return;
+      const processed = filterAndBoostAudio(chunk);
+      if (stt?.sendAudio(processed)) return;
       if (pending.length < MAX_BUFFERED_CHUNKS) {
-        pending.push(chunk);
+        pending.push(processed);
       }
     },
     close() {
