@@ -1427,6 +1427,7 @@ function CampaignDetailView({
 
           <div
             className="flex shrink-0 items-center gap-2"
+            onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
             {effectiveStatus === "draft" ||
@@ -3442,6 +3443,7 @@ export function CampaignsDashboard({
 
                     <div
                       className="flex items-center justify-end gap-2 border-t border-[#F0EFE9] pt-3 lg:border-0 lg:pt-0"
+                      onMouseDown={(event) => event.stopPropagation()}
                       onClick={(event) => event.stopPropagation()}
                     >
                       {effectiveStatus === "draft" ||
