@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -41,6 +42,7 @@ export default function SupportPage() {
     subject: "",
     message: "",
   });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
@@ -48,6 +50,30 @@ export default function SupportPage() {
     text: string;
     ticketId?: string;
   } | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) {
+        setIsAuthenticated(Boolean(data.user));
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) {
+        setIsAuthenticated(Boolean(session?.user));
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleCopyEmail = async () => {
     try {
@@ -112,9 +138,16 @@ export default function SupportPage() {
             </span>
           </Link>
           <div className="flex items-center gap-4 font-['Space_Grotesk'] text-[13px]">
-            <Link href="/sign-in" className="text-[#55534F] transition hover:text-[#1B1C18]">
-              Sign in
-            </Link>
+            {isAuthenticated === true && (
+              <Link href="/dashboard" className="text-[#55534F] transition hover:text-[#1B1C18]">
+                Dashboard
+              </Link>
+            )}
+            {isAuthenticated === false && (
+              <Link href="/sign-in" className="text-[#55534F] transition hover:text-[#1B1C18]">
+                Sign in
+              </Link>
+            )}
             <Link
               href="/"
               className="rounded-full border border-[#EAE7DE] bg-white px-4 py-1.5 font-medium transition hover:bg-[#F5F3EC]"
