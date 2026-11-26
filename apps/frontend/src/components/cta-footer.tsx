@@ -43,7 +43,7 @@ const FOOTER_SECTIONS = [
     links: [
       { label: "About Us", href: "/about" },
       { label: "Customers", href: "/customers" },
-      { label: "Careers", href: "/careers" },
+      { label: "Support", href: "/support" },
       { label: "Privacy Policy", href: "/privacy" },
       { label: "Terms of Service", href: "/terms" },
     ],
