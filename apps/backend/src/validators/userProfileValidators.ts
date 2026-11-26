@@ -17,13 +17,13 @@ export function validateDisplayName(name: unknown): { valid: boolean; value?: st
   return { valid: true, value: sanitized };
 }
 
-export function guardAgainstPhoneNumberChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
-  const forbiddenPhoneKeys = ["phoneNumber", "phone_number", "phone", "callerIdNumber", "caller_id_number"];
-  for (const key of forbiddenPhoneKeys) {
+export function guardAgainstEmailChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
+  const forbiddenEmailKeys = ["email", "userEmail", "user_email"];
+  for (const key of forbiddenEmailKeys) {
     if (key in payload && payload[key] !== undefined) {
       return {
         rejected: true,
-        error: "Phone numbers cannot be updated through this unverified endpoint. Changing a phone number requires two-factor OTP verification."
+        error: "Email addresses cannot be updated through this unverified endpoint. Changing an email requires verification."
       };
     }
   }
@@ -91,13 +91,13 @@ export function validateJobTitle(title: unknown): { valid: boolean; value?: stri
   return { valid: true, value: sanitized };
 }
 
-export function guardAgainstPhoneNumberChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
-  const forbiddenPhoneKeys = ["phoneNumber", "phone_number", "phone", "callerIdNumber", "caller_id_number"];
-  for (const key of forbiddenPhoneKeys) {
+export function guardAgainstEmailChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
+  const forbiddenEmailKeys = ["email", "userEmail", "user_email"];
+  for (const key of forbiddenEmailKeys) {
     if (key in payload && payload[key] !== undefined) {
       return {
         rejected: true,
-        error: "Phone numbers cannot be updated through this unverified endpoint. Changing a phone number requires two-factor OTP verification."
+        error: "Email addresses cannot be updated through this unverified endpoint. Changing an email requires verification."
       };
     }
   }
