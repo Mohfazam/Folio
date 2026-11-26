@@ -40,5 +40,11 @@ export interface UpdateUserPreferencesInput {
   locale?: string;
 }
 
-
-
+export interface WorkspaceDetailsUpdateInput {
+  name?: string;
+  contactPersonName?: string | null;
+  timezone?: string;
+  callingHoursStart?: string;
+  callingHoursEnd?: string;
+  metadata?: Record<string, unknown>;
+}
