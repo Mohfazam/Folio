@@ -37,27 +37,36 @@ export async function GET(
     const response = await fetch(backendUrl, {
       headers: upstreamHeaders,
       cache: "no-store",
+      redirect: "follow",
     });
 
-    if (!response.ok && response.status !== 206) {
+    if (!response.ok) {
       return NextResponse.json(
         { ok: false, error: "Failed to load audio stream from voice provider" },
         { status: response.status },
       );
     }
 
-    // Forward streaming audio headers
     const headers = new Headers();
     const contentType = response.headers.get("content-type") || "audio/mpeg";
     const contentLength = response.headers.get("content-length");
     const contentRange = response.headers.get("content-range");
     const acceptRanges = response.headers.get("accept-ranges") || "bytes";
+    const contentDisposition = response.headers.get("content-disposition");
+    const etag = response.headers.get("etag");
 
     headers.set("Content-Type", contentType);
     headers.set("Accept-Ranges", acceptRanges);
     if (contentLength) headers.set("Content-Length", contentLength);
     if (contentRange) headers.set("Content-Range", contentRange);
-    headers.set("Cache-Control", "private, no-cache, no-store, must-revalidate");
+    if (contentDisposition) headers.set("Content-Disposition", contentDisposition);
+    if (etag) headers.set("ETag", etag);
+
+    // Avoid aggressive no-store on range chunks so media players can buffer/seek smoothly
+    headers.set(
+      "Cache-Control",
+      range ? "private, max-age=0, must-revalidate" : "private, no-cache, must-revalidate",
+    );
 
     return new Response(response.body, {
       status: response.status,
