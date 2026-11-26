@@ -26,8 +26,10 @@ export function plivoVoiceRoute(req: Request, res: Response) {
         .record(callUuid, {
           fileFormat: "mp3",
           callbackUrl: recordingCallbackUrl,
+          callback_url: recordingCallbackUrl,
           callbackMethod: "POST",
-        })
+          callback_method: "POST",
+        } as any)
         .then((rec: any) => {
           console.log(`[plivo-voice] ⏺️ Recording active:`, rec?.recordingId ?? rec?.url ?? rec);
           if (rec?.url) {
