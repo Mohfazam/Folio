@@ -87,3 +87,14 @@ test("validateUserPreferences rejects invalid types and out-of-range values", ()
   assert.equal(validateUserPreferences({ audioPlaybackSpeed: 0.1 }).valid, false);
   assert.equal(validateUserPreferences("not-an-object").valid, false);
 });
+
+test("validateTimezone accepts valid IANA timezones and rejects invalid identifiers", () => {
+  assert.equal(validateTimezone("America/New_York").valid, true);
+  assert.equal(validateTimezone("Asia/Kolkata").valid, true);
+  assert.equal(validateTimezone("UTC").valid, true);
+  assert.equal(validateTimezone("Europe/London").valid, true);
+
+  assert.equal(validateTimezone("Mars/Curiosity").valid, false);
+  assert.equal(validateTimezone("").valid, false);
+  assert.equal(validateTimezone(null).valid, false);
+});
