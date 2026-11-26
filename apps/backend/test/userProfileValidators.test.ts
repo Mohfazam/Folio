@@ -64,3 +64,26 @@ test("guardAgainstEmailChange strictly rejects payloads containing email fields"
   assert.equal(guardAgainstEmailChange({ userEmail: "newemail@example.com" }).rejected, true);
   assert.equal(guardAgainstEmailChange({ user_email: "newemail@example.com" }).rejected, true);
 });
+
+test("validateUserPreferences accepts valid themes and preferences", () => {
+  const valid = validateUserPreferences({
+    theme: "dark",
+    emailNotifications: true,
+    callAlerts: false,
+    audioPlaybackSpeed: 1.5,
+    locale: "en-US"
+  });
+  assert.equal(valid.valid, true);
+  assert.equal(valid.value?.theme, "dark");
+  assert.equal(valid.value?.emailNotifications, true);
+  assert.equal(valid.value?.callAlerts, false);
+  assert.equal(valid.value?.audioPlaybackSpeed, 1.5);
+});
+
+test("validateUserPreferences rejects invalid types and out-of-range values", () => {
+  assert.equal(validateUserPreferences({ theme: "neon-glow" }).valid, false);
+  assert.equal(validateUserPreferences({ emailNotifications: "not-a-bool" }).valid, false);
+  assert.equal(validateUserPreferences({ audioPlaybackSpeed: 5.0 }).valid, false);
+  assert.equal(validateUserPreferences({ audioPlaybackSpeed: 0.1 }).valid, false);
+  assert.equal(validateUserPreferences("not-an-object").valid, false);
+});
