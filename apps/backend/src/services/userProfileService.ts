@@ -249,3 +249,21 @@ export async function recordUserAuditLog(
     console.error("[UserProfileService] Failed to record audit log:", err);
   }
 }
+
+export function sanitizeUserProfileResponse(user: UserProfileData): UserProfileData {
+  return {
+    id: user.id,
+    clientId: user.clientId,
+    displayName: user.displayName,
+    email: user.email,
+    phoneNumber: user.phoneNumber,
+    phoneVerified: user.phoneVerified,
+    emailVerified: user.emailVerified,
+    avatarUrl: user.avatarUrl,
+    bio: user.bio || null,
+    jobTitle: user.jobTitle || null,
+    role: user.role,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  };
+}
