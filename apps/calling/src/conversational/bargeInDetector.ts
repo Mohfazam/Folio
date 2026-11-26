@@ -90,16 +90,15 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return false;
   }
 
-  // 2. Reject ONLY passive backchannels (e.g. "uh-huh", "hmm", "haan", "acha")
-  // Do NOT reject greetings ("hello", "who is this") because when a caller says "hello",
-  // they are actively engaging or asking if someone is there.
-  if (isBackchannel(clean)) {
+  // 2. Reject passive backchannels AND solitary greetings ("hello", "haan", "hmm", "okay", "yes")
+  // These should NEVER cut off ongoing AI speech.
+  if (isBackchannel(clean) || isGenericGreeting(clean)) {
     return false;
   }
 
-  // 3. Explicit language switch request (High priority: switch immediately)
-  if (isLanguageSwitchIntent(clean)) {
-    return true;
+  // 3. Reject common ambient room chatter & background TV noise
+  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
+    return false;
   }
 
   // 4. Explicit verbal interruption command ("wait", "stop", "ruko", "hold on", "suno")
@@ -107,8 +106,8 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return true;
   }
 
-  // 5. Caller greetings or inquiry ("hello", "who is this", "kaun bol raha hai", "speaking")
-  if (isGenericGreeting(clean)) {
+  // 5. Explicit language switch request (High priority: switch immediately)
+  if (isLanguageSwitchIntent(clean)) {
     return true;
   }
 
@@ -119,13 +118,9 @@ export function shouldBargeIn(partialText: string, options?: BargeInOptions): bo
     return true;
   }
 
-  // 7. Filter out common ambient room chatter & background TV noise
-  if (AMBIENT_MURMUR_PATTERNS.some((p) => p.test(clean))) {
-    return false;
-  }
-
-  // 8. Substantive caller statement: at least 2 words or >= 8 chars
-  if (words.length >= 2 || clean.length >= 8) {
+  // 7. Substantive caller statement: requires at least 4 words AND >= 16 characters
+  // This prevents short background voices or 1-3 word murmurs from interrupting the AI.
+  if (words.length >= 4 && clean.length >= 16) {
     return true;
   }
 
