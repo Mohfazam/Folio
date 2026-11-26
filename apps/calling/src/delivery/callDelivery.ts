@@ -55,6 +55,8 @@ export async function dispatchCallCompleted(
   const targetUrl = callbackUrlOverride || sessionState.callbackUrl || process.env.CALLBACK_URL;
   let deliverySuccess = false;
 
+  const webhookSecret = process.env.WEBHOOK_SECRET || process.env.CALLING_WEBHOOK_SECRET;
+
   if (targetUrl) {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
@@ -63,7 +65,7 @@ export async function dispatchCallCompleted(
           headers: {
             "Content-Type": "application/json",
             "User-Agent": "Folio-VoiceService/1.0",
-            ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
+            ...(webhookSecret ? { "x-webhook-secret": webhookSecret } : {}),
           },
           body: JSON.stringify(result),
           signal: AbortSignal.timeout(10000), // 10s timeout
@@ -142,13 +144,14 @@ export async function dispatchCallRecording(
 
   // 1. Post to dedicated recording endpoint (/api/calls/recording)
   const recordingEndpoint = targetUrl.replace(/\/complete\/?$/, "/recording");
+  const webhookSecret = process.env.WEBHOOK_SECRET || process.env.CALLING_WEBHOOK_SECRET;
   try {
     const res = await fetch(recordingEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "Folio-VoiceService/1.0",
-        ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
+        ...(webhookSecret ? { "x-webhook-secret": webhookSecret } : {}),
       },
       body: JSON.stringify({
         deliveryId,
@@ -175,7 +178,7 @@ export async function dispatchCallRecording(
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "Folio-VoiceService/1.0",
-        ...(process.env.WEBHOOK_SECRET ? { "x-webhook-secret": process.env.WEBHOOK_SECRET } : {}),
+        ...(webhookSecret ? { "x-webhook-secret": webhookSecret } : {}),
       },
       body: JSON.stringify(result),
       signal: AbortSignal.timeout(10000),
