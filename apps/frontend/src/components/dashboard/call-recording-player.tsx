@@ -117,6 +117,16 @@ export function CallRecordingPlayer({
     }
   };
 
+  const [justArrived, setJustArrived] = useState(false);
+  const prevAvailableRef = useRef(available);
+
+  // Trigger brief celebration animation when recording arrives via background polling
+  if (!prevAvailableRef.current && available) {
+    prevAvailableRef.current = true;
+    setJustArrived(true);
+    setTimeout(() => setJustArrived(false), 4500);
+  }
+
   const streamUrl = `/api/calls/${encodeURIComponent(callId)}/recording/stream`;
   const fileFormat = (recording?.fileFormat || "mp3").toUpperCase();
   const downloadExt = (recording?.fileFormat || "mp3").toLowerCase();
@@ -144,6 +154,14 @@ export function CallRecordingPlayer({
         </div>
       ) : available && recording ? (
         <div className="mt-4 space-y-3">
+          {justArrived ? (
+            <div className="flex items-center gap-2 rounded-[6px] border border-[#C6E7D2] bg-[#F2FBF5] px-3 py-2 font-['Space_Grotesk'] text-[13px] font-medium text-[#1E6B3D] animate-fadeIn">
+              <svg className="h-4 w-4 shrink-0 text-[#2F7A4D]" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Recording processed and ready! Audio player loaded.</span>
+            </div>
+          ) : null}
           <audio
             ref={audioRef}
             preload="metadata"
