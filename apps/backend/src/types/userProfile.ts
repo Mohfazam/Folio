@@ -13,3 +13,13 @@ export interface UserProfileData {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface UserPreferences {
+  theme?: "light" | "dark" | "system";
+  emailNotifications?: boolean;
+  callAlerts?: boolean;
+  weeklyReport?: boolean;
+  audioPlaybackSpeed?: number;
+  locale?: string;
+}
+
