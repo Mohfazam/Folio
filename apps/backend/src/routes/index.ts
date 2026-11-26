@@ -48,6 +48,14 @@ import { deleteQueueRoute, enqueueRoute, getQueueRoute, updateQueueRoute } from 
 import { processQueueRoute } from "./process.js";
 import { ingestWorkerRecordingsRoute, cleanupWorkerQueueRoute } from "./workerIngest.js";
 import {
+  getUserProfileRoute,
+  updateUserProfileRoute,
+  updateUserPreferencesRoute,
+  deleteUserAvatarRoute,
+  updateWorkspaceDetailsRoute,
+  exportUserProfileDataRoute,
+} from "./userProfile.js";
+import {
   createTestCallRoute,
   getAgentSettingsRoute,
   getLaunchEligibleContactsRoute,
@@ -98,6 +106,14 @@ export function registerRoutes(app: Express) {
 
   // All other API routes require a provisioned user and are scoped to that user's workspace.
   api.use(requireAuth, requireWorkspace);
+
+  // User profile and unverified preference endpoints
+  api.get("/user/profile", getUserProfileRoute);
+  api.patch("/user/profile", updateUserProfileRoute);
+  api.patch("/user/preferences", updateUserPreferencesRoute);
+  api.delete("/user/avatar", deleteUserAvatarRoute);
+  api.patch("/user/workspace", updateWorkspaceDetailsRoute);
+  api.get("/user/export", exportUserProfileDataRoute);
 
   // Billing endpoints (authenticated)
   api.post("/billing/order", authRateLimiter, createBillingOrderRoute);
