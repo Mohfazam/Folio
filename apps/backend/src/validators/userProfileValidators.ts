@@ -41,3 +41,39 @@ export function validateAvatarUrl(url: unknown): { valid: boolean; value?: strin
     return { valid: false, error: "Invalid avatar URL format" };
   }
 }
+
+export function validateBio(bio: unknown): { valid: boolean; value?: string | null; error?: string } {
+  if (bio === null || bio === undefined || bio === "") {
+    return { valid: true, value: null };
+  }
+
+  if (typeof bio !== "string") {
+    return { valid: false, error: "Bio must be a string or null" };
+  }
+
+  const trimmed = bio.trim();
+  if (trimmed.length > 500) {
+    return { valid: false, error: "Bio cannot exceed 500 characters" };
+  }
+
+  const sanitized = trimmed.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+  return { valid: true, value: sanitized };
+}
+
+export function validateJobTitle(title: unknown): { valid: boolean; value?: string | null; error?: string } {
+  if (title === null || title === undefined || title === "") {
+    return { valid: true, value: null };
+  }
+
+  if (typeof title !== "string") {
+    return { valid: false, error: "Job title must be a string or null" };
+  }
+
+  const trimmed = title.trim();
+  if (trimmed.length > 100) {
+    return { valid: false, error: "Job title cannot exceed 100 characters" };
+  }
+
+  const sanitized = trimmed.replace(/[\x00-\x1F\x7F]/g, "");
+  return { valid: true, value: sanitized };
+}
