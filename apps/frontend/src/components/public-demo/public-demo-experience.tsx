@@ -14,6 +14,10 @@ type TurnstileWindow = Window & {
   };
 };
 
+type PublicDemoExperienceProps = {
+  isLoggedIn?: boolean;
+};
+
 const scenarios: { id: Scenario; title: string; description: string; icon: string }[] = [
   { id: "admissions", title: "Admissions enquiry", description: "Courses, eligibility, fees and applications.", icon: "01" },
   { id: "student-support", title: "Student support", description: "Timetables, campus information and common questions.", icon: "02" },
@@ -40,8 +44,9 @@ const COMPLETED_STATUSES = new Set([
   "failed",
 ]);
 
-export default function PublicDemoExperience() {
+export default function PublicDemoExperience({ isLoggedIn = false }: PublicDemoExperienceProps) {
   const router = useRouter();
+  const returnPath = isLoggedIn ? "/dashboard" : "/";
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
   const [scenario, setScenario] = useState<Scenario>("admissions");
@@ -155,7 +160,7 @@ export default function PublicDemoExperience() {
 
     if (countdown <= 1) {
       const redirectTimer = setTimeout(() => {
-        router.push("/");
+        router.push(returnPath);
       }, 1000);
       return () => clearTimeout(redirectTimer);
     }
@@ -165,7 +170,7 @@ export default function PublicDemoExperience() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [status, countdown, router]);
+  }, [status, countdown, router, returnPath]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -239,7 +244,15 @@ export default function PublicDemoExperience() {
         </div>
 
         <h1 className="mt-3.5 font-[var(--font-newsreader)] text-[38px] font-medium leading-[1.02] tracking-[-1.5px] text-[#1B1C18] sm:text-[48px] sm:tracking-[-1.8px] xl:text-[56px] xl:tracking-[-2.1px]">
-          A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span>
+          {isLoggedIn ? (
+            <>
+              Test a live call. <span className="italic text-[#FD7032]">Hear the flow.</span>
+            </>
+          ) : (
+            <>
+              A real conversation. <span className="italic text-[#FD7032]">No sign-up.</span>
+            </>
+          )}
         </h1>
 
         <p className="mt-3.5 max-w-[490px] text-[14px] leading-[22px] text-[#66635B] sm:text-[15px] sm:leading-[24px]">
@@ -299,15 +312,15 @@ export default function PublicDemoExperience() {
                   : callDurationSeconds && callDurationSeconds > 0
                     ? `Your ${callDurationSeconds}s conversation with our AI receptionist has ended.`
                     : "We hope you enjoyed experiencing our AI receptionist."}{" "}
-              Returning back to landing in{" "}
+              Returning to {isLoggedIn ? "dashboard" : "landing"} in{" "}
               <span className="font-semibold text-[#FD7032]">{countdown}</span>…
             </p>
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push(returnPath)}
               className="mt-6 rounded-full border border-[#DCD5C8] px-5 py-2.5 text-[12px] font-semibold text-[#1B1C18] transition hover:border-[#FD7032]"
             >
-              Return now
+              {isLoggedIn ? "Back to dashboard" : "Return now"}
             </button>
           </div>
         ) : status === "queued" ? (
@@ -378,7 +391,9 @@ export default function PublicDemoExperience() {
                   Let’s get you on a call.
                 </h2>
                 <p className="text-[12px] leading-4 text-[#77736A]">
-                  No account or email required.
+                  {isLoggedIn
+                    ? "Pick a flow and get a quick test call."
+                    : "No account or email required."}
                 </p>
               </div>
               <span className="shrink-0 rounded-full border border-[#E8E1D5] bg-[#FAF8F3] px-2.5 py-1 text-[9.5px] font-semibold uppercase tracking-[1px] text-[#77736A]">

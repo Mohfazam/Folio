@@ -122,7 +122,7 @@ function SignUpContent() {
           >
             <p className="font-semibold text-[#1B1C18]">Continue with Google to get started</p>
             <p className="mt-0.5 text-[#747878]">
-              Email registration is temporarily paused while SMTP delivery is unavailable on free-tier hosting.
+              Email registration is temporarily paused. Sign in with Google instead.
             </p>
           </div>
         ) : (

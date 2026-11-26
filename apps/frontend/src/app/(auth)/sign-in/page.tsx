@@ -87,7 +87,7 @@ function SignInContent() {
           >
             <p className="font-semibold text-[#1B1C18]">Google sign-in is active</p>
             <p className="mt-0.5 text-[#747878]">
-              Email &amp; OTP sign-in is temporarily paused while SMTP delivery is unavailable on free-tier hosting.
+              Email &amp; OTP sign-in is temporarily paused. Sign in with Google instead.
             </p>
           </div>
         ) : (

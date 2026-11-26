@@ -1,12 +1,50 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { Suspense } from "react";
+import { connection } from "next/server";
 import PublicDemoExperience from "@/components/public-demo/public-demo-experience";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
 export const metadata: Metadata = {
   title: "Experience the Foolioo AI receptionist",
-  description: "Try a live AI receptionist experience from Foolioo. No account required.",
+  description: "Try a live AI receptionist experience from Foolioo.",
 };
+
+async function getIsAuthenticated(): Promise<boolean> {
+  await connection();
+  try {
+    const authContext = await getDashboardAuthContext();
+    return Boolean(authContext?.userId);
+  } catch {
+    return false;
+  }
+}
+
+async function LiveDemoAuthHeaderLink() {
+  const isLoggedIn = await getIsAuthenticated();
+
+  return isLoggedIn ? (
+    <Link
+      href="/dashboard"
+      className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+    >
+      Go to dashboard <span aria-hidden="true">→</span>
+    </Link>
+  ) : (
+    <Link
+      href="/sign-up"
+      className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+    >
+      Create an account <span aria-hidden="true">→</span>
+    </Link>
+  );
+}
+
+async function LiveDemoExperienceSlot() {
+  const isLoggedIn = await getIsAuthenticated();
+  return <PublicDemoExperience isLoggedIn={isLoggedIn} />;
+}
 
 export default function LiveDemoPage() {
   return (
@@ -41,17 +79,20 @@ export default function LiveDemoPage() {
           </span>
         </div>
 
-        <Link
-          href="/sign-up"
-          className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+        <Suspense
+          fallback={
+            <span className="inline-block h-4 w-28 animate-pulse rounded bg-[#E8E3D8]" />
+          }
         >
-          Create an account <span aria-hidden="true">→</span>
-        </Link>
+          <LiveDemoAuthHeaderLink />
+        </Suspense>
       </header>
 
       {/* MAIN CONTENT AREA */}
       <div className="relative flex flex-1 flex-col justify-center lg:min-h-0 lg:overflow-hidden">
-        <PublicDemoExperience />
+        <Suspense fallback={<PublicDemoExperience isLoggedIn={false} />}>
+          <LiveDemoExperienceSlot />
+        </Suspense>
       </div>
 
       {/* FOOTER */}
