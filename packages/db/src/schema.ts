@@ -187,6 +187,7 @@ export const users = pgTable("users", {
   authProvider: text("auth_provider").default("email"),
   passwordHash: text("password_hash"), // optional for OAuth/phone OTP
   role: userRoleEnum("role").notNull().default("client_admin"),
+  metadata: jsonb("metadata").default({}),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
