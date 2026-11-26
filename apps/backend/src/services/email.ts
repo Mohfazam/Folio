@@ -303,3 +303,62 @@ export async function sendSupportOtpEmail(options: {
     throw err;
   }
 }
+
+
+/**
+ * Sends a founder/admin reply on a support ticket from support@foolioo.app to the user's email.
+ */
+export async function sendSupportReplyEmail(options: {
+  to: string;
+  recipientName: string;
+  ticketId: string;
+  subject: string;
+  originalMessage: string;
+  replyMessage: string;
+}): Promise<{ ok: boolean }> {
+  const { to, recipientName, ticketId, subject, originalMessage, replyMessage } = options;
+  const transporter = getSupportTransporter();
+
+  if (!transporter) {
+    console.log(
+      `[nodemailer/dev-fallback] 📧 [SUPPORT REPLY] From: ${env.smtp.supportFrom} -> To: ${to} | Ticket: ${ticketId} | Subject: ${subject}`,
+    );
+    return { ok: true };
+  }
+
+  const safeRecipient = recipientName || "there";
+  const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 560px; margin: 20px auto; color: #1B1C18; line-height: 1.55;">
+    <p style="font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #644ABB; margin: 0 0 8px;">Foolioo Support · Ticket #${ticketId.slice(0, 8)}</p>
+    <h2 style="margin: 0 0 12px; font-size: 20px; color: #1B1C18;">Update regarding: ${subject}</h2>
+    <p>Hi ${safeRecipient},</p>
+    <div style="background: #FAF8F2; border-left: 3px solid #FD7032; padding: 14px 16px; border-radius: 6px; margin: 16px 0; white-space: pre-wrap; font-size: 14px; color: #1B1C18;">${replyMessage}</div>
+    <details style="margin-top: 20px; color: #525552; font-size: 12px;">
+      <summary style="cursor: pointer; font-weight: 600;">Your original message</summary>
+      <div style="margin-top: 8px; padding: 12px; background: #F5F4ED; border-radius: 6px; white-space: pre-wrap;">${originalMessage}</div>
+    </details>
+    <p style="margin-top: 24px; font-size: 12px; color: #747878;">Sent from Foolioo Support (${env.smtp.supportFrom})</p>
+  </div>`;
+
+  try {
+    await transporter.sendMail({
+      from: env.smtp.supportFrom,
+      to,
+      replyTo: env.smtp.supportFrom,
+      subject: `Re: ${subject} [Ticket ${ticketId.slice(0, 8)}]`,
+      text: `Hi ${safeRecipient},
+
+${replyMessage}
+
+---
+Original message:
+${originalMessage}
+
+- Foolioo Support (${env.smtp.supportFrom})`,
+      html,
+    });
+    return { ok: true };
+  } catch (err: unknown) {
+    console.error("[nodemailer/support-reply] Failed to send support reply email:", err);
+    throw err;
+  }
+}

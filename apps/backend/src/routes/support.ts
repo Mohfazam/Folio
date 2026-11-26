@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { db } from "../config/db.js";
 import { supportTickets } from "@repo/db";
-import { sendSupportTicketEmail } from "../services/email.js";
+import { sendSupportTicketEmail, sendSupportReplyEmail } from "../services/email.js";
 
 const VALID_TICKET_STATUSES = ["open", "in_progress", "resolved", "closed"] as const;
 type TicketStatus = (typeof VALID_TICKET_STATUSES)[number];
@@ -167,5 +167,74 @@ export async function updateSupportTicketStatusRoute(req: Request, res: Response
   } catch (err: unknown) {
     console.error("[support/tickets/patch] Unexpected error:", err);
     return res.status(500).json({ ok: false, error: "Failed to update support ticket." });
+  }
+}
+
+
+/**
+ * POST /api/support/tickets/:id/reply
+ *
+ * Sends a founder reply email from support@foolioo.app to the user's email address
+ * and optionally transitions the ticket status (e.g. to `in_progress` or `resolved`).
+ */
+export async function replySupportTicketRoute(req: Request, res: Response) {
+  try {
+    const id = typeof req.params?.id === "string" ? req.params.id.trim() : "";
+    const replyMessage =
+      typeof req.body?.replyMessage === "string" ? req.body.replyMessage.trim().slice(0, 5000) : "";
+    const nextStatus =
+      typeof req.body?.status === "string" &&
+      VALID_TICKET_STATUSES.includes(req.body.status.trim() as TicketStatus)
+        ? (req.body.status.trim() as TicketStatus)
+        : null;
+
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(400).json({ ok: false, error: "Invalid ticket ID." });
+    }
+    if (!replyMessage || replyMessage.length < 2) {
+      return res.status(400).json({ ok: false, error: "Please write a reply message before sending." });
+    }
+
+    const [existing] = await db
+      .select()
+      .from(supportTickets)
+      .where(eq(supportTickets.id, id))
+      .limit(1);
+
+    if (!existing) {
+      return res.status(404).json({ ok: false, error: "Support ticket not found." });
+    }
+
+    await sendSupportReplyEmail({
+      to: existing.email,
+      recipientName: existing.name,
+      ticketId: existing.id,
+      subject: existing.subject,
+      originalMessage: existing.message,
+      replyMessage,
+    });
+
+    const targetStatus: TicketStatus =
+      nextStatus ?? (existing.status === "open" ? "in_progress" : (existing.status as TicketStatus));
+
+    const [updated] = await db
+      .update(supportTickets)
+      .set({ status: targetStatus, updatedAt: new Date() })
+      .where(eq(supportTickets.id, id))
+      .returning();
+
+    return res.status(200).json({
+      ok: true,
+      sentTo: existing.email,
+      from: "support@foolioo.app",
+      ticket: updated ?? existing,
+      message: `Reply sent to ${existing.email} from support@foolioo.app.`,
+    });
+  } catch (err: unknown) {
+    console.error("[support/tickets/reply] Unexpected error:", err);
+    return res.status(500).json({
+      ok: false,
+      error: "Failed to send reply email from support@foolioo.app. Check SMTP support settings.",
+    });
   }
 }
