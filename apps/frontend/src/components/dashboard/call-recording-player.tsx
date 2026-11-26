@@ -1,62 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-type RecordingMeta = {
-  id: string;
-  callId: string;
-  durationSeconds?: number | null;
-  fileFormat?: string | null;
-  status?: string | null;
-  streamUrl: string;
-};
-
-type RecordingPayload = {
-  ok: true;
-  available: boolean;
-  recording: RecordingMeta | null;
-  message?: string;
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseRecordingPayload(value: unknown): RecordingPayload | null {
-  if (!isRecord(value) || value.ok !== true || typeof value.available !== "boolean") {
-    return null;
-  }
-
-  if (!value.available || value.recording === null) {
-    return {
-      ok: true,
-      available: false,
-      recording: null,
-      message: typeof value.message === "string" ? value.message : undefined,
-    };
-  }
-
-  if (!isRecord(value.recording) || typeof value.recording.id !== "string") {
-    return null;
-  }
-
-  const rec = value.recording;
-  return {
-    ok: true,
-    available: true,
-    recording: {
-      id: rec.id as string,
-      callId: typeof rec.callId === "string" ? rec.callId : (rec.id as string),
-      durationSeconds: typeof rec.durationSeconds === "number" ? rec.durationSeconds : null,
-      fileFormat: typeof rec.fileFormat === "string" ? rec.fileFormat : "mp3",
-      status: typeof rec.status === "string" ? rec.status : null,
-      streamUrl:
-        typeof rec.streamUrl === "string" && rec.streamUrl.startsWith("/api/calls/")
-          ? rec.streamUrl
-          : `/api/calls/${encodeURIComponent(String(typeof rec.callId === "string" ? rec.callId : rec.id))}/recording/stream`,
-    },
-  };
-}
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useRecordingStatus } from "../../hooks/useRecordingStatus";
+import { RecordingProcessingProgress } from "./recording-processing-progress";
 
 function formatClock(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
@@ -78,82 +24,36 @@ function formatDuration(seconds: number | null | undefined): string {
 export function CallRecordingPlayer({
   callId,
   initialHasRecording = false,
+  callEndedAt,
 }: {
   callId: string;
   initialHasRecording?: boolean;
+  callEndedAt?: string | null;
 }) {
-  const [loading, setLoading] = useState(true);
-  const [available, setAvailable] = useState(initialHasRecording);
-  const [recording, setRecording] = useState<RecordingMeta | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [audioError, setAudioError] = useState(false);
-  const [retry, setRetry] = useState(0);
+  const {
+    phase,
+    available,
+    recording,
+    secondsRemaining,
+    progressPercent,
+    pollCount,
+    error,
+    checkNow,
+    restartCountdown,
+  } = useRecordingStatus(callId, {
+    countdownSeconds: 60,
+    pollIntervalMs: 8000,
+    initialHasRecording,
+    callEndedAt,
+  });
 
+  const [audioError, setAudioError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const [muted, setMuted] = useState(false);
   const [isSeeking, setIsSeeking] = useState(false);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-
-    async function loadRecordingMeta() {
-      setLoading(true);
-      setError(null);
-      setAudioError(false);
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setMediaDuration(null);
-
-      try {
-        const response = await fetch(`/api/calls/${encodeURIComponent(callId)}/recording`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const payload = await response.json().catch(() => null);
-        const parsed = parseRecordingPayload(payload);
-
-        if (!response.ok || !parsed) {
-          throw new Error(
-            isRecord(payload) && typeof payload.error === "string"
-              ? payload.error
-              : "Recording metadata could not be loaded.",
-          );
-        }
-
-        if (!cancelled && !controller.signal.aborted) {
-          setAvailable(parsed.available);
-          setRecording(parsed.recording);
-        }
-      } catch (err) {
-        if (controller.signal.aborted || cancelled) return;
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to load recording.");
-        if (initialHasRecording) {
-          setAvailable(true);
-          setRecording({
-            id: callId,
-            callId,
-            fileFormat: "mp3",
-            streamUrl: `/api/calls/${encodeURIComponent(callId)}/recording/stream`,
-          });
-        } else {
-          setAvailable(false);
-        }
-      } finally {
-        if (!cancelled && !controller.signal.aborted) setLoading(false);
-      }
-    }
-
-    void loadRecordingMeta();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [callId, initialHasRecording, retry]);
 
   const effectiveDuration = useMemo(() => {
     const metaDur =
@@ -166,13 +66,12 @@ export function CallRecordingPlayer({
         : null;
 
     if (metaDur && domDur) {
-      // VBR / progressive streams often report a shorter estimated duration early on
       return Math.max(metaDur, domDur);
     }
     return metaDur ?? domDur ?? 0;
   }, [mediaDuration, recording?.durationSeconds]);
 
-  const progressPercent = useMemo(() => {
+  const streamProgressPercent = useMemo(() => {
     if (effectiveDuration <= 0) return 0;
     return Math.min(100, Math.max(0, (currentTime / effectiveDuration) * 100));
   }, [currentTime, effectiveDuration]);
@@ -234,16 +133,16 @@ export function CallRecordingPlayer({
         {available ? (
           <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-medium text-[#525552]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#2F7A4D]" aria-hidden="true" />
-            Audio saved
+            Audio ready
           </span>
         ) : null}
       </div>
 
-      {loading ? (
+      {phase === "checking" ? (
         <div className="mt-4 rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[13px] text-[#85877F]" role="status">
           Checking recording availability…
         </div>
-      ) : available ? (
+      ) : available && recording ? (
         <div className="mt-4 space-y-3">
           <audio
             ref={audioRef}
@@ -298,7 +197,7 @@ export function CallRecordingPlayer({
               <div className="h-1 w-full overflow-hidden rounded-full bg-[#C7CCD1]">
                 <div
                   className="h-full rounded-full bg-[#1B1C18] transition-[width] duration-75"
-                  style={{ width: `${progressPercent}%` }}
+                  style={{ width: `${streamProgressPercent}%` }}
                 />
               </div>
               <input
@@ -345,7 +244,7 @@ export function CallRecordingPlayer({
               Audio stream could not be played.{" "}
               <button
                 type="button"
-                onClick={() => setRetry((n) => n + 1)}
+                onClick={checkNow}
                 className="font-semibold underline hover:text-[#852F29]"
               >
                 Retry
@@ -369,18 +268,25 @@ export function CallRecordingPlayer({
             </a>
           </div>
         </div>
+      ) : phase === "processing" || phase === "timeout" ? (
+        <RecordingProcessingProgress
+          secondsRemaining={secondsRemaining}
+          progressPercent={progressPercent}
+          pollCount={pollCount}
+          onCheckNow={checkNow}
+          onRestartTimer={restartCountdown}
+          isTimeout={phase === "timeout"}
+        />
       ) : (
         <div className="mt-4 rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[13px] leading-5 text-[#85877F]">
           <p>{error || "Recording is not available for this call."}</p>
-          {error ? (
-            <button
-              type="button"
-              onClick={() => setRetry((n) => n + 1)}
-              className="mt-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6] hover:underline"
-            >
-              Retry
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={checkNow}
+            className="mt-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6] hover:underline"
+          >
+            Check status again
+          </button>
         </div>
       )}
     </section>
