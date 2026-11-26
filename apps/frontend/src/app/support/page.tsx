@@ -245,12 +245,7 @@ export default function SupportPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Input
                     id="name"
-                    label={
-                      <>
-                        Your name
-                        <RequiredMark />
-                      </>
-                    }
+                    label="Your name *"
                     placeholder="Aarav Sharma"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -260,12 +255,7 @@ export default function SupportPage() {
                   <Input
                     id="email"
                     type="email"
-                    label={
-                      <>
-                        Work email
-                        <RequiredMark />
-                      </>
-                    }
+                    label="Work email *"
                     placeholder="you@company.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -308,12 +298,7 @@ export default function SupportPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Input
                     id="subject"
-                    label={
-                      <>
-                        Subject
-                        <RequiredMark />
-                      </>
-                    }
+                    label="Subject *"
                     placeholder="e.g. Call dropped mid-conversation"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
