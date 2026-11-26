@@ -2053,9 +2053,20 @@ export function CampaignsDashboard({
     return () => window.clearTimeout(handle);
   }, [queryInput]);
 
+  const filterPopoverContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!openMenuId && !filterPopoverOpen) return;
-    const handleDocClick = () => {
+    const handleOutsidePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (
+        filterPopoverOpen &&
+        filterPopoverContainerRef.current &&
+        target &&
+        filterPopoverContainerRef.current.contains(target)
+      ) {
+        return;
+      }
       setOpenMenuId(null);
       setFilterPopoverOpen(false);
     };
@@ -2065,10 +2076,10 @@ export function CampaignsDashboard({
         setFilterPopoverOpen(false);
       }
     };
-    document.addEventListener("click", handleDocClick);
+    document.addEventListener("mousedown", handleOutsidePointerDown);
     document.addEventListener("keydown", handleEsc);
     return () => {
-      document.removeEventListener("click", handleDocClick);
+      document.removeEventListener("mousedown", handleOutsidePointerDown);
       document.removeEventListener("keydown", handleEsc);
     };
   }, [openMenuId, filterPopoverOpen]);
@@ -3192,7 +3203,7 @@ export function CampaignsDashboard({
               ) : null}
             </label>
 
-            <div className="relative" onClick={(event) => event.stopPropagation()}>
+            <div ref={filterPopoverContainerRef} className="relative" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
               <button
                 type="button"
                 aria-expanded={filterPopoverOpen}
