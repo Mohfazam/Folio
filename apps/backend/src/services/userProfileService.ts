@@ -141,3 +141,25 @@ export async function updateUserPreferencesService(
   const refreshed = await getUserProfileService(userId);
   return refreshed ? refreshed.preferences : null;
 }
+
+export async function removeUserAvatarService(userId: string): Promise<boolean> {
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing) {
+    return false;
+  }
+
+  await db
+    .update(users)
+    .set({
+      avatarUrl: null,
+      updatedAt: new Date()
+    })
+    .where(eq(users.id, userId));
+
+  return true;
+}
