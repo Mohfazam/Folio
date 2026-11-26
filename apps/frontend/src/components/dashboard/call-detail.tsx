@@ -215,7 +215,11 @@ export function CallDetailView({
             ) : null}
           </section>
 
-          <CallRecordingPlayer callId={call.id} initialHasRecording={hasRecording} />
+          <CallRecordingPlayer
+            callId={call.id}
+            initialHasRecording={hasRecording}
+            callEndedAt={call.endedAt || call.startedAt}
+          />
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
