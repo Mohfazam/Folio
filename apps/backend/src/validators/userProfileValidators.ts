@@ -17,17 +17,31 @@ export function validateDisplayName(name: unknown): { valid: boolean; value?: st
   return { valid: true, value: sanitized };
 }
 
-export function guardAgainstEmailChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
-  const forbiddenEmailKeys = ["email", "userEmail", "user_email"];
-  for (const key of forbiddenEmailKeys) {
+export function guardAgainstPhoneNumberChange(payload: Record<string, unknown>): { rejected: boolean; error?: string } {
+  const forbiddenPhoneKeys = ["phoneNumber", "phone_number", "phone", "callerIdNumber", "caller_id_number"];
+  for (const key of forbiddenPhoneKeys) {
     if (key in payload && payload[key] !== undefined) {
       return {
         rejected: true,
-        error: "Email addresses cannot be updated through this unverified endpoint. Changing an email requires verification."
+        error: "Phone numbers cannot be updated through this unverified endpoint. Changing a phone number requires two-factor OTP verification."
       };
     }
   }
   return { rejected: false };
+}
+
+export function validateTimezone(tz: unknown): { valid: boolean; value?: string; error?: string } {
+  if (typeof tz !== "string" || tz.trim().length === 0) {
+    return { valid: false, error: "Timezone must be a non-empty string" };
+  }
+
+  const trimmed = tz.trim();
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: trimmed });
+    return { valid: true, value: trimmed };
+  } catch {
+    return { valid: false, error: `Invalid IANA timezone identifier: '${trimmed}'` };
+  }
 }
 
 export function validateAvatarUrl(url: unknown): { valid: boolean; value?: string | null; error?: string } {
@@ -102,4 +116,18 @@ export function guardAgainstEmailChange(payload: Record<string, unknown>): { rej
     }
   }
   return { rejected: false };
+}
+
+export function validateTimezone(tz: unknown): { valid: boolean; value?: string; error?: string } {
+  if (typeof tz !== "string" || tz.trim().length === 0) {
+    return { valid: false, error: "Timezone must be a non-empty string" };
+  }
+
+  const trimmed = tz.trim();
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: trimmed });
+    return { valid: true, value: trimmed };
+  } catch {
+    return { valid: false, error: `Invalid IANA timezone identifier: '${trimmed}'` };
+  }
 }
