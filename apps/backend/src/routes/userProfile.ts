@@ -62,6 +62,17 @@ export async function updateUserProfileRoute(req: Request, res: Response): Promi
       return;
     }
 
+    // Explicit rejection guard: phone number changes require 2FA/OTP verification
+    const phoneCheck = guardAgainstPhoneNumberChange((req.body || {}) as Record<string, unknown>);
+    if (phoneCheck.rejected) {
+      res.status(400).json({
+        ok: false,
+        error: phoneCheck.error,
+        code: "PHONE_NUMBER_CHANGE_FORBIDDEN"
+      });
+      return;
+    }
+
     const validation = validateUserProfileUpdate(req.body);
     if (!validation.valid) {
       res.status(400).json({ ok: false, error: validation.error });
