@@ -113,3 +113,29 @@ test("validateCallingHoursTime rejects invalid hours and minutes", () => {
   assert.equal(validateCallingHoursTime("").valid, false);
   assert.equal(validateCallingHoursTime(null).valid, false);
 });
+
+test("validateUserProfileUpdate validates combined fields and enforces unverified restrictions", () => {
+  const valid = validateUserProfileUpdate({
+    displayName: "Jane Doe",
+    avatarUrl: "https://example.com/jane.jpg",
+    bio: "Senior Sales Engineer",
+    jobTitle: "Team Lead"
+  });
+  assert.equal(valid.valid, true);
+  assert.equal(valid.value?.displayName, "Jane Doe");
+  assert.equal(valid.value?.bio, "Senior Sales Engineer");
+
+  // Phone number presence immediately fails
+  const withPhone = validateUserProfileUpdate({
+    displayName: "Jane Doe",
+    phoneNumber: "+19876543210"
+  });
+  assert.equal(withPhone.valid, false);
+
+  // Email presence immediately fails
+  const withEmail = validateUserProfileUpdate({
+    displayName: "Jane Doe",
+    email: "jane@newdomain.com"
+  });
+  assert.equal(withEmail.valid, false);
+});
