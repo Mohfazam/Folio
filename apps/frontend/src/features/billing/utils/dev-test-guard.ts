@@ -5,7 +5,7 @@ import { DEV_TEST_PLAN_ID } from "@/features/billing/utils/dev-test-plan";
 import { isLocalhostRequest } from "@/features/billing/utils/localhost-guard";
 
 /**
- * Enforces that the `dev_test` (₹5) plan can only be ordered or verified from
+ * Enforces that the `dev_test` (₹1) plan can only be ordered or verified from
  * a strictly localhost request in non-production mode.
  */
 export function enforceDevTestPlanAllowed(

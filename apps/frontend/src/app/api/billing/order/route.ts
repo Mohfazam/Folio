@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         {
           ok: false,
           error:
-            "Backend billing endpoint is not configured yet for dev_test (expected 500 paise / INR 5 order creation on backend).",
+            "Backend billing endpoint is not configured yet for dev_test (expected 100 paise / INR 1 order creation on backend).",
           expectedAmountPaise: DEV_TEST_PLAN_AMOUNT_PAISE,
         },
         { status: 503 },

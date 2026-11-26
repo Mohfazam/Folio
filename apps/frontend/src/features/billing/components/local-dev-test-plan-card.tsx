@@ -54,14 +54,14 @@ export function LocalDevTestPlanCard({
             onClick={() => onSelectPlan("dev_test")}
             className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
-            Test ₹5 checkout
+            Test ₹1 checkout
           </button>
         ) : (
           <Link
             href="/checkout?plan=dev_test"
             className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
-            Test ₹5 checkout
+            Test ₹1 checkout
           </Link>
         )}
       </div>

@@ -139,7 +139,7 @@ export function BillingDashboard({
         priceInr: localDevPlan.amountInr,
         credits: 0,
         creditsLabel: localDevPlan.creditsLabel,
-        estimateLabel: "Localhost test verification (500 paise)",
+        estimateLabel: "Localhost test verification (100 paise)",
         description: `${localDevPlan.name} · ${localDevPlan.creditsLabel}`,
         isDevTest: true,
       };
@@ -288,7 +288,7 @@ export function BillingDashboard({
 
     if (checkoutSummary.isDevTest && !localDevPlan) {
       setStage("failed");
-      setFeedbackMessage("The ₹5 dev test plan is only available on localhost.");
+      setFeedbackMessage("The ₹1 dev test plan is only available on localhost.");
       return;
     }
 
@@ -727,7 +727,7 @@ export function BillingDashboard({
         </div>
       ) : null}
 
-      {/* Localhost-only ₹5 Dev Test Plan Card */}
+      {/* Localhost-only ₹1 Dev Test Plan Card */}
       <LocalDevTestPlanCard
         isLocalDevTestAvailable={isLocalDevTestAvailable}
         onSelectPlan={handleSelectDevTestPlan}
@@ -909,7 +909,7 @@ export function BillingDashboard({
                 </p>
                 <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">
                   {checkoutSummary.isDevTest
-                    ? "Localhost dev test order · 500 paise"
+                    ? "Localhost dev test order · 100 paise"
                     : "One-time payment · Instant credit grant"}
                 </p>
               </div>
