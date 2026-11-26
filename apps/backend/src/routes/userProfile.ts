@@ -27,7 +27,7 @@ import {
  */
 export async function getUserProfileRoute(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
@@ -56,7 +56,7 @@ export async function getUserProfileRoute(req: Request, res: Response): Promise<
  */
 export async function updateUserProfileRoute(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
@@ -117,7 +117,7 @@ export async function updateUserProfileRoute(req: Request, res: Response): Promi
  */
 export async function updateUserPreferencesRoute(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
@@ -156,7 +156,7 @@ export async function updateUserPreferencesRoute(req: Request, res: Response): P
  */
 export async function deleteUserAvatarRoute(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
@@ -253,8 +253,8 @@ export async function updateWorkspaceDetailsRoute(req: Request, res: Response): 
       return;
     }
 
-    if (req.userId) {
-      await recordUserAuditLog(req.userId, clientId, "workspace.non_verified.updated", {
+    if (req.user?.id) {
+      await recordUserAuditLog(req.user.id, clientId, "workspace.non_verified.updated", {
         fields: Object.keys(input)
       });
     }
@@ -276,7 +276,7 @@ export async function updateWorkspaceDetailsRoute(req: Request, res: Response): 
  */
 export async function exportUserProfileDataRoute(req: Request, res: Response): Promise<void> {
   try {
-    const userId = req.userId;
+    const userId = req.user?.id;
     if (!userId) {
       res.status(401).json({ ok: false, error: "Unauthorized" });
       return;
