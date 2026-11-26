@@ -8,8 +8,7 @@ import { pool } from "./config/db.js";
 import { globalRateLimiter } from "./middleware/rateLimiters.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { setShuttingDown } from "./routes/health.js";
-import { processNextEligibleCall } from "./worker/processQueue.js";
-import { cleanupExpiredPublicDemoData } from "./services/publicDemoRetention.js";
+import { createWorkerDaemon, type WorkerDaemon } from "./worker/workerDaemon.js";
 
 export function createApp(): express.Express {
   validateEnv();
@@ -77,36 +76,18 @@ export interface RunningServer {
 
 export function startServer(): RunningServer {
   const app = createApp();
-  let queueInterval: NodeJS.Timeout | null = null;
-  let retentionInterval: NodeJS.Timeout | null = null;
+  let workerDaemon: WorkerDaemon | null = null;
   let isClosing = false;
 
   const server = app.listen(env.port, "0.0.0.0", () => {
     console.log(`[backend] 🚀 Backend service running on port ${env.port} (${env.nodeEnv})`);
 
-    // Trigger initial check on startup
-    void processNextEligibleCall().catch((err) => {
-      console.error("[backend] Initial queue processing error:", err);
+    // Start 24/7 background worker daemon (processes queue, syncs Plivo recordings, cleans stale entries)
+    workerDaemon = createWorkerDaemon({
+      intervalMs: 15_000,
+      verbose: false,
     });
-
-    // Redact public-demo phone numbers after their 24-hour abuse-prevention window.
-    void cleanupExpiredPublicDemoData().catch((err) => {
-      console.error("[backend] Public demo retention cleanup failed:", err);
-    });
-    const RETENTION_CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
-    retentionInterval = setInterval(() => {
-      void cleanupExpiredPublicDemoData().catch((err) => {
-        console.error("[backend] Public demo retention cleanup failed:", err);
-      });
-    }, RETENTION_CLEANUP_INTERVAL_MS);
-
-    // Background interval: check every 20 seconds for pending/scheduled calls
-    const QUEUE_POLL_INTERVAL_MS = 20_000;
-    queueInterval = setInterval(() => {
-      void processNextEligibleCall().catch((err) => {
-        console.error("[backend] Periodic queue runner error:", err);
-      });
-    }, QUEUE_POLL_INTERVAL_MS);
+    workerDaemon.start();
   });
 
   const stop = async (): Promise<void> => {
@@ -116,13 +97,9 @@ export function startServer(): RunningServer {
     setShuttingDown(true);
     console.log("[backend] 🛑 Initiating graceful shutdown...");
 
-    if (queueInterval) {
-      clearInterval(queueInterval);
-      queueInterval = null;
-    }
-    if (retentionInterval) {
-      clearInterval(retentionInterval);
-      retentionInterval = null;
+    if (workerDaemon) {
+      await workerDaemon.stop();
+      workerDaemon = null;
     }
 
     await new Promise<void>((resolve) => {
