@@ -1,4 +1,4 @@
-﻿# Master PowerShell script to commit every single file change as an individual, granular commit
+# Master PowerShell script to commit every single file change as an individual, granular commit
 # Run from repository root: .\scripts\commit-all-features.ps1
 
 Write-Host "Creating granular commits for all features..." -ForegroundColor Cyan
