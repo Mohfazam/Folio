@@ -48,3 +48,12 @@ export interface WorkspaceDetailsUpdateInput {
   callingHoursEnd?: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface ProfileUpdateResponse {
+  ok: boolean;
+  message?: string;
+  user?: UserProfileData;
+  preferences?: UserPreferences;
+  error?: string;
+}
+
