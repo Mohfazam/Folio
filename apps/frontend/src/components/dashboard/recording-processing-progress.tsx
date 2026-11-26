@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 interface RecordingProcessingProgressProps {
   secondsRemaining: number;
   progressPercent: number;
   pollCount: number;
   onCheckNow?: () => void;
-  onRetry?: () => void;
+  onRestartTimer?: () => void;
   isTimeout?: boolean;
 }
 
@@ -14,9 +16,35 @@ export function RecordingProcessingProgress({
   progressPercent,
   pollCount,
   onCheckNow,
-  onRetry,
+  onRestartTimer,
   isTimeout = false,
 }: RecordingProcessingProgressProps) {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/calls/sync-recordings", { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        setSyncMessage(`Synced ${data.matchedCount ?? 0} recording(s) successfully!`);
+        if (onCheckNow) {
+          setTimeout(onCheckNow, 1000);
+        }
+      } else {
+        setSyncMessage(data?.error || "Sync in progress...");
+        if (onCheckNow) onCheckNow();
+      }
+    } catch {
+      setSyncMessage("Sync request sent. Checking recording status...");
+      if (onCheckNow) onCheckNow();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="mt-4 rounded-[8px] border border-[#E9E5F5] bg-[#FAF8FE] p-4 text-[#1B1C18]">
       <div className="flex items-center justify-between gap-3">
@@ -36,7 +64,11 @@ export function RecordingProcessingProgress({
           <span className="shrink-0 rounded-[5px] bg-[#EDE8FA] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium tabular-nums text-[#6E42D0]">
             {secondsRemaining}s remaining
           </span>
-        ) : null}
+        ) : (
+          <span className="shrink-0 rounded-[5px] bg-[#EDE8FA] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#6E42D0]">
+            Waiting on Plivo
+          </span>
+        )}
       </div>
 
       {/* 60-Second Progress Bar */}
@@ -47,23 +79,50 @@ export function RecordingProcessingProgress({
         />
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between font-['Space_Grotesk'] text-[12px] text-[#7C7495]">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 font-['Space_Grotesk'] text-[12px] text-[#7C7495]">
         <span>
           {isTimeout
-            ? "Encoding complete; saving to storage. Auto-polling every 8s..."
+            ? "Longer calls can take up to 90s to encode. Auto-checking every 8s..."
             : `Checking Plivo media service (check #${pollCount})...`}
         </span>
 
-        {onCheckNow ? (
+        <div className="flex items-center gap-3">
+          {onRestartTimer && isTimeout ? (
+            <button
+              type="button"
+              onClick={onRestartTimer}
+              className="font-medium text-[#7852D6] hover:underline"
+            >
+              Restart timer
+            </button>
+          ) : null}
+
           <button
             type="button"
-            onClick={onCheckNow}
-            className="font-medium text-[#7852D6] underline underline-offset-2 hover:text-[#5833B5]"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="font-medium text-[#7852D6] underline underline-offset-2 hover:text-[#5833B5] disabled:opacity-50"
           >
-            Check now
+            {isSyncing ? "Syncing..." : "Sync from Plivo"}
           </button>
-        ) : null}
+
+          {onCheckNow ? (
+            <button
+              type="button"
+              onClick={onCheckNow}
+              className="font-medium text-[#7852D6] underline underline-offset-2 hover:text-[#5833B5]"
+            >
+              Check now
+            </button>
+          ) : null}
+        </div>
       </div>
+
+      {syncMessage ? (
+        <div className="mt-2 text-[11px] font-medium text-[#5A38B8]">
+          {syncMessage}
+        </div>
+      ) : null}
     </div>
   );
 }
