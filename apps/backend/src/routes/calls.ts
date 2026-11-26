@@ -1261,19 +1261,28 @@ export async function streamCallRecordingRoute(req: Request, res: Response) {
  * Updates the existing call record and callRecordings table.
  */
 export async function updateCallRecordingRoute(req: Request, res: Response) {
-  const { deliveryId, plivoCallId, plivoRecordingId, recordingUrl, durationSeconds } = req.body ?? {};
+  const { callId, deliveryId, plivoCallId, plivoRecordingId, recordingUrl, durationSeconds } = req.body ?? {};
 
-  if (!recordingUrl || (!deliveryId && !plivoCallId)) {
+  if (!recordingUrl || (!callId && !deliveryId && !plivoCallId)) {
     return res.status(400).json({
       ok: false,
-      error: "Missing required fields: recordingUrl and (deliveryId or plivoCallId)",
+      error: "Missing required fields: recordingUrl and (callId, deliveryId, or plivoCallId)",
     });
   }
 
   try {
     let call = null;
 
-    if (deliveryId) {
+    if (callId) {
+      const [found] = await db
+        .select()
+        .from(calls)
+        .where(eq(calls.id, callId))
+        .limit(1);
+      call = found;
+    }
+
+    if (!call && deliveryId) {
       const [found] = await db
         .select()
         .from(calls)

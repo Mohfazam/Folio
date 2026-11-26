@@ -87,6 +87,7 @@ export function registerRoutes(app: Express) {
   // Machine-to-machine service endpoints
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
   api.post("/calls/recording", requireWebhookSecret, updateCallRecordingRoute);
+  api.patch("/calls/recording", requireWebhookSecret, updateCallRecordingRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
   api.post("/worker/recordings/ingest", requireWorkerSecret, ingestWorkerRecordingsRoute);
   api.post("/worker/queue/cleanup", requireWorkerSecret, cleanupWorkerQueueRoute);
