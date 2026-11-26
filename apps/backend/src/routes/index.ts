@@ -45,6 +45,7 @@ import {
 } from "./knowledgeBase.js";
 import { deleteQueueRoute, enqueueRoute, getQueueRoute, updateQueueRoute } from "./queue.js";
 import { processQueueRoute } from "./process.js";
+import { ingestWorkerRecordingsRoute, cleanupWorkerQueueRoute } from "./workerIngest.js";
 import {
   createTestCallRoute,
   getAgentSettingsRoute,
@@ -83,6 +84,8 @@ export function registerRoutes(app: Express) {
   api.post("/calls/complete", requireWebhookSecret, callCompleteRoute);
   api.post("/calls/recording", requireWebhookSecret, updateCallRecordingRoute);
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
+  api.post("/worker/recordings/ingest", requireWorkerSecret, ingestWorkerRecordingsRoute);
+  api.post("/worker/queue/cleanup", requireWorkerSecret, cleanupWorkerQueueRoute);
 
   // Anonymous public demo is isolated behind the trusted frontend proxy secret.
   api.post("/public-demo", publicDemoRateLimiter, createPublicDemoRoute);

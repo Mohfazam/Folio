@@ -10,8 +10,6 @@
     "db:push": "pnpm --filter @repo/db db:push",
     "setup:public-demo": "tsx src/scripts/setup-public-demo.ts",
     "cleanup:public-demo": "tsx src/scripts/cleanup-public-demo.ts",
-    "start:worker": "node dist/worker-runner.js",
-    "dev:worker": "tsx watch src/worker-runner.ts",
     "start": "node dist/index.js"
   },
   "type": "module",
