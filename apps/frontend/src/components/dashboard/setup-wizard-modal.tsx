@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-import { formatPhoneNumber } from "@/lib/utils/format-phone";
   createCampaignAction,
   createTestCallAction,
   getTestCallStatusAction,
@@ -12,6 +11,7 @@ import { formatPhoneNumber } from "@/lib/utils/format-phone";
   saveRoutingRulesAction,
   getSetupWizardDataAction,
 } from "@/app/(dashboard)/dashboard/actions";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 type SetupAction = "voice" | "contacts" | "test-call" | "campaign" | "routing" | "launch";
 type RecordValue = Record<string, unknown>;
@@ -36,9 +36,9 @@ type SetupData = {
 
 type ActionResult = { ok: true; data?: RecordValue } | { ok: false; error: string; status?: number };
 
-const INPUT = "h-10 w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
-const TEXTAREA = "w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
-const LABEL = "flex flex-col gap-1.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748]";
+const INPUT = "h-10 w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
+const TEXTAREA = "w-full rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2.5 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6]";
+const LABEL = "flex flex-col gap-1.5 font-['Space_Grotesk'] text-[14px] font-medium text-[#444748]";
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -63,11 +63,11 @@ function items(result: LoadResult<Snapshot>): RecordValue[] {
 }
 
 function FieldHint({ children }: { children: React.ReactNode }) {
-  return <span className="font-['Space_Grotesk'] text-[11px] font-normal leading-4 text-[#85877F]">{children}</span>;
+  return <span className="font-['Space_Grotesk'] text-[13px] font-normal leading-4 text-[#85877F]">{children}</span>;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="border-b border-[#ECEBE5] pb-2 pt-1 font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">{children}</p>;
+  return <p className="border-b border-[#ECEBE5] pb-2 pt-1 font-['Space_Grotesk'] text-[12px] font-bold tracking-[0.09em] text-[#747878]">{children}</p>;
 }
 
 export function SetupWizardModal({
@@ -218,8 +218,8 @@ export function SetupWizardModal({
 
   const renderFooter = (submitLabel: string, disabled = false) => (
     <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#ECEBE5] pt-4">
-      <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">{success ? "Close" : "Cancel"}</button>
-      {!success ? <button type="submit" disabled={busy || disabled} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Saving..." : submitLabel}</button> : null}
+      <button type="button" onClick={onClose} disabled={busy} className="rounded-[4px] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-medium text-[#444748] hover:bg-[#F5F4ED]">{success ? "Close" : "Cancel"}</button>
+      {!success ? <button type="submit" disabled={busy || disabled} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Saving..." : submitLabel}</button> : null}
     </div>
   );
 
@@ -230,7 +230,7 @@ export function SetupWizardModal({
       <section className="my-5 flex max-h-[min(92vh,900px)] w-full max-w-[680px] flex-col overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white shadow-[0_20px_64px_rgba(27,28,24,0.2)]" role="dialog" aria-modal="true" aria-labelledby="setup-wizard-title">
         <div className="flex shrink-0 items-start justify-between border-b border-[#ECEBE5] px-5 py-4 sm:px-6">
           <div>
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">WORKSPACE SETUP</p>
+            <p className="font-['Space_Grotesk'] text-[12px] font-bold tracking-[0.09em] text-[#747878]">WORKSPACE SETUP</p>
             <h2 id="setup-wizard-title" className="mt-1 font-['Newsreader'] text-[27px] leading-tight text-[#1B1C18]">{titles[action]}</h2>
           </div>
           <button type="button" onClick={onClose} disabled={busy} className="flex h-8 w-8 items-center justify-center rounded-full text-[#747878] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50" aria-label="Close dialog">
@@ -241,15 +241,15 @@ export function SetupWizardModal({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
           {loadingData ? (
             <div className="space-y-4 py-8" aria-live="polite" aria-busy="true">
-              <p className="text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">Loading setup details…</p>
+              <p className="text-center font-['Space_Grotesk'] text-[14px] text-[#747878]">Loading setup details…</p>
               <div className="h-10 rounded bg-[#F4F3EE]" />
               <div className="h-10 rounded bg-[#F4F3EE]" />
               <div className="h-24 rounded bg-[#F4F3EE]" />
             </div>
           ) : dataLoadError ? (
             <div className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] p-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">{dataLoadError}</p>
-              <button type="button" onClick={() => setDataLoadAttempt((value) => value + 1)} className="mt-3 rounded-[4px] bg-[#1B1C18] px-3 py-2 text-[11px] font-semibold text-white">Try again</button>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#A33A32]">{dataLoadError}</p>
+              <button type="button" onClick={() => setDataLoadAttempt((value) => value + 1)} className="mt-3 rounded-[4px] bg-[#1B1C18] px-3 py-2 text-[13px] font-semibold text-white">Try again</button>
             </div>
           ) : (
           <>
@@ -276,7 +276,7 @@ export function SetupWizardModal({
               };
               await submit(() => saveAgentSettingsAction(payload), "Your AI agent settings have been saved.");
             }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Give your agent the context and instructions it needs to represent your business. You can refine these settings after your first test call.</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Give your agent the context and instructions it needs to represent your business. You can refine these settings after your first test call.</p>
               <SectionLabel>01 / YOUR BUSINESS</SectionLabel>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className={LABEL}>Business name
@@ -329,7 +329,7 @@ export function SetupWizardModal({
                 <label className={LABEL}>Speaking speed
                   <div className="flex h-10 items-center gap-3 rounded-[4px] border border-[#DCDDD6] px-3">
                     <input name="speechRate" type="range" min="0.8" max="1.2" step="0.05" value={speechRate} onChange={(event) => setSpeechRate(event.target.value)} className="min-w-0 flex-1 accent-[#7852D6]" />
-                    <span className="w-12 text-right font-['Space_Grotesk'] text-[12px] text-[#444748]">{Number(speechRate).toFixed(2)}x</span>
+                    <span className="w-12 text-right font-['Space_Grotesk'] text-[14px] text-[#444748]">{Number(speechRate).toFixed(2)}x</span>
                   </div>
                   <FieldHint>Controls the requested speech rate. The voice runtime must support rate adjustment.</FieldHint>
                 </label>
@@ -342,7 +342,7 @@ export function SetupWizardModal({
                   </select>
                 </label>
               ) : (
-                <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">Voice selection is using your configured provider default. Add provider voice IDs to <code>FOOLIOO_VOICE_CATALOG_JSON</code> to offer selectable voices here.</div>
+                <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">Voice selection is using your configured provider default. Add provider voice IDs to <code>FOOLIOO_VOICE_CATALOG_JSON</code> to offer selectable voices here.</div>
               )}
 
               <SectionLabel>03 / CONVERSATION BEHAVIOUR</SectionLabel>
@@ -372,30 +372,30 @@ export function SetupWizardModal({
 
           {action === "contacts" ? (
             <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Upload a contact list. The existing import pipeline validates the records, detects duplicates and applies opt-out rules before contacts become eligible for campaigns.</p>
-              <a href="/contact-import-template.csv" download className="w-fit font-['Space_Grotesk'] text-[12px] font-medium text-[#644ABB] underline underline-offset-2">Download contact CSV template</a>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Upload a contact list. The existing import pipeline validates the records, detects duplicates and applies opt-out rules before contacts become eligible for campaigns.</p>
+              <a href="/contact-import-template.csv" download className="w-fit font-['Space_Grotesk'] text-[14px] font-medium text-[#644ABB] underline underline-offset-2">Download contact CSV template</a>
               {contactImportStage === "select" ? (
                 <>
                   <label className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed border-[#CFCFC7] bg-[#FAF9F5] px-4 py-5 text-center transition-colors hover:border-[#7852D6]">
                     <svg viewBox="0 0 24 24" className="h-7 w-7 text-[#7852D6]" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" /></svg>
-                    <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">Choose your contact file</span>
-                    <span className="font-['Space_Grotesk'] text-[11px] text-[#747878]">CSV or Excel · One row per contact</span>
-                    <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[11px] text-[#565B5B]" onChange={(event) => { setContactFile(event.target.files?.[0] ?? null); setContactImportConfirmed(false); setError(null); }} />
+                    <span className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">Choose your contact file</span>
+                    <span className="font-['Space_Grotesk'] text-[13px] text-[#747878]">CSV or Excel · One row per contact</span>
+                    <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="mt-2 max-w-full font-['Space_Grotesk'] text-[13px] text-[#565B5B]" onChange={(event) => { setContactFile(event.target.files?.[0] ?? null); setContactImportConfirmed(false); setError(null); }} />
                   </label>
-                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="inline-flex shrink-0 items-center rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] hover:bg-[#FCECE9]">Remove file</button></div> : null}
-                  <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">The downloadable template contains column headers only. Add at least one contact row before uploading it. A phoneNumber column is required; names and other business fields are optional. The backend validates every row before it becomes eligible for calling.</div>
-                  <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" disabled={!contactFile} onClick={() => setContactImportStage("review")} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">Review import →</button></div>
+                  {contactFile ? <div className="flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3"><div className="min-w-0"><p className="truncate font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{contactFile.name}</p><p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">{(contactFile.size / 1024).toFixed(1)} KB</p></div><button type="button" onClick={() => setContactFile(null)} className="inline-flex shrink-0 items-center rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#A33A32] hover:bg-[#FCECE9]">Remove file</button></div> : null}
+                  <div className="rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">The downloadable template contains column headers only. Add at least one contact row before uploading it. A phoneNumber column is required; names and other business fields are optional. The backend validates every row before it becomes eligible for calling.</div>
+                  <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" disabled={!contactFile} onClick={() => setContactImportStage("review")} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">Review import →</button></div>
                 </>
               ) : (
                 <>
                   <SectionLabel>REVIEW BEFORE IMPORT</SectionLabel>
                   <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FAF9F5] p-4">
-                    <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">{contactFile?.name}</p>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">{contactFile ? `${(contactFile.size / 1024).toFixed(1)} KB` : "No file selected"}</p>
-                    <p className="mt-3 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Foolioo will process this file using the workspace import pipeline. The import result will report the rows accepted or rejected by the backend. Invalid phone numbers, duplicates and opted-out contacts must remain ineligible for outbound campaigns.</p>
+                    <p className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">{contactFile?.name}</p>
+                    <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#747878]">{contactFile ? `${(contactFile.size / 1024).toFixed(1)} KB` : "No file selected"}</p>
+                    <p className="mt-3 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Foolioo will process this file using the workspace import pipeline. The import result will report the rows accepted or rejected by the backend. Invalid phone numbers, duplicates and opted-out contacts must remain ineligible for outbound campaigns.</p>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#ECEBE5] pt-4">
-                    <button type="button" disabled={busy} onClick={() => setContactImportStage("select")} className="rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Back</button>
+                    <button type="button" disabled={busy} onClick={() => setContactImportStage("select")} className="rounded-[4px] px-3 py-2 font-['Space_Grotesk'] text-[14px] font-medium text-[#444748] hover:bg-[#F5F4ED]">Back</button>
                     <button type="button" disabled={busy || Boolean(success) || !contactFile} onClick={async () => {
                       if (!contactFile) return;
                       const result = await submit(() => importContactsAction(contactFile), "Your contact import has been submitted. Check the import result before using this audience in a campaign.");
@@ -412,7 +412,7 @@ export function SetupWizardModal({
                         const invalid = payload.invalidRows ?? payload.invalid;
                         if (typeof total === "number") setSuccess(`Import submitted. ${total} rows received${typeof valid === "number" ? `, ${valid} valid` : ""}${typeof invalid === "number" ? `, ${invalid} invalid` : ""}.`);
                       }
-                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Import contacts"}</button>
+                    }} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Importing..." : "Import contacts"}</button>
                   </div>
                 </>
               )}
@@ -421,7 +421,7 @@ export function SetupWizardModal({
 
           {action === "test-call" ? (
             <div className="flex flex-col gap-4">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Enter a phone number you own to hear how your configured agent opens a conversation. No SMS verification code is needed. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Enter a phone number you own to hear how your configured agent opens a conversation. No SMS verification code is needed. This is a real call, capped at two minutes, and uses your workspace voice credits and daily call allowance.</p>
               <form className="flex flex-col gap-4" onSubmit={async (event) => {
                 event.preventDefault();
                 const normalizedPhone = phoneInput.trim().replace(/[\s()-]/g, "");
@@ -449,12 +449,12 @@ export function SetupWizardModal({
                   <input type="tel" value={phoneInput} onChange={(event) => setPhoneInput(event.target.value)} className={INPUT} placeholder="+91 9876543210" autoComplete="tel" inputMode="tel" pattern="\+[1-9][0-9]{7,14}" required />
                   <FieldHint>Use international format, for example +91 followed by your mobile number.</FieldHint>
                 </label>
-                <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+                <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] bg-[#FAF9F5] p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
                   <input name="confirmRealCall" type="checkbox" required className="mt-1 accent-[#7852D6]" />
                   <span>I confirm I own this number and understand Foolioo will place a real call to it for up to two minutes, using voice credits and my daily call allowance.</span>
                 </label>
                 <div className="flex justify-end">
-                  <button type="submit" disabled={busy || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call this number"}</button>
+                  <button type="submit" disabled={busy || Boolean(testCallId)} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50">{busy ? "Queueing call..." : "Call this number"}</button>
                 </div>
               </form>
 
@@ -462,10 +462,10 @@ export function SetupWizardModal({
                 <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FAF9F5] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">Test call status</p>
-                      <p className="mt-1 font-['Space_Grotesk'] text-[11px] capitalize text-[#747878]">{textValue(testCallStatus, "status", "pending").replaceAll("_", " ")}</p>
+                      <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Test call status</p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[13px] capitalize text-[#747878]">{textValue(testCallStatus, "status", "pending").replaceAll("_", " ")}</p>
                       {textValue(testCallStatus, "status") === "pending" ? (
-                        <p className="mt-1 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+                        <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#747878]">
                           Test calls are not restricted by workspace calling hours.
                         </p>
                       ) : null}
@@ -474,12 +474,12 @@ export function SetupWizardModal({
                       const result = await getTestCallStatusAction(testCallId);
                       if (result.ok && result.data && isRecord(result.data.testCall)) setTestCallStatus(result.data.testCall);
                       else if (!result.ok) setError(result.error);
-                    }} className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18] hover:bg-[#F5F4ED]">Refresh status</button>
+                    }} className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18] hover:bg-[#F5F4ED]">Refresh status</button>
                   </div>
-                  {isRecord(testCallStatus?.call) ? <p className="mt-2 font-['Space_Grotesk'] text-[11px] text-[#565B5B]">Outcome: {textValue(testCallStatus.call, "outcome", "Recorded")}. {textValue(testCallStatus.call, "summary")}</p> : null}
+                  {isRecord(testCallStatus?.call) ? <p className="mt-2 font-['Space_Grotesk'] text-[13px] text-[#565B5B]">Outcome: {textValue(testCallStatus.call, "outcome", "Recorded")}. {textValue(testCallStatus.call, "summary")}</p> : null}
                 </div>
               ) : null}
-              <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" onClick={onClose} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[12px] font-medium text-white">Close</button></div>
+              <div className="flex justify-end border-t border-[#ECEBE5] pt-4"><button type="button" onClick={onClose} className="rounded-[4px] bg-[#1B1C18] px-4 py-2 font-['Space_Grotesk'] text-[14px] font-medium text-white">Close</button></div>
             </div>
           ) : null}
 
@@ -503,7 +503,7 @@ export function SetupWizardModal({
                 maxDurationSeconds: Number(form.get("maxDurationSeconds") ?? 300),
               }), "Campaign draft saved. Select the audience and confirm the launch in the final setup step.");
             }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Start with the outcome you want. Foolioo saves a draft first. No contacts are called until you review and confirm the launch.</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Start with the outcome you want. Foolioo saves a draft first. No contacts are called until you review and confirm the launch.</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className={LABEL}>Campaign name
                   <input name="name" required maxLength={120} className={INPUT} placeholder="For example, New enquiries follow-up" />
@@ -574,7 +574,7 @@ export function SetupWizardModal({
               };
               await submit(() => saveRoutingRulesAction(textValue(client, "id"), routingPayload), "Follow-up handling and workspace calling hours have been saved.");
             }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Choose who should handle important conversations. Foolioo starts with simple defaults. You can change assignments later.</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Choose who should handle important conversations. Foolioo starts with simple defaults. You can change assignments later.</p>
               <SectionLabel>01 / WHO SHOULD HANDLE EACH SITUATION?</SectionLabel>
               {([
                 ["callbackOwner", "Customer requests a callback", recordValue(routing, "callback")],
@@ -588,7 +588,7 @@ export function SetupWizardModal({
                   </select>
                 </label>
               ))}
-              {team.length === 0 ? <p className="rounded-[4px] bg-[#F5F4ED] p-3 font-['Space_Grotesk'] text-[11px] text-[#565B5B]">No additional team members are registered. These rules will assign work to the workspace admin.</p> : null}
+              {team.length === 0 ? <p className="rounded-[4px] bg-[#F5F4ED] p-3 font-['Space_Grotesk'] text-[13px] text-[#565B5B]">No additional team members are registered. These rules will assign work to the workspace admin.</p> : null}
               <SectionLabel>02 / CALLBACK & RETRY BEHAVIOUR</SectionLabel>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className={LABEL}>Callback target time
@@ -618,7 +618,7 @@ export function SetupWizardModal({
                     <option value="5">5 retries</option>
                   </select>
                 </label>
-                <label className="flex items-center gap-2 self-end pb-2 font-['Space_Grotesk'] text-[12px] text-[#444748]">
+                <label className="flex items-center gap-2 self-end pb-2 font-['Space_Grotesk'] text-[14px] text-[#444748]">
                   <input name="retryEnabled" type="checkbox" defaultChecked={recordValue(routing, "noAnswer").enabled !== false} className="accent-[#7852D6]" /> Enable no-answer retries
                 </label>
               </div>
@@ -660,45 +660,45 @@ export function SetupWizardModal({
                 dailyEnd,
               }), "Campaign launched. The selected eligible contacts have been added to the outbound queue.");
             }}>
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">Review the audience and campaign before outbound activity begins. Opted-out, invalid, duplicate and system test-call contacts are excluded by the backend.</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">Review the audience and campaign before outbound activity begins. Opted-out, invalid, duplicate and system test-call contacts are excluded by the backend.</p>
               <label className={LABEL}>Campaign to launch
                 <select value={selectedCampaignId} onChange={(event) => setSelectedCampaignId(event.target.value)} className={INPUT}>
                   <option value="">Select a saved campaign</option>
                   {campaignRows.filter((campaign) => campaign.status === "draft" || campaign.status === "paused").map((campaign) => <option key={textValue(campaign, "id")} value={textValue(campaign, "id")}>{textValue(campaign, "name", "Untitled campaign")} · {textValue(campaign, "status")}</option>)}
                 </select>
               </label>
-              {effectiveData.knowledgeBase.state === "ready" && effectiveData.knowledgeBase.data.items.length === 0 ? <div className="rounded-[4px] border border-[#E9D9B9] bg-[#FFFBF2] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#725B34]">Your knowledge base is empty. The agent can use its business profile and campaign instructions, but it will not have approved FAQs or policy articles to reference. Add those under Knowledge & Voice before campaigns that need detailed answers.</div> : null}
-              {effectiveData.knowledgeBase.state === "error" ? <div className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Knowledge-base status could not be checked. Review it before launching a campaign that requires approved factual answers.</div> : null}
+              {effectiveData.knowledgeBase.state === "ready" && effectiveData.knowledgeBase.data.items.length === 0 ? <div className="rounded-[4px] border border-[#E9D9B9] bg-[#FFFBF2] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#725B34]">Your knowledge base is empty. The agent can use its business profile and campaign instructions, but it will not have approved FAQs or policy articles to reference. Add those under Knowledge & Voice before campaigns that need detailed answers.</div> : null}
+              {effectiveData.knowledgeBase.state === "error" ? <div className="rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#8D3028]">Knowledge-base status could not be checked. Review it before launching a campaign that requires approved factual answers.</div> : null}
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">Choose your audience</p>
-                  <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">{availableContacts.length.toLocaleString("en-IN")} eligible contacts available{effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null ? ` of ${effectiveData.launchContacts.data.total.toLocaleString("en-IN")}` : ""}</p>
+                  <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">Choose your audience</p>
+                  <p className="mt-0.5 font-['Space_Grotesk'] text-[13px] text-[#747878]">{availableContacts.length.toLocaleString("en-IN")} eligible contacts available{effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null ? ` of ${effectiveData.launchContacts.data.total.toLocaleString("en-IN")}` : ""}</p>
                 </div>
-                <button type="button" onClick={() => setSelectedContactIds(selectedContactIds.length === availableContacts.length ? [] : availableContacts.map((contact) => textValue(contact, "id")).filter(Boolean))} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 font-['Space_Grotesk'] text-[11px] font-medium text-[#444748] hover:bg-[#F5F4ED]">{selectedContactIds.length === availableContacts.length ? "Clear all" : "Select all eligible"}</button>
+                <button type="button" onClick={() => setSelectedContactIds(selectedContactIds.length === availableContacts.length ? [] : availableContacts.map((contact) => textValue(contact, "id")).filter(Boolean))} className="rounded-[4px] border border-[#DCDDD6] px-3 py-2 font-['Space_Grotesk'] text-[13px] font-medium text-[#444748] hover:bg-[#F5F4ED]">{selectedContactIds.length === availableContacts.length ? "Clear all" : "Select all eligible"}</button>
               </div>
-              {effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null && effectiveData.launchContacts.data.total > availableContacts.length ? <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">This selector shows the first 5,000 eligible contacts. Refine the audience before launching a larger list.</p> : null}
-              {effectiveData.launchContacts.state === "error" ? <p className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF9F8] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#8D3028]">Eligible contacts could not be loaded. Refresh the dashboard and try again.</p> : availableContacts.length > 0 ? (
+              {effectiveData.launchContacts.state === "ready" && effectiveData.launchContacts.data.total !== null && effectiveData.launchContacts.data.total > availableContacts.length ? <p className="rounded-[4px] bg-[#F5F4ED] px-3 py-2 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">This selector shows the first 5,000 eligible contacts. Refine the audience before launching a larger list.</p> : null}
+              {effectiveData.launchContacts.state === "error" ? <p className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF9F8] p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#8D3028]">Eligible contacts could not be loaded. Refresh the dashboard and try again.</p> : availableContacts.length > 0 ? (
                 <div className="max-h-[220px] overflow-y-auto rounded-[5px] border border-[#E9E8E1]">
                   {availableContacts.map((contact) => {
                     const id = textValue(contact, "id");
                     return <label key={id} className="flex cursor-pointer items-center gap-3 border-b border-[#ECEBE5] px-3 py-2.5 last:border-0 hover:bg-[#FAF9F5]">
                       <input type="checkbox" checked={selectedContactIds.includes(id)} onChange={(event) => setSelectedContactIds((current) => event.target.checked ? [...current, id] : current.filter((value) => value !== id))} className="accent-[#7852D6]" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18]">{textValue(contact, "fullName", textValue(contact, "companyName", "Unnamed contact"))}</span>
-                        <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">{formatPhoneNumber(textValue(contact, "phoneNumber"))}</span>
+                        <span className="block truncate font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">{textValue(contact, "fullName", textValue(contact, "companyName", "Unnamed contact"))}</span>
+                        <span className="block truncate font-['Space_Grotesk'] text-[12px] text-[#747878]">{formatPhoneNumber(textValue(contact, "phoneNumber"))}</span>
                       </span>
                     </label>;
                   })}
                 </div>
               ) : (
-                <div className="rounded-[5px] bg-[#F5F4ED] px-3 py-4 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">No eligible contacts are available. Import contacts and return here to launch the campaign.</div>
+                <div className="rounded-[5px] bg-[#F5F4ED] px-3 py-4 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">No eligible contacts are available. Import contacts and return here to launch the campaign.</div>
               )}
               <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FAF9F5] p-3">
-                <div className="flex items-center justify-between font-['Space_Grotesk'] text-[11px] text-[#565B5B]"><span>Selected audience</span><strong className="text-[#1B1C18]">{selectedContactIds.length}</strong></div>
-                <div className="mt-1 flex items-center justify-between font-['Space_Grotesk'] text-[11px] text-[#565B5B]"><span>Daily call capacity remaining</span><strong className="text-[#1B1C18]">{Math.max(0, Number(client.maxCallsPerDay ?? 0) - Number(client.callsMadeToday ?? 0))}</strong></div>
-                <p className="mt-2 font-['Space_Grotesk'] text-[10px] leading-4 text-[#85877F]">The backend rechecks workspace ownership, DNC status, duplicate status, credit availability and daily capacity at launch time.</p>
+                <div className="flex items-center justify-between font-['Space_Grotesk'] text-[13px] text-[#565B5B]"><span>Selected audience</span><strong className="text-[#1B1C18]">{selectedContactIds.length}</strong></div>
+                <div className="mt-1 flex items-center justify-between font-['Space_Grotesk'] text-[13px] text-[#565B5B]"><span>Daily call capacity remaining</span><strong className="text-[#1B1C18]">{Math.max(0, Number(client.maxCallsPerDay ?? 0) - Number(client.callsMadeToday ?? 0))}</strong></div>
+                <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-4 text-[#85877F]">The backend rechecks workspace ownership, DNC status, duplicate status, credit availability and daily capacity at launch time.</p>
               </div>
-              <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+              <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
                 <input type="checkbox" checked={launchConfirmed} onChange={(event) => setLaunchConfirmed(event.target.checked)} className="mt-1 accent-[#7852D6]" />
                 <span>I confirm this audience has the required permission to be contacted, and I approve adding these contacts to the outbound queue.</span>
               </label>
@@ -708,7 +708,7 @@ export function SetupWizardModal({
 
           {error ? (
             <div className="mt-4 flex flex-col gap-2 rounded-[4px] border border-[#F0D8D4] bg-[#FFF9F8] px-3.5 py-3" role="alert">
-              <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#8D3028]">{error}</p>
+              <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#8D3028]">{error}</p>
               {error.includes("follow-up and team-handling rules") && onSwitchAction ? (
                 <div>
                   <button
@@ -717,7 +717,7 @@ export function SetupWizardModal({
                       setError(null);
                       onSwitchAction("routing");
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
                   >
                     Configure follow-up rules now →
                   </button>
@@ -731,7 +731,7 @@ export function SetupWizardModal({
                       setError(null);
                       onSwitchAction("voice");
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
                   >
                     Configure AI agent now →
                   </button>
@@ -745,7 +745,7 @@ export function SetupWizardModal({
                       setError(null);
                       onSwitchAction("test-call");
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
+                    className="inline-flex items-center gap-1.5 rounded-[4px] bg-[#7852D6] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-sm transition hover:bg-[#644ABB]"
                   >
                     Place test call now →
                   </button>
@@ -753,7 +753,7 @@ export function SetupWizardModal({
               ) : null}
             </div>
           ) : null}
-          {success ? <p className="mt-4 rounded-[4px] border border-[#CDE4D2] bg-[#F5FBF6] px-3 py-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#25633A]" role="status">{success}</p> : null}
+          {success ? <p className="mt-4 rounded-[4px] border border-[#CDE4D2] bg-[#F5FBF6] px-3 py-2 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#25633A]" role="status">{success}</p> : null}
           </>
           )}
         </div>

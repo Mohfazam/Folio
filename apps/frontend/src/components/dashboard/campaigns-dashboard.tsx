@@ -89,10 +89,10 @@ const AUTO_LANGUAGE_PROMPT =
   "At the beginning of the call, ask the customer which language they would prefer to speak. Offer English, Hindi, Telugu, Tamil, Kannada, and Malayalam. Continue the conversation in the language they choose. Do not assume their preferred language.";
 
 const INPUT =
-  "mt-1.5 h-10 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
+  "mt-1.5 h-10 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
 const TEXTAREA =
-  "mt-1.5 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
-const LABEL = "block font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B]";
+  "mt-1.5 w-full rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2.5 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/15";
+const LABEL = "block font-['Space_Grotesk'] text-[14px] font-semibold text-[#3B3E3B]";
 
 const STATUS_STYLES: Record<string, string> = {
   draft: "border-[#E3E0D6] bg-[#F7F5EF] text-[#5C5E56]",
@@ -404,7 +404,7 @@ function MetricCard({
   const inner = (
     <>
       <div className="flex w-full items-center justify-between gap-2">
-        <span className="font-['Space_Grotesk'] text-[12px] font-medium text-[#5C5F5C]">
+        <span className="font-['Space_Grotesk'] text-[14px] font-medium text-[#5C5F5C]">
           {label}
         </span>
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border border-[#ECEBE5] bg-[#FAF9F5] text-[#666A68] transition-colors group-hover:text-[#1B1C18]">
@@ -412,10 +412,10 @@ function MetricCard({
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-2">
-        <p className="font-['Newsreader'] text-[30px] leading-none tracking-[-0.5px] text-[#1B1C18]">
+        <p className="font-['Newsreader'] text-[32px] leading-none tracking-[-0.5px] text-[#1B1C18]">
           {value}
         </p>
-        <p className="truncate font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">{detail}</p>
+        <p className="truncate font-['Space_Grotesk'] text-[13px] text-[#7A7D7A]">{detail}</p>
       </div>
     </>
   );
@@ -441,13 +441,17 @@ function MetricCard({
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
+  const dotColor =
+    normalized === "active" || normalized === "running" || normalized === "completed"
+      ? "bg-[#2F7A4D]"
+      : normalized === "paused" || normalized === "scheduled"
+        ? "bg-[#B87D1E]"
+        : normalized === "failed" || normalized === "cancelled"
+          ? "bg-[#C24138]"
+          : "bg-[#8E918B]";
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-semibold capitalize ${
-        STATUS_STYLES[normalized] ?? STATUS_STYLES.draft
-      }`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-85" aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[13px] font-medium capitalize text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden="true" />
       {normalized || "draft"}
     </span>
   );
@@ -465,8 +469,8 @@ function FormSection({
   return (
     <section className="rounded-[12px] border border-[#E9E8E1] bg-white p-5 sm:p-6">
       <div className="mb-4 border-b border-[#F0EFE9] pb-3.5">
-        <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{title}</h2>
-        <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">{description}</p>
+        <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">{title}</h2>
+        <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] text-[#747878]">{description}</p>
       </div>
       {children}
     </section>
@@ -496,17 +500,17 @@ function ObjectionHandlersEditor({
     <div className="mt-5 border-t border-[#F0EFE9] pt-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B]">
+          <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#3B3E3B]">
             Objection handlers <span className="font-normal text-[#747878]">Optional</span>
           </p>
-          <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
             Define how the agent responds when a contact raises a common pushback.
           </p>
         </div>
         <button
           type="button"
           onClick={addRow}
-          className="inline-flex h-8 items-center gap-1 rounded-[7px] border border-[#DCDDD6] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F2F0E8]"
+          className="inline-flex h-8 items-center gap-1 rounded-[7px] border border-[#DCDDD6] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F2F0E8]"
         >
           <Icon kind="plus" className="h-3 w-3" />
           Add objection
@@ -521,14 +525,14 @@ function ObjectionHandlersEditor({
               className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-3.5"
             >
               <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                   Objection #{idx + 1}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeRow(idx)}
                   aria-label={`Remove objection ${idx + 1}`}
-                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#A33A32] hover:bg-[#FDF2F1]"
+                  className="inline-flex items-center gap-1 rounded px-2 py-0.5 font-['Space_Grotesk'] text-[13px] font-medium text-[#A33A32] hover:bg-[#FDF2F1]"
                 >
                   <Icon kind="trash" className="h-3 w-3" />
                   Remove
@@ -739,7 +743,7 @@ function CampaignForm({
           <button
             type="button"
             onClick={onCancel}
-            className="group mb-3 inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+            className="group mb-3 inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
           >
             <svg
               viewBox="0 0 24 24"
@@ -755,18 +759,18 @@ function CampaignForm({
             </svg>
             <span>Back to campaigns</span>
           </button>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
+          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
             {initialDraft ? "Duplicate campaign" : "Campaign builder"}
           </p>
-          <h1 className="mt-1 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18]">
+          <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-[1.12] tracking-[-0.7px] text-[#1B1C18] sm:text-[42px]">
             {initialDraft ? `Copy of ${cleanDisplayTitle(initialDraft.name)}` : "Create a campaign"}
           </h1>
-          <p className="mt-1.5 max-w-[600px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
+          <p className="mt-1.5 max-w-[600px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#666A68]">
             Set the goal and conversation outline. Your campaign is saved as a draft. No contacts
             are called until you review and confirm a launch.
           </p>
         </div>
-        <span className="rounded-full border border-[#E2D9F8] bg-[#F7F4FC] px-3 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+        <span className="rounded-full border border-[#E2D9F8] bg-[#F7F4FC] px-3 py-1 font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
           Draft first
         </span>
       </div>
@@ -929,14 +933,14 @@ function CampaignForm({
         {error ? (
           <div
             role="alert"
-            className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
+            className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[14px] text-[#A33A32]"
           >
             {error}
           </div>
         ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4">
-          <p className="font-['Space_Grotesk'] text-[11px] text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
             Saving creates a draft only. You can review the audience and approve outbound activity
             separately.
           </p>
@@ -945,7 +949,7 @@ function CampaignForm({
               type="button"
               onClick={onCancel}
               disabled={busy}
-              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
             >
               Cancel
             </button>
@@ -955,7 +959,7 @@ function CampaignForm({
               onClick={() => {
                 launchAfterSaveRef.current = false;
               }}
-              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? "Saving draft…" : "Save campaign draft"}
             </button>
@@ -965,7 +969,7 @@ function CampaignForm({
               onClick={() => {
                 launchAfterSaveRef.current = true;
               }}
-              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon kind="rocket" className="h-3.5 w-3.5" />
               {busy ? "Saving…" : "Save & launch"}
@@ -1271,14 +1275,14 @@ function CampaignFullEditor({
       {error ? (
         <div
           role="alert"
-          className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[12px] text-[#A33A32]"
+          className="rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[14px] text-[#A33A32]"
         >
           {error}
         </div>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-[#E9E8E1] bg-white px-5 py-4">
-        <div className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
+        <div className="font-['Space_Grotesk'] text-[14px] text-[#747878]">
           {isDirty ? (
             <span className="font-semibold text-[#644ABB]">You have unsaved edits.</span>
           ) : (
@@ -1290,14 +1294,14 @@ function CampaignFullEditor({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+            className="h-10 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busy || !isDirty}
-            className="h-10 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-10 rounded-[8px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "Saving changes…" : "Save campaign"}
           </button>
@@ -1409,7 +1413,7 @@ function CampaignDetailView({
         <button
           type="button"
           onClick={onBack}
-          className="group inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+          className="group inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
         >
           <svg
             viewBox="0 0 24 24"
@@ -1430,20 +1434,20 @@ function CampaignDetailView({
           <div className="min-w-0 flex-1 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <StatusBadge status={effectiveStatus} />
-              <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
+              <span className="font-['Space_Grotesk'] text-[14px] text-[#7A7D7A]">
                 {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
               </span>
               <span className="text-[#D4D2C8]" aria-hidden="true">
                 •
               </span>
-              <span className="font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
+              <span className="font-['Space_Grotesk'] text-[14px] text-[#7A7D7A]">
                 Created {formatDate(campaign.createdAt)}
               </span>
             </div>
-            <h1 className="font-['Newsreader'] text-[30px] font-normal leading-[1.15] tracking-[-0.5px] text-[#1B1C18] sm:text-[34px]">
+            <h1 className="font-['Newsreader'] text-[36px] font-normal leading-[1.12] tracking-[-0.7px] text-[#1B1C18] sm:text-[42px]">
               {displayName}
             </h1>
-            <p className="font-['Space_Grotesk'] text-[12px] text-[#666A68]">
+            <p className="font-['Space_Grotesk'] text-[14px] text-[#666A68]">
               {campaign.callToAction
                 ? `Goal: ${cleanScriptText(campaign.callToAction)}`
                 : "Campaign overview, AI conversation script, settings, and live execution metrics."}
@@ -1461,7 +1465,7 @@ function CampaignDetailView({
               <button
                 type="button"
                 onClick={() => onLaunch(campaign)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F]"
               >
                 <Icon kind="rocket" className="h-3.5 w-3.5" />
                 Launch
@@ -1471,7 +1475,7 @@ function CampaignDetailView({
                 type="button"
                 disabled={statusBusy}
                 onClick={() => onStatusChange(campaign, "active")}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:opacity-50"
               >
                 <Icon kind="play" className="h-3.5 w-3.5" />
                 {statusBusy ? "Resuming…" : "Resume"}
@@ -1481,7 +1485,7 @@ function CampaignDetailView({
                 type="button"
                 disabled={statusBusy}
                 onClick={() => onStatusChange(campaign, "paused")}
-                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
+                className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:opacity-50"
               >
                 <Icon kind="pause" className="h-3.5 w-3.5" />
                 {statusBusy ? "Pausing…" : "Pause"}
@@ -1492,7 +1496,7 @@ function CampaignDetailView({
               <button
                 type="button"
                 onClick={() => setActiveTab((curr) => (curr === "edit" ? "overview" : "edit"))}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors ${
+                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[14px] font-medium transition-colors ${
                   activeTab === "edit"
                     ? "border-[#D8CEF5] bg-[#F7F4FC] font-semibold text-[#644ABB]"
                     : "border-[#E2E0D8] bg-white text-[#3B3E3B] hover:bg-[#FAF9F5]"
@@ -1530,7 +1534,7 @@ function CampaignDetailView({
                       setActionsOpen(false);
                       onDuplicate(campaign);
                     }}
-                    className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                    className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                   >
                     <Icon kind="copy" className="h-3.5 w-3.5 text-[#747878]" />
                     Duplicate campaign
@@ -1542,7 +1546,7 @@ function CampaignDetailView({
                       setActionsOpen(false);
                       onDeleteCampaign(campaign);
                     }}
-                    className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                    className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
                   >
                     <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
                     Delete campaign
@@ -1559,40 +1563,40 @@ function CampaignDetailView({
         className="grid grid-cols-2 divide-y divide-[#ECEBE5] rounded-[12px] border border-[#E9E8E1] bg-[#FAF9F5] sm:grid-cols-4 sm:divide-x sm:divide-y-0"
       >
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
             Calls placed
           </p>
-          <p className="mt-1.5 font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
+          <p className="mt-1.5 font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
             {formatNumber(totalCalls)}
           </p>
         </div>
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">Connected</p>
+          <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">Connected</p>
           <div className="mt-1.5 flex items-baseline gap-2">
-            <p className="font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
+            <p className="font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
               {formatNumber(connectedCalls)}
             </p>
             {totalCalls > 0 ? (
-              <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+              <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                 {connectionRate}
               </span>
             ) : null}
           </div>
         </div>
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+          <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
             High intent
           </p>
-          <p className="mt-1.5 font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
+          <p className="mt-1.5 font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
             {formatNumber(highIntentCalls)}
           </p>
         </div>
         <div className="px-5 py-4">
-          <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">Progress</p>
-          <p className="mt-1.5 font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
+          <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">Progress</p>
+          <p className="mt-1.5 font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
             {progress.percent}%
           </p>
-          <p className="mt-1 truncate font-['Space_Grotesk'] text-[10px] text-[#7A7D7A]">
+          <p className="mt-1 truncate font-['Space_Grotesk'] text-[12px] text-[#7A7D7A]">
             {progress.label}
           </p>
         </div>
@@ -1609,7 +1613,7 @@ function CampaignDetailView({
             role="tab"
             aria-selected={activeTab === "overview"}
             onClick={() => setActiveTab("overview")}
-            className={`relative pb-3 font-['Space_Grotesk'] text-[13px] font-semibold transition-colors focus-visible:outline-none ${
+            className={`relative pb-3 font-['Space_Grotesk'] text-[14px] font-semibold transition-colors focus-visible:outline-none ${
               activeTab === "overview"
                 ? "text-[#1B1C18] after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-[#644ABB]"
                 : "text-[#747878] hover:text-[#1B1C18]"
@@ -1622,7 +1626,7 @@ function CampaignDetailView({
             role="tab"
             aria-selected={activeTab === "script"}
             onClick={() => setActiveTab("script")}
-            className={`relative pb-3 font-['Space_Grotesk'] text-[13px] font-semibold transition-colors focus-visible:outline-none ${
+            className={`relative pb-3 font-['Space_Grotesk'] text-[14px] font-semibold transition-colors focus-visible:outline-none ${
               activeTab === "script"
                 ? "text-[#1B1C18] after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-[#644ABB]"
                 : "text-[#747878] hover:text-[#1B1C18]"
@@ -1636,7 +1640,7 @@ function CampaignDetailView({
               role="tab"
               aria-selected={activeTab === "edit"}
               onClick={() => setActiveTab("edit")}
-              className={`relative pb-3 font-['Space_Grotesk'] text-[13px] font-semibold transition-colors focus-visible:outline-none ${
+              className={`relative pb-3 font-['Space_Grotesk'] text-[14px] font-semibold transition-colors focus-visible:outline-none ${
                 activeTab === "edit"
                   ? "text-[#1B1C18] after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-[#644ABB]"
                   : "text-[#747878] hover:text-[#1B1C18]"
@@ -1651,20 +1655,20 @@ function CampaignDetailView({
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.85fr)] lg:items-start">
             <div className="space-y-6 rounded-[12px] border border-[#E9E8E1] bg-white p-6">
               <div>
-                <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                   What this campaign does
                 </h2>
-                <p className="mt-2 font-['Space_Grotesk'] text-[13.5px] leading-[1.65] text-[#3B3E3B]">
+                <p className="mt-2 font-['Space_Grotesk'] text-[14.5px] leading-[1.65] text-[#3B3E3B]">
                   {campaign.primaryObjective || "No objective added yet."}
                 </p>
               </div>
 
               {campaign.callToAction ? (
                 <div className="rounded-[10px] border border-[#EFEAFB] bg-[#FAF8FF] px-4 py-3.5">
-                  <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                  <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                     Desired outcome
                   </p>
-                  <p className="mt-1 font-['Space_Grotesk'] text-[13.5px] font-medium text-[#1B1C18]">
+                  <p className="mt-1 font-['Space_Grotesk'] text-[14.5px] font-medium text-[#1B1C18]">
                     {cleanScriptText(campaign.callToAction)}
                   </p>
                 </div>
@@ -1672,10 +1676,10 @@ function CampaignDetailView({
 
               {campaign.targetAudience ? (
                 <div className="border-t border-[#F0EFE9] pt-5">
-                  <h3 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                  <h3 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                     Target audience
                   </h3>
-                  <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#5C5F5C]">
+                  <p className="mt-1.5 font-['Space_Grotesk'] text-[14px] leading-6 text-[#5C5F5C]">
                     {campaign.targetAudience}
                   </p>
                 </div>
@@ -1684,10 +1688,10 @@ function CampaignDetailView({
 
             <div className="space-y-5">
               <div className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
-                <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                   Configuration
                 </h2>
-                <dl className="mt-3 divide-y divide-[#F0EFE9] font-['Space_Grotesk'] text-[12.5px]">
+                <dl className="mt-3 divide-y divide-[#F0EFE9] font-['Space_Grotesk'] text-[14px]">
                   <div className="flex items-center justify-between gap-3 py-2.5">
                     <dt className="text-[#747878]">Language</dt>
                     <dd className="font-medium text-[#1B1C18]">
@@ -1714,14 +1718,14 @@ function CampaignDetailView({
               <div className="grid grid-cols-2 gap-2.5">
                 <Link
                   href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
-                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#1B1C18] transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18] transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                 >
                   <Icon kind="phone" className="h-3.5 w-3.5 text-[#644ABB]" />
                   <span>Campaign calls</span>
                 </Link>
                 <Link
                   href="/dashboard/analytics"
-                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[12.5px] font-medium text-[#1B1C18] transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-[10px] border border-[#E2E0D8] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18] transition-colors hover:bg-[#FAF9F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                 >
                   <Icon kind="chart" className="h-3.5 w-3.5 text-[#644ABB]" />
                   <span>Analytics</span>
@@ -1731,10 +1735,10 @@ function CampaignDetailView({
               {progress.hasQueueData ? (
                 <div className="rounded-[12px] border border-[#E9E8E1] bg-white p-5">
                   <div className="flex items-center justify-between">
-                    <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                    <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                       Queue status
                     </h2>
-                    <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                    <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                       {progress.percent}%
                     </span>
                   </div>
@@ -1744,7 +1748,7 @@ function CampaignDetailView({
                       style={{ width: `${progress.percent}%` }}
                     />
                   </div>
-                  <div className="mt-3 flex flex-wrap justify-between gap-2 font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+                  <div className="mt-3 flex flex-wrap justify-between gap-2 font-['Space_Grotesk'] text-[13px] text-[#666A68]">
                     <span>{formatNumber(stats.inProgressCalls)} calling</span>
                     <span>{formatNumber(stats.pendingCalls)} pending</span>
                     <span>{formatNumber(stats.completedQueueCalls)} done</span>
@@ -1758,10 +1762,10 @@ function CampaignDetailView({
           <div className="mt-6 space-y-5 rounded-[12px] border border-[#E9E8E1] bg-white p-6">
             {cleanedOpeningHook ? (
               <div>
-                <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                   1. Opening greeting
                 </p>
-                <div className="mt-2 rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4 font-['Space_Grotesk'] text-[13.5px] leading-[1.65] text-[#1B1C18]">
+                <div className="mt-2 rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4 font-['Space_Grotesk'] text-[14.5px] leading-[1.65] text-[#1B1C18]">
                   &ldquo;{cleanedOpeningHook}&rdquo;
                 </div>
               </div>
@@ -1769,16 +1773,16 @@ function CampaignDetailView({
 
             {visibleTalkingPoints.length > 0 ? (
               <div className="border-t border-[#F0EFE9] pt-5">
-                <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                   2. Key conversation points
                 </p>
                 <ol className="mt-3 space-y-2.5">
                   {visibleTalkingPoints.map((point, idx) => (
                     <li
                       key={`${idx}-${point.slice(0, 24)}`}
-                      className="flex items-start gap-3 font-['Space_Grotesk'] text-[13px] leading-6 text-[#3B3E3B]"
+                      className="flex items-start gap-3 font-['Space_Grotesk'] text-[14px] leading-6 text-[#3B3E3B]"
                     >
-                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F5F4ED] font-['Space_Grotesk'] text-[10px] font-semibold text-[#5C5E56]">
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#F5F4ED] font-['Space_Grotesk'] text-[12px] font-semibold text-[#5C5E56]">
                         {idx + 1}
                       </span>
                       <span>{point}</span>
@@ -1792,20 +1796,20 @@ function CampaignDetailView({
               <div className="grid gap-4 border-t border-[#F0EFE9] pt-5 sm:grid-cols-2">
                 {campaign.callToAction ? (
                   <div className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4">
-                    <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#28683E]">
+                    <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#28683E]">
                       3. Next step (when interested)
                     </p>
-                    <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#1B1C18]">
+                    <p className="mt-1.5 font-['Space_Grotesk'] text-[14px] leading-6 text-[#1B1C18]">
                       {cleanScriptText(campaign.callToAction)}
                     </p>
                   </div>
                 ) : null}
                 {campaign.fallbackOffer ? (
                   <div className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4">
-                    <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#666A68]">
+                    <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#666A68]">
                       4. Fallback (if not ready)
                     </p>
-                    <p className="mt-1.5 font-['Space_Grotesk'] text-[13px] leading-6 text-[#3B3E3B]">
+                    <p className="mt-1.5 font-['Space_Grotesk'] text-[14px] leading-6 text-[#3B3E3B]">
                       {cleanScriptText(campaign.fallbackOffer)}
                     </p>
                   </div>
@@ -1815,7 +1819,7 @@ function CampaignDetailView({
 
             {visibleObjectionHandlers.length > 0 ? (
               <div className="border-t border-[#F0EFE9] pt-5">
-                <p className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB]">
+                <p className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB]">
                   5. Objection handlers
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1824,10 +1828,10 @@ function CampaignDetailView({
                       key={`${idx}-${item.objection.slice(0, 20)}`}
                       className="rounded-[10px] border border-[#ECEBE5] bg-[#FAF9F5] p-4"
                     >
-                      <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                      <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                         &ldquo;{item.objection}&rdquo;
                       </p>
-                      <p className="mt-1.5 font-['Space_Grotesk'] text-[12.5px] leading-5 text-[#5C5E5C]">
+                      <p className="mt-1.5 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#5C5E5C]">
                         {item.response}
                       </p>
                     </div>
@@ -2747,7 +2751,7 @@ export function CampaignsDashboard({
           <div className="max-h-[90vh] w-full max-w-[760px] overflow-y-auto rounded-[12px] border border-[#ECEBE5] bg-[#FFFEFB] p-5 shadow-xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
+                <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
                   Outbound campaign
                 </p>
                 <h2
@@ -2756,7 +2760,7 @@ export function CampaignsDashboard({
                 >
                   Launch {cleanDisplayTitle(launchingCampaign.name)}
                 </h2>
-                <p className="mt-1 font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
                   Choose who to call and when the agent is allowed to place calls.
                 </p>
               </div>
@@ -2778,7 +2782,7 @@ export function CampaignsDashboard({
                   onChange={(e) => setStartDate(e.target.value)}
                   className={INPUT}
                 />
-                <span className="mt-1 block font-['Space_Grotesk'] text-[10px] font-normal text-[#747878]">
+                <span className="mt-1 block font-['Space_Grotesk'] text-[12px] font-normal text-[#747878]">
                   Choose the launch date.
                 </span>
               </label>
@@ -2801,16 +2805,16 @@ export function CampaignsDashboard({
                 />
               </label>
             </div>
-            <p className="mt-2 font-['Space_Grotesk'] text-[10px] leading-4 text-[#747878]">
+            <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-4 text-[#747878]">
               Leave the start date empty to launch as soon as possible. On the selected date, calls
               can begin at your daily calls start time.
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#ECEBE5] bg-white px-4 py-3">
               <div>
-                <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                   Need to add contacts?
                 </p>
-                <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                   Add one person manually or upload a CSV / Excel list without leaving this window.
                 </p>
               </div>
@@ -2824,7 +2828,7 @@ export function CampaignsDashboard({
                     setContactPermissionConfirmed(false);
                     setContactFile(null);
                   }}
-                  className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
+                  className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
                 >
                   + Add one contact
                 </button>
@@ -2837,7 +2841,7 @@ export function CampaignsDashboard({
                     setContactPermissionConfirmed(false);
                     setContactFile(null);
                   }}
-                  className="rounded-[6px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F]"
+                  className="rounded-[6px] bg-[#1B1C18] px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-white hover:bg-[#34352F]"
                 >
                   ↑ Upload contacts
                 </button>
@@ -2850,10 +2854,10 @@ export function CampaignsDashboard({
                 className="mt-3 rounded-[8px] border border-[#DCD5ED] bg-[#FCFBFF] p-4"
               >
                 <div className="mb-3">
-                  <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                  <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                     Add an individual contact
                   </p>
-                  <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-4 text-[#747878]">
+                  <p className="mt-1 font-['Space_Grotesk'] text-[12px] leading-4 text-[#747878]">
                     The person will be added to your workspace and selected for this campaign if
                     eligible.
                   </p>
@@ -2888,7 +2892,7 @@ export function CampaignsDashboard({
                     />
                   </label>
                 </div>
-                <label className="mt-3 flex items-start gap-2 rounded-[6px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+                <label className="mt-3 flex items-start gap-2 rounded-[6px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
                   <input
                     type="checkbox"
                     checked={contactPermissionConfirmed}
@@ -2903,7 +2907,7 @@ export function CampaignsDashboard({
                 {contactError ? (
                   <p
                     role="alert"
-                    className="mt-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[11px] leading-4 text-[#A33A32]"
+                    className="mt-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[13px] leading-5 text-[#A33A32]"
                   >
                     {contactError}
                   </p>
@@ -2917,14 +2921,14 @@ export function CampaignsDashboard({
                       setContactError(null);
                       setContactPermissionConfirmed(false);
                     }}
-                    className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 text-[11px] font-semibold text-[#444748] disabled:opacity-50"
+                    className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 text-[13px] font-semibold text-[#444748] disabled:opacity-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={contactBusy || !contactPermissionConfirmed}
-                    className="rounded-[6px] bg-[#1B1C18] px-4 py-2 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-[6px] bg-[#1B1C18] px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {contactBusy ? "Adding…" : "Add and select contact"}
                   </button>
@@ -2935,19 +2939,19 @@ export function CampaignsDashboard({
             {contactEntryMode === "bulk" ? (
               <div className="mt-3 rounded-[8px] border border-[#DCD5ED] bg-[#FCFBFF] p-4">
                 <div className="mb-3">
-                  <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                  <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                     Upload a contact list
                   </p>
-                  <p className="mt-1 font-['Space_Grotesk'] text-[10px] leading-4 text-[#747878]">
+                  <p className="mt-1 font-['Space_Grotesk'] text-[12px] leading-4 text-[#747878]">
                     CSV or XLSX, maximum 5 MB and 500 contact rows. The required column is
                     phoneNumber.
                   </p>
                 </div>
                 <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-[6px] border border-dashed border-[#CFCFC7] bg-white px-4 py-5 text-center hover:border-[#7852D6]">
-                  <span className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">
+                  <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                     {contactFile ? contactFile.name : "Choose CSV or Excel file"}
                   </span>
-                  <span className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                  <span className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                     phoneNumber is required. fullName and email are optional.
                   </span>
                   <input
@@ -2965,7 +2969,7 @@ export function CampaignsDashboard({
                   <a
                     href="/contact-import-template.csv"
                     download
-                    className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB] underline underline-offset-2"
+                    className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] underline underline-offset-2"
                   >
                     Download CSV template
                   </a>
@@ -2976,13 +2980,13 @@ export function CampaignsDashboard({
                         setContactFile(null);
                         setContactPermissionConfirmed(false);
                       }}
-                      className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#A33A32]"
+                      className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32]"
                     >
                       Remove file
                     </button>
                   ) : null}
                 </div>
-                <label className="mt-3 flex items-start gap-2 rounded-[6px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+                <label className="mt-3 flex items-start gap-2 rounded-[6px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
                   <input
                     type="checkbox"
                     checked={contactPermissionConfirmed}
@@ -2997,7 +3001,7 @@ export function CampaignsDashboard({
                 {contactError ? (
                   <p
                     role="alert"
-                    className="mt-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[11px] leading-4 text-[#A33A32]"
+                    className="mt-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2 text-[13px] leading-5 text-[#A33A32]"
                   >
                     {contactError}
                   </p>
@@ -3012,7 +3016,7 @@ export function CampaignsDashboard({
                       setContactFile(null);
                       setContactPermissionConfirmed(false);
                     }}
-                    className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 text-[11px] font-semibold text-[#444748] disabled:opacity-50"
+                    className="rounded-[6px] border border-[#DCDDD6] bg-white px-3 py-2 text-[13px] font-semibold text-[#444748] disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -3020,7 +3024,7 @@ export function CampaignsDashboard({
                     type="button"
                     disabled={!contactFile || !contactPermissionConfirmed || contactBusy}
                     onClick={handleBulkContactImport}
-                    className="rounded-[6px] bg-[#1B1C18] px-4 py-2 text-[11px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-[6px] bg-[#1B1C18] px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {contactBusy ? "Importing…" : "Import and select contacts"}
                   </button>
@@ -3031,7 +3035,7 @@ export function CampaignsDashboard({
             {contactNotice ? (
               <p
                 role="status"
-                className="mt-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-4 text-[#397A55]"
+                className="mt-3 rounded-[6px] border border-[#D7E8DA] bg-[#F1F8F2] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#397A55]"
               >
                 {contactNotice}
               </p>
@@ -3040,10 +3044,10 @@ export function CampaignsDashboard({
             <div className="mt-3 rounded-[8px] border border-[#ECEBE5] bg-white">
               <div className="flex items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3">
                 <div>
-                  <p className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                  <p className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                     Eligible contacts
                   </p>
-                  <p className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                  <p className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                     Select the audience for this campaign.
                   </p>
                 </div>
@@ -3057,7 +3061,7 @@ export function CampaignsDashboard({
                         : eligibleContacts.map((c) => c.id),
                     )
                   }
-                  className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:underline disabled:opacity-50"
+                  className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB] hover:underline disabled:opacity-50"
                 >
                   {selectedContactIds.length === eligibleContacts.length && eligibleContacts.length
                     ? "Clear all"
@@ -3066,7 +3070,7 @@ export function CampaignsDashboard({
               </div>
               <div className="max-h-[230px] overflow-y-auto">
                 {loadingAudience ? (
-                  <p className="px-4 py-8 text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">
+                  <p className="px-4 py-8 text-center font-['Space_Grotesk'] text-[14px] text-[#747878]">
                     Loading eligible contacts…
                   </p>
                 ) : eligibleContacts.length ? (
@@ -3088,23 +3092,23 @@ export function CampaignsDashboard({
                         className="h-4 w-4 accent-[#7852D6]"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18]">
+                        <span className="block truncate font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">
                           {contact.fullName || "Unnamed contact"}
                         </span>
-                        <span className="block font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                        <span className="block font-['Space_Grotesk'] text-[12px] text-[#747878]">
                           {formatPhoneNumber(contact.phoneNumber)}
                         </span>
                       </span>
                     </label>
                   ))
                 ) : (
-                  <p className="px-4 py-8 text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">
+                  <p className="px-4 py-8 text-center font-['Space_Grotesk'] text-[14px] text-[#747878]">
                     {launchError ||
                       "No eligible contacts found. Import contacts or remove opt-out and invalid statuses."}
                   </p>
                 )}
               </div>
-              <div className="border-t border-[#ECEBE5] px-4 py-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+              <div className="border-t border-[#ECEBE5] px-4 py-2 font-['Space_Grotesk'] text-[12px] text-[#747878]">
                 {selectedContactIds.length} of {eligibleContacts.length} selected
               </div>
             </div>
@@ -3113,11 +3117,11 @@ export function CampaignsDashboard({
                 role="alert"
                 className="mt-4 flex flex-col gap-2 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-3.5 py-3"
               >
-                <p className="text-[11px] leading-5 text-[#A33A32]">{launchError}</p>
+                <p className="text-[13px] leading-5 text-[#A33A32]">{launchError}</p>
                 {launchError.toLowerCase().includes("follow-up and team-handling rules") ||
                 launchError.toLowerCase().includes("routing rules") ? (
                   <div className="rounded-[5px] border border-[#E9E1D4] bg-white p-3">
-                    <p className="mb-2 text-[10px] leading-5 text-[#747878]">
+                    <p className="mb-2 text-[12px] leading-5 text-[#747878]">
                       Before launching, choose who receives callback requests, who handles requests
                       to speak to a person, and whether unanswered calls should be retried. You can
                       configure these rules in workspace setup.
@@ -3125,7 +3129,7 @@ export function CampaignsDashboard({
                     <button
                       type="button"
                       onClick={() => router.push("/dashboard?setup=routing")}
-                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-3 py-2 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-3 py-2 text-[13px] font-semibold text-white transition hover:bg-[#644ABB]"
                     >
                       Configure call handling →
                     </button>
@@ -3136,7 +3140,7 @@ export function CampaignsDashboard({
                     <button
                       type="button"
                       onClick={() => router.push("/dashboard/ai-studio")}
-                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[13px] font-semibold text-white transition hover:bg-[#644ABB]"
                     >
                       Configure AI agent →
                     </button>
@@ -3147,7 +3151,7 @@ export function CampaignsDashboard({
                     <button
                       type="button"
                       onClick={() => router.push("/dashboard?setup=test-call")}
-                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-[#644ABB]"
+                      className="inline-flex items-center gap-1 rounded bg-[#7852D6] px-2.5 py-1 text-[13px] font-semibold text-white transition hover:bg-[#644ABB]"
                     >
                       Place a test call →
                     </button>
@@ -3156,7 +3160,7 @@ export function CampaignsDashboard({
               </div>
             ) : null}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4">
-              <p className="max-w-[380px] font-['Space_Grotesk'] text-[10px] leading-4 text-[#747878]">
+              <p className="max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-4 text-[#747878]">
                 Calls also obey workspace calling hours, available credits, daily limits and contact
                 opt-outs.
               </p>
@@ -3164,7 +3168,7 @@ export function CampaignsDashboard({
                 type="button"
                 disabled={launchBusy || loadingAudience || !selectedContactIds.length}
                 onClick={submitLaunch}
-                className="rounded-[8px] bg-[#1B1C18] px-5 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
+                className="rounded-[8px] bg-[#1B1C18] px-5 py-2.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F] disabled:opacity-50"
               >
                 {launchBusy
                   ? "Queuing campaign…"
@@ -3188,7 +3192,7 @@ export function CampaignsDashboard({
           }}
         >
           <div className="w-full max-w-[440px] rounded-[12px] border border-[#ECEBE5] bg-white p-5 shadow-xl sm:p-6">
-            <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#A33A32]">
+            <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#A33A32]">
               Delete campaign
             </p>
             <h2
@@ -3197,7 +3201,7 @@ export function CampaignsDashboard({
             >
               Delete &ldquo;{cleanDisplayTitle(deletingCampaign.name)}&rdquo;?
             </h2>
-            <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
+            <p className="mt-2 font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">
               {deletingCampaign.status === "active"
                 ? "This campaign is currently active. Deleting it will stop any queued calls and permanently remove this campaign from your workspace without affecting other campaigns."
                 : "This campaign will be permanently removed from your workspace. Other campaigns will not be affected, and this action cannot be undone."}
@@ -3207,7 +3211,7 @@ export function CampaignsDashboard({
                 type="button"
                 onClick={() => setDeletingCampaign(null)}
                 disabled={deleteBusy}
-                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
+                className="h-9 rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#444748] hover:bg-[#F5F4ED]"
               >
                 Cancel
               </button>
@@ -3215,7 +3219,7 @@ export function CampaignsDashboard({
                 type="button"
                 onClick={confirmDeleteCampaign}
                 disabled={deleteBusy}
-                className="h-9 rounded-[8px] bg-[#A33A32] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#8A2E27] disabled:opacity-50"
+                className="h-9 rounded-[8px] bg-[#A33A32] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#8A2E27] disabled:opacity-50"
               >
                 {deleteBusy ? "Deleting…" : "Delete campaign"}
               </button>
@@ -3229,7 +3233,7 @@ export function CampaignsDashboard({
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Campaigns
           </h1>
-          <p className="mt-1 max-w-[640px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#666A68]">
+          <p className="mt-1 max-w-[640px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#666A68]">
             Manage your voice outreach campaigns, monitor performance, and organize your calling
             operations.
           </p>
@@ -3237,7 +3241,7 @@ export function CampaignsDashboard({
         <button
           type="button"
           onClick={() => openCampaignBuilder(null)}
-          className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
+          className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
         >
           <Icon kind="plus" className="h-3.5 w-3.5" />
           New campaign
@@ -3248,13 +3252,13 @@ export function CampaignsDashboard({
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[8px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
-          <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#A33A32]">
+          <p className="font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#A33A32]">
             Campaigns could not be loaded: {initialError}
           </p>
           <button
             type="button"
             onClick={() => router.refresh()}
-            className="rounded-[6px] border border-[#E5C7C3] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#8D3028] hover:bg-[#FDF2F1]"
+            className="rounded-[6px] border border-[#E5C7C3] bg-white px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#8D3028] hover:bg-[#FDF2F1]"
           >
             Retry
           </button>
@@ -3301,7 +3305,7 @@ export function CampaignsDashboard({
             <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
               All campaigns
             </h2>
-            <p className="mt-0.5 font-['Space_Grotesk'] text-[11px] text-[#747878]">
+            <p className="mt-0.5 font-['Space_Grotesk'] text-[13px] text-[#747878]">
               Review campaign status and conversation performance.
             </p>
           </div>
@@ -3316,7 +3320,7 @@ export function CampaignsDashboard({
                 value={queryInput}
                 onChange={(event) => setQueryInput(event.target.value)}
                 placeholder="Search campaigns..."
-                className="h-9 w-full rounded-[8px] border border-[#E2E0D8] bg-[#FAF9F5] pl-8 pr-7 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#92938C] focus:border-[#7852D6] focus:bg-white focus:ring-2 focus:ring-[#7852D6]/15"
+                className="h-9 w-full rounded-[8px] border border-[#E2E0D8] bg-[#FAF9F5] pl-8 pr-7 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#92938C] focus:border-[#7852D6] focus:bg-white focus:ring-2 focus:ring-[#7852D6]/15"
               />
               {queryInput ? (
                 <button
@@ -3340,7 +3344,7 @@ export function CampaignsDashboard({
                 aria-controls="campaign-filter-popover"
                 aria-haspopup="dialog"
                 onClick={() => setFilterPopoverOpen((open) => !open)}
-                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
+                className={`inline-flex h-9 items-center gap-1.5 rounded-[8px] border px-3 font-['Space_Grotesk'] text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
                   secondaryFilterCount > 0 || filterPopoverOpen
                     ? "border-[#D8CEF5] bg-[#F7F4FC] text-[#644ABB]"
                     : "border-[#E2E0D8] bg-white text-[#444748] hover:bg-[#FAF9F5]"
@@ -3349,7 +3353,7 @@ export function CampaignsDashboard({
                 <Icon kind="sliders" className="h-3.5 w-3.5" />
                 <span>Filter &amp; Sort</span>
                 {secondaryFilterCount > 0 ? (
-                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#644ABB] px-1 text-[10px] font-semibold text-white">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#644ABB] px-1 text-[12px] font-semibold text-white">
                     {secondaryFilterCount}
                   </span>
                 ) : null}
@@ -3366,7 +3370,7 @@ export function CampaignsDashboard({
                     <div>
                       <label
                         htmlFor="campaign-type-popover"
-                        className="block font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]"
+                        className="block font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]"
                       >
                         Campaign type
                       </label>
@@ -3374,7 +3378,7 @@ export function CampaignsDashboard({
                         id="campaign-type-popover"
                         value={typeFilter}
                         onChange={(e) => setTypeFilter(e.target.value)}
-                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
                       >
                         <option value="all">All types</option>
                         {Object.entries(TYPE_LABELS).map(([key, label]) => (
@@ -3388,7 +3392,7 @@ export function CampaignsDashboard({
                     <div>
                       <label
                         htmlFor="campaign-sort-popover"
-                        className="block font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]"
+                        className="block font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]"
                       >
                         Sort order
                       </label>
@@ -3396,7 +3400,7 @@ export function CampaignsDashboard({
                         id="campaign-sort-popover"
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
-                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                        className="mt-1.5 h-9 w-full rounded-[6px] border border-[#DCDDD6] bg-white px-2.5 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none focus:border-[#7852D6]"
                       >
                         {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
                           <option key={option} value={option}>
@@ -3413,14 +3417,14 @@ export function CampaignsDashboard({
                           setTypeFilter("all");
                           setSortBy("newest");
                         }}
-                        className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#747878] hover:text-[#1B1C18]"
+                        className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#747878] hover:text-[#1B1C18]"
                       >
                         Reset
                       </button>
                       <button
                         type="button"
                         onClick={() => setFilterPopoverOpen(false)}
-                        className="rounded-[6px] bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F]"
+                        className="rounded-[6px] bg-[#1B1C18] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white hover:bg-[#34352F]"
                       >
                         Done
                       </button>
@@ -3447,7 +3451,7 @@ export function CampaignsDashboard({
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setStatusFilter(status)}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[7px] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[7px] px-3 py-1.5 font-['Space_Grotesk'] text-[14px] font-medium capitalize transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] ${
                   selected
                     ? "bg-white font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.06)] ring-1 ring-[#E5E3DB]"
                     : "text-[#666A68] hover:text-[#1B1C18]"
@@ -3455,7 +3459,7 @@ export function CampaignsDashboard({
               >
                 <span>{label}</span>
                 <span
-                  className={`rounded-full px-1.5 py-0.2 text-[10px] tabular-nums ${
+                  className={`rounded-full px-1.5 py-0.2 text-[12px] tabular-nums ${
                     selected
                       ? "bg-[#EFEAFB] font-semibold text-[#644ABB]"
                       : "bg-[#ECEBE5] text-[#666A68]"
@@ -3471,13 +3475,13 @@ export function CampaignsDashboard({
             <button
               type="button"
               onClick={clearAllFilters}
-              className="ml-2 shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:underline"
+              className="ml-2 shrink-0 font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB] hover:underline"
             >
               Clear filters
             </button>
           ) : null}
 
-          <span className="ml-auto shrink-0 pl-3 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+          <span className="ml-auto shrink-0 pl-3 font-['Space_Grotesk'] text-[13px] text-[#7A7D7A]">
             {filteredCampaigns.length} {filteredCampaigns.length === 1 ? "campaign" : "campaigns"}
           </span>
         </div>
@@ -3508,16 +3512,16 @@ export function CampaignsDashboard({
                           {displayName}
                         </h3>
                         <StatusBadge status={effectiveStatus} />
-                        <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium text-[#5C5E56]">
+                        <span className="rounded-[5px] bg-[#F5F4ED] px-2 py-0.5 font-['Space_Grotesk'] text-[13px] font-medium text-[#5C5E56]">
                           {TYPE_LABELS[campaign.type] ?? campaign.type.replaceAll("_", " ")}
                         </span>
                       </div>
 
-                      <p className="mt-1 line-clamp-1 max-w-[640px] font-['Space_Grotesk'] text-[12.5px] text-[#5C5F5C]">
+                      <p className="mt-1 line-clamp-1 max-w-[640px] font-['Space_Grotesk'] text-[14px] text-[#5C5F5C]">
                         {campaign.primaryObjective || "No campaign objective added."}
                       </p>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-['Space_Grotesk'] text-[11px] text-[#7A7D7A]">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-['Space_Grotesk'] text-[13px] text-[#7A7D7A]">
                         <span>Created {formatDate(campaign.createdAt)}</span>
                         {campaign.targetAudience ? (
                           <>
@@ -3532,7 +3536,7 @@ export function CampaignsDashboard({
 
                     <div className="grid grid-cols-3 divide-x divide-[#ECEBE5] rounded-[8px] border border-[#ECEBE5] bg-[#FAF9F5] py-2">
                       <div className="px-3">
-                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                        <p className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
                           Calls
                         </p>
                         <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
@@ -3540,7 +3544,7 @@ export function CampaignsDashboard({
                         </p>
                       </div>
                       <div className="px-3">
-                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                        <p className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
                           Connected
                         </p>
                         <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
@@ -3548,7 +3552,7 @@ export function CampaignsDashboard({
                         </p>
                       </div>
                       <div className="px-3">
-                        <p className="font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+                        <p className="font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
                           High intent
                         </p>
                         <p className="mt-0.5 font-['Newsreader'] text-[20px] leading-none text-[#1B1C18]">
@@ -3568,7 +3572,7 @@ export function CampaignsDashboard({
                         <button
                           type="button"
                           onClick={() => openLaunch(campaign)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                         >
                           <Icon kind="rocket" className="h-3.5 w-3.5" />
                           Launch
@@ -3578,7 +3582,7 @@ export function CampaignsDashboard({
                           type="button"
                           disabled={isRowStatusBusy}
                           onClick={() => changeCampaignStatus(campaign, "active")}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
                         >
                           <Icon kind="play" className="h-3.5 w-3.5" />
                           {isRowStatusBusy ? "Resuming…" : "Resume"}
@@ -3588,7 +3592,7 @@ export function CampaignsDashboard({
                           type="button"
                           disabled={isRowStatusBusy}
                           onClick={() => changeCampaignStatus(campaign, "paused")}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] disabled:opacity-50"
                         >
                           <Icon kind="pause" className="h-3.5 w-3.5" />
                           {isRowStatusBusy ? "Pausing…" : "Pause"}
@@ -3597,7 +3601,7 @@ export function CampaignsDashboard({
                         <button
                           type="button"
                           onClick={() => openCampaignDetail(campaign.id, "overview")}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[14px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
                         >
                           <Icon kind="eye" className="h-3.5 w-3.5" />
                           Results
@@ -3632,7 +3636,7 @@ export function CampaignsDashboard({
                                 setOpenMenuId(null);
                                 openCampaignDetail(campaign.id, "overview");
                               }}
-                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
                               <Icon kind="eye" className="h-3.5 w-3.5 text-[#747878]" />
                               View details
@@ -3645,7 +3649,7 @@ export function CampaignsDashboard({
                                   setOpenMenuId(null);
                                   openCampaignDetail(campaign.id, "edit");
                                 }}
-                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                               >
                                 <Icon kind="edit" className="h-3.5 w-3.5 text-[#747878]" />
                                 Edit campaign
@@ -3658,7 +3662,7 @@ export function CampaignsDashboard({
                                 setOpenMenuId(null);
                                 openCampaignBuilder(campaign);
                               }}
-                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
                               <Icon kind="copy" className="h-3.5 w-3.5 text-[#747878]" />
                               Duplicate campaign
@@ -3667,7 +3671,7 @@ export function CampaignsDashboard({
                               href={`/dashboard/calls?campaignId=${encodeURIComponent(campaign.id)}`}
                               role="menuitem"
                               onClick={() => setOpenMenuId(null)}
-                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
                               <Icon kind="phone" className="h-3.5 w-3.5 text-[#747878]" />
                               View campaign calls
@@ -3676,7 +3680,7 @@ export function CampaignsDashboard({
                               href="/dashboard/analytics"
                               role="menuitem"
                               onClick={() => setOpenMenuId(null)}
-                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
+                              className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
                               <Icon kind="chart" className="h-3.5 w-3.5 text-[#747878]" />
                               View performance
@@ -3687,7 +3691,7 @@ export function CampaignsDashboard({
                                 role="menuitem"
                                 disabled={isRowStatusBusy}
                                 onClick={() => changeCampaignStatus(campaign, "paused")}
-                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
                               >
                                 <Icon kind="pause" className="h-3.5 w-3.5 text-[#747878]" />
                                 Pause campaign
@@ -3699,7 +3703,7 @@ export function CampaignsDashboard({
                                 role="menuitem"
                                 disabled={isRowStatusBusy}
                                 onClick={() => changeCampaignStatus(campaign, "active")}
-                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
+                                className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#1B1C18] hover:bg-[#F5F4ED] disabled:opacity-50"
                               >
                                 <Icon kind="play" className="h-3.5 w-3.5 text-[#747878]" />
                                 Resume campaign
@@ -3712,7 +3716,7 @@ export function CampaignsDashboard({
                                 setOpenMenuId(null);
                                 setDeletingCampaign(campaign);
                               }}
-                              className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
+                              className="mt-1 flex w-full items-center gap-2 rounded-[6px] border-t border-[#F0EFE9] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] font-semibold text-[#A33A32] hover:bg-[#FDF2F1]"
                             >
                               <Icon kind="trash" className="h-3.5 w-3.5 text-[#A33A32]" />
                               Delete campaign
@@ -3738,7 +3742,7 @@ export function CampaignsDashboard({
                           style={{ width: `${progress.percent}%` }}
                         />
                       </div>
-                      <span className="shrink-0 font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">
+                      <span className="shrink-0 font-['Space_Grotesk'] text-[12px] tabular-nums text-[#747878]">
                         {formatNumber(stats.inProgressCalls)} calling ·{" "}
                         {formatNumber(stats.pendingCalls)} pending ·{" "}
                         {formatNumber(stats.completedQueueCalls)} done ·{" "}
@@ -3760,13 +3764,13 @@ export function CampaignsDashboard({
                 <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No campaigns yet
                 </h3>
-                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
                   Create your first voice campaign to start reaching your contacts.
                 </p>
                 <button
                   type="button"
                   onClick={() => openCampaignBuilder(null)}
-                  className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+                  className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F]"
                 >
                   <Icon kind="plus" className="h-3.5 w-3.5" />
                   Create campaign
@@ -3777,13 +3781,13 @@ export function CampaignsDashboard({
                 <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No matching campaigns
                 </h3>
-                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
                   Try a different search term or clear your filters.
                 </p>
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
+                  className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
                 >
                   Clear search
                 </button>
@@ -3793,14 +3797,14 @@ export function CampaignsDashboard({
                 <h3 className="mt-3.5 font-['Newsreader'] text-[24px] text-[#1B1C18]">
                   No campaigns in this category
                 </h3>
-                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+                <p className="mt-1 max-w-[380px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
                   Campaigns with this status will appear here.
                 </p>
                 {hasActiveFilters ? (
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
+                    className="mt-4 inline-flex h-9 items-center justify-center rounded-[8px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] hover:bg-[#F5F4ED]"
                   >
                     Clear filters
                   </button>
