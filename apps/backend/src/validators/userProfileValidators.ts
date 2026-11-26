@@ -30,18 +30,23 @@ export function guardAgainstPhoneNumberChange(payload: Record<string, unknown>):
   return { rejected: false };
 }
 
-export function validateTimezone(tz: unknown): { valid: boolean; value?: string; error?: string } {
-  if (typeof tz !== "string" || tz.trim().length === 0) {
-    return { valid: false, error: "Timezone must be a non-empty string" };
+export function validateCallingHoursTime(timeStr: unknown): { valid: boolean; value?: string; error?: string } {
+  if (typeof timeStr !== "string") {
+    return { valid: false, error: "Calling hour time must be a string formatted as HH:mm or HH:mm:ss" };
   }
 
-  const trimmed = tz.trim();
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: trimmed });
-    return { valid: true, value: trimmed };
-  } catch {
-    return { valid: false, error: `Invalid IANA timezone identifier: '${trimmed}'` };
+  const trimmed = timeStr.trim();
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
+  const match = trimmed.match(timeRegex);
+  if (!match) {
+    return { valid: false, error: "Calling hour must be a valid 24-hour time between 00:00 and 23:59" };
   }
+
+  // Normalize to HH:mm:00 if seconds missing
+  const hours = match[1];
+  const minutes = match[2];
+  const seconds = match[3] || "00";
+  return { valid: true, value: `${hours}:${minutes}:${seconds}` };
 }
 
 export function validateAvatarUrl(url: unknown): { valid: boolean; value?: string | null; error?: string } {
