@@ -46,3 +46,38 @@ export async function getUserProfileService(userId: string): Promise<{
 
   return { user, preferences };
 }
+
+export async function updateUserProfileService(
+  userId: string,
+  input: import("../types/userProfile.js").UpdateUserProfileInput
+): Promise<UserProfileData | null> {
+  const [existing] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!existing) {
+    return null;
+  }
+
+  const updateFields: Record<string, unknown> = {
+    updatedAt: new Date()
+  };
+
+  if (input.displayName !== undefined) {
+    updateFields.displayName = input.displayName;
+  }
+
+  if (input.avatarUrl !== undefined) {
+    updateFields.avatarUrl = input.avatarUrl;
+  }
+
+  await db
+    .update(users)
+    .set(updateFields)
+    .where(eq(users.id, userId));
+
+  const refreshed = await getUserProfileService(userId);
+  return refreshed ? refreshed.user : null;
+}
