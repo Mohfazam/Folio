@@ -31,4 +31,14 @@ export interface UpdateUserProfileInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface UpdateUserPreferencesInput {
+  theme?: "light" | "dark" | "system";
+  emailNotifications?: boolean;
+  callAlerts?: boolean;
+  weeklyReport?: boolean;
+  audioPlaybackSpeed?: number;
+  locale?: string;
+}
+
+
 
