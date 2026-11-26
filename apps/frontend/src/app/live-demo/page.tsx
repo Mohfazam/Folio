@@ -2,20 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import PublicDemoExperience from "@/components/public-demo/public-demo-experience";
-// TODO: Replace with your project's server auth/session helper, e.g.:
-// import { getSession } from "@/lib/auth";
+import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 
 export const metadata: Metadata = {
   title: "Experience the Foolioo AI receptionist",
-  description: "Try a live AI receptionist experience from Foolioo. No account required.",
+  description: "Try a live AI receptionist experience from Foolioo.",
 };
 
 async function getIsAuthenticated(): Promise<boolean> {
   try {
-    // Wire this to your server session/cookie/auth check:
-    // const session = await getSession();
-    // return Boolean(session?.user);
-    return false;
+    const authContext = await getDashboardAuthContext();
+    return Boolean(authContext?.userId);
   } catch {
     return false;
   }
@@ -56,18 +53,26 @@ export default async function LiveDemoPage() {
           </span>
         </div>
 
-        <Link
-          href={isLoggedIn ? "/dashboard" : "/sign-up"}
-          className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
-        >
-          {isLoggedIn ? "Go to dashboard" : "Create an account"}{" "}
-          <span aria-hidden="true">→</span>
-        </Link>
+        {isLoggedIn ? (
+          <Link
+            href="/dashboard"
+            className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+          >
+            Go to dashboard <span aria-hidden="true">→</span>
+          </Link>
+        ) : (
+          <Link
+            href="/sign-up"
+            className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+          >
+            Create an account <span aria-hidden="true">→</span>
+          </Link>
+        )}
       </header>
 
       {/* MAIN CONTENT AREA */}
       <div className="relative flex flex-1 flex-col justify-center lg:min-h-0 lg:overflow-hidden">
-        <PublicDemoExperience />
+        <PublicDemoExperience isLoggedIn={isLoggedIn} />
       </div>
 
       {/* FOOTER */}
