@@ -193,3 +193,53 @@ export function validateUserPreferences(prefs: unknown): {
 
   return { valid: true, value: result };
 }
+
+export function validateUserProfileUpdate(payload: unknown): {
+  valid: boolean;
+  value?: import("../types/userProfile.js").UpdateUserProfileInput;
+  error?: string;
+} {
+  if (payload === null || typeof payload !== "object" || Array.isArray(payload)) {
+    return { valid: false, error: "Profile update payload must be an object" };
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  const phoneGuard = guardAgainstPhoneNumberChange(record);
+  if (phoneGuard.rejected) {
+    return { valid: false, error: phoneGuard.error };
+  }
+
+  const emailGuard = guardAgainstEmailChange(record);
+  if (emailGuard.rejected) {
+    return { valid: false, error: emailGuard.error };
+  }
+
+  const result: import("../types/userProfile.js").UpdateUserProfileInput = {};
+
+  if ("displayName" in record && record.displayName !== undefined) {
+    const res = validateDisplayName(record.displayName);
+    if (!res.valid) return { valid: false, error: res.error };
+    result.displayName = res.value;
+  }
+
+  if ("avatarUrl" in record && record.avatarUrl !== undefined) {
+    const res = validateAvatarUrl(record.avatarUrl);
+    if (!res.valid) return { valid: false, error: res.error };
+    result.avatarUrl = res.value;
+  }
+
+  if ("bio" in record && record.bio !== undefined) {
+    const res = validateBio(record.bio);
+    if (!res.valid) return { valid: false, error: res.error };
+    result.bio = res.value;
+  }
+
+  if ("jobTitle" in record && record.jobTitle !== undefined) {
+    const res = validateJobTitle(record.jobTitle);
+    if (!res.valid) return { valid: false, error: res.error };
+    result.jobTitle = res.value;
+  }
+
+  return { valid: true, value: result };
+}
