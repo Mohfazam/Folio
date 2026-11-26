@@ -23,3 +23,12 @@ export interface UserPreferences {
   locale?: string;
 }
 
+export interface UpdateUserProfileInput {
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  jobTitle?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+
