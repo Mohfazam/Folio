@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../config/db.js";
-import { users } from "@repo/db";
+import { users, clients } from "@repo/db";
 import type { UserProfileData, UserPreferences } from "../types/userProfile.js";
 
 export async function getUserProfileService(userId: string): Promise<{
@@ -162,4 +162,69 @@ export async function removeUserAvatarService(userId: string): Promise<boolean> 
     .where(eq(users.id, userId));
 
   return true;
+}
+
+export async function updateWorkspaceNonVerifiedService(
+  clientId: string,
+  input: import("../types/userProfile.js").WorkspaceDetailsUpdateInput
+): Promise<Record<string, unknown> | null> {
+  const [existing] = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  if (!existing) {
+    return null;
+  }
+
+  const updateFields: Record<string, unknown> = {
+    updatedAt: new Date()
+  };
+
+  if (input.name !== undefined && input.name.trim().length > 0) {
+    updateFields.name = input.name.trim();
+  }
+
+  if (input.contactPersonName !== undefined) {
+    updateFields.contactPersonName = input.contactPersonName ? input.contactPersonName.trim() : null;
+  }
+
+  if (input.timezone !== undefined && input.timezone.trim().length > 0) {
+    updateFields.timezone = input.timezone.trim();
+  }
+
+  if (input.callingHoursStart !== undefined) {
+    updateFields.callingHoursStart = input.callingHoursStart;
+  }
+
+  if (input.callingHoursEnd !== undefined) {
+    updateFields.callingHoursEnd = input.callingHoursEnd;
+  }
+
+  if (input.metadata && typeof input.metadata === "object") {
+    const existingMeta = (existing.metadata && typeof existing.metadata === "object" ? existing.metadata : {}) as Record<string, unknown>;
+    updateFields.metadata = { ...existingMeta, ...input.metadata };
+  }
+
+  await db
+    .update(clients)
+    .set(updateFields)
+    .where(eq(clients.id, clientId));
+
+  const [updated] = await db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      contactPersonName: clients.contactPersonName,
+      timezone: clients.timezone,
+      callingHoursStart: clients.callingHoursStart,
+      callingHoursEnd: clients.callingHoursEnd,
+      updatedAt: clients.updatedAt
+    })
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  return updated ? (updated as unknown as Record<string, unknown>) : null;
 }
