@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { Suspense } from "react";
 import { connection } from "next/server";
 import PublicDemoExperience from "@/components/public-demo/public-demo-experience";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
@@ -20,9 +21,32 @@ async function getIsAuthenticated(): Promise<boolean> {
   }
 }
 
-export default async function LiveDemoPage() {
+async function LiveDemoAuthHeaderLink() {
   const isLoggedIn = await getIsAuthenticated();
 
+  return isLoggedIn ? (
+    <Link
+      href="/dashboard"
+      className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+    >
+      Go to dashboard <span aria-hidden="true">→</span>
+    </Link>
+  ) : (
+    <Link
+      href="/sign-up"
+      className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
+    >
+      Create an account <span aria-hidden="true">→</span>
+    </Link>
+  );
+}
+
+async function LiveDemoExperienceSlot() {
+  const isLoggedIn = await getIsAuthenticated();
+  return <PublicDemoExperience isLoggedIn={isLoggedIn} />;
+}
+
+export default function LiveDemoPage() {
   return (
     <main className="flex min-h-screen flex-col bg-[#F7F5EF] text-[#1B1C18] lg:h-dvh lg:overflow-hidden">
       {/* HEADER */}
@@ -55,26 +79,20 @@ export default async function LiveDemoPage() {
           </span>
         </div>
 
-        {isLoggedIn ? (
-          <Link
-            href="/dashboard"
-            className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
-          >
-            Go to dashboard <span aria-hidden="true">→</span>
-          </Link>
-        ) : (
-          <Link
-            href="/sign-up"
-            className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
-          >
-            Create an account <span aria-hidden="true">→</span>
-          </Link>
-        )}
+        <Suspense
+          fallback={
+            <span className="inline-block h-4 w-28 animate-pulse rounded bg-[#E8E3D8]" />
+          }
+        >
+          <LiveDemoAuthHeaderLink />
+        </Suspense>
       </header>
 
       {/* MAIN CONTENT AREA */}
       <div className="relative flex flex-1 flex-col justify-center lg:min-h-0 lg:overflow-hidden">
-        <PublicDemoExperience isLoggedIn={isLoggedIn} />
+        <Suspense fallback={<PublicDemoExperience isLoggedIn={false} />}>
+          <LiveDemoExperienceSlot />
+        </Suspense>
       </div>
 
       {/* FOOTER */}
