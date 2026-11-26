@@ -48,11 +48,47 @@ async function isInternalAdminSession(accessToken: string): Promise<boolean> {
   }
 }
 
-export default async function FounderTicketsPage() {
+async function FounderQueueContent() {
   await connection();
   const auth = await getDashboardAuthContext();
   const allowed = auth ? await isInternalAdminSession(auth.accessToken) : false;
 
+  if (!allowed) {
+    return (
+      <section className="mx-auto mt-8 max-w-lg rounded-2xl border border-[#EAE7DE] bg-white p-8 text-center shadow-sm">
+        <span className="inline-flex rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[1.1px] text-[#A33A32]">
+          Restricted · Founder Access Only
+        </span>
+        <h1 className="mt-4 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18]">
+          Founder queue access required
+        </h1>
+        <p className="mt-2.5 font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#525552]">
+          {auth
+            ? "Your signed-in account does not have internal_admin founder permissions."
+            : "Sign in with an internal_admin account to view incoming support tickets."}
+        </p>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Link
+            href={auth ? "/dashboard" : "/sign-in?redirect=/founder/tickets"}
+            className="inline-flex h-10 items-center justify-center rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
+          >
+            {auth ? "Go to Workspace" : "Sign In"}
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F3EC]"
+          >
+            Back to Home
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return <AdminTicketsDashboard />;
+}
+
+export default function FounderTicketsPage() {
   return (
     <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
       <header className="border-b border-[#EAE7DE] bg-[#FCFBF7] px-6 py-4">
@@ -82,39 +118,9 @@ export default async function FounderTicketsPage() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        {!allowed ? (
-          <section className="mx-auto mt-8 max-w-lg rounded-2xl border border-[#EAE7DE] bg-white p-8 text-center shadow-sm">
-            <span className="inline-flex rounded-full border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[1.1px] text-[#A33A32]">
-              Restricted · Founder Access Only
-            </span>
-            <h1 className="mt-4 font-['Newsreader'] text-[34px] leading-tight tracking-[-0.8px] text-[#1B1C18]">
-              Founder queue access required
-            </h1>
-            <p className="mt-2.5 font-['Space_Grotesk'] text-[13px] leading-[20px] text-[#525552]">
-              {auth
-                ? "Your signed-in account does not have internal_admin founder permissions."
-                : "Sign in with an internal_admin account to view incoming support tickets."}
-            </p>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href={auth ? "/dashboard" : "/sign-in?redirect=/founder/tickets"}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
-              >
-                {auth ? "Go to Workspace" : "Sign In"}
-              </Link>
-              <Link
-                href="/"
-                className="inline-flex h-10 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] hover:bg-[#F5F3EC]"
-              >
-                Back to Home
-              </Link>
-            </div>
-          </section>
-        ) : (
-          <Suspense fallback={<DashboardPageSkeleton variant="table" />}>
-            <AdminTicketsDashboard />
-          </Suspense>
-        )}
+        <Suspense fallback={<DashboardPageSkeleton variant="table" />}>
+          <FounderQueueContent />
+        </Suspense>
       </main>
     </div>
   );
