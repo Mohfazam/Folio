@@ -21,30 +21,30 @@ export function LocalDevTestPlanCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#D8CEF5] bg-[#EFEAFB] px-2.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#644ABB]">
+            <span className="inline-flex items-center rounded-full border border-[#D8CEF5] bg-[#EFEAFB] px-2.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#644ABB]">
               {devPlan.badge}
             </span>
             <h2 className="font-['Newsreader'] text-[22px] leading-tight text-[#1B1C18]">
               {devPlan.name}
             </h2>
           </div>
-          <p className="mt-1.5 max-w-[540px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
+          <p className="mt-1.5 max-w-[540px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#565B5B]">
             {devPlan.description}
           </p>
         </div>
 
         <div className="text-left sm:text-right">
-          <p className="font-['Newsreader'] text-[28px] leading-none text-[#1B1C18]">
+          <p className="font-['Newsreader'] text-[32px] leading-none text-[#1B1C18]">
             ₹{devPlan.amountInr}
           </p>
-          <p className="mt-1 font-['Space_Grotesk'] text-[10px] font-medium text-[#747878]">
+          <p className="mt-1 font-['Space_Grotesk'] text-[12px] font-medium text-[#747878]">
             {devPlan.creditsLabel}
           </p>
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#E6E0F5] pt-3.5">
-        <p className="font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+        <p className="font-['Space_Grotesk'] text-[13px] text-[#666A68]">
           Hidden in production builds and non-localhost hosts.
         </p>
 
@@ -52,14 +52,14 @@ export function LocalDevTestPlanCard({
           <button
             type="button"
             onClick={() => onSelectPlan("dev_test")}
-            className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Test ₹1 checkout
           </button>
         ) : (
           <Link
             href="/checkout?plan=dev_test"
-            className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#644ABB] px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#523AA3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
           >
             Test ₹1 checkout
           </Link>

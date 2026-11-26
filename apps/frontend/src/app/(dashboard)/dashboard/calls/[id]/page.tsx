@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
@@ -131,6 +132,23 @@ async function CallDetailContent({ params }: { params: Promise<{ id: string }> }
   }
 }
 
+function CallDetailsFallback() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Loading call details">
+      <div className="h-5 w-28 animate-pulse rounded bg-[#ECEBE5]" />
+      <div className="h-10 w-72 animate-pulse rounded bg-[#ECEBE5]" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="h-44 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-white lg:col-span-2" />
+        <div className="h-44 animate-pulse rounded-[8px] border border-[#ECEBE5] bg-white" />
+      </div>
+    </div>
+  );
+}
+
 export default function CallDetailsPage({ params }: { params: Promise<{ id: string }> }) {
-  return <CallDetailContent params={params} />;
+  return (
+    <Suspense fallback={<CallDetailsFallback />}>
+      <CallDetailContent params={params} />
+    </Suspense>
+  );
 }

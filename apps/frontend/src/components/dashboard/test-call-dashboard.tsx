@@ -10,6 +10,7 @@ import {
   createTestCallAction,
   getLiveCallStatusAction,
 } from "@/app/(dashboard)/dashboard/actions";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 type LiveQueueEntry = {
   id: string;
@@ -40,18 +41,17 @@ function Badge({
   children: ReactNode;
   tone?: "neutral" | "green" | "purple" | "amber" | "red";
 }) {
-  const tones = {
-    neutral: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
-    green: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
-    purple: "border-[#E8E3F2] bg-[#F7F4FC] text-[#705AA8]",
-    amber: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
-    red: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
+  const dots = {
+    neutral: "bg-[#8E918B]",
+    green: "bg-[#2F7A4D]",
+    purple: "bg-[#644ABB]",
+    amber: "bg-[#B87D1E]",
+    red: "bg-[#C24138]",
   };
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold ${tones[tone]}`}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[tone]}`} aria-hidden="true" />
       {children}
     </span>
   );
@@ -208,7 +208,7 @@ export function TestCallDashboard() {
         ],
       }));
       setCallNotice(
-        `Your test call to ${normalizedPhone} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`,
+        `Your test call to ${formatPhoneNumber(normalizedPhone)} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`,
       );
       setLiveRefreshKey((value) => value + 1);
       router.refresh();
@@ -228,7 +228,7 @@ export function TestCallDashboard() {
   const confirmCancelQueuedCall = async () => {
     const entry = pendingCancelEntry;
     if (!entry || cancellingQueueId) return;
-    const recipient = entry.contactName || entry.phoneNumber || "this recipient";
+    const recipient = entry.contactName || formatPhoneNumber(entry.phoneNumber) || "this recipient";
 
     setCancellingQueueId(entry.id);
     setQueueActionError(null);
@@ -264,15 +264,15 @@ export function TestCallDashboard() {
           <h1 className="mt-1 font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Testing
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
             Place a live outbound test call to preview your workspace&apos;s AI voice agent, greeting, and responses before launching campaigns.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="purple">Outbound test call</Badge>
+          {/* <Badge tone="purple">Outbound test call</Badge> */}
           <Link
             href="/dashboard/calls"
-            className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1]"
+            className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1]"
           >
             View call logs →
           </Link>
@@ -287,13 +287,13 @@ export function TestCallDashboard() {
             <h2 className="mt-1 font-['Newsreader'] text-[26px] leading-tight text-[#1B1C18]">
               Make a test call
             </h2>
-            <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+            <p className="mt-1 font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">
               Enter any phone number in international format. You do not need to create a contact or launch a campaign.
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
-            <label className="block font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748]">
+            <label className="block font-['Space_Grotesk'] text-[14px] font-semibold text-[#444748]">
               Phone number
               <input
                 type="tel"
@@ -302,15 +302,15 @@ export function TestCallDashboard() {
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
                 placeholder="+91 98765 43210"
-                className="mt-1.5 h-11 w-full rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[13px] font-normal text-[#1B1C18] outline-none focus:border-[#7852D6]"
+                className="mt-1.5 h-11 w-full rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] font-normal text-[#1B1C18] outline-none focus:border-[#7852D6]"
                 required
               />
-              <span className="mt-1 block font-['Space_Grotesk'] text-[10px] font-normal text-[#92938C]">
-                Include + and your country code. Example: +919876543210.
+              <span className="mt-1 block font-['Space_Grotesk'] text-[12px] font-normal text-[#92938C]">
+                Include + and your country code. Example: +91 9876543210.
               </span>
             </label>
 
-            <label className="flex items-start gap-2.5 rounded-[5px] border border-[#ECEBE5] bg-[#FBFAF6] p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#62645D]">
+            <label className="flex items-start gap-2.5 rounded-[5px] border border-[#ECEBE5] bg-[#FBFAF6] p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#62645D]">
               <input
                 type="checkbox"
                 checked={confirmed}
@@ -322,14 +322,14 @@ export function TestCallDashboard() {
               </span>
             </label>
 
-            <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FBFAF6] px-3 py-2.5 font-['Space_Grotesk'] text-[10px] leading-5 text-[#747878]">
+            <div className="rounded-[5px] border border-[#E9E8E1] bg-[#FBFAF6] px-3 py-2.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
               The call uses your workspace&apos;s saved AI agent settings. Workspace credit, daily-call and availability limits still apply. Direct calls currently have a two-minute maximum duration.
             </div>
 
             {error ? (
               <div
                 role="alert"
-                className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]"
+                className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#A33A32]"
               >
                 {error}
               </div>
@@ -339,9 +339,9 @@ export function TestCallDashboard() {
               <button
                 type="submit"
                 disabled={busy || !phoneNumber.trim() || !confirmed}
-                className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <span aria-hidden="true" className="text-[14px]">＋</span>
+                <span aria-hidden="true" className="text-[14.5px]">＋</span>
                 {busy ? "Queuing test call…" : "Make a test call"}
               </button>
             </div>
@@ -352,10 +352,10 @@ export function TestCallDashboard() {
           <section className="overflow-hidden rounded-[8px] border border-[#ECEBE5] bg-white" aria-live="polite">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECEBE5] px-4 py-3.5 sm:px-5">
               <div>
-                <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                   Live call queue
                 </h2>
-                <p className="mt-0.5 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
+                <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#85877F]">
                   Tracks queued and active calls in real time.
                 </p>
               </div>
@@ -366,13 +366,13 @@ export function TestCallDashboard() {
             </div>
 
             {liveStatusError ? (
-              <p className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#8A6826]">
+              <p className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#8A6826]">
                 Live status could not refresh. Retrying automatically.
               </p>
             ) : null}
 
             {queueActionError ? (
-              <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[11px] text-[#A33A32]">
+              <p role="alert" className="px-4 py-3 font-['Space_Grotesk'] text-[13px] text-[#A33A32]">
                 {queueActionError}
               </p>
             ) : null}
@@ -385,12 +385,12 @@ export function TestCallDashboard() {
                     className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5"
                   >
                     <div className="min-w-0">
-                      <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">
-                        {entry.contactName || entry.phoneNumber || "Unknown recipient"}
+                      <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                        {entry.contactName || formatPhoneNumber(entry.phoneNumber) || "Unknown recipient"}
                       </p>
-                      <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[10px] text-[#92938C]">
+                      <p className="mt-0.5 truncate font-['Space_Grotesk'] text-[12px] text-[#92938C]">
                         {entry.campaignName || "Test / direct call"}
-                        {entry.phoneNumber && entry.contactName ? ` · ${entry.phoneNumber}` : ""}
+                        {entry.phoneNumber && entry.contactName ? ` · ${formatPhoneNumber(entry.phoneNumber)}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -402,7 +402,7 @@ export function TestCallDashboard() {
                           type="button"
                           onClick={() => void handleCancelQueuedCall(entry)}
                           disabled={cancellingQueueId !== null}
-                          className="rounded-[5px] border border-[#E7C9C5] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-[5px] border border-[#E7C9C5] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FFF5F3] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {cancellingQueueId === entry.id ? "Cancelling…" : "Cancel"}
                         </button>
@@ -412,17 +412,17 @@ export function TestCallDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="px-4 py-8 text-center font-['Space_Grotesk'] text-[11px] text-[#85877F]">
+              <div className="px-4 py-8 text-center font-['Space_Grotesk'] text-[13px] text-[#85877F]">
                 No queued or active calls right now. Place a test call on the left to begin.
               </div>
             )}
           </section>
 
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
               Testing checklist
             </h2>
-            <ul className="mt-3 space-y-2 font-['Space_Grotesk'] text-[11px] leading-5 text-[#62645D]">
+            <ul className="mt-3 space-y-2 font-['Space_Grotesk'] text-[13px] leading-5 text-[#62645D]">
               <li>• Configure your agent voice, greeting, and knowledge base in AI Studio first.</li>
               <li>• Completed test calls automatically appear in Calls with transcripts and audio recordings.</li>
               <li>• Standard workspace credits and concurrency limits apply to test calls.</li>
@@ -433,7 +433,7 @@ export function TestCallDashboard() {
       <ConfirmDialog
         open={pendingCancelEntry !== null}
         title="Cancel queued call?"
-        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || pendingCancelEntry?.phoneNumber || "this recipient"}? It will not be attempted.`}
+        description={`Cancel the queued call to ${pendingCancelEntry?.contactName || formatPhoneNumber(pendingCancelEntry?.phoneNumber) || "this recipient"}? It will not be attempted.`}
         confirmLabel="Cancel call"
         busy={cancellingQueueId !== null}
         onCancel={() => setPendingCancelEntry(null)}

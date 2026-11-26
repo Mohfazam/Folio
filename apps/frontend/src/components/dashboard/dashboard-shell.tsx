@@ -262,8 +262,8 @@ function NavEntry({
   const className = [
     "group flex w-full font-['Space_Grotesk'] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]",
     isMobile
-      ? "min-h-[44px] min-w-0 flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center text-[10px]"
-      : "items-center gap-3 rounded-[8px] px-3 py-2 text-left text-[13.5px] md:justify-center md:px-0 lg:justify-start lg:px-3",
+      ? "min-h-[46px] min-w-0 flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center text-[11px]"
+      : "items-center gap-3 rounded-[8px] px-3 py-2 text-left text-[14.5px] md:justify-center md:px-0 lg:justify-start lg:px-3",
     active
       ? isMobile
         ? "bg-[#EFEAFB] font-semibold text-[#644ABB]"
@@ -489,12 +489,12 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <button
                     type="button"
                     onClick={() => setSearchOpen(true)}
-                    className="group flex w-full cursor-pointer items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[13.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
+                    className="group flex w-full cursor-pointer items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[14.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
                     title="Search (Ctrl or Cmd + K)"
                   >
                     <Icon name="search" className="h-4 w-4 shrink-0 text-[#666A68] group-hover:text-[#1B1C18]" />
                     <span className="hidden lg:inline">Search</span>
-                    <kbd className="ml-auto hidden rounded-[5px] border border-[#DFDDD4] bg-white px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-medium text-[#747878] lg:inline">
+                    <kbd className="ml-auto hidden rounded-[5px] border border-[#DFDDD4] bg-white px-1.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#747878] lg:inline">
                       ⌘ K
                     </kbd>
                   </button>
@@ -502,7 +502,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
                 {/* Operations Group */}
                 <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
-                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
+                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
                     OPERATIONS
                   </p>
                   {operationsItems.map((item) => (
@@ -518,7 +518,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
                 {/* Intelligence Group */}
                 <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
-                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
+                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
                     INTELLIGENCE
                   </p>
                   {intelligenceItems.map((item) => (
@@ -534,7 +534,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <Link
                     href="/dashboard/billing"
                     aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
                       isRouteActive("/dashboard/billing")
                         ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
                         : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
@@ -555,7 +555,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <Link
                     href="/dashboard/settings"
                     aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
                       isRouteActive("/dashboard/settings")
                         ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
                         : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
@@ -576,7 +576,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <Link
                     href="/support"
                     aria-current={isRouteActive("/support") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
                       isRouteActive("/support")
                         ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
                         : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
@@ -619,7 +619,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] ${
+                      className={`font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] ${
                         profile.trialExpired ? "text-[#A33A32]" : "text-[#8E918B]"
                       }`}
                     >
@@ -627,7 +627,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     </span>
                     {trialDays !== null ? (
                       <span
-                        className={`hidden rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold lg:inline-block ${
+                        className={`hidden rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold lg:inline-block ${
                           profile.trialExpired
                             ? "bg-[#FBE8E6] text-[#A33A32]"
                             : trialDays <= 3
@@ -640,13 +640,13 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     ) : null}
                   </div>
 
-                  <p className="mt-2 hidden font-['Space_Grotesk'] text-[12px] font-medium leading-[1.35] text-[#1B1C18] lg:block">
+                  <p className="mt-2 hidden font-['Space_Grotesk'] text-[14px] font-medium leading-[1.35] text-[#1B1C18] lg:block">
                     {upgradeCardHeadline}
                   </p>
 
                   <Link
                     href="/dashboard/billing"
-                    className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
+                    className={`mt-2 hidden items-center gap-1 rounded font-['Space_Grotesk'] text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] lg:inline-flex ${
                       profile.trialExpired
                         ? "text-[#A33A32] hover:text-[#852F29]"
                         : "text-[#644ABB] hover:text-[#4C30A2]"
@@ -661,7 +661,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     href="/dashboard/billing"
                     title={upgradeCardAction}
                     aria-label={upgradeCardAction}
-                    className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[#EFEAFB] py-1 text-[10px] font-bold text-[#644ABB] lg:hidden"
+                    className="mt-2 flex w-full items-center justify-center rounded-[6px] bg-[#EFEAFB] py-1 text-[12px] font-bold text-[#644ABB] lg:hidden"
                   >
                     Pro
                   </Link>
@@ -693,15 +693,15 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       className="h-[30px] w-[30px] shrink-0 rounded-[7px] object-cover"
                     />
                   ) : (
-                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
+                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[7px] bg-[#1B1C18] font-['Space_Grotesk'] text-[13px] font-semibold text-white">
                       {initials(profile.displayName)}
                     </span>
                   )}
                   <span className="hidden min-w-0 flex-1 lg:block">
-                    <span className="block truncate font-['Space_Grotesk'] text-[12.5px] font-semibold text-[#1B1C18]">
+                    <span className="block truncate font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                       {profile.displayName}
                     </span>
-                    <span className="block truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                    <span className="block truncate font-['Space_Grotesk'] text-[12px] text-[#747878]">
                       {profile.email}
                     </span>
                   </span>
@@ -727,10 +727,10 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-[10px] border border-[#E9E8E1] bg-white p-1.5 shadow-[0_12px_36px_rgba(27,28,24,0.14)] md:left-full md:bottom-0 md:mb-0 md:ml-2.5 lg:bottom-full lg:left-0 lg:mb-2 lg:ml-0"
                   >
                     <div className="border-b border-[#F0EFEA] px-3 py-2">
-                      <p className="truncate font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18]">
+                      <p className="truncate font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
                         {profile.displayName}
                       </p>
-                      <p className="truncate font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      <p className="truncate font-['Space_Grotesk'] text-[12px] text-[#747878]">
                         {profile.email}
                       </p>
                     </div>
@@ -740,7 +740,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         href="/dashboard/profile"
                         role="menuitem"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                        className="flex w-full items-center gap-2.5 rounded-[6px] px-3 py-2 font-['Space_Grotesk'] text-[14px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
                       >
                         <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="8" cy="5" r="3" />
@@ -757,7 +757,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                           setSettingsSection("workspace");
                           setSettingsOpen(true);
                         }}
-                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] text-[#24251F] transition-colors hover:bg-[#F5F4ED]"
                       >
                         <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#747878]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="2" y="2" width="12" height="12" rx="2" />
@@ -776,7 +776,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                           handleSignOut();
                         }}
                         disabled={signingOut}
-                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[14px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FDF2F1] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <svg viewBox="0 0 16 16" className="h-4 w-4 text-[#A33A32]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3" />
@@ -786,7 +786,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         {signingOut ? "Signing out..." : "Log out"}
                       </button>
                       {signOutError ? (
-                        <p className="px-3 py-1 font-['Space_Grotesk'] text-[10px] text-[#A33A32]">
+                        <p className="px-3 py-1 font-['Space_Grotesk'] text-[12px] text-[#A33A32]">
                           {signOutError}
                         </p>
                       ) : null}
@@ -825,7 +825,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               onClick={() => setMobileDrawerOpen(true)}
               aria-expanded={mobileDrawerOpen}
               aria-label="More workspace navigation"
-              className="flex min-h-[44px] min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center font-['Space_Grotesk'] text-[10px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]"
+              className="flex min-h-[46px] min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-[8px] px-1 py-1.5 text-center font-['Space_Grotesk'] text-[11px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" />
@@ -887,7 +887,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                           href={item.href}
                           onClick={() => setMobileDrawerOpen(false)}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                          className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14.5px] transition-colors ${
                             active
                               ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
                               : "text-[#444748] hover:bg-[#ECEBE4]"
@@ -902,7 +902,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       href="/dashboard/billing"
                       onClick={() => setMobileDrawerOpen(false)}
                       aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
-                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14.5px] transition-colors ${
                         isRouteActive("/dashboard/billing")
                           ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
                           : "text-[#444748] hover:bg-[#ECEBE4]"
@@ -915,7 +915,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       href="/dashboard/settings"
                       onClick={() => setMobileDrawerOpen(false)}
                       aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
-                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14.5px] transition-colors ${
                         isRouteActive("/dashboard/settings")
                           ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
                           : "text-[#444748] hover:bg-[#ECEBE4]"
@@ -928,7 +928,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       href="/support"
                       onClick={() => setMobileDrawerOpen(false)}
                       aria-current={isRouteActive("/support") ? "page" : undefined}
-                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14.5px] transition-colors ${
                         isRouteActive("/support")
                           ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
                           : "text-[#444748] hover:bg-[#ECEBE4]"
@@ -957,22 +957,22 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   {profile.isTrial ? (
                     <div className="rounded-[10px] border border-[#E6E4DC] bg-white p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.08em] ${profile.trialExpired ? "text-[#A33A32]" : "text-[#8E918B]"}`}>
+                        <span className={`font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] ${profile.trialExpired ? "text-[#A33A32]" : "text-[#8E918B]"}`}>
                           {profile.trialExpired ? "Trial Expired" : "Trial Status"}
                         </span>
                         {trialDays !== null ? (
-                          <span className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold ${profile.trialExpired ? "bg-[#FBE8E6] text-[#A33A32]" : trialDays <= 3 ? "bg-[#FFFAEC] text-[#8A6826]" : "bg-[#EFEAFB] text-[#644ABB]"}`}>
+                          <span className={`rounded-full px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-semibold ${profile.trialExpired ? "bg-[#FBE8E6] text-[#A33A32]" : trialDays <= 3 ? "bg-[#FFFAEC] text-[#8A6826]" : "bg-[#EFEAFB] text-[#644ABB]"}`}>
                             {profile.trialExpired ? "Expired" : `${trialDays}d left`}
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#1B1C18]">
+                      <p className="mt-2 font-['Space_Grotesk'] text-[14px] font-medium text-[#1B1C18]">
                         {upgradeCardHeadline}
                       </p>
                       <Link
                         href="/dashboard/billing"
                         onClick={() => setMobileDrawerOpen(false)}
-                        className={`mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[12px] font-semibold ${
+                        className={`mt-1.5 inline-flex items-center gap-1 font-['Space_Grotesk'] text-[14px] font-semibold ${
                           profile.trialExpired ? "text-[#A33A32]" : "text-[#644ABB]"
                         }`}
                       >
@@ -988,7 +988,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       setMobileDrawerOpen(false);
                       setSearchOpen(true);
                     }}
-                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14px] text-[#444748] hover:bg-[#ECEBE4]"
                   >
                     <Icon name="search" className="h-4 w-4" />
                     <span>Search</span>
@@ -996,7 +996,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                   <Link
                     href="/dashboard/settings"
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13px] text-[#444748] hover:bg-[#ECEBE4]"
+                    className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14px] text-[#444748] hover:bg-[#ECEBE4]"
                   >
                     <Icon name="settings" className="h-4 w-4" />
                     <span>Settings</span>
@@ -1016,15 +1016,15 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         className="h-8 w-8 shrink-0 rounded-[6px] object-cover"
                       />
                     ) : (
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#1B1C18] font-['Space_Grotesk'] text-[11px] font-semibold text-white">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] bg-[#1B1C18] font-['Space_Grotesk'] text-[13px] font-semibold text-white">
                         {initials(profile.displayName)}
                       </span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+                      <span className="block truncate font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
                         {profile.displayName}
                       </span>
-                      <span className="block truncate font-['Space_Grotesk'] text-[11px] text-[#666A68]">
+                      <span className="block truncate font-['Space_Grotesk'] text-[13px] text-[#666A68]">
                         {profile.email}
                       </span>
                     </span>
@@ -1046,7 +1046,7 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     placeholder="Search Foolioo"
-                    className="min-w-0 flex-1 bg-transparent font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none placeholder:text-[#A0A3A2]"
+                    className="min-w-0 flex-1 bg-transparent font-['Space_Grotesk'] text-[14.5px] text-[#1B1C18] outline-none placeholder:text-[#A0A3A2]"
                   />
                   <button type="button" onClick={() => setSearchOpen(false)} className="cursor-pointer rounded p-1 text-[#747878] hover:bg-[#F5F4ED]" aria-label="Close search">
                     <Icon name="close" className="h-4 w-4" />
@@ -1061,11 +1061,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         onClick={() => setSearchOpen(false)}
                         className="flex w-full items-center justify-between rounded-[5px] px-3 py-2.5 transition-colors hover:bg-[#F5F4ED]"
                       >
-                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18]">
                           <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
                           {item.label}
                         </span>
-                        <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open</span>
+                        <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#644ABB]">Open</span>
                       </Link>
                     ) : item.setupAction ? (
                       <button
@@ -1074,25 +1074,25 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                         onClick={() => openSetupAction(item.setupAction!)}
                         className="flex w-full cursor-pointer items-center justify-between rounded-[5px] px-3 py-2.5 text-left transition-colors hover:bg-[#F5F4ED]"
                       >
-                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18]">
                           <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
                           {item.label}
                         </span>
-                        <span className="font-['Space_Grotesk'] text-[11px] font-medium text-[#644ABB]">Open setup</span>
+                        <span className="font-['Space_Grotesk'] text-[13px] font-medium text-[#644ABB]">Open setup</span>
                       </button>
                     ) : (
                       <div key={item.href} className="flex items-center justify-between rounded-[5px] px-3 py-2.5">
-                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#1B1C18]">
+                        <span className="flex items-center gap-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18]">
                           <Icon name={item.icon} className="h-4 w-4 text-[#747878]" />
                           {item.label}
                         </span>
-                        <span className="font-['Space_Grotesk'] text-[10px] text-[#929493]">Not available yet</span>
+                        <span className="font-['Space_Grotesk'] text-[12px] text-[#929493]">Not available yet</span>
                       </div>
                     ),
                   )}
-                  {filteredItems.length === 0 ? <p className="px-3 py-5 text-center font-['Space_Grotesk'] text-[12px] text-[#747878]">No matching sections.</p> : null}
+                  {filteredItems.length === 0 ? <p className="px-3 py-5 text-center font-['Space_Grotesk'] text-[14px] text-[#747878]">No matching sections.</p> : null}
                 </div>
-                <div className="border-t border-[#E9E8E1] px-4 py-2 font-['Space_Grotesk'] text-[10px] text-[#929493]">Navigate to sections available in this workspace</div>
+                <div className="border-t border-[#E9E8E1] px-4 py-2 font-['Space_Grotesk'] text-[12px] text-[#929493]">Navigate to sections available in this workspace</div>
               </div>
             </div>
           ) : null}
@@ -1105,9 +1105,9 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
               <section ref={settingsDialogRef} role="dialog" aria-modal="true" aria-labelledby="workspace-settings-title" tabIndex={-1} className="w-full max-w-[480px] rounded-[10px] border border-[#E9E8E1] bg-white p-5 shadow-[0_20px_64px_rgba(27,28,24,0.2)] outline-none sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.09em] text-[#747878]">ACCOUNT</p>
+                    <p className="font-['Space_Grotesk'] text-[12px] font-bold tracking-[0.09em] text-[#747878]">ACCOUNT</p>
                     <h2 id="workspace-settings-title" className="mt-1 font-['Newsreader'] text-[26px] text-[#1B1C18]">{settingsSection === "plan" ? "Upgrade your workspace" : "Workspace settings"}</h2>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">{profile.workspaceName}</p>
+                    <p className="mt-1 font-['Space_Grotesk'] text-[14px] text-[#747878]">{profile.workspaceName}</p>
                   </div>
                   <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Close settings" className="cursor-pointer rounded-[4px] p-2 text-[#747878] hover:bg-[#F5F4ED]">×</button>
                 </div>
@@ -1115,33 +1115,33 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                 <div className="mt-5 rounded-[7px] border border-[#E9E8E1] bg-[#FBFAF6] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.07em] text-[#747878]">WORKSPACE ID</p>
-                      <p className="mt-1 truncate font-mono text-[12px] text-[#1B1C18]" title={profile.workspaceId ?? undefined}>{profile.workspaceId ?? "Unavailable"}</p>
+                      <p className="font-['Space_Grotesk'] text-[12px] font-bold tracking-[0.07em] text-[#747878]">WORKSPACE ID</p>
+                      <p className="mt-1 truncate font-mono text-[14px] text-[#1B1C18]" title={profile.workspaceId ?? undefined}>{profile.workspaceId ?? "Unavailable"}</p>
                     </div>
                     <button
                       type="button"
                       onClick={copyWorkspaceId}
                       disabled={!profile.workspaceId}
-                      className="shrink-0 cursor-pointer rounded-[4px] border border-[#D8D8D1] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="shrink-0 cursor-pointer rounded-[4px] border border-[#D8D8D1] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F5F4ED] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {copiedWorkspaceId ? "Copied" : "Copy ID"}
                     </button>
                   </div>
-                  {copyError ? <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#A33A32]">{copyError}</p> : null}
+                  {copyError ? <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#A33A32]">{copyError}</p> : null}
                 </div>
 
                 <div className="mt-3 rounded-[7px] border border-[#E9E8E1] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-['Space_Grotesk'] text-[10px] font-bold tracking-[0.07em] text-[#747878]">CURRENT PLAN</p>
-                      <p className="mt-1 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">{profile.planName ?? (profile.isTrial ? "Trial" : "Workspace plan")}</p>
+                      <p className="font-['Space_Grotesk'] text-[12px] font-bold tracking-[0.07em] text-[#747878]">CURRENT PLAN</p>
+                      <p className="mt-1 font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">{profile.planName ?? (profile.isTrial ? "Trial" : "Workspace plan")}</p>
                     </div>
-                    {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
+                    {profile.trialDaysLeft !== null ? <span className="rounded-[4px] bg-[#E7DEFF] px-2.5 py-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#4C30A2]">{profile.trialDaysLeft} days left</span> : null}
                   </div>
-                  <p className="mt-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we&apos;ll get back to you within one business day.</p>
+                  <p className="mt-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">To upgrade your plan or change your subscription, contact us at{" "}<a href="mailto:support@foolioo.app" className="font-semibold text-[#4C30A2] underline underline-offset-2 hover:text-[#3A2280]">support@foolioo.app</a> and we&apos;ll get back to you within one business day.</p>
                 </div>
                 <div className="mt-5 flex justify-end">
-                  <button type="button" onClick={() => setSettingsOpen(false)} className="cursor-pointer rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]">Done</button>
+                  <button type="button" onClick={() => setSettingsOpen(false)} className="cursor-pointer rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[14px] font-semibold text-white hover:bg-[#34352F]">Done</button>
                 </div>
               </section>
             </div>

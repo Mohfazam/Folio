@@ -16,6 +16,7 @@ import {
   fetchContactsAction,
   updateContactAction,
 } from "@/app/(dashboard)/dashboard/contacts/actions";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 export type ContactRecord = {
   id: string;
@@ -63,10 +64,10 @@ type ContactsDashboardProps = {
 type EditorMode = "create" | "edit";
 
 const INPUT_CLASS =
-  "mt-1.5 h-10 w-full rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10";
+  "mt-1.5 h-10 w-full rounded-[5px] border border-[#DCDDD6] bg-white px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10";
 
 const LABEL_CLASS =
-  "block font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748]";
+  "block font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748]";
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "border-[#E6E1D2] bg-[#F8F6EF] text-[#716B58]",
@@ -103,7 +104,7 @@ function formatDate(value: string | null): string {
 }
 
 function displayName(contact: ContactRecord): string {
-  return contact.fullName.trim() || contact.phoneNumber || "Unnamed contact";
+  return contact.fullName.trim() || formatPhoneNumber(contact.phoneNumber) || "Unnamed contact";
 }
 
 function statusLabel(status: string): string {
@@ -112,14 +113,18 @@ function statusLabel(status: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
-  const className =
-    STATUS_STYLES[normalized] ??
-    "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]";
+  const dotColor =
+    normalized === "completed" || normalized === "connected"
+      ? "bg-[#2F7A4D]"
+      : normalized === "in_progress" || normalized === "calling"
+        ? "bg-[#644ABB]"
+        : normalized === "do_not_call" || normalized === "failed"
+          ? "bg-[#C24138]"
+          : "bg-[#8E918B]";
 
   return (
-    <span
-      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-semibold capitalize ${className}`}
-    >
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium capitalize text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden="true" />
       {statusLabel(normalized || "pending")}
     </span>
   );
@@ -136,13 +141,13 @@ function MetricCard({
 }) {
   return (
     <div className="rounded-[8px] border border-[#ECEBE5] bg-[#FFFEFB] px-4 py-4 sm:px-5">
-      <p className="font-['Space_Grotesk'] text-[11px] font-medium text-[#747878]">
+      <p className="font-['Space_Grotesk'] text-[13px] font-medium text-[#747878]">
         {label}
       </p>
-      <p className="mt-2 font-['Newsreader'] text-[29px] leading-none tracking-[-0.5px] text-[#1B1C18]">
+      <p className="mt-2 font-['Newsreader'] text-[32px] leading-none tracking-[-0.5px] text-[#1B1C18]">
         {value}
       </p>
-      <p className="mt-2 font-['Space_Grotesk'] text-[10px] text-[#92938C]">
+      <p className="mt-2 font-['Space_Grotesk'] text-[12px] text-[#92938C]">
         {detail}
       </p>
     </div>
@@ -429,13 +434,13 @@ function ContactEditor({
     <section className="rounded-[8px] border border-[#DCD5ED] bg-[#FCFBFF] p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#806DB2]">
+          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.1em] text-[#806DB2]">
             {mode === "create" ? "New contact" : "Contact details"}
           </p>
-          <h2 className="mt-1 font-['Newsreader'] text-[25px] text-[#1B1C18]">
+          <h2 className="mt-1 font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">
             {mode === "create" ? "Add a contact" : `Edit ${contact ? displayName(contact) : "contact"}`}
           </h2>
-          <p className="mt-1 font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+          <p className="mt-1 font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">
             Fields marked with <span className="font-bold text-[#A33A32]">*</span> are required. Existing opt-out records cannot be opted back in through contact editing.
           </p>
         </div>
@@ -444,7 +449,7 @@ function ContactEditor({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="rounded-[4px] border border-[#E5E1EC] bg-white px-3 py-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#565B5B] hover:bg-[#F7F5FB] disabled:opacity-50"
+          className="rounded-[4px] border border-[#E5E1EC] bg-white px-3 py-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#565B5B] hover:bg-[#F7F5FB] disabled:opacity-50"
         >
           Close
         </button>
@@ -465,12 +470,12 @@ function ContactEditor({
               className={INPUT_CLASS}
               placeholder="Contact name"
             />
-            <span className="mt-1 flex items-center justify-between text-[10px] font-normal text-[#92938C]">
+            <span className="mt-1 flex items-center justify-between text-[12px] font-normal text-[#92938C]">
               <span>Letters only · Max {FULL_NAME_MAX_LENGTH} characters</span>
               <span>{fullName.length}/{FULL_NAME_MAX_LENGTH}</span>
             </span>
             {fullNameError ? (
-              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+              <span className="mt-1 block text-[12px] font-semibold text-[#A33A32]">
                 {fullNameError}
               </span>
             ) : null}
@@ -482,7 +487,7 @@ function ContactEditor({
               Phone number
             </span>
             <div className="mt-1.5 flex h-10 w-full overflow-hidden rounded-[5px] border border-[#DCDDD6] bg-white transition-colors focus-within:border-[#7852D6] focus-within:ring-2 focus-within:ring-[#7852D6]/10">
-              <span className="inline-flex select-none items-center border-r border-[#ECEBE5] bg-[#F8F7F2] px-3 font-['Space_Grotesk'] text-[12px] font-semibold text-[#565B5B]">
+              <span className="inline-flex select-none items-center border-r border-[#ECEBE5] bg-[#F8F7F2] px-3 font-['Space_Grotesk'] text-[14px] font-semibold text-[#565B5B]">
                 +91
               </span>
               <input
@@ -492,18 +497,18 @@ function ContactEditor({
                 value={phoneDigits}
                 onChange={(event) => handlePhoneChange(event.target.value)}
                 maxLength={14}
-                className="h-full w-full bg-white px-3 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none placeholder:text-[#A0A19A]"
+                className="h-full w-full bg-white px-3 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none placeholder:text-[#A0A19A]"
                 placeholder="9876543210"
                 autoComplete="tel-national"
                 inputMode="numeric"
               />
             </div>
-            <span className="mt-1 flex items-center justify-between text-[10px] font-normal text-[#92938C]">
+            <span className="mt-1 flex items-center justify-between text-[12px] font-normal text-[#92938C]">
               <span>10-digit Indian mobile number</span>
               <span>{phoneDigits.length}/10</span>
             </span>
             {phoneError ? (
-              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+              <span className="mt-1 block text-[12px] font-semibold text-[#A33A32]">
                 {phoneError}
               </span>
             ) : null}
@@ -522,7 +527,7 @@ function ContactEditor({
               autoComplete="email"
             />
             {emailError ? (
-              <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+              <span className="mt-1 block text-[12px] font-semibold text-[#A33A32]">
                 {emailError}
               </span>
             ) : null}
@@ -583,7 +588,7 @@ function ContactEditor({
                 name="lifecycleStage"
                 value={lifecycleStage}
                 onChange={(event) => setLifecycleStage(event.target.value)}
-                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[12px] text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[14px] text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
               >
                 <option value="">Not set</option>
                 {LIFECYCLE_OPTIONS.map((option) => (
@@ -631,7 +636,7 @@ function ContactEditor({
             </span>
           </span>
           {tagsError ? (
-            <span className="mt-1 block text-[10px] font-semibold text-[#A33A32]">
+            <span className="mt-1 block text-[12px] font-semibold text-[#A33A32]">
               {tagsError}
             </span>
           ) : null}
@@ -675,7 +680,7 @@ function ContactEditor({
           </label>
         </div>
 
-        <label className="flex items-start gap-2 rounded-[5px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#565B5B]">
+        <label className="flex items-start gap-2 rounded-[5px] border border-[#E9E8E1] bg-white p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
           <input
             name="optOut"
             type="checkbox"
@@ -693,7 +698,7 @@ function ContactEditor({
         {error ? (
           <div
             role="alert"
-            className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]"
+            className="rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#A33A32]"
           >
             {error}
           </div>
@@ -704,14 +709,14 @@ function ContactEditor({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-[4px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+            className="rounded-[4px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busy}
-            className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "Saving…" : mode === "create" ? "Add contact" : "Save changes"}
           </button>
@@ -852,13 +857,13 @@ function ImportPanel({
     <section className="rounded-[8px] border border-[#DCD5ED] bg-[#FCFBFF] p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.1em] text-[#806DB2]">
+          <p className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.1em] text-[#806DB2]">
             Contact import
           </p>
-          <h2 className="mt-1 font-['Newsreader'] text-[25px] text-[#1B1C18]">
+          <h2 className="mt-1 font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">
             Import a contact list
           </h2>
-          <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#747878]">
+          <p className="mt-1 max-w-[620px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#747878]">
             Upload up to 500 contacts in CSV or XLSX format. Name and phone number are required; duplicates, existing database records and incomplete rows are flagged and skipped automatically.
           </p>
         </div>
@@ -866,7 +871,7 @@ function ImportPanel({
         <a
           href="/contact-import-template.csv"
           download
-          className="font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] underline underline-offset-2"
+          className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB] underline underline-offset-2"
         >
           Download CSV template
         </a>
@@ -885,10 +890,10 @@ function ImportPanel({
         >
           <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />
         </svg>
-        <span className="font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
+        <span className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18]">
           {file ? file.name : "Choose your contact file"}
         </span>
-        <span className="font-['Space_Grotesk'] text-[10px] text-[#747878]">
+        <span className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
           CSV or Excel XLSX · Maximum 5 MB · Up to 500 contact rows
         </span>
         <input
@@ -904,10 +909,10 @@ function ImportPanel({
       {file ? (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-[5px] border border-[#E9E8E1] bg-white p-3">
           <div className="min-w-0">
-            <p className="truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">
+            <p className="truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
               {file.name}
             </p>
-            <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+            <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">
               {(file.size / 1024).toFixed(1)} KB {parsing ? "· Validating rows…" : rows.length > 0 ? `· ${formatNumber(rows.length)} rows inspected` : ""}
             </p>
           </div>
@@ -918,21 +923,21 @@ function ImportPanel({
               setRows([]);
               setError(null);
             }}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FCECE9]"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-[5px] border border-[#EAD8D5] bg-[#FFF8F7] px-3 py-1.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#A33A32] transition-colors hover:bg-[#FCECE9]"
           >
             Remove file
           </button>
         </div>
       ) : null}
 
-      <div className="mt-3 rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[10px] leading-5 text-[#565B5B]">
-        Required columns: <strong>fullName</strong> (or name) and <strong>phoneNumber</strong>. Optional columns include email, companyName, jobTitle, city, state, country, lifecycleStage, accountTier, tags and optOut. Ten-digit Indian mobile numbers are normalized with +91.
+      <div className="mt-3 rounded-[4px] bg-[#F5F4ED] px-3 py-2.5 font-['Space_Grotesk'] text-[12px] leading-5 text-[#565B5B]">
+        Required columns: <strong>Full Name</strong> and <strong>Phone Number</strong>. Optional columns include email, company name, job title, city, state, country. Ten-digit Indian mobile numbers are normalized with +91.
       </div>
 
       {rows.length > 0 ? (
         <div className="mt-4 space-y-3 rounded-[6px] border border-[#E6E4DC] bg-white p-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 font-['Space_Grotesk'] text-[10px] font-semibold">
+            <div className="flex flex-wrap items-center gap-2 font-['Space_Grotesk'] text-[12px] font-semibold">
               <span className="rounded-full border border-[#CDE5D4] bg-[#EFF8F1] px-2.5 py-1 text-[#34734B]">
                 {formatNumber(stats.valid.length)} ready to save
               </span>
@@ -957,7 +962,7 @@ function ImportPanel({
               <button
                 type="button"
                 onClick={handleRemoveDuplicates}
-                className="rounded-[5px] border border-[#E5C98B] bg-[#FFFBEB] px-3 py-1.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#8D6418] hover:bg-[#FEF3C7]"
+                className="rounded-[5px] border border-[#E5C98B] bg-[#FFFBEB] px-3 py-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#8D6418] hover:bg-[#FEF3C7]"
               >
                 Remove duplicates ({stats.duplicates.length})
               </button>
@@ -968,12 +973,12 @@ function ImportPanel({
             <table className="w-full min-w-[680px] border-collapse text-left">
               <thead className="sticky top-0 border-b border-[#ECEBE5] bg-[#FBFAF6]">
                 <tr>
-                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Row</th>
-                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Name</th>
-                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Phone number</th>
-                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Optional details</th>
-                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Validation</th>
-                  <th className="px-3 py-2 text-right font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Action</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Row</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Name</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Phone number</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Optional details</th>
+                  <th className="px-3 py-2 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Validation</th>
+                  <th className="px-3 py-2 text-right font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F0EFE9]">
@@ -991,31 +996,31 @@ function ImportPanel({
 
                   return (
                     <tr key={row.rowNumber} className={rowBg}>
-                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#747878]">
                         #{row.rowNumber}
                       </td>
-                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[11px]">
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[13px]">
                         {row.fullName ? (
                           <span className="font-semibold text-[#1B1C18]">{row.fullName}</span>
                         ) : (
-                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[10px] font-semibold text-[#A33A32]">
+                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[12px] font-semibold text-[#A33A32]">
                             Missing name
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[11px]">
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[13px]">
                         {row.phoneNumber ? (
-                          <span className="text-[#1B1C18]">{row.normalizedPhone || row.phoneNumber}</span>
+                          <span className="text-[#1B1C18]">{formatPhoneNumber(row.normalizedPhone || row.phoneNumber)}</span>
                         ) : (
-                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[10px] font-semibold text-[#A33A32]">
+                          <span className="rounded bg-[#FDE8E6] px-1.5 py-0.5 text-[12px] font-semibold text-[#A33A32]">
                             Missing phone
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[12px] text-[#747878]">
                         {[row.email, row.companyName].filter(Boolean).join(" · ") || "—"}
                       </td>
-                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[10px]">
+                      <td className="px-3 py-2 font-['Space_Grotesk'] text-[12px]">
                         {row.status === "valid" ? (
                           <span className="font-semibold text-[#34734B]">Ready to import</span>
                         ) : (
@@ -1036,7 +1041,7 @@ function ImportPanel({
                         <button
                           type="button"
                           onClick={() => handleRemoveRow(row.rowNumber)}
-                          className="rounded-[4px] border border-[#EAD8D5] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[9px] font-semibold text-[#A33A32] hover:bg-[#FFF8F7]"
+                          className="rounded-[4px] border border-[#EAD8D5] bg-white px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] hover:bg-[#FFF8F7]"
                         >
                           Remove
                         </button>
@@ -1053,7 +1058,7 @@ function ImportPanel({
       {error ? (
         <div
           role="alert"
-          className="mt-3 rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]"
+          className="mt-3 rounded-[5px] border border-[#F0D8D4] bg-[#FFF8F7] px-3 py-2.5 font-['Space_Grotesk'] text-[13px] leading-5 text-[#A33A32]"
         >
           {error}
         </div>
@@ -1064,7 +1069,7 @@ function ImportPanel({
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="rounded-[4px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
+          className="rounded-[4px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:opacity-50"
         >
           Cancel
         </button>
@@ -1072,7 +1077,7 @@ function ImportPanel({
           type="button"
           onClick={handleImport}
           disabled={!file || parsing || busy || stats.valid.length === 0}
-          className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[11px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-[4px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[13px] font-semibold text-white hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy
             ? "Importing…"
@@ -1620,7 +1625,7 @@ export function ContactsDashboard({
           <h1 className="font-['Newsreader'] text-[36px] leading-tight tracking-[-0.8px] text-[#1B1C18] sm:text-[42px]">
             Contacts
           </h1>
-          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[12px] leading-5 text-[#747878]">
+          <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#747878]">
             Manage your audience, keep contact details current and respect calling preferences before adding people to campaigns.
           </p>
         </div>
@@ -1632,7 +1637,7 @@ export function ContactsDashboard({
               setEditor(null);
               setShowImport((value) => !value);
             }}
-            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F7F6F1]"
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] transition-colors hover:bg-[#F7F6F1]"
           >
             <span aria-hidden="true">↓</span>
             Import contacts
@@ -1643,7 +1648,7 @@ export function ContactsDashboard({
               setShowImport(false);
               setEditor({ mode: "create", contact: null });
             }}
-            className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F]"
+            className="inline-flex h-10 items-center gap-2 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F]"
           >
             <span className="text-[16px] leading-none" aria-hidden="true">+</span>
             Add contact
@@ -1656,7 +1661,7 @@ export function ContactsDashboard({
       {actionError ? (
         <div
           role="alert"
-          className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]"
+          className="rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#A33A32]"
         >
           {actionError}
         </div>
@@ -1681,13 +1686,13 @@ export function ContactsDashboard({
 
       {initialError ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[6px] border border-[#F0D8D4] bg-[#FFF8F7] px-4 py-3">
-          <p className="font-['Space_Grotesk'] text-[11px] leading-5 text-[#A33A32]">
+          <p className="font-['Space_Grotesk'] text-[13px] leading-5 text-[#A33A32]">
             Contacts could not be loaded: {initialError}
           </p>
           <button
             type="button"
             onClick={() => void executeQuery(activeFilters)}
-            className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#8D3028]"
+            className="rounded-[4px] border border-[#E5C7C3] bg-white px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#8D3028]"
           >
             Try again
           </button>
@@ -1721,17 +1726,17 @@ export function ContactsDashboard({
         <div className="border-b border-[#ECEBE5] p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18]">
+              <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">
                 Contact directory
               </h2>
-              <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#85877F]">
+              <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#85877F]">
                 Search by name, phone number, email, or company, or filter by status and lifecycle stage.
               </p>
             </div>
             <a
               href="/contact-import-template.csv"
               download
-              className="font-['Space_Grotesk'] text-[10px] font-semibold text-[#644ABB] underline underline-offset-2"
+              className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] underline underline-offset-2"
             >
               Download CSV template
             </a>
@@ -1762,14 +1767,14 @@ export function ContactsDashboard({
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Search name, phone, email or company"
-                className="h-10 w-full min-w-0 rounded-[5px] border border-[#DCDDD6] bg-[#FFFEFB] pl-9 pr-8 font-['Space_Grotesk'] text-[11px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+                className="h-10 w-full min-w-0 rounded-[5px] border border-[#DCDDD6] bg-[#FFFEFB] pl-9 pr-8 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] outline-none transition-colors placeholder:text-[#A0A19A] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
               />
               {searchInput ? (
                 <button
                   type="button"
                   onClick={() => setSearchInput("")}
                   aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded px-1 font-['Space_Grotesk'] text-[11px] text-[#85877F] hover:text-[#1B1C18]"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded px-1 font-['Space_Grotesk'] text-[13px] text-[#85877F] hover:text-[#1B1C18]"
                 >
                   ×
                 </button>
@@ -1783,7 +1788,7 @@ export function ContactsDashboard({
                 name="status"
                 value={statusInput}
                 onChange={(event) => setStatusInput(event.target.value)}
-                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
               >
                 <option value="">All statuses</option>
                 <option value="pending">Pending</option>
@@ -1814,7 +1819,7 @@ export function ContactsDashboard({
                 name="lifecycleStage"
                 value={lifecycleInput}
                 onChange={(event) => setLifecycleInput(event.target.value)}
-                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[11px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
+                className="h-10 w-full appearance-none rounded-[5px] border border-[#DCDDD6] bg-white pl-3 pr-8 font-['Space_Grotesk'] text-[13px] font-medium text-[#1B1C18] outline-none transition-colors hover:border-[#CFCFC7] focus:border-[#7852D6] focus:ring-2 focus:ring-[#7852D6]/10"
               >
                 <option value="">All lifecycle stages</option>
                 {LIFECYCLE_OPTIONS.map((option) => (
@@ -1839,7 +1844,7 @@ export function ContactsDashboard({
               <button
                 type="submit"
                 disabled={filtering || !canApplyFilter}
-                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
+                className="h-10 flex-1 rounded-[5px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-white transition-colors hover:bg-[#34352F] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {filtering ? "Filtering…" : "Apply filter"}
               </button>
@@ -1847,7 +1852,7 @@ export function ContactsDashboard({
                 type="button"
                 onClick={handleClearFilters}
                 disabled={filtering || !hasActiveFilters}
-                className="inline-flex h-10 items-center justify-center rounded-[5px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#565B5B] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex h-10 items-center justify-center rounded-[5px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#565B5B] transition-colors hover:bg-[#F7F6F1] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 Clear filter
               </button>
@@ -1861,12 +1866,12 @@ export function ContactsDashboard({
               <table className="w-full min-w-[850px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-[#ECEBE5] bg-[#FBFAF6]">
-                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F] sm:px-5">Contact</th>
-                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Company</th>
-                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Lifecycle</th>
-                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Status</th>
-                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Added</th>
-                    <th className="px-4 py-3 text-right font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Actions</th>
+                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F] sm:px-5">Contact</th>
+                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Company</th>
+                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Lifecycle</th>
+                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Status</th>
+                    <th className="px-4 py-3 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Added</th>
+                    <th className="px-4 py-3 text-right font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] text-[#85877F]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0EFE9]">
@@ -1874,38 +1879,38 @@ export function ContactsDashboard({
                     <tr key={contact.id} className="align-middle transition-colors hover:bg-[#FFFEFB]">
                       <td className="px-4 py-3.5 sm:px-5">
                         <div className="min-w-0">
-                          <p className="max-w-[220px] truncate font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">
+                          <p className="max-w-[220px] truncate font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18]">
                             {displayName(contact)}
                           </p>
-                          <p className="mt-1 font-['Space_Grotesk'] text-[10px] text-[#747878]">
-                            {contact.phoneNumber}
+                          <p className="mt-1 font-['Space_Grotesk'] text-[12px] text-[#747878]">
+                            {formatPhoneNumber(contact.phoneNumber)}
                           </p>
                           {contact.email ? (
-                            <p className="mt-0.5 max-w-[220px] truncate font-['Space_Grotesk'] text-[9px] text-[#92938C]">
+                            <p className="mt-0.5 max-w-[220px] truncate font-['Space_Grotesk'] text-[11px] text-[#92938C]">
                               {contact.email}
                             </p>
                           ) : null}
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <p className="max-w-[170px] truncate font-['Space_Grotesk'] text-[10px] text-[#444748]">
+                        <p className="max-w-[170px] truncate font-['Space_Grotesk'] text-[12px] text-[#444748]">
                           {contact.companyName || "—"}
                         </p>
                         {contact.jobTitle ? (
-                          <p className="mt-1 max-w-[170px] truncate font-['Space_Grotesk'] text-[9px] text-[#92938C]">
+                          <p className="mt-1 max-w-[170px] truncate font-['Space_Grotesk'] text-[11px] text-[#92938C]">
                             {contact.jobTitle}
                           </p>
                         ) : null}
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="font-['Space_Grotesk'] text-[10px] capitalize text-[#565B5B]">
+                        <span className="font-['Space_Grotesk'] text-[12px] capitalize text-[#565B5B]">
                           {contact.lifecycleStage ? contact.lifecycleStage.replaceAll("_", " ") : "—"}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
                         <StatusBadge status={contact.status} />
                       </td>
-                      <td className="px-4 py-3.5 font-['Space_Grotesk'] text-[10px] text-[#747878]">
+                      <td className="px-4 py-3.5 font-['Space_Grotesk'] text-[12px] text-[#747878]">
                         {formatDate(contact.createdAt)}
                       </td>
                       <td className="px-4 py-3.5">
@@ -1916,7 +1921,7 @@ export function ContactsDashboard({
                               setShowImport(false);
                               setEditor({ mode: "edit", contact });
                             }}
-                            className="rounded-[4px] border border-[#E5E1EC] bg-white px-2.5 py-1.5 font-['Space_Grotesk'] text-[9px] font-semibold text-[#644ABB] hover:bg-[#F7F5FB]"
+                            className="rounded-[4px] border border-[#E5E1EC] bg-white px-2.5 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#644ABB] hover:bg-[#F7F5FB]"
                           >
                             Edit
                           </button>
@@ -1925,7 +1930,7 @@ export function ContactsDashboard({
                             onClick={() => handleDelete(contact)}
                             disabled={deletingId === contact.id}
                             title={contact.optOut ? "Deleting an opted-out contact also removes its suppression record." : "Delete contact"}
-                            className="rounded-[4px] border border-[#EAD8D5] bg-white px-2.5 py-1.5 font-['Space_Grotesk'] text-[9px] font-semibold text-[#A33A32] hover:bg-[#FFF8F7] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="rounded-[4px] border border-[#EAD8D5] bg-white px-2.5 py-1.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#A33A32] hover:bg-[#FFF8F7] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {deletingId === contact.id ? "Deleting…" : "Delete"}
                           </button>
@@ -1938,7 +1943,7 @@ export function ContactsDashboard({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] px-4 py-3 sm:px-5">
-              <p className="font-['Space_Grotesk'] text-[10px] text-[#85877F]">
+              <p className="font-['Space_Grotesk'] text-[12px] text-[#85877F]">
                 Showing {rangeStart}–{rangeEnd} of {formatNumber(totalCount)} contacts
               </p>
               <div className="flex items-center gap-2">
@@ -1951,11 +1956,11 @@ export function ContactsDashboard({
                       offset: Math.max(0, activeFilters.offset - activeFilters.limit),
                     })
                   }
-                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
+                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
                 >
                   Previous
                 </button>
-                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[10px] tabular-nums text-[#747878]">
+                <span className="min-w-[76px] text-center font-['Space_Grotesk'] text-[12px] tabular-nums text-[#747878]">
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
@@ -1967,7 +1972,7 @@ export function ContactsDashboard({
                       offset: activeFilters.offset + activeFilters.limit,
                     })
                   }
-                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
+                  className="rounded-[4px] border border-[#DCDDD6] bg-white px-3 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1] disabled:pointer-events-none disabled:text-[#B5B6B0]"
                 >
                   Next
                 </button>
@@ -1982,10 +1987,10 @@ export function ContactsDashboard({
                 <path d="M3 20c0-3.2 2.6-5 6-5s6 1.8 6 5M17 5a3 3 0 0 1 0 6M18 15c2 .5 3 2 3 4" />
               </svg>
             </span>
-            <h3 className="mt-4 font-['Newsreader'] text-[25px] text-[#1B1C18]">
+            <h3 className="mt-4 font-['Newsreader'] text-[25px] leading-tight text-[#1B1C18] sm:text-[26px]">
               {!hasActiveFilters ? "Your contacts start here" : "No contacts match these filters"}
             </h3>
-            <p className="mt-2 max-w-[400px] font-['Space_Grotesk'] text-[11px] leading-5 text-[#85877F]">
+            <p className="mt-2 max-w-[400px] font-['Space_Grotesk'] text-[13px] leading-5 text-[#85877F]">
               {!hasActiveFilters
                 ? "Add an individual contact or import a CSV/XLSX list. Contacts are not called until they are explicitly added to an approved campaign."
                 : "Try clearing one or more filters, or use a different search term."}
@@ -1995,14 +2000,14 @@ export function ContactsDashboard({
                 <button
                   type="button"
                   onClick={() => setEditor({ mode: "create", contact: null })}
-                  className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[10px] font-semibold text-white hover:bg-[#34352F]"
+                  className="rounded-[5px] bg-[#1B1C18] px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
                 >
                   Add your first contact
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowImport(true)}
-                  className="rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
+                  className="rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
                 >
                   Import a contact list
                 </button>
@@ -2011,7 +2016,7 @@ export function ContactsDashboard({
               <button
                 type="button"
                 onClick={handleClearFilters}
-                className="mt-5 rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
+                className="mt-5 rounded-[5px] border border-[#DCDDD6] bg-white px-4 py-2.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#444748] hover:bg-[#F7F6F1]"
               >
                 Clear all filters
               </button>
@@ -2020,7 +2025,7 @@ export function ContactsDashboard({
         )}
       </section>
 
-      <p className="font-['Space_Grotesk'] text-[10px] leading-5 text-[#92938C]">
+      <p className="font-['Space_Grotesk'] text-[12px] leading-5 text-[#92938C]">
         Contacts marked Do not call remain visible for compliance and suppression. They are excluded from outbound calling. Importing contacts never starts a campaign automatically.
       </p>
     </div>

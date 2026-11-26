@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import type { AnalyticsData } from "@/components/dashboard/analytics-dashboard";
+import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 type Row = Record<string, unknown>;
 
@@ -637,7 +638,7 @@ export function generateAnalyticsPdfDocument(timeframe: string, data: AnalyticsD
     y += 24;
 
     for (const row of recentList.slice(0, 8)) {
-      const contactName = cleanPdfText(txt(row, "contactName", txt(row, "phoneNumber", "Contact")));
+      const contactName = cleanPdfText(txt(row, "contactName", formatPhoneNumber(txt(row, "phoneNumber", "")) || "Contact"));
       const outcome = cleanPdfText(txt(row, "outcome", "unknown").replaceAll("_", " "));
       const interest = cleanPdfText(txt(row, "interestLevel", "unknown"));
       const sentiment = cleanPdfText(txt(row, "sentiment", "neutral"));

@@ -162,7 +162,7 @@ export function CallTranscript({
   return (
     <div>
       <div className="mb-3 flex justify-end">
-        <span className="inline-flex items-center rounded-full border border-[#E5E1D5] bg-[#F7F5EF] px-2.5 py-1 font-['Space_Grotesk'] text-[10px] font-semibold text-[#696B62]">
+        <span className="inline-flex items-center rounded-full border border-[#E5E1D5] bg-[#F7F5EF] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#696B62]">
           {total === null ? (loading ? "Loading entries…" : "0 entries") : `${total} entries`}
         </span>
       </div>
@@ -181,10 +181,10 @@ export function CallTranscript({
                 <div key={`${index}-${line.timestamp ?? "transcript"}`} className={`flex ${assistant ? "justify-start" : "justify-end"}`}>
                   <div className={`max-w-[92%] rounded-[9px] border px-3.5 py-3 sm:max-w-[82%] ${assistant ? "border-[#ECEBE5] bg-[#F8F7F2]" : "border-[#E7E0F3] bg-[#F5F1FB]"}`}>
                     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                      <span className={`font-['Space_Grotesk'] text-[9px] font-bold uppercase tracking-[0.08em] ${assistant ? "text-[#747878]" : "text-[#806DB2]"}`}>{assistant ? "FOOLIOO AGENT" : "CONTACT"}</span>
-                      {line.timestamp ? <time className="font-['Space_Grotesk'] text-[9px] text-[#92938C]">{formatTimestamp(line.timestamp)}</time> : null}
+                      <span className={`font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[0.08em] ${assistant ? "text-[#747878]" : "text-[#806DB2]"}`}>{assistant ? "FOOLIOO AGENT" : "CONTACT"}</span>
+                      {line.timestamp ? <time className="font-['Space_Grotesk'] text-[11px] text-[#92938C]">{formatTimestamp(line.timestamp)}</time> : null}
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap break-words font-['Space_Grotesk'] text-[12px] leading-5 text-[#34362E]">{line.text || "[No transcript text]"}</p>
+                    <p className="mt-2 whitespace-pre-wrap break-words font-['Space_Grotesk'] text-[14px] leading-[1.55] text-[#34362E]">{line.text || "[No transcript text]"}</p>
                   </div>
                 </div>
               );
@@ -194,13 +194,13 @@ export function CallTranscript({
       ) : null}
 
       {loading ? (
-        <p className="rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[11px] text-[#85877F]" role="status">
+        <p className="rounded-[6px] bg-[#FBFAF6] px-4 py-4 font-['Space_Grotesk'] text-[13px] text-[#85877F]" role="status">
           {lines.length > 0 ? `Loading transcript… ${lines.length} of ${total ?? "all"} entries` : "Loading transcript…"}
         </p>
       ) : null}
 
       {!loading && lines.length === 0 ? (
-        <div className="rounded-[6px] bg-[#FBFAF6] px-4 py-8 text-center font-['Space_Grotesk'] text-[11px] text-[#85877F]">
+        <div className="rounded-[6px] bg-[#FBFAF6] px-4 py-8 text-center font-['Space_Grotesk'] text-[13px] text-[#85877F]">
           <p>No transcript is available for this call.</p>
           {unavailable ? (
             <button
@@ -210,7 +210,7 @@ export function CallTranscript({
                 setUnavailable(false);
                 setRetry((current) => current + 1);
               }}
-              className="mt-2 font-['Space_Grotesk'] text-[11px] font-semibold text-[#7852D6] hover:underline"
+              className="mt-2 font-['Space_Grotesk'] text-[13px] font-semibold text-[#7852D6] hover:underline"
             >
               Refresh
             </button>
