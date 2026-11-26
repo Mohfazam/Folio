@@ -73,6 +73,30 @@ export async function updateUserProfileService(
     updateFields.avatarUrl = input.avatarUrl;
   }
 
+  // Merge metadata (bio, jobTitle, and custom metadata fields)
+  const existingMeta = (existing.metadata && typeof existing.metadata === "object" ? existing.metadata : {}) as Record<string, unknown>;
+  let metadataChanged = false;
+  const mergedMeta: Record<string, unknown> = { ...existingMeta };
+
+  if (input.bio !== undefined) {
+    mergedMeta.bio = input.bio;
+    metadataChanged = true;
+  }
+
+  if (input.jobTitle !== undefined) {
+    mergedMeta.jobTitle = input.jobTitle;
+    metadataChanged = true;
+  }
+
+  if (input.metadata && typeof input.metadata === "object") {
+    Object.assign(mergedMeta, input.metadata);
+    metadataChanged = true;
+  }
+
+  if (metadataChanged) {
+    updateFields.metadata = mergedMeta;
+  }
+
   await db
     .update(users)
     .set(updateFields)
