@@ -81,24 +81,24 @@ export const Hero = () => {
         </div>
       </div>
 
-      {/* Central hero content (Outbound-only calling operations) */}
+      {/* Central hero content (Enterprise communication automation) */}
       <div className="mx-auto flex max-w-210 flex-col items-center text-center">
         {/* Main headline */}
         <h1 className="tracking-tight">
           <span className="block font-['Newsreader'] text-[46px] font-normal leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            A complete system
+            Enterprise communication
           </span>
           <span className="block font-['Space_Grotesk'] text-[46px] font-medium leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            for outbound AI calling
+            automation across every
           </span>
           <span className="block font-['Newsreader'] text-[46px] font-normal italic leading-[1.08] tracking-[-1px] text-[#1B1C18] sm:text-[56px] md:text-[68px]">
-            that follows your script.
+            channel and workflow.
           </span>
         </h1>
 
-        {/* Subtitle (Outbound-only: our agents call your prospects) */}
-        <p className="mt-6 max-w-[54ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552] md:text-[16px]">
-          Foolioo calls your leads automatically, follows your exact rules, and logs every call outcome to your CRM—at{" "}
+        {/* Subtitle */}
+        <p className="mt-6 max-w-[56ch] font-['Space_Grotesk'] text-[15px] font-normal leading-[24px] tracking-[0.1px] text-[#525552] md:text-[16px]">
+          Automate outbound &amp; inbound calls, email, SMS, queries, and MCP tool workflows under your exact rules—starting at{" "}
           <span className="font-semibold text-[#1B1C18] tabular-nums">₹4.20/minute</span>.
         </p>
 
