@@ -738,9 +738,21 @@ function CampaignForm({
           <button
             type="button"
             onClick={onCancel}
-            className="mb-2.5 inline-flex items-center gap-1.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#644ABB] hover:text-[#4F369A]"
+            className="group mb-3 inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
           >
-            <span aria-hidden="true">←</span> Back to campaigns
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5 text-[#5C5F5C] transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-[#1B1C18]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            <span>Back to campaigns</span>
           </button>
           <p className="font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
             {initialDraft ? "Duplicate campaign" : "Campaign builder"}
@@ -1396,9 +1408,21 @@ function CampaignDetailView({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 rounded font-['Space_Grotesk'] text-[12px] font-medium text-[#666A68] transition-colors hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+          className="group inline-flex items-center gap-2 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 py-2 font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] shadow-[0_1px_2px_rgba(27,28,24,0.04)] transition-all hover:border-[#C5C6BE] hover:bg-[#FAF9F5] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
         >
-          <span aria-hidden="true">←</span> Campaigns
+          <svg
+            viewBox="0 0 24 24"
+            className="h-3.5 w-3.5 text-[#5C5F5C] transition-transform duration-150 group-hover:-translate-x-0.5 group-hover:text-[#1B1C18]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+          <span>Back to campaigns</span>
         </button>
 
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -2032,11 +2056,111 @@ export function CampaignsDashboard({
   const [deletingCampaign, setDeletingCampaign] = useState<Campaign | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
+  const openCampaignDetail = useCallback(
+    (campaignId: string, initialTab: "overview" | "script" | "edit" = "overview") => {
+      setDetailSelection({ campaignId, initialTab });
+      if (typeof window !== "undefined") {
+        window.history.pushState(
+          { ...(window.history.state ?? {}), __campaignSubView: "detail", campaignId },
+          "",
+          `/dashboard/campaigns?campaignId=${encodeURIComponent(campaignId)}`,
+        );
+      }
+    },
+    [],
+  );
+
+  const openCampaignBuilder = useCallback((source: Campaign | null = null) => {
+    setNotice(null);
+    if (source) {
+      setDuplicateSource(source);
+      setCreating(false);
+    } else {
+      setDuplicateSource(null);
+      setCreating(true);
+    }
+    if (typeof window !== "undefined") {
+      window.history.pushState(
+        { ...(window.history.state ?? {}), __campaignSubView: source ? "duplicate" : "create" },
+        "",
+        window.location.href,
+      );
+    }
+  }, []);
+
+  const closeCampaignSubView = useCallback(() => {
+    setCreating(false);
+    setDuplicateSource(null);
+    setDetailSelection(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("campaignId")) {
+        url.searchParams.delete("campaignId");
+        window.history.replaceState(
+          { ...(window.history.state ?? {}), __campaignSubView: null },
+          "",
+          `${url.pathname}${url.search}`,
+        );
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (initialCampaignId) {
       setDetailSelection({ campaignId: initialCampaignId, initialTab: "overview" });
+      if (typeof window !== "undefined" && !window.history.state?.__campaignSubView) {
+        const baseState = window.history.state ?? {};
+        window.history.replaceState(
+          { ...baseState, __campaignSubView: null },
+          "",
+          "/dashboard/campaigns",
+        );
+        window.history.pushState(
+          { ...baseState, __campaignSubView: "detail", campaignId: initialCampaignId },
+          "",
+          `/dashboard/campaigns?campaignId=${encodeURIComponent(initialCampaignId)}`,
+        );
+      }
     }
   }, [initialCampaignId]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const paramCampaignId = params.get("campaignId");
+      const subView = window.history.state?.__campaignSubView;
+
+      if (subView === "create") {
+        setDetailSelection(null);
+        setDuplicateSource(null);
+        setCreating(true);
+        return;
+      }
+      if (subView === "duplicate") {
+        setDetailSelection(null);
+        setCreating(false);
+        return;
+      }
+      if (paramCampaignId) {
+        setCreating(false);
+        setDuplicateSource(null);
+        setDetailSelection((curr) =>
+          curr?.campaignId === paramCampaignId
+            ? curr
+            : { campaignId: paramCampaignId, initialTab: "overview" },
+        );
+        return;
+      }
+
+      setCreating(false);
+      setDuplicateSource(null);
+      setDetailSelection(null);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const selectedDetailCampaign = useMemo(() => {
     if (!detailSelection) return null;
@@ -2559,10 +2683,7 @@ export function CampaignsDashboard({
     return (
       <CampaignForm
         initialDraft={duplicateSource}
-        onCancel={() => {
-          setCreating(false);
-          setDuplicateSource(null);
-        }}
+        onCancel={closeCampaignSubView}
         onCreated={handleCreated}
       />
     );
@@ -2576,12 +2697,7 @@ export function CampaignsDashboard({
         campaign={selectedDetailCampaign}
         initialTab={detailSelection.initialTab}
         statusBusy={Boolean(statusBusyIds[selectedDetailCampaign.id])}
-        onBack={() => {
-          setDetailSelection(null);
-          if (initialCampaignId) {
-            router.push("/dashboard/campaigns");
-          }
-        }}
+        onBack={closeCampaignSubView}
         onLaunch={(c) => {
           setDetailSelection(null);
           void openLaunch(c);
@@ -2591,7 +2707,7 @@ export function CampaignsDashboard({
         }}
         onDuplicate={(c) => {
           setDetailSelection(null);
-          setDuplicateSource(c);
+          openCampaignBuilder(c);
         }}
         onDeleteCampaign={(c) => {
           setDetailSelection(null);
@@ -3119,10 +3235,7 @@ export function CampaignsDashboard({
         </div>
         <button
           type="button"
-          onClick={() => {
-            setNotice(null);
-            setCreating(true);
-          }}
+          onClick={() => openCampaignBuilder(null)}
           className="inline-flex h-10 items-center gap-2 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white transition-colors hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] focus-visible:ring-offset-2"
         >
           <Icon kind="plus" className="h-3.5 w-3.5" />
@@ -3384,9 +3497,7 @@ export function CampaignsDashboard({
               return (
                 <article
                   key={campaign.id}
-                  onClick={() =>
-                    setDetailSelection({ campaignId: campaign.id, initialTab: "overview" })
-                  }
+                  onClick={() => openCampaignDetail(campaign.id, "overview")}
                   className="group cursor-pointer px-4 py-4 transition-colors hover:bg-[#FCFBF8] sm:px-5"
                 >
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_270px_auto] lg:items-center lg:gap-6">
@@ -3484,9 +3595,7 @@ export function CampaignsDashboard({
                       ) : (
                         <button
                           type="button"
-                          onClick={() =>
-                            setDetailSelection({ campaignId: campaign.id, initialTab: "overview" })
-                          }
+                          onClick={() => openCampaignDetail(campaign.id, "overview")}
                           className="inline-flex h-9 items-center gap-1.5 rounded-[8px] border border-[#DCDDD6] bg-white px-3.5 font-['Space_Grotesk'] text-[12px] font-semibold text-[#3B3E3B] transition-colors hover:bg-[#F5F4ED]"
                         >
                           <Icon kind="eye" className="h-3.5 w-3.5" />
@@ -3520,10 +3629,7 @@ export function CampaignsDashboard({
                               role="menuitem"
                               onClick={() => {
                                 setOpenMenuId(null);
-                                setDetailSelection({
-                                  campaignId: campaign.id,
-                                  initialTab: "overview",
-                                });
+                                openCampaignDetail(campaign.id, "overview");
                               }}
                               className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
@@ -3536,10 +3642,7 @@ export function CampaignsDashboard({
                                 role="menuitem"
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  setDetailSelection({
-                                    campaignId: campaign.id,
-                                    initialTab: "edit",
-                                  });
+                                  openCampaignDetail(campaign.id, "edit");
                                 }}
                                 className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                               >
@@ -3552,7 +3655,7 @@ export function CampaignsDashboard({
                               role="menuitem"
                               onClick={() => {
                                 setOpenMenuId(null);
-                                setDuplicateSource(campaign);
+                                openCampaignBuilder(campaign);
                               }}
                               className="flex w-full items-center gap-2 rounded-[6px] px-3 py-2 text-left font-['Space_Grotesk'] text-[12px] text-[#1B1C18] hover:bg-[#F5F4ED]"
                             >
@@ -3661,7 +3764,7 @@ export function CampaignsDashboard({
                 </p>
                 <button
                   type="button"
-                  onClick={() => setCreating(true)}
+                  onClick={() => openCampaignBuilder(null)}
                   className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-[8px] bg-[#1B1C18] px-4 font-['Space_Grotesk'] text-[12px] font-semibold text-white hover:bg-[#34352F]"
                 >
                   <Icon kind="plus" className="h-3.5 w-3.5" />
