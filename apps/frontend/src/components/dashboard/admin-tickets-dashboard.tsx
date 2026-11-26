@@ -76,12 +76,10 @@ export function AdminTicketsDashboard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [replyStatusAfterSend, setReplyStatusAfterSend] = useState<string>("resolved");
   const modalRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setReplyText("");
-    setReplyStatusAfterSend("resolved");
     setActionError(null);
   }, [selectedTicketId]);
 
@@ -123,7 +121,9 @@ export function AdminTicketsDashboard() {
       void queryClient.invalidateQueries({ queryKey: [...dashboardKeys.all, "founder", "tickets"] });
     },
     onError: (err: unknown) => {
-      setActionError(err instanceof Error ? err.message : "Network error while updating ticket status.");
+      setActionError(
+        err instanceof Error ? err.message : "Network error while updating ticket status.",
+      );
     },
   });
 
@@ -156,6 +156,7 @@ export function AdminTicketsDashboard() {
     onSuccess: (payload) => {
       setActionError(null);
       setReplyText("");
+      setSelectedTicketId(null);
       setNotice(
         payload.message ||
           `Reply sent to ${payload.sentTo ?? "user"} from support@foolioo.app.`,
@@ -171,8 +172,9 @@ export function AdminTicketsDashboard() {
   const total = typeof data?.total === "number" ? data.total : tickets.length;
   const openCount = typeof data?.openCount === "number" ? data.openCount : 0;
 
-  const selectedTicket =
-    selectedTicketId ? tickets.find((item) => item.id === selectedTicketId) ?? null : null;
+  const selectedTicket = selectedTicketId
+    ? tickets.find((item) => item.id === selectedTicketId) ?? null
+    : null;
 
   useDialogFocusTrap(Boolean(selectedTicket), modalRef, () => setSelectedTicketId(null));
 
@@ -394,9 +396,9 @@ export function AdminTicketsDashboard() {
             ref={modalRef}
             tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E3DFD3] bg-white p-6 shadow-2xl sm:p-7"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#E3DFD3] bg-white p-5 shadow-2xl [scrollbar-width:none] sm:p-6 [&::-webkit-scrollbar]:hidden"
           >
-            <div className="flex items-start justify-between gap-4 border-b border-[#ECEBE5] pb-4">
+            <div className="flex items-start justify-between gap-4 border-b border-[#ECEBE5] pb-3">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.12em] text-[#644ABB]">
@@ -413,7 +415,7 @@ export function AdminTicketsDashboard() {
                 </div>
                 <h2
                   id="ticket-detail-title"
-                  className="mt-1.5 font-['Newsreader'] text-[28px] leading-snug tracking-[-0.5px] text-[#1B1C18]"
+                  className="mt-1 font-['Newsreader'] text-[26px] leading-snug tracking-[-0.5px] text-[#1B1C18]"
                 >
                   {selectedTicket.subject}
                 </h2>
@@ -430,15 +432,15 @@ export function AdminTicketsDashboard() {
               </button>
             </div>
 
-            <dl className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-[#ECEBE5] bg-[#FAF9F5] p-4 font-['Space_Grotesk'] text-[14px] sm:grid-cols-2">
+            <dl className="mt-3.5 grid grid-cols-1 gap-2.5 rounded-xl border border-[#ECEBE5] bg-[#FAF9F5] p-3.5 font-['Space_Grotesk'] text-[13px] sm:grid-cols-2">
               <div>
-                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Submitted By
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#1B1C18]">{selectedTicket.name}</dd>
               </div>
               <div>
-                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Email
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -451,7 +453,7 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div>
-                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Phone Number
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -459,7 +461,7 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div>
-                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Received At (IST)
                 </dt>
                 <dd className="mt-0.5 font-medium text-[#1B1C18]">
@@ -467,76 +469,56 @@ export function AdminTicketsDashboard() {
                 </dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#747878]">
                   Ticket ID
                 </dt>
-                <dd className="mt-0.5 break-all font-mono text-[13px] text-[#525552]">
+                <dd className="mt-0.5 break-all font-mono text-[12px] text-[#525552]">
                   {selectedTicket.id}
                 </dd>
               </div>
             </dl>
 
-            <div className="mt-5">
-              <h3 className="font-['Space_Grotesk'] text-[13px] font-bold uppercase tracking-[0.08em] text-[#747878]">
+            <div className="mt-3.5">
+              <h3 className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#747878]">
                 Full Complaint / Message
               </h3>
-              <div className="mt-2 whitespace-pre-wrap rounded-xl border border-[#ECEBE5] bg-[#FCFBF8] p-4 font-['Space_Grotesk'] text-[14px] leading-[22px] text-[#1B1C18]">
+              <div className="mt-1.5 whitespace-pre-wrap rounded-xl border border-[#ECEBE5] bg-[#FCFBF8] p-3 font-['Space_Grotesk'] text-[13.5px] leading-[20px] text-[#1B1C18]">
                 {selectedTicket.message}
               </div>
             </div>
 
-            <div className="mt-5 rounded-xl border border-[#E3DFD3] bg-[#FAF9F5] p-4">
+            <div className="mt-3.5 rounded-xl border border-[#E3DFD3] bg-[#FAF9F5] p-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label
                   htmlFor="ticket-reply-box"
-                  className="font-['Space_Grotesk'] text-[13px] font-bold uppercase tracking-[0.08em] text-[#1B1C18]"
+                  className="font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#1B1C18]"
                 >
                   Reply from support@foolioo.app → {selectedTicket.email}
                 </label>
-                <span className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
+                <span className="font-['Space_Grotesk'] text-[12px] text-[#747878]">
                   Sent automatically via email
                 </span>
               </div>
 
               <textarea
                 id="ticket-reply-box"
-                rows={4}
+                rows={3}
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
                 placeholder={`Write your response to ${selectedTicket.name} (${selectedTicket.email})...`}
-                className="mt-2 w-full rounded-lg border border-[#DCDDD6] bg-white p-3 font-['Space_Grotesk'] text-[14px] leading-[20px] text-[#1B1C18] placeholder-[#747878] outline-none focus:border-[#7852D6]"
+                className="mt-2 w-full rounded-lg border border-[#DCDDD6] bg-white p-2.5 font-['Space_Grotesk'] text-[13.5px] leading-[19px] text-[#1B1C18] placeholder-[#747878] outline-none focus:border-[#7852D6]"
               />
 
               {actionError ? (
                 <p
                   role="alert"
-                  className="mt-2 font-['Space_Grotesk'] text-[11.5px] font-medium text-[#A33A32]"
+                  className="mt-2 font-['Space_Grotesk'] text-[12px] font-medium text-[#A33A32]"
                 >
                   {actionError}
                 </p>
               ) : null}
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="reply-status-select"
-                    className="font-['Space_Grotesk'] text-[11.5px] text-[#525552]"
-                  >
-                    Set ticket status after sending:
-                  </label>
-                  <select
-                    id="reply-status-select"
-                    value={replyStatusAfterSend}
-                    onChange={(e) => setReplyStatusAfterSend(e.target.value)}
-                    className="h-8 rounded-[6px] border border-[#DCDDD6] bg-white px-2 font-['Space_Grotesk'] text-[11.5px] font-semibold text-[#1B1C18] outline-none focus:border-[#7852D6]"
-                  >
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
-                    <option value="open">Keep Open</option>
-                  </select>
-                </div>
-
+              <div className="mt-3 flex justify-end">
                 <button
                   type="button"
                   disabled={replyMutation.isPending || replyText.trim().length < 2}
@@ -544,7 +526,7 @@ export function AdminTicketsDashboard() {
                     replyMutation.mutate({
                       ticketId: selectedTicket.id,
                       replyMessage: replyText.trim(),
-                      status: replyStatusAfterSend,
+                      status: selectedTicket.status,
                     })
                   }
                   className="inline-flex h-9 items-center justify-center rounded-[6px] bg-[#FD7032] px-4 font-['Space_Grotesk'] text-[14px] font-semibold text-[#1B1C18] shadow-xs transition hover:bg-[#e56228] disabled:cursor-not-allowed disabled:opacity-50"
@@ -556,7 +538,7 @@ export function AdminTicketsDashboard() {
               </div>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-4">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECEBE5] pt-3.5">
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="modal-ticket-status"
