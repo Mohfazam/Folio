@@ -196,16 +196,17 @@ function Badge({
   children: ReactNode;
   tone?: "neutral" | "green" | "purple" | "amber" | "red";
 }) {
-  const tones = {
-    neutral: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
-    green: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
-    purple: "border-[#E8E3F2] bg-[#F7F4FC] text-[#705AA8]",
-    amber: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
-    red: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
+  const dots = {
+    neutral: "bg-[#8E918B]",
+    green: "bg-[#2F7A4D]",
+    purple: "bg-[#644ABB]",
+    amber: "bg-[#B87D1E]",
+    red: "bg-[#C24138]",
   };
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${tones[tone]}`}>
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[tone]}`} aria-hidden="true" />
       {children}
     </span>
   );
@@ -726,16 +727,29 @@ export function CallsDashboard({
                       <Badge tone={outcomeTone}>{OUTCOME_LABELS[call.outcome] ?? call.outcome.replaceAll("_", " ")}</Badge>
                       {call.followUpRequested ? <Badge tone="purple">Follow-up</Badge> : null}
                       {call.recordingUrl ? (
-                        <span className="inline-flex items-center gap-1 rounded bg-[#F0EBF8] px-1.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#7852D6]" title="Call recording available">
-                          <svg className="h-2.5 w-2.5 fill-current" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>
-                          Recording
+                        <span
+                          className="inline-flex items-center gap-1 rounded-[5px] border border-[#E6E5DD] bg-white px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#525552]"
+                          title="Saved audio recording available to play"
+                        >
+                          <svg className="h-2.5 w-2.5 text-[#525552]" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                            <path d="M2.5 6.5v3M5.5 4v8M8.5 5.5v5M11.5 3.5v9M14 6.5v3" />
+                          </svg>
+                          Audio saved
                         </span>
                       ) : null}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      {call.interestLevel ? <Badge tone={interestTone}>{call.interestLevel} interest</Badge> : null}
-                      {call.sentiment ? <Badge tone={call.sentiment === "positive" ? "green" : call.sentiment === "negative" ? "red" : "neutral"}>{call.sentiment}</Badge> : null}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {call.interestLevel ? (
+                        <span className="inline-flex items-center rounded-[5px] border border-[#ECEBE5] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize text-[#525552]">
+                          {call.interestLevel} interest
+                        </span>
+                      ) : null}
+                      {call.sentiment ? (
+                        <span className="inline-flex items-center rounded-[5px] border border-[#ECEBE5] bg-white px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium capitalize text-[#666A68]">
+                          {call.sentiment}
+                        </span>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between gap-4 lg:justify-end">

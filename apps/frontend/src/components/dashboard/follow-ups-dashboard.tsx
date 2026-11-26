@@ -73,17 +73,26 @@ function isOverdue(item: FollowUpRecord) {
 }
 
 function StatusPill({ status }: { status: string }) {
-  const styles = status === "done"
-    ? "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]"
+  const dot = status === "done"
+    ? "bg-[#2F7A4D]"
     : status === "not_needed"
-      ? "border-[#D9DDE7] bg-[#F2F4F8] text-[#59647C]"
-      : "border-[#E8E0CA] bg-[#FBF7EA] text-[#80672F]";
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${styles}`}>{titleCase(status)}</span>;
+      ? "bg-[#8E918B]"
+      : "bg-[#B87D1E]";
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} aria-hidden="true" />
+      {titleCase(status)}
+    </span>
+  );
 }
 
 function PriorityPill({ priority }: { priority: string }) {
-  const styles = priority === "urgent" ? "bg-[#FFF0EE] text-[#B33B32]" : priority === "high" ? "bg-[#FFF6E8] text-[#95651E]" : priority === "medium" ? "bg-[#F1EEFA] text-[#7055A8]" : "bg-[#F2F2EE] text-[#74766E]";
-  return <span className={`rounded-full px-2 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${styles}`}>{titleCase(priority)}</span>;
+  const textTone = priority === "urgent" ? "text-[#A33A32]" : priority === "high" ? "text-[#8A6826]" : "text-[#525552]";
+  return (
+    <span className={`inline-flex items-center rounded-[5px] border border-[#ECEBE5] bg-white px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium ${textTone}`}>
+      {titleCase(priority)}
+    </span>
+  );
 }
 
 function Metric({ label, value, hint }: { label: string; value: number; hint: string }) {

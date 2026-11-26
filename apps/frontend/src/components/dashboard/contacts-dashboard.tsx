@@ -112,14 +112,18 @@ function statusLabel(status: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
-  const className =
-    STATUS_STYLES[normalized] ??
-    "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]";
+  const dotColor =
+    normalized === "completed" || normalized === "connected"
+      ? "bg-[#2F7A4D]"
+      : normalized === "in_progress" || normalized === "calling"
+        ? "bg-[#644ABB]"
+        : normalized === "do_not_call" || normalized === "failed"
+          ? "bg-[#C24138]"
+          : "bg-[#8E918B]";
 
   return (
-    <span
-      className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold capitalize ${className}`}
-    >
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[11px] font-medium capitalize text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden="true" />
       {statusLabel(normalized || "pending")}
     </span>
   );

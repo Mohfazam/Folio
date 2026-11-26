@@ -440,13 +440,17 @@ function MetricCard({
 
 function StatusBadge({ status }: { status: string }) {
   const normalized = status.toLowerCase();
+  const dotColor =
+    normalized === "active" || normalized === "running" || normalized === "completed"
+      ? "bg-[#2F7A4D]"
+      : normalized === "paused" || normalized === "scheduled"
+        ? "bg-[#B87D1E]"
+        : normalized === "failed" || normalized === "cancelled"
+          ? "bg-[#C24138]"
+          : "bg-[#8E918B]";
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-['Space_Grotesk'] text-[13px] font-semibold capitalize ${
-        STATUS_STYLES[normalized] ?? STATUS_STYLES.draft
-      }`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-85" aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[13px] font-medium capitalize text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden="true" />
       {normalized || "draft"}
     </span>
   );

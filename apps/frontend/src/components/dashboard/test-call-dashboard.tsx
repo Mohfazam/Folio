@@ -40,18 +40,17 @@ function Badge({
   children: ReactNode;
   tone?: "neutral" | "green" | "purple" | "amber" | "red";
 }) {
-  const tones = {
-    neutral: "border-[#E5E1D5] bg-[#F7F5EF] text-[#696B62]",
-    green: "border-[#CDE5D4] bg-[#EFF8F1] text-[#34734B]",
-    purple: "border-[#E8E3F2] bg-[#F7F4FC] text-[#705AA8]",
-    amber: "border-[#F0DFB8] bg-[#FFFAEC] text-[#8A6826]",
-    red: "border-[#F0D8D4] bg-[#FFF8F7] text-[#A33A32]",
+  const dots = {
+    neutral: "bg-[#8E918B]",
+    green: "bg-[#2F7A4D]",
+    purple: "bg-[#644ABB]",
+    amber: "bg-[#B87D1E]",
+    red: "bg-[#C24138]",
   };
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold ${tones[tone]}`}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#2E302B]">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[tone]}`} aria-hidden="true" />
       {children}
     </span>
   );

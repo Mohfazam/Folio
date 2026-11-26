@@ -232,8 +232,9 @@ export function CallRecordingPlayer({
           </p>
         </div>
         {available ? (
-          <span className="inline-flex items-center rounded-full border border-[#CDE5D4] bg-[#EFF8F1] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold text-[#34734B]">
-            Ready
+          <span className="inline-flex items-center gap-1.5 rounded-[5px] border border-[#E6E5DD] bg-[#FAF9F5] px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-medium text-[#525552]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#2F7A4D]" aria-hidden="true" />
+            Audio saved
           </span>
         ) : null}
       </div>
