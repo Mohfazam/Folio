@@ -179,3 +179,93 @@ export async function deleteUserAvatarRoute(req: Request, res: Response): Promis
     res.status(500).json({ ok: false, error: "Failed to remove avatar" });
   }
 }
+
+/**
+ * PATCH /api/user/workspace
+ * Allows users to edit non-verified workspace details (name, contactPersonName, timezone, callingHours).
+ * Strict guard: blocks any attempts to alter callerIdNumber or phone verification without OTP.
+ */
+export async function updateWorkspaceDetailsRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const clientId = req.clientId;
+    if (!clientId) {
+      res.status(400).json({ ok: false, error: "Active workspace required" });
+      return;
+    }
+
+    const payload = (req.body || {}) as Record<string, unknown>;
+
+    // Reject phone modifications on unverified route
+    const phoneGuard = guardAgainstPhoneNumberChange(payload);
+    if (phoneGuard.rejected) {
+      res.status(400).json({
+        ok: false,
+        error: phoneGuard.error,
+        code: "PHONE_NUMBER_CHANGE_FORBIDDEN"
+      });
+      return;
+    }
+
+    const input: import("../types/userProfile.js").WorkspaceDetailsUpdateInput = {};
+
+    if ("name" in payload && payload.name !== undefined) {
+      if (typeof payload.name !== "string" || payload.name.trim().length === 0) {
+        res.status(400).json({ ok: false, error: "Workspace name cannot be empty" });
+        return;
+      }
+      input.name = payload.name.trim();
+    }
+
+    if ("contactPersonName" in payload && payload.contactPersonName !== undefined) {
+      input.contactPersonName = typeof payload.contactPersonName === "string" ? payload.contactPersonName.trim() : null;
+    }
+
+    if ("timezone" in payload && payload.timezone !== undefined) {
+      const tzRes = validateTimezone(payload.timezone);
+      if (!tzRes.valid) {
+        res.status(400).json({ ok: false, error: tzRes.error });
+        return;
+      }
+      input.timezone = tzRes.value;
+    }
+
+    if ("callingHoursStart" in payload && payload.callingHoursStart !== undefined) {
+      const timeRes = validateCallingHoursTime(payload.callingHoursStart);
+      if (!timeRes.valid) {
+        res.status(400).json({ ok: false, error: timeRes.error });
+        return;
+      }
+      input.callingHoursStart = timeRes.value;
+    }
+
+    if ("callingHoursEnd" in payload && payload.callingHoursEnd !== undefined) {
+      const timeRes = validateCallingHoursTime(payload.callingHoursEnd);
+      if (!timeRes.valid) {
+        res.status(400).json({ ok: false, error: timeRes.error });
+        return;
+      }
+      input.callingHoursEnd = timeRes.value;
+    }
+
+    const updated = await updateWorkspaceNonVerifiedService(clientId, input);
+    if (!updated) {
+      res.status(404).json({ ok: false, error: "Workspace not found" });
+      return;
+    }
+
+    if (req.userId) {
+      await recordUserAuditLog(req.userId, clientId, "workspace.non_verified.updated", {
+        fields: Object.keys(input)
+      });
+    }
+
+    res.status(200).json({
+      ok: true,
+      message: "Workspace details updated successfully",
+      workspace: updated
+    });
+  } catch (error) {
+    console.error("[UserProfileRoute] Error updating workspace details:", error);
+    res.status(500).json({ ok: false, error: "Failed to update workspace details" });
+  }
+}
