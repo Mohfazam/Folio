@@ -259,46 +259,18 @@ export function SettingsDashboard({ account, initialSettings }: {
 
           {section === "account" ? (
             <>
-              <SectionHeading title="Account & profile" description="Read-only details for your signed-in identity and workspace session." />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
-                  <p className={labelClass}>Display name</p>
-                  <p className="mt-2 font-['Space_Grotesk'] text-[14.5px] font-medium text-[#1B1C18]">{account.name || "Not set"}</p>
-                  <p className="mt-1 text-[13px] text-[#858782]">Synced from your signed-in profile</p>
-                </div>
-                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={labelClass}>Email address</p>
-                    <span className="rounded-full bg-[#ECEBE4] px-2 py-0.5 text-[12px] font-semibold text-[#55574F]">Read-only</span>
-                  </div>
-                  <p className="mt-2 break-all font-['Space_Grotesk'] text-[14.5px] font-medium text-[#1B1C18]">{account.email || "Not available"}</p>
-                  <p className="mt-1 text-[13px] text-[#858782]">Email address cannot be changed</p>
-                </div>
-                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={labelClass}>Authentication</p>
-                    <span className="rounded-full bg-[#E7F2E8] px-2 py-0.5 text-[12px] font-semibold text-[#31613B]">Active</span>
-                  </div>
-                  <p className="mt-2 font-['Space_Grotesk'] text-[14.5px] font-medium text-[#1B1C18]">Supabase Auth</p>
-                  <p className="mt-1 text-[13px] text-[#858782]">Managed securely by your sign-in provider</p>
-                </div>
-                <div className="rounded-lg border border-[#E9E8E1] bg-[#FBFAF6] p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className={labelClass}>Account ID</p>
-                    <span className="rounded-full bg-[#ECEBE4] px-2 py-0.5 text-[12px] font-semibold text-[#55574F]">Protected</span>
-                  </div>
-                  <p className="mt-2 font-mono text-[14px] text-[#34352F]">Hidden for security</p>
-                  <p className="mt-1 text-[13px] text-[#858782]">Internal account identifier</p>
-                </div>
-              </div>
-              <div className="mt-5 rounded-md border border-[#ECEBE4] bg-[#F8F7F2] px-4 py-3 text-[14px] text-[#65675F]">
-                Account identity fields are read-only and managed through your authentication provider.
-              </div>
+              <SectionHeading title="Account & profile" description="Manage your personal details, operational role, and photo. Verified credentials remain protected." />
+              <UserProfileForm fallbackName={account.name} fallbackEmail={account.email} />
             </>
           ) : null}
 
           {section === "calling" ? <Placeholder title="Calling configuration" description="Set the operational rules for outbound calls." items={["Default caller ID and verified numbers", "Allowed calling days and time window", "Timezone for scheduled campaigns", "Retry attempts and retry interval", "Call recording and retention preferences", "Consent and do-not-call handling"]} /> : null}
-          {section === "notifications" ? <Placeholder title="Notifications" description="Choose which workspace events should notify you." items={["Campaign completed or paused", "Calls failed or could not connect", "Low credit balance", "New follow-up created or overdue", "Daily performance summary"]} /> : null}
+          {section === "notifications" ? (
+            <>
+              <SectionHeading title="Notifications & preferences" description="Configure alert channels, email delivery, and audio playback settings." />
+              <UserPreferencesCard />
+            </>
+          ) : null}
           {section === "team" ? <Placeholder title="Team & permissions" description="Manage who can access this institution's workspace." items={["Invite team members", "Assign owner, admin and member roles", "Review pending invitations", "Revoke workspace access"]} /> : null}
           {section === "plan" ? (
             <>
