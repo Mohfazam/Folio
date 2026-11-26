@@ -32,6 +32,7 @@ type IconName =
   | "billing"
   | "search"
   | "settings"
+  | "support"
   | "arrow"
   | "close";
 
@@ -141,6 +142,9 @@ function Icon({ name, className = "h-4 w-4" }: { name: IconName; className?: str
       break;
     case "search":
       artwork = <><circle cx="10.8" cy="10.8" r="6.5" /><path d="m16 16 4.5 4.5" /></>;
+      break;
+    case "support":
+      artwork = <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.1 2.2-2.1 3.7" /><circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" /></>;
       break;
     case "settings":
       artwork = <><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.7 1.7 0 0 0-1.9.1l-.2.1-3.3-.1-.1-.2a1.7 1.7 0 0 0-1.4-1l-.2-.1-1.7-2.8.1-.2a1.7 1.7 0 0 0-.2-1.9l-.1-.2.1-3.3.2-.1a1.7 1.7 0 0 0 1-1.4l.1-.2 2.8-1.7.2.1a1.7 1.7 0 0 0 1.9-.2l.2-.1 3.3.1.1.2a1.7 1.7 0 0 0 1.4 1l.2.1 1.7 2.8-.1.2a1.7 1.7 0 0 0 .2 1.9l.1.2-.1 1.9z" /></>;
@@ -342,6 +346,27 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const sidebarNavRef = useRef<HTMLDivElement>(null);
+
+  const updateSidebarScrollState = useCallback(() => {
+    const el = sidebarNavRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollHeight > el.clientHeight + 2;
+    setCanScrollUp(hasOverflow && el.scrollTop > 4);
+    setCanScrollDown(hasOverflow && el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }, []);
+
+  useEffect(() => {
+    updateSidebarScrollState();
+    window.addEventListener("resize", updateSidebarScrollState);
+    return () => window.removeEventListener("resize", updateSidebarScrollState);
+  }, [updateSidebarScrollState, profile.isTrial]);
+
+  const scrollSidebarBy = (delta: number) => {
+    sidebarNavRef.current?.scrollBy({ top: delta, behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (!mobileDrawerOpen) return;
@@ -463,148 +488,184 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
         <div className="min-h-screen bg-[#FBF9F2] text-[#1B1C18]">
           {/* Fixed Desktop & Tablet Sidebar */}
           <aside className="fixed inset-y-0 left-0 z-30 hidden w-[72px] flex-col justify-between border-r border-[#E9E8E1] bg-[#F5F4ED] px-2.5 py-4 md:flex lg:w-[232px] lg:px-3.5">
-            <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+            <div className="relative flex min-h-0 flex-1 flex-col">
               {/* Foolioo Branding at the top links back to landing page */}
               <Link
                 href="/"
-                className="flex min-h-8 items-center gap-2.5 rounded-[6px] px-2 md:justify-center lg:justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                className="mb-4 flex min-h-8 shrink-0 items-center gap-2.5 rounded-[6px] px-2 md:justify-center lg:justify-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
                 aria-label="Foolioo home"
               >
                 <BrandMark />
               </Link>
 
-              {/* Grouped Navigation Tabs */}
-              <nav aria-label="Main navigation" className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                  {primaryItems.map((item) => (
-                    <NavEntry
-                      key={item.href}
-                      item={item}
-                      active={isRouteActive(item.href)}
-                      variant="sidebar"
-                      onSetupAction={openSetupAction}
-                    />
-                  ))}
-
+              {canScrollUp ? (
+                <div className="pointer-events-none absolute inset-x-0 top-10 z-10 flex justify-center bg-gradient-to-b from-[#F5F4ED] via-[#F5F4ED]/90 to-transparent pb-2 pt-0.5">
                   <button
                     type="button"
-                    onClick={() => setSearchOpen(true)}
-                    className="group flex w-full cursor-pointer items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[14.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
-                    title="Search (Ctrl or Cmd + K)"
+                    onClick={() => scrollSidebarBy(-140)}
+                    aria-label="Scroll navigation up"
+                    title="Scroll up"
+                    className="pointer-events-auto inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-[#DFDDD4] bg-white text-[#444748] shadow-[0_1px_3px_rgba(27,28,24,0.08)] transition-colors hover:border-[#644ABB]/40 hover:text-[#644ABB]"
                   >
-                    <Icon name="search" className="h-4 w-4 shrink-0 text-[#666A68] group-hover:text-[#1B1C18]" />
-                    <span className="hidden lg:inline">Search</span>
-                    <kbd className="ml-auto hidden rounded-[5px] border border-[#DFDDD4] bg-white px-1.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#747878] lg:inline">
-                      ⌘ K
-                    </kbd>
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 10l4-4 4 4" />
+                    </svg>
                   </button>
                 </div>
+              ) : null}
 
-                {/* Operations Group */}
-                <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
-                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
-                    OPERATIONS
-                  </p>
-                  {operationsItems.map((item) => (
-                    <NavEntry
-                      key={item.href}
-                      item={item}
-                      active={isRouteActive(item.href)}
-                      variant="sidebar"
-                      onSetupAction={openSetupAction}
-                    />
-                  ))}
-                </div>
+              <div
+                ref={sidebarNavRef}
+                onScroll={updateSidebarScrollState}
+                className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4"
+              >
+                {/* Grouped Navigation Tabs */}
+                <nav aria-label="Main navigation" className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-1">
+                    {primaryItems.map((item) => (
+                      <NavEntry
+                        key={item.href}
+                        item={item}
+                        active={isRouteActive(item.href)}
+                        variant="sidebar"
+                        onSetupAction={openSetupAction}
+                      />
+                    ))}
 
-                {/* Intelligence Group */}
-                <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
-                  <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
-                    INTELLIGENCE
-                  </p>
-                  {intelligenceItems.map((item) => (
-                    <NavEntry
-                      key={item.href}
-                      item={item}
-                      active={isRouteActive(item.href)}
-                      variant="sidebar"
-                      onSetupAction={openSetupAction}
-                    />
-                  ))}
-
-                  <Link
-                    href="/dashboard/billing"
-                    aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
-                      isRouteActive("/dashboard/billing")
-                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
-                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
-                    }`}
-                    title="Billing"
-                  >
-                    <Icon
-                      name="billing"
-                      className={`h-4 w-4 shrink-0 ${
-                        isRouteActive("/dashboard/billing")
-                          ? "text-[#644ABB]"
-                          : "text-[#666A68] group-hover:text-[#1B1C18]"
-                      }`}
-                    />
-                    <span className="hidden lg:inline">Billing</span>
-                  </Link>
-
-                  <Link
-                    href="/dashboard/settings"
-                    aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
-                      isRouteActive("/dashboard/settings")
-                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
-                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
-                    }`}
-                    title="Settings"
-                  >
-                    <Icon
-                      name="settings"
-                      className={`h-4 w-4 shrink-0 ${
-                        isRouteActive("/dashboard/settings")
-                          ? "text-[#644ABB]"
-                          : "text-[#666A68] group-hover:text-[#1B1C18]"
-                      }`}
-                    />
-                    <span className="hidden lg:inline">Settings</span>
-                  </Link>
-
-                  <Link
-                    href="/support"
-                    aria-current={isRouteActive("/support") ? "page" : undefined}
-                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
-                      isRouteActive("/support")
-                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
-                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
-                    }`}
-                    title="Help & Support"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      className={`h-4 w-4 shrink-0 transition-colors ${
-                        isRouteActive("/support")
-                          ? "text-[#644ABB]"
-                          : "text-[#666A68] group-hover:text-[#1B1C18]"
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.65"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
+                    <button
+                      type="button"
+                      onClick={() => setSearchOpen(true)}
+                      className="group flex w-full cursor-pointer items-center gap-3 rounded-[8px] border border-transparent px-3 py-2 text-left font-['Space_Grotesk'] text-[14.5px] font-medium text-[#444748] transition-colors hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3"
+                      title="Search (Ctrl or Cmd + K)"
                     >
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.1 2.2-2.1 3.7" />
-                      <circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" />
+                      <Icon name="search" className="h-4 w-4 shrink-0 text-[#666A68] group-hover:text-[#1B1C18]" />
+                      <span className="hidden lg:inline">Search</span>
+                      <kbd className="ml-auto hidden rounded-[5px] border border-[#DFDDD4] bg-white px-1.5 py-0.5 font-['Space_Grotesk'] text-[12px] font-medium text-[#747878] lg:inline">
+                        ⌘ K
+                      </kbd>
+                    </button>
+                  </div>
+
+                  {/* Operations Group */}
+                  <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
+                    <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
+                      OPERATIONS
+                    </p>
+                    {operationsItems.map((item) => (
+                      <NavEntry
+                        key={item.href}
+                        item={item}
+                        active={isRouteActive(item.href)}
+                        variant="sidebar"
+                        onSetupAction={openSetupAction}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Intelligence Group */}
+                  <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
+                    <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
+                      INTELLIGENCE
+                    </p>
+                    {intelligenceItems.map((item) => (
+                      <NavEntry
+                        key={item.href}
+                        item={item}
+                        active={isRouteActive(item.href)}
+                        variant="sidebar"
+                        onSetupAction={openSetupAction}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Workspace & Support Group */}
+                  <div className="flex flex-col gap-1 border-t border-[#E6E5DD] pt-3">
+                    <p className="hidden px-3 pb-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.08em] text-[#8E918B] lg:block">
+                      WORKSPACE
+                    </p>
+
+                    <Link
+                      href="/dashboard/billing"
+                      aria-current={isRouteActive("/dashboard/billing") ? "page" : undefined}
+                      className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                        isRouteActive("/dashboard/billing")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                          : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                      }`}
+                      title="Billing"
+                    >
+                      <Icon
+                        name="billing"
+                        className={`h-4 w-4 shrink-0 ${
+                          isRouteActive("/dashboard/billing")
+                            ? "text-[#644ABB]"
+                            : "text-[#666A68] group-hover:text-[#1B1C18]"
+                        }`}
+                      />
+                      <span className="hidden lg:inline">Billing</span>
+                    </Link>
+
+                    <Link
+                      href="/dashboard/settings"
+                      aria-current={isRouteActive("/dashboard/settings") ? "page" : undefined}
+                      className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                        isRouteActive("/dashboard/settings")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                          : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                      }`}
+                      title="Settings"
+                    >
+                      <Icon
+                        name="settings"
+                        className={`h-4 w-4 shrink-0 ${
+                          isRouteActive("/dashboard/settings")
+                            ? "text-[#644ABB]"
+                            : "text-[#666A68] group-hover:text-[#1B1C18]"
+                        }`}
+                      />
+                      <span className="hidden lg:inline">Settings</span>
+                    </Link>
+
+                    <Link
+                      href="/dashboard/support"
+                      aria-current={isRouteActive("/dashboard/support") ? "page" : undefined}
+                      className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[14.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                        isRouteActive("/dashboard/support")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                          : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                      }`}
+                      title="Help & Support"
+                    >
+                      <Icon
+                        name="support"
+                        className={`h-4 w-4 shrink-0 ${
+                          isRouteActive("/dashboard/support")
+                            ? "text-[#644ABB]"
+                            : "text-[#666A68] group-hover:text-[#1B1C18]"
+                        }`}
+                      />
+                      <span className="hidden lg:inline">Help &amp; Support</span>
+                    </Link>
+                  </div>
+                </nav>
+              </div>
+
+              {canScrollDown ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center bg-gradient-to-t from-[#F5F4ED] via-[#F5F4ED]/95 to-transparent pb-1 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => scrollSidebarBy(140)}
+                    aria-label="Scroll navigation down for more options"
+                    title="More options below"
+                    className="pointer-events-auto inline-flex items-center gap-1 rounded-full border border-[#DFDDD4] bg-white px-2.5 py-0.5 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] shadow-[0_1px_4px_rgba(27,28,24,0.08)] transition-colors hover:border-[#644ABB]/40 hover:text-[#644ABB]"
+                  >
+                    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 6l4 4 4-4" />
                     </svg>
-                    <span className="hidden lg:inline">Help &amp; Support</span>
-                  </Link>
+                    <span className="hidden lg:inline">More</span>
+                  </button>
                 </div>
-              </nav>
+              ) : null}
             </div>
 
             {/* Bottom Section: Upgrade Foolioo Card + User Profile Switcher below it */}
@@ -925,11 +986,11 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                       <span className="truncate">Settings</span>
                     </Link>
                     <Link
-                      href="/support"
+                      href="/dashboard/support"
                       onClick={() => setMobileDrawerOpen(false)}
-                      aria-current={isRouteActive("/support") ? "page" : undefined}
+                      aria-current={isRouteActive("/dashboard/support") ? "page" : undefined}
                       className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14.5px] transition-colors ${
-                        isRouteActive("/support")
+                        isRouteActive("/dashboard/support")
                           ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
                           : "text-[#444748] hover:bg-[#ECEBE4]"
                       }`}

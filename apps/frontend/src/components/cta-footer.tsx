@@ -54,6 +54,7 @@ export const CtaFooter = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
+  const supportHref = !isLoading && user ? "/dashboard/support" : "/support";
 
   useEffect(() => {
     let mounted = true;
@@ -180,7 +181,7 @@ export const CtaFooter = () => {
                 {section.links.map((link) => (
                   <Link
                     key={link.label}
-                    href={link.href}
+                    href={link.label === "Support" ? supportHref : link.href}
                     className="rounded-sm text-left font-['Space_Grotesk'] text-[13px] text-[#2D2F2B] transition hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032]"
                   >
                     {link.label}

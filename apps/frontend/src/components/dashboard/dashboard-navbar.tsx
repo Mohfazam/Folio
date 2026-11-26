@@ -22,7 +22,7 @@ export function DashboardNavbar({ rightSlot }: { rightSlot?: React.ReactNode }) 
             Overview
           </Link>
           <Link
-            href="/support"
+            href="/dashboard/support"
             className="whitespace-nowrap font-['Space_Grotesk'] text-[14px] font-medium text-[#525552] transition-colors hover:text-[#1B1C18]"
           >
             Help &amp; Support

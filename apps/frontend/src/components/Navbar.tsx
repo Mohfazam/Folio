@@ -14,6 +14,7 @@ const Navbar = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const supabase = useMemo(() => createClient(), []);
+  const supportHref = !isLoading && user ? "/dashboard/support" : "/support";
 
   const navLinks = [
     { label: "Products", href: "#products" },
@@ -136,7 +137,7 @@ const Navbar = () => {
             </Link>
           )}
 
-          <Link href="/support" className={navItem}>
+          <Link href={supportHref} className={navItem}>
             Support
           </Link>
 
@@ -230,7 +231,7 @@ const Navbar = () => {
             )}
 
             <Link
-              href="/support"
+              href={supportHref}
               onClick={handleNavClick}
               className={`${navItem} text-left text-[14px]`}
             >

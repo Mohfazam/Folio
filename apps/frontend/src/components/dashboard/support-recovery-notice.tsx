@@ -21,7 +21,7 @@ export function SupportRecoveryNotice({
         <span className="text-[#525552]">
           Need help?{" "}
           <Link
-            href="/support"
+            href="/dashboard/support"
             className="font-semibold text-[#1B1C18] underline decoration-[#DCD8CC] underline-offset-4 hover:text-[#FD7032]"
           >
             Contact Support
