@@ -6,6 +6,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { saveAgentSettingsAction, saveWorkspaceSettingsAction } from "@/app/(dashboard)/dashboard/actions";
 import { dashboardKeys } from "@/lib/query/keys";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
+import { UserProfileForm } from "@/components/dashboard/user-profile-form";
+import { UserPreferencesCard } from "@/components/dashboard/user-preferences-card";
 
 type Section = "general" | "account" | "calling" | "notifications" | "team" | "plan" | "security" | "integrations";
 type RecordValue = Record<string, unknown>;
