@@ -136,9 +136,9 @@ const Navbar = () => {
             </Link>
           )}
 
-          <a href="mailto:sales@foolioo.app?subject=Sales%20Inquiry" className={navItem}>
-            Contact Sales
-          </a>
+          <Link href="/support" className={navItem}>
+            Support
+          </Link>
 
           {!isLoading &&
             (user ? (
@@ -229,13 +229,13 @@ const Navbar = () => {
               </Link>
             )}
 
-            <a
-              href="mailto:sales@foolioo.app?subject=Sales%20Inquiry"
+            <Link
+              href="/support"
               onClick={handleNavClick}
               className={`${navItem} text-left text-[14px]`}
             >
-              Contact Sales
-            </a>
+              Support
+            </Link>
 
             {!isLoading && user && (
               <Link

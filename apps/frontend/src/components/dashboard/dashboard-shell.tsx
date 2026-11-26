@@ -572,6 +572,37 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     />
                     <span className="hidden lg:inline">Settings</span>
                   </Link>
+
+                  <Link
+                    href="/support"
+                    aria-current={isRouteActive("/support") ? "page" : undefined}
+                    className={`group flex w-full items-center gap-3 rounded-[8px] px-3 py-2 font-['Space_Grotesk'] text-[13.5px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6] md:justify-center md:px-0 lg:justify-start lg:px-3 ${
+                      isRouteActive("/support")
+                        ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB] shadow-[0_1px_2px_rgba(27,28,24,0.04)]"
+                        : "border border-transparent font-medium text-[#444748] hover:bg-[#ECEBE4]/80 hover:text-[#1B1C18]"
+                    }`}
+                    title="Help & Support"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      className={`h-4 w-4 shrink-0 transition-colors ${
+                        isRouteActive("/support")
+                          ? "text-[#644ABB]"
+                          : "text-[#666A68] group-hover:text-[#1B1C18]"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.65"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.1 2.2-2.1 3.7" />
+                      <circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" />
+                    </svg>
+                    <span className="hidden lg:inline">Help &amp; Support</span>
+                  </Link>
                 </div>
               </nav>
             </div>
@@ -892,6 +923,32 @@ export function DashboardShell({ profile, children }: DashboardShellProps) {
                     >
                       <Icon name="settings" className="h-4 w-4 shrink-0" />
                       <span className="truncate">Settings</span>
+                    </Link>
+                    <Link
+                      href="/support"
+                      onClick={() => setMobileDrawerOpen(false)}
+                      aria-current={isRouteActive("/support") ? "page" : undefined}
+                      className={`flex min-h-[44px] items-center gap-3 rounded-[8px] px-3 py-2.5 font-['Space_Grotesk'] text-[14px] transition-colors ${
+                        isRouteActive("/support")
+                          ? "border border-[#E6E4DC] bg-white font-semibold text-[#644ABB]"
+                          : "text-[#444748] hover:bg-[#ECEBE4]"
+                      }`}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.65"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M9.5 9.5a2.5 2.5 0 0 1 4.6 1.3c0 1.7-2.1 2.2-2.1 3.7" />
+                        <circle cx="12" cy="17.2" r="0.6" fill="currentColor" stroke="none" />
+                      </svg>
+                      <span className="truncate">Help &amp; Support</span>
                     </Link>
                   </div>
                 </div>
