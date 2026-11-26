@@ -2,13 +2,28 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import PublicDemoExperience from "@/components/public-demo/public-demo-experience";
+// TODO: Replace with your project's server auth/session helper, e.g.:
+// import { getSession } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Experience the Foolioo AI receptionist",
   description: "Try a live AI receptionist experience from Foolioo. No account required.",
 };
 
-export default function LiveDemoPage() {
+async function getIsAuthenticated(): Promise<boolean> {
+  try {
+    // Wire this to your server session/cookie/auth check:
+    // const session = await getSession();
+    // return Boolean(session?.user);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export default async function LiveDemoPage() {
+  const isLoggedIn = await getIsAuthenticated();
+
   return (
     <main className="flex min-h-screen flex-col bg-[#F7F5EF] text-[#1B1C18] lg:h-dvh lg:overflow-hidden">
       {/* HEADER */}
@@ -42,10 +57,11 @@ export default function LiveDemoPage() {
         </div>
 
         <Link
-          href="/sign-up"
+          href={isLoggedIn ? "/dashboard" : "/sign-up"}
           className="text-[12px] font-semibold text-[#55534F] transition hover:text-[#FD7032] xl:text-[13px]"
         >
-          Create an account <span aria-hidden="true">→</span>
+          {isLoggedIn ? "Go to dashboard" : "Create an account"}{" "}
+          <span aria-hidden="true">→</span>
         </Link>
       </header>
 
