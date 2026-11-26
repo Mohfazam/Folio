@@ -269,7 +269,7 @@ export function TestCallDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="purple">Outbound test call</Badge>
+          {/* <Badge tone="purple">Outbound test call</Badge> */}
           <Link
             href="/dashboard/calls"
             className="inline-flex h-10 items-center rounded-[5px] border border-[#DCDDD6] bg-white px-4 font-['Space_Grotesk'] text-[11px] font-semibold text-[#444748] transition-colors hover:bg-[#F7F6F1]"
