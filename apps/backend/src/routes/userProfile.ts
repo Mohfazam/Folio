@@ -149,3 +149,33 @@ export async function updateUserPreferencesRoute(req: Request, res: Response): P
     res.status(500).json({ ok: false, error: "Failed to update user preferences" });
   }
 }
+
+/**
+ * DELETE /api/user/avatar
+ * Removes the authenticated user's custom avatar URL.
+ */
+export async function deleteUserAvatarRoute(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ ok: false, error: "Unauthorized" });
+      return;
+    }
+
+    const removed = await removeUserAvatarService(userId);
+    if (!removed) {
+      res.status(404).json({ ok: false, error: "User not found" });
+      return;
+    }
+
+    await recordUserAuditLog(userId, req.clientId || null, "user.avatar.removed");
+
+    res.status(200).json({
+      ok: true,
+      message: "Avatar removed successfully"
+    });
+  } catch (error) {
+    console.error("[UserProfileRoute] Error removing avatar:", error);
+    res.status(500).json({ ok: false, error: "Failed to remove avatar" });
+  }
+}
