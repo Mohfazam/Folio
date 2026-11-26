@@ -505,14 +505,11 @@ export function BillingDashboard({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#ECEBE4] pb-6">
         <div>
-          <p className="font-['Space_Grotesk'] text-[10px] font-semibold uppercase tracking-[0.14em] text-[#747878]">
-            BILLING & CREDITS
-          </p>
           <h1 className="mt-1.5 font-['Newsreader'] text-[34px] leading-[1.08] tracking-[-0.8px] text-[#1B1C18] sm:text-[40px]">
             One-time credit packs & plans
           </h1>
           <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[13px] leading-[21px] text-[#666A68]">
-            Pay once via Razorpay in INR to unlock your selected plan tier and receive the full credit allowance immediately. No automatic recurring charges.
+            Pay once via Razorpay to unlock your selected plan tier and receive the full credit allowance immediately. No automatic recurring charges.
           </p>
         </div>
 
