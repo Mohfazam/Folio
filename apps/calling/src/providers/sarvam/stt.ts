@@ -29,7 +29,10 @@ export async function openSttSession(handlers: SttHandlers): Promise<SttSession>
     encoding: "mulaw",
     sample_rate: "8000",
     endpointing: "vad",
-    silence_duration_ms: "450",
+    threshold: "0.40",
+    min_speech_duration_ms: "180",
+    prefix_padding_ms: "200",
+    silence_duration_ms: "380",
     "Api-Subscription-Key": KEY,
     debug: false,
   });
