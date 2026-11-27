@@ -109,6 +109,17 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ContactDatum({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+
+  return (
+    <div className="min-w-0 rounded-[6px] border border-[#ECEBE5] bg-[#FFFEFB] px-3 py-2.5">
+      <dt className="font-['Space_Grotesk'] text-[11px] font-medium uppercase tracking-[0.05em] text-[#85877F]">{label}</dt>
+      <dd className="mt-1 break-words font-['Space_Grotesk'] text-[13px] font-medium text-[#2E302B]">{value}</dd>
+    </div>
+  );
+}
+
 export function CallDetailView({
   call,
   error,
@@ -149,6 +160,17 @@ export function CallDetailView({
   const outcomeTone = call.outcome === "connected" ? "green" : call.outcome === "failed" ? "red" : call.outcome === "busy" || call.outcome === "dropped_early" ? "amber" : "neutral";
   const interestTone = call.interestLevel === "high" ? "green" : call.interestLevel === "medium" ? "purple" : "neutral";
   const contactName = call.contact?.fullName || call.contactName || "Unknown contact";
+  const phoneHref = call.phoneNumber?.replace(/[^\d+]/g, "");
+  const hasContactActions = Boolean(phoneHref || call.contact?.email);
+  const hasPrimaryContactDetails = Boolean(call.contact?.companyName || call.contact?.jobTitle || call.contact?.city);
+  const hasAdditionalContactDetails = Boolean(
+    call.contact?.department ||
+      call.contact?.industry ||
+      call.contact?.lifecycleStage ||
+      call.contact?.accountTier ||
+      typeof call.contact?.leadScore === "number" ||
+      call.contact?.courseOrStream,
+  );
 
   return (
     <div className="space-y-6">
@@ -192,6 +214,58 @@ export function CallDetailView({
         <InfoCard label="Billing" value={call.isBillable ? "Billable call" : "Not billable"} />
       </section>
 
+      {hasContactActions || hasPrimaryContactDetails || hasAdditionalContactDetails ? (
+        <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5" aria-label="Contact details">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Contact details</h2>
+            {hasContactActions ? (
+              <div className="flex flex-wrap gap-2">
+                {phoneHref ? (
+                  <a
+                    href={`tel:${phoneHref}`}
+                    className="inline-flex min-h-11 items-center justify-center rounded-[6px] border border-[#E6E5DD] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#2E302B] transition-colors hover:bg-[#F1F0EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                  >
+                    Call {formatPhoneNumber(call.phoneNumber) || call.phoneNumber}
+                  </a>
+                ) : null}
+                {call.contact?.email ? (
+                  <a
+                    href={`mailto:${call.contact.email}`}
+                    className="inline-flex min-h-11 max-w-full items-center justify-center break-all rounded-[6px] border border-[#E6E5DD] bg-[#FAF9F5] px-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#2E302B] transition-colors hover:bg-[#F1F0EA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+                  >
+                    Email {call.contact.email}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {hasPrimaryContactDetails ? (
+            <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <ContactDatum label="Company" value={call.contact?.companyName ?? null} />
+              <ContactDatum label="Job title" value={call.contact?.jobTitle ?? null} />
+              <ContactDatum label="Location" value={call.contact?.city ?? null} />
+            </dl>
+          ) : null}
+
+          {hasAdditionalContactDetails ? (
+            <details className="mt-3 border-t border-[#F0EFE9] pt-3">
+              <summary className="min-h-11 cursor-pointer py-3 font-['Space_Grotesk'] text-[13px] font-semibold text-[#644ABB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]">
+                More contact information
+              </summary>
+              <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <ContactDatum label="Department" value={call.contact?.department ?? null} />
+                <ContactDatum label="Industry" value={call.contact?.industry ?? null} />
+                <ContactDatum label="Lifecycle" value={call.contact?.lifecycleStage ?? null} />
+                <ContactDatum label="Account tier" value={call.contact?.accountTier ?? null} />
+                <ContactDatum label="Lead score" value={call.contact?.leadScore == null ? null : String(call.contact.leadScore)} />
+                <ContactDatum label="Course / stream" value={call.contact?.courseOrStream ?? null} />
+              </dl>
+            </details>
+          ) : null}
+        </section>
+      ) : null}
+
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
         <div className="space-y-5">
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
@@ -215,40 +289,28 @@ export function CallDetailView({
             ) : null}
           </section>
 
-          <CallRecordingPlayer
-            callId={call.id}
-            initialHasRecording={hasRecording}
-            callEndedAt={call.endedAt || call.startedAt}
-          />
-
-          <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Conversation transcript</h2>
+          <section aria-labelledby="conversation-heading" className="space-y-4">
+            <div>
+              <h2 id="conversation-heading" className="font-['Space_Grotesk'] text-[16px] font-semibold text-[#1B1C18] sm:text-[17px]">Conversation</h2>
+              <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">Listen to the recording and follow along with the transcript.</p>
+            </div>
+            <CallRecordingPlayer
+              callId={call.id}
+              initialHasRecording={hasRecording}
+              callEndedAt={call.endedAt || call.startedAt}
+            />
+            <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
+              <div className="mb-4">
+                <h3 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Transcript</h3>
                 <p className="mt-1 font-['Space_Grotesk'] text-[13px] text-[#85877F]">Recorded conversation turns from the call.</p>
               </div>
-            </div>
 
-            <CallTranscript key={call.id} callId={call.id} initialTranscript={call.initialTranscript} />
+              <CallTranscript key={call.id} callId={call.id} initialTranscript={call.initialTranscript} />
+            </section>
           </section>
         </div>
 
         <aside className="space-y-5">
-          <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
-            <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Contact details</h2>
-            <div className="mt-4 space-y-3">
-              <DetailRow label="Name" value={contactName} />
-              <DetailRow label="Email" value={call.contact?.email} />
-              <DetailRow label="Company" value={call.contact?.companyName} />
-              <DetailRow label="Job title" value={call.contact?.jobTitle} />
-              <DetailRow label="Location" value={call.contact?.city} />
-              <DetailRow label="Lifecycle" value={call.contact?.lifecycleStage} />
-              <DetailRow label="Account tier" value={call.contact?.accountTier} />
-              <DetailRow label="Lead score" value={call.contact?.leadScore === null || call.contact?.leadScore === undefined ? null : String(call.contact.leadScore)} />
-              <DetailRow label="Course / stream" value={call.contact?.courseOrStream} />
-            </div>
-          </section>
-
           <section className="rounded-[8px] border border-[#ECEBE5] bg-white p-4 sm:p-5">
             <h2 className="font-['Space_Grotesk'] text-[15px] font-semibold text-[#1B1C18] sm:text-[16px]">Campaign</h2>
             {call.campaign?.name ? (
