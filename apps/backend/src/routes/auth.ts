@@ -691,6 +691,7 @@ export async function syncAuthUserRoute(req: Request, res: Response) {
     ) {
       return res.status(409).json({
         ok: false,
+        code: "AUTH_IDENTITY_CONFLICT",
         error: "This email is already associated with another sign-in identity",
       });
     }
