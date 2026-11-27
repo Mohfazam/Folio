@@ -10,6 +10,7 @@ process.env.BACKEND_WORKER_SECRET = "test-worker-secret-1234567890";
 const {
   getBearerToken,
   matchesSecret,
+  requireInternalAdmin,
   requireWebhookSecret,
   requireWorkerSecret,
   requireWorkspace,
@@ -50,6 +51,36 @@ test("matchesSecret performs timing-safe comparison", () => {
   assert.equal(matchesSecret(undefined, "supersecret"), false);
   assert.equal(matchesSecret("supersecret", undefined), false);
   assert.equal(matchesSecret("", ""), false);
+});
+
+test("requireInternalAdmin allows only emails in the founder allowlist", () => {
+  const previousFounderEmails = process.env.FOUNDER_ADMIN_EMAILS;
+  const previousCoFounderEmails = process.env.CO_FOUNDER_ADMIN_EMAILS;
+  process.env.FOUNDER_ADMIN_EMAILS = " founder@example.com ";
+  process.env.CO_FOUNDER_ADMIN_EMAILS = "cofounder@example.com, second@example.com";
+
+  try {
+    for (const email of ["FOUNDER@example.com", "COFOUNDER@example.com", "SECOND@example.com"]) {
+      const res = createMockResponse();
+      let calledNext = false;
+      const req = { user: { email, role: "user" } } as unknown as Request;
+      requireInternalAdmin(req, res, () => { calledNext = true; });
+      assert.equal(calledNext, true, `${email} should be allowed`);
+      assert.equal(res._status, undefined);
+    }
+
+    const res = createMockResponse();
+    let calledNext = false;
+    const req = { user: { email: "other@example.com", role: "internal_admin" } } as unknown as Request;
+    requireInternalAdmin(req, res, () => { calledNext = true; });
+    assert.equal(calledNext, false);
+    assert.equal(res._status, 403);
+  } finally {
+    if (previousFounderEmails === undefined) delete process.env.FOUNDER_ADMIN_EMAILS;
+    else process.env.FOUNDER_ADMIN_EMAILS = previousFounderEmails;
+    if (previousCoFounderEmails === undefined) delete process.env.CO_FOUNDER_ADMIN_EMAILS;
+    else process.env.CO_FOUNDER_ADMIN_EMAILS = previousCoFounderEmails;
+  }
 });
 
 test("requireWebhookSecret rejects missing or invalid webhook secrets", () => {
