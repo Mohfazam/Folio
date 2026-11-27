@@ -522,5 +522,11 @@ export const messageThreads = pgTable(
     metadata: jsonb("metadata").default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_message_threads_client").on(table.clientId),
+    index("idx_message_threads_contact").on(table.contactId),
+    index("idx_message_threads_customer_number").on(table.customerNumber),
+    index("idx_message_threads_last_message").on(table.lastMessageAt),
+  ]
 );
