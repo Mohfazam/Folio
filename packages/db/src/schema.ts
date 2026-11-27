@@ -573,3 +573,15 @@ export const messages = pgTable(
     index("idx_messages_created_at").on(table.createdAt),
   ]
 );
+
+export const messageDeliveryReceipts = pgTable(
+  "message_delivery_receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    messageId: uuid("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull().default("plivo"),
+    rawStatus: text("raw_status").notNull(),
+    payload: jsonb("payload").default({}),
+    receivedAt: timestamp("received_at").notNull().defaultNow(),
+  }
+);
