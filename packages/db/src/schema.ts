@@ -498,5 +498,10 @@ export const messageTemplates = pgTable(
     metadata: jsonb("metadata").default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_message_templates_client").on(table.clientId),
+    index("idx_message_templates_channel").on(table.channel),
+    index("idx_message_templates_status").on(table.status),
+  ]
 );
