@@ -482,3 +482,21 @@ export const supportTickets = pgTable(
     index("idx_support_tickets_status").on(table.status),
   ]
 );
+
+export const messageTemplates = pgTable(
+  "message_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    channel: messageChannelEnum("channel").notNull().default("sms"),
+    category: templateCategoryEnum("category").notNull().default("transactional"),
+    status: templateStatusEnum("status").notNull().default("approved"),
+    body: text("body").notNull(),
+    sampleVariables: jsonb("sample_variables").default({}),
+    providerTemplateId: text("provider_template_id"),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  }
+);
