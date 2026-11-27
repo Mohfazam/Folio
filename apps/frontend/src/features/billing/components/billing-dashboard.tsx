@@ -13,7 +13,7 @@ import type {
   RazorpaySuccessPayload,
   VerifyBillingPaymentResponse,
 } from "../types";
-import { ONE_TIME_PLANS, ONE_TIME_PLAN_LIST, formatCredits, formatInr } from "../utils/plans";
+import { MONTHLY_PLANS, MONTHLY_PLAN_LIST, formatCredits, formatInr } from "../utils/plans";
 import { getAvailableLocalDevTestPlan } from "../utils/dev-test-plan";
 import { loadRazorpayCheckoutScript } from "../utils/razorpay";
 import { trackBillingEvent } from "../utils/telemetry";
@@ -128,7 +128,7 @@ export function BillingDashboard({
   const verifyPaymentMutation = useVerifyRazorpayPayment();
 
   const selectedStandardPlan =
-    selection.kind === "plan" ? ONE_TIME_PLANS[selection.planId] : ONE_TIME_PLANS.pro;
+    selection.kind === "plan" ? MONTHLY_PLANS[selection.planId] : MONTHLY_PLANS.pro;
 
   const checkoutSummary = useMemo(() => {
     if (selection.kind === "dev_test" && localDevPlan) {
@@ -152,7 +152,7 @@ export function BillingDashboard({
       credits: selectedStandardPlan.credits,
       creditsLabel: `+${formatCredits(selectedStandardPlan.credits)} credits`,
       estimateLabel: selectedStandardPlan.estimateLabel,
-      description: `${selectedStandardPlan.name} Plan · ${formatCredits(selectedStandardPlan.credits)} one-time credits`,
+      description: `${selectedStandardPlan.name} Plan · ${formatCredits(selectedStandardPlan.credits)} monthly credits`,
       isDevTest: false,
     };
   }, [selection, localDevPlan, selectedStandardPlan]);
@@ -378,7 +378,7 @@ export function BillingDashboard({
           workspaceId: profile.workspaceId ?? "",
           companyName: companyName.trim() || profile.workspaceName || "",
           ...(gstin.trim() ? { gstin: gstin.trim() } : {}),
-          paymentType: checkoutSummary.isDevTest ? "localhost_dev_test" : "one_time",
+          paymentType: checkoutSummary.isDevTest ? "localhost_dev_test" : "monthly_subscription",
         },
         theme: { color: "#1B1C18" },
         modal: {
@@ -506,10 +506,10 @@ export function BillingDashboard({
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[#ECEBE4] pb-6">
         <div>
           <h1 className="mt-1.5 font-['Newsreader'] text-[36px] leading-[1.12] tracking-[-0.7px] text-[#1B1C18] sm:text-[42px]">
-            One-time credit packs & plans
+            Monthly subscription plans
           </h1>
           <p className="mt-2 max-w-[620px] font-['Space_Grotesk'] text-[14px] leading-[21px] text-[#666A68]">
-            Pay once via Razorpay to unlock your selected plan tier and receive the full credit allowance immediately. No automatic recurring charges.
+            Subscribe monthly via Razorpay to unlock your selected plan tier and receive your full monthly credit allowance immediately.
           </p>
         </div>
 
@@ -543,16 +543,16 @@ export function BillingDashboard({
           <div>
             <p className="font-['Space_Grotesk'] text-[14px] font-semibold">
               {profile.trialExpired
-                ? "Your trial period has ended — pick a one-time pack to resume calling."
+                ? "Your trial period has ended — pick a monthly plan to resume calling."
                 : creditsBalance === 0
                   ? "Your voice credits are exhausted — top up now to keep campaigns running."
                   : `Your voice credits are running low (${formatCredits(creditsBalance ?? 0)} remaining).`}
             </p>
             <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] opacity-90">
               Recommended for your workspace:{" "}
-              <strong className="font-semibold">{ONE_TIME_PLANS[recommendedPackId].name}</strong> (
-              {formatCredits(ONE_TIME_PLANS[recommendedPackId].credits)} credits ·{" "}
-              {formatInr(ONE_TIME_PLANS[recommendedPackId].priceInr)} one-time).
+              <strong className="font-semibold">{MONTHLY_PLANS[recommendedPackId].name}</strong> (
+              {formatCredits(MONTHLY_PLANS[recommendedPackId].credits)} credits ·{" "}
+              {formatInr(MONTHLY_PLANS[recommendedPackId].priceInr)}/mo).
             </p>
           </div>
           {selection.kind === "plan" && selection.planId !== recommendedPackId ? (
@@ -561,7 +561,7 @@ export function BillingDashboard({
               onClick={() => handleSelectPlan(recommendedPackId)}
               className="shrink-0 rounded-lg bg-[#1B1C18] px-3.5 py-2 font-['Space_Grotesk'] text-[14px] font-semibold text-white transition hover:bg-[#34352F]"
             >
-              Select {ONE_TIME_PLANS[recommendedPackId].name}
+              Select {MONTHLY_PLANS[recommendedPackId].name}
             </button>
           ) : null}
         </div>
@@ -625,7 +625,7 @@ export function BillingDashboard({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-bold uppercase tracking-[0.1em] text-[#18794E]">
-                  ✓ Payment Verified · One-Time Purchase
+                  ✓ Payment Verified · Monthly Subscription
                 </span>
                 {receipt.method ? (
                   <span className="rounded-full bg-white/80 px-2.5 py-1 font-['Space_Grotesk'] text-[12px] font-semibold uppercase tracking-[0.08em] text-[#264D3B]">
@@ -734,7 +734,7 @@ export function BillingDashboard({
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-['Space_Grotesk'] text-[14px] font-bold uppercase tracking-[0.09em] text-[#747878]">
-            1. Choose a one-time plan (Growth, Pro, or Scale)
+            1. Choose a monthly plan (Growth, Pro, or Scale)
           </h2>
           <span className="font-['Space_Grotesk'] text-[13px] text-[#747878]">
             ~1 credit = 10s connected talk time
@@ -742,7 +742,7 @@ export function BillingDashboard({
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {ONE_TIME_PLAN_LIST.map((plan) => {
+          {MONTHLY_PLAN_LIST.map((plan) => {
             const isSelected = selection.kind === "plan" && plan.id === selection.planId;
             return (
               <button
@@ -758,7 +758,7 @@ export function BillingDashboard({
               >
                 <div>
                   <span className="mb-3 inline-flex w-fit rounded-full bg-[#1B1C18] px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-bold uppercase tracking-[1.4px] text-white">
-                    {plan.badge || "ONE-TIME PACK"}
+                    {plan.badge || "MONTHLY PLAN"}
                   </span>
 
                   <div className="flex items-center justify-between gap-2">
@@ -792,7 +792,7 @@ export function BillingDashboard({
                         {formatInr(plan.priceInr)}
                       </span>
                       <span className="font-['Space_Grotesk'] text-[14px] font-medium text-[#747878]">
-                        one-time
+                        / month
                       </span>
                     </div>
 
@@ -907,7 +907,7 @@ export function BillingDashboard({
                 <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] text-[#747878]">
                   {checkoutSummary.isDevTest
                     ? "Localhost dev test order · 100 paise"
-                    : "One-time payment · Instant credit grant"}
+                    : "Monthly subscription · Instant credit grant"}
                 </p>
               </div>
               <span className="font-['Space_Grotesk'] text-[26px] font-bold text-[#1B1C18]">
@@ -956,7 +956,7 @@ export function BillingDashboard({
           <div>
             <h2 className="font-['Newsreader'] text-[24px] leading-tight text-[#1B1C18]">Payment history</h2>
             <p className="mt-0.5 font-['Space_Grotesk'] text-[14px] text-[#747878]">
-              One-time credit purchases recorded for this workspace.
+              Monthly subscription payments recorded for this workspace.
             </p>
           </div>
           {billingQuery.isFetching ? (
@@ -1031,7 +1031,7 @@ export function BillingDashboard({
           <p className="mt-3 font-['Space_Grotesk'] text-[14px] text-[#747878]">
             {isBackendUnconfigured
               ? "Payment history will appear here once the backend billing endpoint is connected."
-              : "No one-time payments recorded yet. Select Growth, Pro, or Scale above and click Pay with Razorpay to purchase credits."}
+              : "No subscription payments recorded yet. Select Growth, Pro, or Scale above and click Pay with Razorpay to subscribe."}
           </p>
         )}
       </section>

@@ -2,7 +2,7 @@ export type StandardPurchasablePlanId = "growth" | "pro" | "scale";
 export type LocalDevTestPlanId = "dev_test";
 export type PurchasablePlanId = StandardPurchasablePlanId | LocalDevTestPlanId;
 
-export type OneTimePlanDefinition = {
+export type MonthlyPlanDefinition = {
   id: PurchasablePlanId;
   name: string;
   badge?: string;

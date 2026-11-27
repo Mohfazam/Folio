@@ -1,6 +1,6 @@
-import type { OneTimePlanDefinition, PurchasablePlanId } from "../types";
+import type { MonthlyPlanDefinition, PurchasablePlanId } from "../types";
 
-export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = {
+export const MONTHLY_PLANS: Record<PurchasablePlanId, MonthlyPlanDefinition> = {
   growth: {
     id: "growth",
     name: "Growth",
@@ -84,10 +84,10 @@ export const ONE_TIME_PLANS: Record<PurchasablePlanId, OneTimePlanDefinition> = 
   },
 };
 
-export const ONE_TIME_PLAN_LIST: OneTimePlanDefinition[] = [
-  ONE_TIME_PLANS.growth,
-  ONE_TIME_PLANS.pro,
-  ONE_TIME_PLANS.scale,
+export const MONTHLY_PLAN_LIST: MonthlyPlanDefinition[] = [
+  MONTHLY_PLANS.growth,
+  MONTHLY_PLANS.pro,
+  MONTHLY_PLANS.scale,
 ];
 
 export function isPurchasablePlanId(value: string | null | undefined): value is PurchasablePlanId {
