@@ -536,6 +536,10 @@ export const messages = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    callId: uuid("call_id").references(() => calls.id, { onDelete: "set null" }),
+    threadId: uuid("thread_id").references(() => messageThreads.id, { onDelete: "set null" }),
+    templateId: uuid("template_id").references(() => messageTemplates.id, { onDelete: "set null" }),
     channel: messageChannelEnum("channel").notNull().default("sms"),
     direction: messageDirectionEnum("direction").notNull().default("outbound"),
     type: messageTypeEnum("type").notNull().default("post_call_followup"),
