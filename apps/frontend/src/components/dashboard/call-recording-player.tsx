@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRecordingStatus } from "../../hooks/useRecordingStatus";
 import { RecordingProcessingProgress } from "./recording-processing-progress";
 
@@ -53,7 +53,28 @@ export function CallRecordingPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [mediaDuration, setMediaDuration] = useState<number | null>(null);
   const [muted, setMuted] = useState(false);
+  const [volume, setVolume] = useState(1);
   const [isSeeking, setIsSeeking] = useState(false);
+  const lastAudibleVolumeRef = useRef(1);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const mediaSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const sourceAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const context = audioContextRef.current;
+      audioContextRef.current = null;
+      gainNodeRef.current = null;
+      mediaSourceRef.current = null;
+      sourceAudioRef.current = null;
+      if (context && context.state !== "closed") {
+        void context.close().catch((error: unknown) => {
+          console.error("[call-recording-player] Unable to close audio context:", error);
+        });
+      }
+    };
+  }, []);
 
   const effectiveDuration = useMemo(() => {
     const metaDur =
@@ -84,12 +105,63 @@ export function CallRecordingPlayer({
     }
   }, []);
 
+  const updateAudioOutput = (nextVolume: number, nextMuted: boolean) => {
+    const el = audioRef.current;
+    const gainNode = gainNodeRef.current;
+    const context = audioContextRef.current;
+    if (gainNode && context) {
+      gainNode.gain.setTargetAtTime(nextMuted ? 0 : nextVolume, context.currentTime, 0.02);
+      if (el) {
+        el.volume = 1;
+        el.muted = false;
+      }
+    } else if (el) {
+      el.volume = nextVolume;
+      el.muted = nextMuted;
+    }
+  };
+
+  const prepareAudioOutput = async (el: HTMLAudioElement) => {
+    if (typeof window.AudioContext !== "function") return;
+
+    let context = audioContextRef.current;
+    if (!context || context.state === "closed") {
+      context = new window.AudioContext();
+      audioContextRef.current = context;
+      gainNodeRef.current = null;
+      mediaSourceRef.current = null;
+      sourceAudioRef.current = null;
+    }
+
+    if (sourceAudioRef.current !== el) {
+      mediaSourceRef.current?.disconnect();
+      const source = context.createMediaElementSource(el);
+      const gainNode = context.createGain();
+      source.connect(gainNode);
+      gainNode.connect(context.destination);
+      mediaSourceRef.current = source;
+      gainNodeRef.current = gainNode;
+      sourceAudioRef.current = el;
+    }
+
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+    updateAudioOutput(volume, muted);
+  };
+
   const togglePlay = async () => {
     const el = audioRef.current;
     if (!el) return;
     setAudioError(false);
     try {
       if (el.paused) {
+        try {
+          await prepareAudioOutput(el);
+        } catch (error) {
+          console.error("[call-recording-player] Unable to initialize volume control:", error);
+          updateAudioOutput(volume, muted);
+        }
         await el.play();
       } else {
         el.pause();
@@ -109,12 +181,26 @@ export function CallRecordingPlayer({
   };
 
   const toggleMute = () => {
-    const el = audioRef.current;
-    const nextMuted = !muted;
-    setMuted(nextMuted);
-    if (el) {
-      el.muted = nextMuted;
+    if (muted || volume === 0) {
+      const restoredVolume = lastAudibleVolumeRef.current;
+      setVolume(restoredVolume);
+      setMuted(false);
+      updateAudioOutput(restoredVolume, false);
+      return;
     }
+
+    setMuted(true);
+    updateAudioOutput(volume, true);
+  };
+
+  const handleVolumeChange = (nextVolume: number) => {
+    const clampedVolume = Math.min(1, Math.max(0, nextVolume));
+    if (clampedVolume > 0) {
+      lastAudibleVolumeRef.current = clampedVolume;
+    }
+    setVolume(clampedVolume);
+    setMuted(clampedVolume === 0);
+    updateAudioOutput(clampedVolume, clampedVolume === 0);
   };
 
   const [justArrived, setJustArrived] = useState(false);
@@ -255,6 +341,30 @@ export function CallRecordingPlayer({
                 </svg>
               )}
             </button>
+          </div>
+
+          <div className="flex items-center gap-3 px-1">
+            <label
+              htmlFor={`recording-volume-${callId}`}
+              className="shrink-0 font-['Space_Grotesk'] text-[12px] font-medium text-[#5C5F5C]"
+            >
+              Volume
+            </label>
+            <input
+              id={`recording-volume-${callId}`}
+              type="range"
+              aria-label="Recording volume"
+              aria-valuetext={`${Math.round(volume * 100)} percent`}
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round(volume * 100)}
+              onChange={(event) => handleVolumeChange(Number(event.target.value) / 100)}
+              className="h-11 min-w-0 flex-1 cursor-pointer accent-[#644ABB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7852D6]"
+            />
+            <span className="w-9 shrink-0 text-right font-['Space_Grotesk'] text-[12px] tabular-nums text-[#747878]">
+              {Math.round(volume * 100)}%
+            </span>
           </div>
 
           {audioError ? (
