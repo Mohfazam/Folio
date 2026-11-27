@@ -601,5 +601,10 @@ export const messageOptOuts = pgTable(
     reason: text("reason").notNull().default("user_stop_request"),
     metadata: jsonb("metadata").default({}),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_message_opt_outs_client").on(table.clientId),
+    index("idx_message_opt_outs_phone").on(table.phoneNumber),
+    index("idx_message_opt_outs_channel").on(table.channel),
+  ]
 );
