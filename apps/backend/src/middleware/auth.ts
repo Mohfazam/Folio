@@ -120,10 +120,11 @@ export async function requireWorkspace(req: Request, res: Response, next: NextFu
 
 function isFounderEmail(email: string | null | undefined): boolean {
   if (!email) return false;
-  const raw = process.env.FOUNDER_ADMIN_EMAILS?.trim();
-  if (!raw) return false;
-  const allowedEmails = raw
-    .split(",")
+  const allowedEmails = [
+    process.env.FOUNDER_ADMIN_EMAILS,
+    process.env.CO_FOUNDER_ADMIN_EMAILS,
+  ]
+    .flatMap((value) => value?.split(",") ?? [])
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
   return allowedEmails.includes(email.trim().toLowerCase());
@@ -131,7 +132,7 @@ function isFounderEmail(email: string | null | undefined): boolean {
 
 export function requireInternalAdmin(req: Request, res: Response, next: NextFunction) {
   const userEmail = req.user?.email ?? req.supabaseUser?.email;
-  if (req.user?.role === "internal_admin" || isFounderEmail(userEmail)) {
+  if (isFounderEmail(userEmail)) {
     return next();
   }
 
