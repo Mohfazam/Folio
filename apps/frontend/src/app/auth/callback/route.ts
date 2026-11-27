@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { resolvePostAuthDestination } from "../../../lib/auth/backend";
+import { AuthIdentityConflictError, resolvePostAuthDestination } from "../../../lib/auth/backend";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -54,7 +54,12 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[auth/callback] Workspace provisioning failed:", err);
     const errorUrl = new URL("/auth-code-error", origin);
-    errorUrl.searchParams.set("error", "Your account is signed in, but your workspace could not be loaded.");
+    errorUrl.searchParams.set(
+      "error",
+      err instanceof AuthIdentityConflictError
+        ? err.message
+        : "Your account is signed in, but your workspace could not be loaded.",
+    );
     return NextResponse.redirect(errorUrl);
   }
 }
