@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import type { FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
@@ -259,6 +261,7 @@ export function CallsDashboard({
   initialError: string | null;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [searchInput, setSearchInput] = useState(filters.search);
   const [outcomeInput, setOutcomeInput] = useState(filters.outcome);
   const [sentimentInput, setSentimentInput] = useState(filters.sentiment);
@@ -457,6 +460,10 @@ export function CallsDashboard({
     setCallNotice(`Queued call to ${recipient} cancelled.`);
     setPendingCancelEntry(null);
     setLiveRefreshKey((value) => value + 1);
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.calls().slice(0, 2) }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     router.refresh();
   };
 

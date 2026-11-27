@@ -3,6 +3,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys } from "@/lib/query/keys";
 import { ConfirmDialog } from "@/components/dashboard/accessible-dialog";
 import { ToastNotice } from "@/components/dashboard/toast-notice";
 import {
@@ -59,6 +61,7 @@ function Badge({
 
 export function TestCallDashboard() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -211,6 +214,10 @@ export function TestCallDashboard() {
         `Your test call to ${formatPhoneNumber(normalizedPhone)} has been queued. It will be attempted when the calling service is available, subject to workspace limits.`,
       );
       setLiveRefreshKey((value) => value + 1);
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.calls().slice(0, 2) }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+      ]);
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The call could not be queued.");
@@ -254,6 +261,10 @@ export function TestCallDashboard() {
     setCallNotice(`Queued call to ${recipient} cancelled.`);
     setPendingCancelEntry(null);
     setLiveRefreshKey((value) => value + 1);
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.calls().slice(0, 2) }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     router.refresh();
   };
 

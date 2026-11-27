@@ -2727,8 +2727,29 @@ export function CampaignsDashboard({
                 ...patch,
               },
             }));
+            queryClient.setQueriesData<Record<string, unknown>>(
+              { queryKey: dashboardKeys.campaigns() },
+              (cached) => {
+                if (!cached || !Array.isArray(cached.campaigns)) return cached;
+                return {
+                  ...cached,
+                  campaigns: cached.campaigns.map((item) =>
+                    typeof item === "object" &&
+                    item !== null &&
+                    "id" in item &&
+                    (item as { id?: unknown }).id === selectedDetailCampaign.id
+                      ? { ...item, ...patch }
+                      : item,
+                  ),
+                };
+              },
+            );
           }
           setNotice(msg);
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() }),
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+          ]);
           router.refresh();
         }}
       />
