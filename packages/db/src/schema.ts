@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, integer, timestamp, time, pgEnum, jsonb, boolean, real, index } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // ── Enums ─────────────────────────────────────────────────────────────
 
@@ -608,3 +609,56 @@ export const messageOptOuts = pgTable(
     index("idx_message_opt_outs_channel").on(table.channel),
   ]
 );
+
+// ── Messaging Relations ───────────────────────────────────────────────
+
+export const messageTemplatesRelations = relations(messageTemplates, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [messageTemplates.clientId],
+    references: [clients.id],
+  }),
+  messages: many(messages),
+}));
+
+export const messageThreadsRelations = relations(messageThreads, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [messageThreads.clientId],
+    references: [clients.id],
+  }),
+  contact: one(contacts, {
+    fields: [messageThreads.contactId],
+    references: [contacts.id],
+  }),
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [messages.clientId],
+    references: [clients.id],
+  }),
+  contact: one(contacts, {
+    fields: [messages.contactId],
+    references: [contacts.id],
+  }),
+  call: one(calls, {
+    fields: [messages.callId],
+    references: [calls.id],
+  }),
+  thread: one(messageThreads, {
+    fields: [messages.threadId],
+    references: [messageThreads.id],
+  }),
+  template: one(messageTemplates, {
+    fields: [messages.templateId],
+    references: [messageTemplates.id],
+  }),
+  deliveryReceipts: many(messageDeliveryReceipts),
+}));
+
+export const messageDeliveryReceiptsRelations = relations(messageDeliveryReceipts, ({ one }) => ({
+  message: one(messages, {
+    fields: [messageDeliveryReceipts.messageId],
+    references: [messages.id],
+  }),
+}));
