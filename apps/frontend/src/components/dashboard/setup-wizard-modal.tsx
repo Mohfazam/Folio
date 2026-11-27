@@ -141,7 +141,6 @@ export function SetupWizardModal({
     return textValue(first, "id");
   });
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
-  const [launchConfirmed, setLaunchConfirmed] = useState(false);
   const [speechRate, setSpeechRate] = useState(String(agent.speechRate ?? 1));
   const [contactFile, setContactFile] = useState<File | null>(null);
   const [contactImportStage, setContactImportStage] = useState<"select" | "review">("select");
@@ -644,8 +643,6 @@ export function SetupWizardModal({
               event.preventDefault();
               if (!selectedCampaignId) { setError("Choose a saved campaign first."); return; }
               if (selectedContactIds.length === 0) { setError("Select at least one eligible contact."); return; }
-              if (!launchConfirmed) { setError("Confirm that you have permission to contact this audience."); return; }
-
               const dailyStart = String(client.callingHoursStart ?? "09:00:00").slice(0, 5);
               const dailyEnd = String(client.callingHoursEnd ?? "18:00:00").slice(0, 5);
               const validTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -698,11 +695,7 @@ export function SetupWizardModal({
                 <div className="mt-1 flex items-center justify-between font-['Space_Grotesk'] text-[13px] text-[#565B5B]"><span>Daily call capacity remaining</span><strong className="text-[#1B1C18]">{Math.max(0, Number(client.maxCallsPerDay ?? 0) - Number(client.callsMadeToday ?? 0))}</strong></div>
                 <p className="mt-2 font-['Space_Grotesk'] text-[12px] leading-4 text-[#85877F]">The backend rechecks workspace ownership, DNC status, duplicate status, credit availability and daily capacity at launch time.</p>
               </div>
-              <label className="flex items-start gap-2 rounded-[4px] border border-[#E9E8E1] p-3 font-['Space_Grotesk'] text-[13px] leading-5 text-[#565B5B]">
-                <input type="checkbox" checked={launchConfirmed} onChange={(event) => setLaunchConfirmed(event.target.checked)} className="mt-1 accent-[#7852D6]" />
-                <span>I confirm this audience has the required permission to be contacted, and I approve adding these contacts to the outbound queue.</span>
-              </label>
-              {renderFooter("Confirm and launch campaign", !selectedCampaignId || selectedContactIds.length === 0 || !launchConfirmed)}
+              {renderFooter("Confirm and launch campaign", !selectedCampaignId || selectedContactIds.length === 0)}
             </form>
           ) : null}
 
