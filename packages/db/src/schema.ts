@@ -562,5 +562,14 @@ export const messages = pgTable(
     failedAt: timestamp("failed_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_messages_client").on(table.clientId),
+    index("idx_messages_contact").on(table.contactId),
+    index("idx_messages_call").on(table.callId),
+    index("idx_messages_thread").on(table.threadId),
+    index("idx_messages_status").on(table.status),
+    index("idx_messages_provider_id").on(table.providerMessageId),
+    index("idx_messages_created_at").on(table.createdAt),
+  ]
 );
