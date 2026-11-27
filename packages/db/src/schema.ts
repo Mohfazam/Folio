@@ -72,6 +72,14 @@ export const templateCategoryEnum = pgEnum("template_category", [
   "transactional",
 ]);
 
+export const templateStatusEnum = pgEnum("template_status", [
+  "draft",
+  "pending_approval",
+  "approved",
+  "rejected",
+  "disabled",
+]);
+
 // Knowledge Base Entry Types (Multi-Tech, Enterprise & Universal)
 export const kbEntryTypeEnum = pgEnum("kb_entry_type", [
   "faq",
