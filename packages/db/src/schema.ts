@@ -505,3 +505,22 @@ export const messageTemplates = pgTable(
     index("idx_message_templates_status").on(table.status),
   ]
 );
+
+export const messageThreads = pgTable(
+  "message_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id").references(() => contacts.id, { onDelete: "set null" }),
+    channel: messageChannelEnum("channel").notNull().default("sms"),
+    customerNumber: text("customer_number").notNull(),
+    businessNumber: text("business_number").notNull(),
+    lastMessageSnippet: text("last_message_snippet"),
+    lastMessageAt: timestamp("last_message_at"),
+    unreadCount: integer("unread_count").notNull().default(0),
+    status: text("status").notNull().default("open"),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  }
+);
