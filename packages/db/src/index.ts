@@ -9,3 +9,6 @@ export type MessageTemplateInsert = typeof import("./schema.js").messageTemplate
 
 export type MessageThreadSelect = typeof import("./schema.js").messageThreads.$inferSelect;
 export type MessageThreadInsert = typeof import("./schema.js").messageThreads.$inferInsert;
+
+export type MessageSelect = typeof import("./schema.js").messages.$inferSelect;
+export type MessageInsert = typeof import("./schema.js").messages.$inferInsert;
