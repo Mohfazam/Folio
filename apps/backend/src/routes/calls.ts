@@ -384,11 +384,29 @@ export async function callCompleteRoute(req: Request, res: Response) {
     let followUpId: string | null = null;
     const followUpIds: string[] = [];
 
-    if (!isTestCall && analysis && !optOutRequested) {
-      const callbackTriggered = routingPolicy.callback.enabled &&
-        (analysis.followUpRequested || Boolean(analysis.requestedCallbackTime));
-      const highInterestTriggered = routingPolicy.highInterest.enabled && analysis.interestLevel === "high";
-      const humanRequestedTriggered = routingPolicy.humanRequested.enabled && analysis.humanRequested === true;
+    const transcriptHasCallbackRequest =
+      !isTestCall &&
+      !optOutRequested &&
+      Array.isArray(payload.transcript) &&
+      payload.transcript.some(
+        (turn) =>
+          turn.speaker === "user" &&
+          typeof turn.text === "string" &&
+          /\b(call|ring|phone|reach)\s+(me\s+)?(back|later|tomorrow|again|afterwards)\b|\bnot a good time\b|\b(baad me|bad me|kal)\s+(call|baat)\b/i.test(
+            turn.text,
+          ),
+      );
+
+    if (!isTestCall && (analysis || transcriptHasCallbackRequest) && !optOutRequested) {
+      const callbackTriggered =
+        routingPolicy.callback.enabled &&
+        (Boolean(analysis?.followUpRequested) ||
+          Boolean(analysis?.requestedCallbackTime) ||
+          transcriptHasCallbackRequest);
+      const highInterestTriggered =
+        routingPolicy.highInterest.enabled && analysis?.interestLevel === "high";
+      const humanRequestedTriggered =
+        routingPolicy.humanRequested.enabled && analysis?.humanRequested === true;
 
       // One actionable item per call avoids duplicate tasks when a caller asks
       // for a callback while also expressing strong interest. Human handoff is
@@ -404,9 +422,9 @@ export async function callCompleteRoute(req: Request, res: Response) {
         : callbackTriggered
           ? {
               type: "call_back",
-              priority: analysis.interestLevel === "high" ? "high" : "medium",
+              priority: analysis?.interestLevel === "high" ? "high" : "medium",
               assignedTo: routingPolicy.callback.assignToUserId,
-              dueDate: analysis.requestedCallbackTime
+              dueDate: analysis?.requestedCallbackTime
                 ? new Date(analysis.requestedCallbackTime)
                 : new Date(Date.now() + routingPolicy.callback.dueInMinutes * 60_000),
               triggerNote: "A callback was requested during the call.",
@@ -430,7 +448,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
           assignedTo = validOwner?.id ?? null;
         }
 
-        const notes = [analysis.notes?.trim() || analysis.summary?.trim() || "Follow-up created from a completed call.", selectedFollowUp.triggerNote]
+        const notes = [analysis?.notes?.trim() || analysis?.summary?.trim() || "Follow-up created from a completed call.", selectedFollowUp.triggerNote]
           .filter(Boolean).join("\n\n").slice(0, 5000);
         const [createdFollowUp] = await tx.insert(followUps).values({
           callId: callRecord.id,
@@ -439,7 +457,7 @@ export async function callCompleteRoute(req: Request, res: Response) {
           type: selectedFollowUp.type,
           priority: selectedFollowUp.priority,
           assignedTo,
-          requestedCallbackTime: selectedFollowUp.type === "call_back" && analysis.requestedCallbackTime
+          requestedCallbackTime: selectedFollowUp.type === "call_back" && analysis?.requestedCallbackTime
             ? new Date(analysis.requestedCallbackTime)
             : null,
           dueDate: selectedFollowUp.dueDate,
