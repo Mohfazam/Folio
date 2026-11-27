@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { env } from "../config/env.js";
+import { isBusyUtterance } from "../conversational/busyDetector.js";
 import type { TranscriptTurn, CallAnalysisResult } from "../types/callTypes.js";
 import type { PromptContext } from "../prompts/compileSystemPrompt.js";
 
@@ -22,6 +23,26 @@ function detectOptOutRequest(transcript: TranscriptTurn[]): boolean {
     /\b(do not call|dnc)\s+(me|this number|my number)\b/i,
   ];
   return transcript.some((turn) => turn.speaker === "user" && explicitOptOutPatterns.some((pattern) => pattern.test(turn.text)));
+}
+
+function detectCallbackRequest(transcript: TranscriptTurn[]): string | null {
+  const explicitCallbackPatterns = [
+    /\b(call|ring|phone|reach|contact)\s+(me\s+)?(back|later|afterwards|again|tomorrow|tonight|this evening|this afternoon|next week)\b/i,
+    /\b(can you|could you|please)\s+(call|ring|reach)\s+(me\s+)?(later|back)\b/i,
+    /\b(give me a call|give a call)\s+(later|back|tomorrow|tonight|this evening)\b/i,
+    /\b(not a good time|bad time to talk|can't talk right now|cannot talk right now|busy right now|in a meeting|currently driving)\b/i,
+    /\b(baad me|bad me|thodi der baad|kal|shaam ko)\s+(call|baat)\b/i,
+  ];
+
+  for (const turn of transcript) {
+    if (turn.speaker !== "user") continue;
+    const text = turn.text.trim();
+    if (!text) continue;
+    if (isBusyUtterance(text) || explicitCallbackPatterns.some((pattern) => pattern.test(text))) {
+      return text;
+    }
+  }
+  return null;
 }
 
 function isTimezoneQualifiedIsoDate(value: unknown): value is string {
@@ -58,6 +79,10 @@ export async function analyzeCallTranscript(
     .join("\n");
   const humanRequestedFromTranscript = detectHumanRequest(transcript);
   const optOutRequestedFromTranscript = detectOptOutRequest(transcript);
+  const callbackUtteranceFromTranscript = !optOutRequestedFromTranscript
+    ? detectCallbackRequest(transcript)
+    : null;
+  const callbackRequestedFromTranscript = Boolean(callbackUtteranceFromTranscript);
 
   const prompt = `You are an expert sales, customer outreach, and call analysis auditor.
 Analyze this phone call transcript between an automated AI agent and a caller.
@@ -108,13 +133,15 @@ Output only valid JSON with no markdown backticks or commentary.`;
         ? parsed.sentiment
         : "neutral",
       objectionsRaised: Array.isArray(parsed.objectionsRaised) ? parsed.objectionsRaised : [],
-      followUpRequested: Boolean(parsed.followUpRequested),
+      followUpRequested: callbackRequestedFromTranscript || Boolean(parsed.followUpRequested),
       humanRequested: humanRequestedFromTranscript || parsed.humanRequested === true,
       optOutRequested: optOutRequestedFromTranscript || parsed.optOutRequested === true,
       requestedCallbackTime: isTimezoneQualifiedIsoDate(parsed.requestedCallbackTime)
         ? new Date(parsed.requestedCallbackTime).toISOString()
         : undefined,
-      notes: parsed.notes || undefined,
+      notes:
+        parsed.notes ||
+        (callbackUtteranceFromTranscript ? `Caller asked for callback: "${callbackUtteranceFromTranscript}"` : undefined),
     };
   } catch (err: any) {
     console.warn(`[callAnalysis] Failed to run AI analysis on transcript:`, err?.message ?? err);
@@ -123,9 +150,12 @@ Output only valid JSON with no markdown backticks or commentary.`;
       interestLevel: "unknown",
       sentiment: "neutral",
       objectionsRaised: [],
-      followUpRequested: false,
+      followUpRequested: callbackRequestedFromTranscript,
       humanRequested: humanRequestedFromTranscript,
       optOutRequested: optOutRequestedFromTranscript,
+      ...(callbackUtteranceFromTranscript
+        ? { notes: `Caller asked for callback: "${callbackUtteranceFromTranscript}"` }
+        : {}),
     };
   }
 }

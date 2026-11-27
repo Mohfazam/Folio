@@ -37,17 +37,6 @@ function fmtShortDate(raw: unknown): string {
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short" }).format(parsed);
 }
 
-function fmtDateLabel(raw: unknown): string {
-  if (typeof raw !== "string" || !raw) return "-";
-  const parsed = raw.includes("T") ? new Date(raw) : new Date(`${raw}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return raw;
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsed);
-}
-
 function fmtDateTimeLabel(raw: unknown): string {
   if (typeof raw !== "string" || !raw) return "-";
   const parsed = new Date(raw);
@@ -75,9 +64,16 @@ function timeframeTitle(tf: string): string {
   }
 }
 
+function titleCaseLabel(raw: string): string {
+  return raw
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
 function cleanPdfText(input: string): string {
   return input
-    .replaceAll("•", "-")
+    .replaceAll("•", "·")
     .replaceAll("—", "-")
     .replaceAll("–", "-")
     .replaceAll("…", "...")
@@ -86,16 +82,25 @@ function cleanPdfText(input: string): string {
     .replaceAll("”", '"')
     .replaceAll("’", "'")
     .replaceAll("‘", "'")
-    .replace(/[^\x20-\x7E]/g, " ");
+    .replace(/[^\x20-\x7E\u00B7]/g, " ");
 }
 
 export function generateAnalyticsPdfDocument(timeframe: string, data: AnalyticsData): jsPDF {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
-  const pageW = doc.internal.pageSize.getWidth(); // ~595.28
-  const pageH = doc.internal.pageSize.getHeight(); // ~841.89
-  const marginX = 36;
+  const pageW = doc.internal.pageSize.getWidth(); // 595.28
+  const pageH = doc.internal.pageSize.getHeight(); // 841.89
+  const marginX = 44;
   const contentW = pageW - marginX * 2;
-  const bottomLimit = pageH - 42;
+  const bottomLimit = pageH - 44;
+
+  // Minimalist palette (Stripe / Linear inspired)
+  const INK: [number, number, number] = [27, 28, 24];
+  const MUTED: [number, number, number] = [102, 106, 104];
+  const SUBTLE: [number, number, number] = [148, 151, 145];
+  const HAIRLINE: [number, number, number] = [230, 228, 220];
+  const TINT_BG: [number, number, number] = [250, 249, 245];
+  const ACCENT: [number, number, number] = [100, 74, 187];
+  const ACCENT_SOFT: [number, number, number] = [236, 231, 249];
 
   const client = data.client ?? {};
   const quota = data.quota ?? {};
@@ -135,35 +140,54 @@ export function generateAnalyticsPdfDocument(timeframe: string, data: AnalyticsD
   const negativeSent = num(sentiments, "negative");
 
   const pendingInQueue = num(pipeline, "pendingInQueue");
-  const inProgress = num(pipeline, "inProgress");
   const openFollowUps = num(pipeline, "openFollowUps");
 
   const workspaceName = cleanPdfText(txt(client, "name", "Foolioo Workspace"));
-  const planTier = cleanPdfText(txt(client, "planTier", "Trial").toUpperCase());
-  const workspaceStatus = cleanPdfText(txt(client, "status", "active").toUpperCase());
+  const planTier = cleanPdfText(titleCaseLabel(txt(client, "planTier", "Trial")));
   const periodLabel = cleanPdfText(timeframeTitle(timeframe));
   const generatedAt = cleanPdfText(
     new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date()),
   );
-
   const connectionRate = fmtPct(connectedCalls, totalCalls);
-  const highIntentRate = fmtPct(highInterest, interestTotal || connectedCalls);
 
-  let y = 34;
+  let y = 44;
+
+  const drawHairline = (lineY: number, x1 = marginX, x2 = pageW - marginX) => {
+    doc.setDrawColor(HAIRLINE[0], HAIRLINE[1], HAIRLINE[2]);
+    doc.setLineWidth(0.6);
+    doc.line(x1, lineY, x2, lineY);
+  };
+
+  const drawSectionLabel = (label: string, rightNote?: string) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text(cleanPdfText(label.toUpperCase()), marginX, y);
+
+    if (rightNote) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      doc.text(cleanPdfText(rightNote), pageW - marginX, y, { align: "right" });
+    }
+    y += 12;
+  };
 
   const addPageWithHeader = () => {
     doc.addPage();
-    y = 34;
-    doc.setFillColor(248, 247, 242);
-    doc.rect(marginX, y - 8, contentW, 24, "F");
+    y = 40;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.5);
-    doc.setTextColor(100, 74, 187);
-    doc.text(cleanPdfText(`FOOLIOO ANALYTICS  -  ${workspaceName} (${periodLabel})`), marginX + 10, y + 7);
+    doc.setFontSize(8);
+    doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+    doc.text("FOOLIOO", marginX, y);
+
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(116, 120, 120);
-    doc.text(cleanPdfText(`Generated ${generatedAt}`), pageW - marginX - 10, y + 7, { align: "right" });
-    y += 28;
+    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    doc.text(cleanPdfText(`${workspaceName} · ${periodLabel}`), marginX + 46, y);
+    doc.text(cleanPdfText(`Generated ${generatedAt}`), pageW - marginX, y, { align: "right" });
+    y += 10;
+    drawHairline(y);
+    y += 20;
   };
 
   const ensureSpace = (needed: number) => {
@@ -172,526 +196,443 @@ export function generateAnalyticsPdfDocument(timeframe: string, data: AnalyticsD
     }
   };
 
-  const drawCardHeading = (title: string, subtitle: string, badge?: string) => {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11.5);
-    doc.setTextColor(27, 28, 24);
-    doc.text(cleanPdfText(title), marginX + 14, y + 18);
-
-    if (badge) {
-      doc.setFillColor(243, 240, 250);
-      doc.roundedRect(pageW - marginX - 94, y + 7, 80, 16, 8, 8, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(118, 85, 199);
-      doc.text(cleanPdfText(badge), pageW - marginX - 54, y + 17.5, { align: "center" });
-    }
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(119, 121, 112);
-    doc.text(cleanPdfText(subtitle), marginX + 14, y + 31);
-  };
-
-  const drawHorizontalBar = (
+  const drawMinimalBar = (
     x: number,
     barY: number,
     width: number,
     label: string,
     value: number,
     denom: number,
-    fillRgb: [number, number, number],
+    isPrimary = false,
   ) => {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.setTextColor(52, 53, 47);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
     doc.text(cleanPdfText(label), x, barY);
 
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(27, 28, 24);
-    doc.text(cleanPdfText(`${fmtInt(value)} (${fmtPct(value, denom)})`), x + width, barY, {
+    doc.setFontSize(8.5);
+    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    doc.text(cleanPdfText(`${fmtInt(value)}  (${fmtPct(value, denom)})`), x + width, barY, {
       align: "right",
     });
 
-    const trackY = barY + 4;
-    const trackH = 6;
-    doc.setFillColor(240, 239, 233);
-    doc.roundedRect(x, trackY, width, trackH, 3, 3, "F");
+    const trackY = barY + 5;
+    const trackH = 3.5;
+    doc.setFillColor(241, 240, 235);
+    doc.roundedRect(x, trackY, width, trackH, 1.75, 1.75, "F");
 
     const ratio = denom > 0 ? Math.min(1, Math.max(0, value / denom)) : 0;
     const fillW = width * ratio;
     if (fillW > 0) {
-      doc.setFillColor(fillRgb[0], fillRgb[1], fillRgb[2]);
-      doc.roundedRect(x, trackY, Math.max(4, fillW), trackH, 3, 3, "F");
+      const fill = isPrimary ? ACCENT : INK;
+      doc.setFillColor(fill[0], fill[1], fill[2]);
+      doc.roundedRect(x, trackY, Math.max(3, fillW), trackH, 1.75, 1.75, "F");
     }
   };
 
-  // ── TOP BANNER ───────────────────────────────────────────────────────────────
-  doc.setFillColor(27, 28, 24);
-  doc.roundedRect(marginX, y, contentW, 68, 8, 8, "F");
-
+  // ── 1. MINIMAL EDITORIAL HEADER ──────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.setTextColor(214, 198, 255);
-  doc.text("FOOLIOO VOICE OPERATIONS  |  VISUAL ANALYTICS REPORT", marginX + 16, y + 19);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(17);
-  doc.setTextColor(255, 255, 255);
-  doc.text(workspaceName, marginX + 16, y + 40);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(218, 217, 210);
-  doc.text(
-    cleanPdfText(`Reporting Window: ${periodLabel}   •   Plan: ${planTier} (${workspaceStatus})`),
-    marginX + 16,
-    y + 56,
-  );
+  doc.setTextColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+  doc.text("FOOLIOO  ·  VOICE OPERATIONS REPORT", marginX, y);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(195, 194, 188);
-  doc.text(cleanPdfText(`Generated: ${generatedAt}`), pageW - marginX - 16, y + 56, {
-    align: "right",
-  });
-  y += 80;
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(cleanPdfText(`Plan: ${planTier}`), pageW - marginX, y, { align: "right" });
 
-  // ── KPI METRIC CARDS (2x2 or 4-column grid) ───────────────────────────────────
-  const kpiW = (contentW - 24) / 4;
-  const kpiH = 58;
+  y += 20;
+  doc.setFont("times", "normal");
+  doc.setFontSize(22);
+  doc.setTextColor(INK[0], INK[1], INK[2]);
+  doc.text(workspaceName, marginX, y);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+  doc.text(cleanPdfText(`Generated ${generatedAt}`), pageW - marginX, y, { align: "right" });
+
+  y += 14;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(cleanPdfText(`Reporting Window: ${periodLabel}`), marginX, y);
+
+  y += 14;
+  drawHairline(y);
+  y += 18;
+
+  // ── 2. 4-COLUMN HAIRLINE KPI STRIP ───────────────────────────────────────────
+  const colW = contentW / 4;
   const kpis = [
     {
-      label: "Total Calls",
+      label: "TOTAL CALLS",
       value: fmtInt(totalCalls),
-      note: `${fmtInt(pendingInQueue)} in queue`,
-      accent: [118, 85, 199] as [number, number, number],
+      sub: `${fmtInt(pendingInQueue)} queued`,
+      highlight: false,
     },
     {
-      label: "Connection Rate",
+      label: "CONNECTION RATE",
       value: connectionRate,
-      note: `${fmtInt(connectedCalls)} connected`,
-      accent: [77, 148, 105] as [number, number, number],
+      sub: `${fmtInt(connectedCalls)} connected`,
+      highlight: true,
     },
     {
-      label: "Avg. Connected Call",
+      label: "AVG. DURATION",
       value: fmtDuration(avgDuration),
-      note: `${fmtDuration(totalDuration)} total talk`,
-      accent: [215, 166, 74] as [number, number, number],
+      sub: `${fmtDuration(totalDuration)} total talk`,
+      highlight: false,
     },
     {
-      label: "Credits Consumed",
+      label: "CREDITS USED",
       value: fmtInt(creditsCharged),
-      note: `${fmtInt(creditsRemaining)} remaining`,
-      accent: [27, 28, 24] as [number, number, number],
+      sub: `${fmtInt(creditsRemaining)} of ${fmtInt(monthlyAllowance)} left`,
+      highlight: false,
     },
   ];
 
   kpis.forEach((kpi, idx) => {
-    const kx = marginX + idx * (kpiW + 8);
-    doc.setFillColor(255, 254, 251);
-    doc.setDrawColor(236, 235, 229);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(kx, y, kpiW, kpiH, 6, 6, "FD");
+    const kx = marginX + idx * colW;
+    const textOffset = idx === 0 ? 0 : 12;
 
-    doc.setFillColor(kpi.accent[0], kpi.accent[1], kpi.accent[2]);
-    doc.rect(kx, y, kpiW, 3, "F");
+    if (idx > 0) {
+      drawHairline(y + 42, kx, kx);
+      doc.setDrawColor(HAIRLINE[0], HAIRLINE[1], HAIRLINE[2]);
+      doc.setLineWidth(0.5);
+      doc.line(kx, y - 2, kx, y + 40);
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text(cleanPdfText(kpi.label), kx + textOffset, y + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(17);
+    const valColor = kpi.highlight ? ACCENT : INK;
+    doc.setTextColor(valColor[0], valColor[1], valColor[2]);
+    doc.text(cleanPdfText(kpi.value), kx + textOffset, y + 25);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(116, 120, 120);
-    doc.text(cleanPdfText(kpi.label), kx + 10, y + 16);
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(27, 28, 24);
-    doc.text(cleanPdfText(kpi.value), kx + 10, y + 34);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(133, 135, 127);
-    doc.text(cleanPdfText(kpi.note), kx + 10, y + 48);
+    doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+    doc.text(cleanPdfText(kpi.sub), kx + textOffset, y + 38);
   });
-  y += kpiH + 12;
 
-  // ── PLAIN-LANGUAGE EXECUTIVE TAKEAWAYS ────────────────────────────────────────
-  const summaryLines: string[] = [];
-  if (totalCalls === 0) {
-    summaryLines.push(
-      "No calls occurred in this date range. Once campaigns or test calls run, pickup, intent, and trend charts populate automatically.",
-    );
-  } else {
-    summaryLines.push(
-      `Answer performance: ${fmtInt(connectedCalls)} of ${fmtInt(totalCalls)} calls connected (${connectionRate}), averaging ${fmtDuration(avgDuration)} per connected call.`,
-    );
-    summaryLines.push(
-      `Caller intent: ${fmtInt(highInterest)} high-interest leads (${highIntentRate}) and ${fmtInt(followUpsRequested)} follow-up requests captured.`,
-    );
-  }
-  summaryLines.push(
-    `Capacity status: ${fmtInt(creditsRemaining)} of ${fmtInt(monthlyAllowance)} monthly credits left; ${fmtInt(callsRemainingToday)} of ${fmtInt(maxCallsPerDay)} daily calls remaining today.`,
-  );
+  y += 52;
+  drawHairline(y);
+  y += 20;
 
-  const wrappedSummary = summaryLines.flatMap((line) => doc.splitTextToSize(cleanPdfText(`• ${line}`), contentW - 28));
-  const summaryBoxH = 28 + wrappedSummary.length * 12;
-  ensureSpace(summaryBoxH + 10);
+  // ── 3. CALL ACTIVITY & OUTCOMES (TWO-COLUMN SPLIT) ───────────────────────────
+  const splitGap = 24;
+  const leftW = contentW * 0.55;
+  const rightW = contentW - leftW - splitGap;
+  const rightX = marginX + leftW + splitGap;
+  const blockH = 136;
 
-  doc.setFillColor(248, 247, 242);
-  doc.setDrawColor(233, 232, 225);
-  doc.roundedRect(marginX, y, contentW, summaryBoxH, 6, 6, "FD");
+  // Left: Daily Activity Chart
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(119, 121, 112);
-  doc.text("AT A GLANCE  -  WHAT THESE NUMBERS MEAN", marginX + 14, y + 15);
+  doc.setFontSize(7.5);
+  doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+  doc.text("CALL ACTIVITY", marginX, y);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(37, 38, 32);
-  let sy = y + 28;
-  for (const wLine of wrappedSummary) {
-    doc.text(wLine, marginX + 14, sy);
-    sy += 12;
-  }
-  y += summaryBoxH + 12;
+  doc.setFontSize(7.5);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text("Total vs. Connected", marginX + leftW, y, { align: "right" });
 
-  // ── CALL ACTIVITY COLUMN CHART + CALL OUTCOMES BAR CHART ──────────────────────
-  const chartRowH = 186;
-  ensureSpace(chartRowH + 12);
+  // Right: Call Outcomes Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+  doc.text("CALL OUTCOMES", rightX, y);
 
-  const leftPanelW = contentW * 0.56;
-  const rightPanelW = contentW - leftPanelW - 10;
-  const rightPanelX = marginX + leftPanelW + 10;
+  const chartTop = y + 18;
+  const chartBottom = y + blockH - 22;
+  const chartLeft = marginX + 18;
+  const chartRight = marginX + leftW;
+  const chartW = chartRight - chartLeft;
+  const chartH = chartBottom - chartTop;
 
-  // Left: Call Activity Vertical Bar Chart
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(236, 235, 229);
-  doc.roundedRect(marginX, y, leftPanelW, chartRowH, 6, 6, "FD");
-  drawCardHeading(
-    "Call Activity Chart",
-    "Daily total vs. connected calls",
-    timeframe === "all" ? "ALL TIME" : timeframe.toUpperCase(),
-  );
+  const trendSlice = (Array.isArray(data.dailyTrend) ? data.dailyTrend : []).slice(-12);
 
-  const trendSlice = (Array.isArray(data.dailyTrend) ? data.dailyTrend : []).slice(-10);
-  const plotLeft = marginX + 26;
-  const plotRight = marginX + leftPanelW - 14;
-  const plotTop = y + 50;
-  const plotBottom = y + chartRowH - 34;
-  const plotW = plotRight - plotLeft;
-  const plotH = Math.max(20, plotBottom - plotTop);
-
-  // Grid & axes
-  doc.setDrawColor(235, 234, 228);
-  doc.setLineWidth(0.6);
-  for (let g = 0; g <= 2; g++) {
-    const gy = plotTop + (plotH / 2) * g;
-    doc.line(plotLeft, gy, plotRight, gy);
-  }
-  doc.setDrawColor(180, 178, 170);
-  doc.line(plotLeft, plotBottom, plotRight, plotBottom);
+  // Subtle horizontal guide lines
+  doc.setDrawColor(238, 237, 231);
+  doc.setLineWidth(0.5);
+  doc.line(chartLeft, chartTop, chartRight, chartTop);
+  doc.line(chartLeft, chartTop + chartH / 2, chartRight, chartTop + chartH / 2);
+  drawHairline(chartBottom, chartLeft, chartRight);
 
   if (trendSlice.length === 0) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
-    doc.setTextColor(146, 147, 140);
-    doc.text("No daily call activity in this window.", marginX + leftPanelW / 2, plotTop + plotH / 2, {
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text("No daily call activity in this window.", chartLeft + chartW / 2, chartTop + chartH / 2, {
       align: "center",
     });
   } else {
     const maxVal = Math.max(1, ...trendSlice.map((r) => num(r, "totalCalls")));
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.setTextColor(146, 147, 140);
-    doc.text(String(maxVal), plotLeft - 4, plotTop + 3, { align: "right" });
-    doc.text("0", plotLeft - 4, plotBottom, { align: "right" });
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text(String(maxVal), chartLeft - 5, chartTop + 3, { align: "right" });
+    doc.text("0", chartLeft - 5, chartBottom, { align: "right" });
 
-    const slotW = plotW / trendSlice.length;
-    const barW = Math.min(20, Math.max(6, slotW * 0.52));
+    const slotW = chartW / trendSlice.length;
+    const barW = Math.min(14, Math.max(5, slotW * 0.34));
 
     trendSlice.forEach((row, i) => {
       const dayTotal = num(row, "totalCalls");
       const dayConn = num(row, "connectedCalls");
-      const cx = plotLeft + i * slotW + slotW / 2 - barW / 2;
+      const cx = chartLeft + i * slotW + slotW / 2 - barW / 2;
 
-      const totalH = Math.max(2, (dayTotal / maxVal) * plotH);
-      const totalY = plotBottom - totalH;
-      doc.setFillColor(234, 229, 247);
-      doc.roundedRect(cx, totalY, barW, totalH, 2, 2, "F");
+      const totalH = Math.max(2, (dayTotal / maxVal) * chartH);
+      const totalY = chartBottom - totalH;
+      doc.setFillColor(ACCENT_SOFT[0], ACCENT_SOFT[1], ACCENT_SOFT[2]);
+      doc.roundedRect(cx, totalY, barW, totalH, 1.5, 1.5, "F");
 
       if (dayConn > 0) {
-        const connH = Math.max(2, (Math.min(dayTotal, dayConn) / maxVal) * plotH);
-        const connY = plotBottom - connH;
-        doc.setFillColor(118, 85, 199);
-        doc.roundedRect(cx, connY, barW, connH, 2, 2, "F");
+        const connH = Math.max(2, (Math.min(dayTotal, dayConn) / maxVal) * chartH);
+        const connY = chartBottom - connH;
+        doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+        doc.roundedRect(cx, connY, barW, connH, 1.5, 1.5, "F");
+      }
+
+      if (dayTotal > 0 && trendSlice.length <= 7) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+        doc.text(String(dayTotal), cx + barW / 2, totalY - 3, { align: "center" });
       }
 
       const dShort = fmtShortDate(row.date);
-      if (dShort && (trendSlice.length <= 6 || i % 2 === 0)) {
+      if (dShort && (trendSlice.length <= 7 || i % 2 === 0)) {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(6.8);
-        doc.setTextColor(146, 147, 140);
-        doc.text(cleanPdfText(dShort), cx + barW / 2, plotBottom + 10, { align: "center" });
+        doc.setFontSize(7);
+        doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+        doc.text(cleanPdfText(dShort), cx + barW / 2, chartBottom + 11, { align: "center" });
       }
     });
   }
 
-  // Legend at bottom of left chart card
-  doc.setFillColor(234, 229, 247);
-  doc.rect(marginX + 14, y + chartRowH - 15, 8, 8, "F");
+  // Minimal inline legend
+  doc.setFillColor(ACCENT_SOFT[0], ACCENT_SOFT[1], ACCENT_SOFT[2]);
+  doc.rect(chartLeft, y + blockH - 2, 6, 6, "F");
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
-  doc.setTextColor(119, 121, 112);
-  doc.text("Total calls", marginX + 26, y + chartRowH - 8);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text("Total calls", chartLeft + 10, y + blockH + 3.5);
 
-  doc.setFillColor(118, 85, 199);
-  doc.rect(marginX + 82, y + chartRowH - 15, 8, 8, "F");
-  doc.text("Connected", marginX + 94, y + chartRowH - 8);
+  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+  doc.rect(chartLeft + 62, y + blockH - 2, 6, 6, "F");
+  doc.text("Connected", chartLeft + 72, y + blockH + 3.5);
 
-  // Right: Call Outcomes Visual Bars
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(236, 235, 229);
-  doc.roundedRect(rightPanelX, y, rightPanelW, chartRowH, 6, 6, "FD");
+  // Right: Call Outcomes Tracks
+  drawMinimalBar(rightX, y + 20, rightW, "Connected", connectedCalls, totalCalls, true);
+  drawMinimalBar(rightX, y + 48, rightW, "Unanswered / busy", unansweredCalls, totalCalls, false);
+  drawMinimalBar(rightX, y + 76, rightW, "Dropped early", droppedEarlyCalls, totalCalls, false);
+  drawMinimalBar(rightX, y + 104, rightW, "Failed", failedCalls, totalCalls, false);
+
+  y += blockH + 18;
+  drawHairline(y);
+  y += 18;
+
+  // ── 4. LEAD INTELLIGENCE & QUOTA CAPACITY (TWO-COLUMN SPLIT) ─────────────────
+  const halfW = (contentW - splitGap) / 2;
+  const col2X = marginX + halfW + splitGap;
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
-  doc.setTextColor(27, 28, 24);
-  doc.text("Call Outcomes", rightPanelX + 14, y + 18);
+  doc.setFontSize(7.5);
+  doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+  doc.text("LEAD INTEREST & SENTIMENT", marginX, y);
+  doc.text("WORKSPACE CAPACITY", col2X, y);
+
+  // Left: Interest & Sentiment compact rows
+  drawMinimalBar(marginX, y + 18, halfW, "High interest", highInterest, interestTotal || totalCalls, true);
+  drawMinimalBar(marginX, y + 44, halfW, "Medium interest", mediumInterest, interestTotal || totalCalls, false);
+  drawMinimalBar(marginX, y + 70, halfW, "Low interest", lowInterest, interestTotal || totalCalls, false);
+
+  const sentSummary = `Sentiment: ${fmtInt(positiveSent)} Positive · ${fmtInt(neutralSent)} Neutral · ${fmtInt(negativeSent)} Negative`;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(119, 121, 112);
-  doc.text("How calls concluded", rightPanelX + 14, y + 31);
-
-  const outcomeInnerW = rightPanelW - 28;
-  drawHorizontalBar(rightPanelX + 14, y + 52, outcomeInnerW, "Connected", connectedCalls, totalCalls, [77, 148, 105]);
-  drawHorizontalBar(rightPanelX + 14, y + 83, outcomeInnerW, "Unanswered / busy", unansweredCalls, totalCalls, [215, 166, 74]);
-  drawHorizontalBar(rightPanelX + 14, y + 114, outcomeInnerW, "Dropped early", droppedEarlyCalls, totalCalls, [139, 141, 136]);
-  drawHorizontalBar(rightPanelX + 14, y + 145, outcomeInnerW, "Failed", failedCalls, totalCalls, [198, 108, 92]);
-
-  y += chartRowH + 12;
-
-  // ── LEAD INTELLIGENCE & SENTIMENT VISUAL PANEL ────────────────────────────────
-  const leadCardH = 192;
-  ensureSpace(leadCardH + 12);
-
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(236, 235, 229);
-  doc.roundedRect(marginX, y, contentW, leadCardH, 6, 6, "FD");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
-  doc.setTextColor(27, 28, 24);
-  doc.text("Lead Interest & Caller Sentiment", marginX + 14, y + 18);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(119, 121, 112);
-  doc.text("Visual breakdown of caller interest and conversation mood", marginX + 14, y + 31);
-
-  const halfW = (contentW - 42) / 2;
-  const rightHalfX = marginX + 14 + halfW + 14;
-
-  doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
-  doc.setTextColor(146, 147, 140);
-  doc.text("INTEREST LEVEL", marginX + 14, y + 48);
-  doc.text("CALLER SENTIMENT", rightHalfX, y + 48);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(cleanPdfText(sentSummary), marginX, y + 96);
 
-  drawHorizontalBar(marginX + 14, y + 63, halfW, "High interest", highInterest, interestTotal || totalCalls, [77, 148, 105]);
-  drawHorizontalBar(marginX + 14, y + 94, halfW, "Medium interest", mediumInterest, interestTotal || totalCalls, [215, 166, 74]);
-  drawHorizontalBar(marginX + 14, y + 125, halfW, "Low interest", lowInterest, interestTotal || totalCalls, [139, 141, 136]);
-
-  drawHorizontalBar(rightHalfX, y + 63, halfW, "Positive", positiveSent, totalCalls, [77, 148, 105]);
-  drawHorizontalBar(rightHalfX, y + 94, halfW, "Neutral", neutralSent, totalCalls, [155, 157, 150]);
-  drawHorizontalBar(rightHalfX, y + 125, halfW, "Negative", negativeSent, totalCalls, [198, 108, 92]);
-
-  doc.setFillColor(248, 247, 242);
-  doc.roundedRect(marginX + 14, y + 153, contentW - 28, 28, 5, 5, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  doc.setTextColor(27, 28, 24);
-  doc.text(
-    cleanPdfText(`Follow-up requests in period: ${fmtInt(followUpsRequested)}`),
-    marginX + 24,
-    y + 170,
-  );
-  doc.text(
-    cleanPdfText(`Open follow-up tasks: ${fmtInt(openFollowUps)}`),
-    pageW - marginX - 24,
-    y + 170,
-    { align: "right" },
-  );
-
-  y += leadCardH + 12;
-
-  // ── QUOTA & CAPACITY PROGRESS GAUGES ──────────────────────────────────────────
-  const quotaCardH = 126;
-  ensureSpace(quotaCardH + 12);
-
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(236, 235, 229);
-  doc.roundedRect(marginX, y, contentW, quotaCardH, 6, 6, "FD");
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
-  doc.setTextColor(27, 28, 24);
-  doc.text("Credits & Daily Capacity", marginX + 14, y + 18);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(119, 121, 112);
-  doc.text("Cycle allowance consumption and today's calling limit", marginX + 14, y + 31);
-
+  // Right: Cycle Credits, Daily Cap & Follow-ups
   const cycleUsedAndReserved = creditsUsedCycle + creditsReserved;
-  drawHorizontalBar(
-    marginX + 14,
-    y + 50,
-    contentW - 28,
-    `Monthly voice credits used/reserved (${fmtInt(creditsRemaining)} left)`,
+  drawMinimalBar(
+    col2X,
+    y + 18,
+    halfW,
+    `Monthly credits (${fmtInt(creditsRemaining)} left)`,
     cycleUsedAndReserved,
     Math.max(1, monthlyAllowance),
-    [118, 85, 199],
+    true,
   );
-  drawHorizontalBar(
-    marginX + 14,
-    y + 83,
-    contentW - 28,
-    `Calls placed today (${fmtInt(callsRemainingToday)} remaining of daily cap)`,
+  drawMinimalBar(
+    col2X,
+    y + 44,
+    halfW,
+    `Daily calls (${fmtInt(callsRemainingToday)} remaining)`,
     callsMadeToday,
     Math.max(1, maxCallsPerDay),
-    [77, 148, 105],
+    false,
   );
 
-  y += quotaCardH + 12;
+  const followUpLine = `Follow-up requests: ${fmtInt(followUpsRequested)}   ·   Open tasks: ${fmtInt(openFollowUps)}`;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+  doc.text(cleanPdfText(followUpLine), col2X, y + 72);
 
-  // ── CAMPAIGN PERFORMANCE TABLE ────────────────────────────────────────────────
+  y += 110;
+  drawHairline(y);
+  y += 18;
+
+  // ── 5. CAMPAIGN PERFORMANCE (ONLY IF CAMPAIGNS EXIST) ────────────────────────
   const campaignsList = Array.isArray(data.campaignPerformance) ? data.campaignPerformance : [];
-  ensureSpace(64);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.setTextColor(27, 28, 24);
-  doc.text("Campaign Performance", marginX, y + 12);
-  y += 22;
+  if (campaignsList.length > 0) {
+    ensureSpace(58);
+    drawSectionLabel("Campaign Performance", `${campaignsList.length} active`);
 
-  if (campaignsList.length === 0) {
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(236, 235, 229);
-    doc.roundedRect(marginX, y, contentW, 34, 6, 6, "FD");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    doc.setTextColor(146, 147, 140);
-    doc.text("No campaign call activity recorded in this period.", marginX + 14, y + 20);
-    y += 46;
-  } else {
-    const colX = [marginX, marginX + 175, marginX + 245, marginX + 305, marginX + 365, marginX + 445];
-    const drawCampaignHeader = () => {
-      doc.setFillColor(245, 244, 237);
-      doc.rect(marginX, y, contentW, 20, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(94, 97, 91);
-      doc.text("CAMPAIGN", colX[0] + 6, y + 13);
-      doc.text("STATUS", colX[1], y + 13);
-      doc.text("CALLS", colX[2], y + 13, { align: "right" });
-      doc.text("CONNECTED", colX[3], y + 13, { align: "right" });
-      doc.text("RATE", colX[4], y + 13, { align: "right" });
-      doc.text("HIGH INTENT", colX[5] + 70, y + 13, { align: "right" });
-      y += 22;
-    };
+    const cCol = [marginX, marginX + 185, marginX + 255, marginX + 320, marginX + 385, pageW - marginX];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text("CAMPAIGN", cCol[0], y);
+    doc.text("STATUS", cCol[1], y);
+    doc.text("CALLS", cCol[2], y, { align: "right" });
+    doc.text("CONNECTED", cCol[3], y, { align: "right" });
+    doc.text("RATE", cCol[4], y, { align: "right" });
+    doc.text("HIGH INTENT", cCol[5], y, { align: "right" });
+    y += 6;
+    drawHairline(y);
+    y += 12;
 
-    drawCampaignHeader();
-    campaignsList.forEach((row, idx) => {
-      ensureSpace(22);
-      if (idx % 2 === 1) {
-        doc.setFillColor(251, 250, 246);
-        doc.rect(marginX, y - 3, contentW, 18, "F");
-      }
+    campaignsList.forEach((row) => {
+      ensureSpace(20);
       const cCalls = num(row, "totalCalls");
       const cConn = num(row, "connectedCalls");
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8.5);
-      doc.setTextColor(37, 38, 32);
-      doc.text(cleanPdfText(txt(row, "campaignName", "Campaign").slice(0, 28)), colX[0] + 6, y + 9);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      doc.text(cleanPdfText(txt(row, "campaignName", "Campaign").slice(0, 30)), cCol[0], y);
 
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(119, 121, 112);
-      doc.text(cleanPdfText(txt(row, "campaignStatus", "draft")), colX[1], y + 9);
+      doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      doc.text(cleanPdfText(titleCaseLabel(txt(row, "campaignStatus", "draft"))), cCol[1], y);
 
-      doc.setTextColor(37, 38, 32);
-      doc.text(fmtInt(cCalls), colX[2], y + 9, { align: "right" });
-      doc.text(fmtInt(cConn), colX[3], y + 9, { align: "right" });
-      doc.text(fmtPct(cConn, cCalls), colX[4], y + 9, { align: "right" });
-      doc.text(fmtInt(num(row, "highInterestCalls")), colX[5] + 70, y + 9, { align: "right" });
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      doc.text(fmtInt(cCalls), cCol[2], y, { align: "right" });
+      doc.text(fmtInt(cConn), cCol[3], y, { align: "right" });
+      doc.text(fmtPct(cConn, cCalls), cCol[4], y, { align: "right" });
+      doc.text(fmtInt(num(row, "highInterestCalls")), cCol[5], y, { align: "right" });
 
-      doc.setDrawColor(240, 239, 233);
-      doc.line(marginX, y + 15, marginX + contentW, y + 15);
-      y += 19;
+      y += 6;
+      drawHairline(y);
+      y += 12;
     });
-    y += 8;
+
+    y += 6;
   }
 
-  // ── RECENT CALL HIGHLIGHTS ───────────────────────────────────────────────────
+  // ── 6. RECENT CALL LOG (CLEAN HAIRLINE TABLE) ────────────────────────────────
   const recentList = Array.isArray(data.recentCalls) ? data.recentCalls : [];
   if (recentList.length > 0) {
-    ensureSpace(44);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(27, 28, 24);
-    doc.text("Recent Call Highlights", marginX, y + 12);
-    y += 24;
+    ensureSpace(56);
+    drawSectionLabel(
+      "Recent Calls",
+      campaignsList.length === 0 ? "No campaign calls in period" : undefined,
+    );
 
-    for (const row of recentList.slice(0, 8)) {
-      const contactName = cleanPdfText(txt(row, "contactName", formatPhoneNumber(txt(row, "phoneNumber", "")) || "Contact"));
-      const outcome = cleanPdfText(txt(row, "outcome", "unknown").replaceAll("_", " "));
-      const interest = cleanPdfText(txt(row, "interestLevel", "unknown"));
-      const sentiment = cleanPdfText(txt(row, "sentiment", "neutral"));
+    const rCol = {
+      when: marginX,
+      contact: marginX + 78,
+      outcome: marginX + 188,
+      dur: marginX + 264,
+      summary: marginX + 308,
+    };
+    const summaryMaxW = pageW - marginX - rCol.summary;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text("TIME", rCol.when, y);
+    doc.text("CONTACT", rCol.contact, y);
+    doc.text("OUTCOME", rCol.outcome, y);
+    doc.text("DURATION", rCol.dur, y, { align: "right" });
+    doc.text("SUMMARY", rCol.summary, y);
+    y += 6;
+    drawHairline(y);
+    y += 12;
+
+    for (const row of recentList.slice(0, 10)) {
+      const contactName = cleanPdfText(
+        txt(row, "contactName", formatPhoneNumber(txt(row, "phoneNumber", "")) || "Contact"),
+      );
+      const outcome = cleanPdfText(titleCaseLabel(txt(row, "outcome", "unknown")));
+      const sentiment = cleanPdfText(titleCaseLabel(txt(row, "sentiment", "neutral")));
       const dur = fmtDuration(num(row, "durationSeconds"));
       const when = cleanPdfText(fmtDateTimeLabel(row.startedAt));
       const summary = cleanPdfText(txt(row, "summary", "No summary recorded."));
-      const summaryLines = doc.splitTextToSize(summary, contentW - 24);
-      const itemH = 26 + summaryLines.length * 11;
 
-      ensureSpace(itemH + 8);
-      doc.setFillColor(255, 254, 251);
-      doc.setDrawColor(236, 235, 229);
-      doc.roundedRect(marginX, y, contentW, itemH, 5, 5, "FD");
+      const wrappedSummary = doc.splitTextToSize(summary, summaryMaxW).slice(0, 3);
+      const rowH = Math.max(22, wrappedSummary.length * 10.5 + 8);
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
-      doc.setTextColor(27, 28, 24);
-      doc.text(`${contactName}  (${when})`, marginX + 12, y + 13);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(118, 85, 199);
-      doc.text(
-        `${outcome.toUpperCase()}  •  ${interest.toUpperCase()} INTENT  •  ${sentiment.toUpperCase()}  •  ${dur}`,
-        pageW - marginX - 12,
-        y + 13,
-        { align: "right" },
-      );
+      ensureSpace(rowH + 6);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      doc.setTextColor(101, 104, 97);
-      let ry = y + 25;
-      for (const sLine of summaryLines) {
-        doc.text(sLine, marginX + 12, ry);
-        ry += 11;
-      }
+      doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      doc.text(when, rCol.when, y);
 
-      y += itemH + 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.2);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      doc.text(contactName.slice(0, 20), rCol.contact, y);
+
+      const isConn = outcome.toLowerCase() === "connected";
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      const outColor = isConn ? ACCENT : MUTED;
+      doc.setTextColor(outColor[0], outColor[1], outColor[2]);
+      doc.text(outcome, rCol.outcome, y);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.2);
+      doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+      doc.text(sentiment, rCol.outcome, y + 10);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      doc.text(dur, rCol.dur, y, { align: "right" });
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+      wrappedSummary.forEach((line: string, lineIdx: number) => {
+        doc.text(line, rCol.summary, y + lineIdx * 10.5);
+      });
+
+      y += rowH - 2;
+      drawHairline(y);
+      y += 11;
     }
   }
 
-  // ── PAGE FOOTERS ─────────────────────────────────────────────────────────────
+  // ── QUIET FOOTER ─────────────────────────────────────────────────────────────
   const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
-    doc.setDrawColor(233, 232, 225);
-    doc.line(marginX, pageH - 28, pageW - marginX, pageH - 28);
+    drawHairline(pageH - 30);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.setTextColor(133, 135, 127);
-    doc.text("Foolioo AI Voice Operations - Analytics Report", marginX, pageH - 16);
-    doc.text(`Page ${p} of ${totalPages}`, pageW - marginX, pageH - 16, { align: "right" });
+    doc.setTextColor(SUBTLE[0], SUBTLE[1], SUBTLE[2]);
+    doc.text("Foolioo AI Voice Operations", marginX, pageH - 18);
+    doc.text(`Page ${p} of ${totalPages}`, pageW - marginX, pageH - 18, { align: "right" });
   }
 
   return doc;

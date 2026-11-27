@@ -11,6 +11,7 @@ import {
   deleteFollowUpAction,
   updateFollowUpAction,
 } from "@/app/(dashboard)/dashboard/actions";
+import { dashboardKeys } from "@/lib/query/keys";
 import { formatPhoneNumber } from "@/lib/utils/format-phone";
 
 type ContactOption = { id: string; fullName: string; phoneNumber: string };
@@ -150,22 +151,53 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
     });
   }, [items, priority, query, status]);
 
+  const followUpsQueryPrefix = dashboardKeys.followUps().slice(0, 2);
+
+  const syncFollowUpsCache = (
+    updater: (rows: FollowUpRecord[], currentTotal: number) => { rows: FollowUpRecord[]; total: number },
+  ) => {
+    queryClient.setQueriesData<Record<string, unknown>>(
+      { queryKey: followUpsQueryPrefix },
+      (cached) => {
+        if (!cached || !Array.isArray(cached.followUps)) return cached;
+        const currentRows = cached.followUps as FollowUpRecord[];
+        const currentTotal = typeof cached.total === "number" ? cached.total : currentRows.length;
+        const next = updater(currentRows, currentTotal);
+        return {
+          ...cached,
+          followUps: next.rows,
+          total: next.total,
+        };
+      },
+    );
+  };
+
   async function changeStatus(item: FollowUpRecord, nextStatus: string) {
     const previousItems = items;
     setBusyId(item.id); setError(null); setNotice(null);
     setItems((current) => current.map((row) => (row.id === item.id ? { ...row, status: nextStatus } : row)));
+    syncFollowUpsCache((rows, currentTotal) => ({
+      rows: rows.map((row) => (row.id === item.id ? { ...row, status: nextStatus } : row)),
+      total: currentTotal,
+    }));
     const result = await updateFollowUpAction(item.id, { status: nextStatus });
     setBusyId(null);
     if (!result.ok) {
       setItems(previousItems);
+      syncFollowUpsCache((_, currentTotal) => ({ rows: previousItems, total: currentTotal }));
       setError(result.error);
       return;
     }
     const updatedRow = (result.data as { followUp?: FollowUpRecord } | undefined)?.followUp;
     if (updatedRow && typeof updatedRow === "object") {
       setItems((current) => current.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)));
+      syncFollowUpsCache((rows, currentTotal) => ({
+        rows: rows.map((row) => (row.id === item.id ? { ...row, ...updatedRow } : row)),
+        total: currentTotal,
+      }));
     }
     setNotice(nextStatus === "done" ? "Follow-up marked as completed." : nextStatus === "not_needed" ? "Follow-up closed." : "Follow-up reopened.");
+    void queryClient.invalidateQueries({ queryKey: followUpsQueryPrefix });
     router.refresh();
   }
 
@@ -176,27 +208,21 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
 
   const evictFollowUpFromCache = (targetId: string) => {
     setItems((current) => current.filter((row) => row.id !== targetId));
-    queryClient.setQueriesData<Record<string, unknown>>(
-      { queryKey: ["dashboard", "follow-ups"] },
-      (cached) => {
-        if (!cached || !Array.isArray(cached.followUps)) return cached;
-        const filtered = cached.followUps.filter(
-          (row) =>
-            !(
-              typeof row === "object" &&
-              row !== null &&
-              "id" in row &&
-              (row as { id?: unknown }).id === targetId
-            ),
-        );
-        if (filtered.length === cached.followUps.length) return cached;
-        return {
-          ...cached,
-          followUps: filtered,
-          total: typeof cached.total === "number" ? Math.max(0, cached.total - 1) : filtered.length,
-        };
-      },
-    );
+    syncFollowUpsCache((rows, currentTotal) => {
+      const nextRows = rows.filter(
+        (row) =>
+          !(
+            typeof row === "object" &&
+            row !== null &&
+            "id" in row &&
+            (row as { id?: unknown }).id === targetId
+          ),
+      );
+      return {
+        rows: nextRows,
+        total: nextRows.length < rows.length ? Math.max(0, currentTotal - 1) : currentTotal,
+      };
+    });
   };
 
   async function confirmRemoveItem() {
@@ -213,6 +239,7 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       (result.status === 404 || /not found/i.test(result.error));
     if (!result.ok && !alreadyGone) {
       setItems(previousItems);
+      syncFollowUpsCache((_, currentTotal) => ({ rows: previousItems, total: currentTotal + 1 }));
       setError(result.error);
       return;
     }
@@ -220,7 +247,7 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
       evictFollowUpFromCache(item.id);
     }
     setNotice(alreadyGone ? "Follow-up was already removed. Synced queue." : "Follow-up deleted.");
-    await queryClient.invalidateQueries({ queryKey: ["dashboard", "follow-ups"] });
+    void queryClient.invalidateQueries({ queryKey: followUpsQueryPrefix });
     router.refresh();
   }
 
@@ -288,8 +315,16 @@ export function FollowUpsDashboard({ followUps, total, contacts, initialError, i
         };
 
     setItems((current) => [optimisticRecord, ...current]);
+    syncFollowUpsCache((rows, currentTotal) => {
+      const deduped = rows.filter((row) => row.id !== optimisticRecord.id);
+      return {
+        rows: [optimisticRecord, ...deduped],
+        total: currentTotal + 1,
+      };
+    });
     setCreating(false);
     setNotice("Follow-up created.");
+    void queryClient.invalidateQueries({ queryKey: followUpsQueryPrefix });
     router.refresh();
   }
 

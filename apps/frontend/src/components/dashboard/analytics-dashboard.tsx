@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { dashboardKeys, type OverviewTimeframeKey } from "@/lib/query/keys";
 import { exportAnalyticsToPdf } from "@/lib/utils/export-analytics-pdf";
 
 type Row = Record<string, unknown>;
@@ -48,13 +50,23 @@ function BreakdownRow({ label, value, total, color = "bg-[#7655C7]" }: { label: 
   return <div><div className="mb-1.5 flex items-center justify-between gap-3 text-[13px]"><span className="text-[#656861]">{label}</span><span className="font-semibold tabular-nums text-[#252620]">{value.toLocaleString("en-IN")}</span></div><div className="h-2 overflow-hidden rounded-full bg-[#F0EFE9]"><div className={`h-full rounded-full ${color}`} style={{ width: `${width}%` }} /></div></div>;
 }
 
+function normalizeAnalyticsTimeframe(value: string): OverviewTimeframeKey {
+  if (value === "today" || value === "7d" || value === "30d" || value === "90d" || value === "all") {
+    return value;
+  }
+  return "30d";
+}
+
 export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: string; data: AnalyticsData | null; error: string | null }) {
   const router = useRouter();
-  const [selectedTimeframe, setSelectedTimeframe] = useState(timeframe);
+  const queryClient = useQueryClient();
+  const [selectedTimeframe, setSelectedTimeframe] = useState<OverviewTimeframeKey>(() =>
+    normalizeAnalyticsTimeframe(timeframe),
+  );
   const [exportNotice, setExportNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    setSelectedTimeframe(timeframe);
+    setSelectedTimeframe(normalizeAnalyticsTimeframe(timeframe));
   }, [timeframe]);
 
   useEffect(() => {
@@ -82,7 +94,19 @@ export function AnalyticsDashboard({ timeframe, data, error }: { timeframe: stri
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="flex items-center gap-3 font-['Space_Grotesk'] text-[13px] text-[#747878]">
           Date range
-          <select value={selectedTimeframe} onChange={(event) => { const nextFrame = event.target.value; setSelectedTimeframe(nextFrame); router.push(`/dashboard/analytics?timeframe=${nextFrame}`); router.refresh(); }} className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[14px] font-medium text-[#252620] outline-none focus:border-[#7655C7]">
+          <select
+            value={selectedTimeframe}
+            onChange={(event) => {
+              const nextFrame = normalizeAnalyticsTimeframe(event.target.value);
+              setSelectedTimeframe(nextFrame);
+              void queryClient.invalidateQueries({
+                queryKey: dashboardKeys.overviewAnalytics(nextFrame),
+              });
+              router.push(`/dashboard/analytics?timeframe=${nextFrame}`);
+              router.refresh();
+            }}
+            className="h-10 rounded-[6px] border border-[#DCDDD6] bg-white px-3 text-[14px] font-medium text-[#252620] outline-none focus:border-[#7655C7]"
+          >
             <option value="today">Today</option>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>

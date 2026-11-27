@@ -22,17 +22,35 @@ export type DashboardAuthContext = {
  * and Supabase OAuth identity (Google Sign-In).
  */
 export const getDashboardAuthContext = cache(async (): Promise<DashboardAuthContext | null> => {
-  // 1. Check custom App session cookie first
+  // 1. Check custom App session cookie first (verify signature when JWT_SECRET is configured)
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get(FOOLIOO_SESSION_COOKIE)?.value;
     if (sessionToken) {
-      const payload = jwt.decode(sessionToken) as {
+      const jwtSecret = process.env.JWT_SECRET?.trim();
+      let payload: {
         userId?: string;
         email?: string;
         displayName?: string;
         exp?: number;
-      } | null;
+      } | null = null;
+
+      if (jwtSecret) {
+        try {
+          const verified = jwt.verify(sessionToken, jwtSecret);
+          if (typeof verified === "object" && verified !== null) {
+            payload = verified as typeof payload;
+          }
+        } catch {
+          // Invalid or tampered signature — reject custom session cookie
+          payload = null;
+        }
+      } else {
+        const decoded = jwt.decode(sessionToken);
+        if (typeof decoded === "object" && decoded !== null) {
+          payload = decoded as typeof payload;
+        }
+      }
 
       if (payload?.userId && (!payload.exp || payload.exp * 1000 > Date.now())) {
         return {

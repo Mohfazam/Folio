@@ -1458,6 +1458,33 @@ export function ContactsDashboard({
       }
     }
 
+    const contactsQueryPrefix = dashboardKeys.contacts().slice(0, 2);
+    if (savedContact) {
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: contactsQueryPrefix },
+        (cached) => {
+          if (!cached || !Array.isArray(cached.contacts)) return cached;
+          const currentRows = cached.contacts as ContactRecord[];
+          const currentTotal = typeof cached.total === "number" ? cached.total : currentRows.length;
+          if (wasCreating) {
+            const deduped = currentRows.filter((item) => item.id !== savedContact.id);
+            return {
+              ...cached,
+              contacts: [savedContact, ...deduped],
+              total: deduped.length < currentRows.length ? currentTotal : currentTotal + 1,
+            };
+          }
+          return {
+            ...cached,
+            contacts: currentRows.map((item) => (item.id === savedContact.id ? savedContact : item)),
+          };
+        },
+      );
+    }
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: contactsQueryPrefix }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     void executeQuery(activeFilters, { silent: true });
     router.refresh();
   }
@@ -1505,8 +1532,27 @@ export function ContactsDashboard({
 
       setContactsList((prev) => [...newRecords, ...prev].slice(0, activeFilters.limit));
       setTotalCount((prev) => prev + (insertedCount ?? newRecords.length));
+      const contactsQueryPrefix = dashboardKeys.contacts().slice(0, 2);
+      const delta = insertedCount ?? newRecords.length;
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: contactsQueryPrefix },
+        (cached) => {
+          if (!cached || !Array.isArray(cached.contacts)) return cached;
+          const currentRows = cached.contacts as ContactRecord[];
+          const currentTotal = typeof cached.total === "number" ? cached.total : currentRows.length;
+          return {
+            ...cached,
+            contacts: [...newRecords, ...currentRows],
+            total: currentTotal + delta,
+          };
+        },
+      );
     }
 
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.contacts().slice(0, 2) }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     void executeQuery(activeFilters, { silent: true });
     router.refresh();
   }

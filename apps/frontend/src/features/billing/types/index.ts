@@ -2,7 +2,7 @@ export type StandardPurchasablePlanId = "growth" | "pro" | "scale";
 export type LocalDevTestPlanId = "dev_test";
 export type PurchasablePlanId = StandardPurchasablePlanId | LocalDevTestPlanId;
 
-export type OneTimePlanDefinition = {
+export type MonthlyPlanDefinition = {
   id: PurchasablePlanId;
   name: string;
   badge?: string;
@@ -55,6 +55,7 @@ export type CreateBillingOrderRequest = {
 
 export type CreateBillingOrderResponse = {
   orderId: string;
+  subscriptionId?: string;
   amount: number;
   currency: string;
   keyId?: string;
@@ -67,7 +68,8 @@ export type CreateBillingOrderResponse = {
 
 export type VerifyBillingPaymentRequest = {
   planId: PurchasablePlanId;
-  razorpay_order_id: string;
+  razorpay_order_id?: string;
+  razorpay_subscription_id?: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
   idempotencyKey?: string;
@@ -87,7 +89,8 @@ export type VerifyBillingPaymentResponse = {
 };
 
 export type RazorpaySuccessPayload = {
-  razorpay_order_id: string;
+  razorpay_order_id?: string;
+  razorpay_subscription_id?: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
 };
@@ -109,7 +112,8 @@ export type RazorpayCheckoutOptions = {
   name: string;
   description: string;
   image?: string;
-  order_id: string;
+  order_id?: string;
+  subscription_id?: string;
   prefill?: {
     name?: string;
     email?: string;

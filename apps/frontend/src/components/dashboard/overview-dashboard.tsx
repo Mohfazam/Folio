@@ -2171,9 +2171,35 @@ export function OverviewDashboard({ data }: { data: DashboardOverviewData }) {
           data={data}
           onClose={() => setActiveAction(null)}
           onComplete={() => {
+            const completedAction = activeAction;
             setActiveAction(null);
-            void queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() });
-            void queryClient.invalidateQueries({ queryKey: dashboardKeys.overviewAnalytics(timeframe) });
+            void Promise.all([
+              queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+              queryClient.invalidateQueries({ queryKey: dashboardKeys.overviewAnalytics(timeframe) }),
+              ...(completedAction === "voice"
+                ? [
+                    queryClient.invalidateQueries({ queryKey: dashboardKeys.agentSettings() }),
+                    queryClient.invalidateQueries({ queryKey: dashboardKeys.businessProfile() }),
+                    queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() }),
+                  ]
+                : []),
+              ...(completedAction === "contacts"
+                ? [queryClient.invalidateQueries({ queryKey: dashboardKeys.contacts().slice(0, 2) })]
+                : []),
+              ...(completedAction === "campaign" || completedAction === "launch"
+                ? [
+                    queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() }),
+                    queryClient.invalidateQueries({ queryKey: dashboardKeys.calls().slice(0, 2) }),
+                  ]
+                : []),
+              ...(completedAction === "test-call"
+                ? [queryClient.invalidateQueries({ queryKey: dashboardKeys.calls().slice(0, 2) })]
+                : []),
+              ...(completedAction === "routing"
+                ? [queryClient.invalidateQueries({ queryKey: dashboardKeys.businessProfile() })]
+                : []),
+            ]);
+            router.refresh();
           }}
           onSwitchAction={(nextAction) => setActiveAction(nextAction)}
         />
