@@ -12,3 +12,6 @@ export type MessageThreadInsert = typeof import("./schema.js").messageThreads.$i
 
 export type MessageSelect = typeof import("./schema.js").messages.$inferSelect;
 export type MessageInsert = typeof import("./schema.js").messages.$inferInsert;
+
+export type MessageDeliveryReceiptSelect = typeof import("./schema.js").messageDeliveryReceipts.$inferSelect;
+export type MessageDeliveryReceiptInsert = typeof import("./schema.js").messageDeliveryReceipts.$inferInsert;
