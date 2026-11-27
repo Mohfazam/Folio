@@ -44,6 +44,9 @@ export const sentimentEnum = pgEnum("sentiment", ["positive", "neutral", "negati
 // Follow-ups
 export const followUpStatusEnum = pgEnum("follow_up_status", ["open", "done", "not_needed"]);
 
+// Messaging
+export const messageChannelEnum = pgEnum("message_channel", ["sms", "whatsapp"]);
+
 // Knowledge Base Entry Types (Multi-Tech, Enterprise & Universal)
 export const kbEntryTypeEnum = pgEnum("kb_entry_type", [
   "faq",
