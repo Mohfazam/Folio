@@ -17,12 +17,28 @@ function detectHumanRequest(transcript: TranscriptTurn[]): boolean {
 
 function detectOptOutRequest(transcript: TranscriptTurn[]): boolean {
   const explicitOptOutPatterns = [
-    /\b(unsubscribe|opt me out|remove my number|remove me from (your )?(list|database)|put me on (the )?do not call list)\b/i,
+    /\b(unsubscribe|opt me out|remove my number|remove me from (your )?(list|database)|put me on (the )?(dnc|do not call list))\b/i,
     /\b(don't|dont|do not)\s+(call|contact|phone)\s+(me|this number|my number)\b(?!\s+(right now|now|today|tomorrow|later|this time|next week))\b/i,
     /\b(stop calling|stop contacting|never call|never contact)\s+(me|this number|my number)\b/i,
     /\b(do not call|dnc)\s+(me|this number|my number)\b/i,
   ];
   return transcript.some((turn) => turn.speaker === "user" && explicitOptOutPatterns.some((pattern) => pattern.test(turn.text)));
+}
+
+function detectInfoRequest(transcript: TranscriptTurn[]): { requested: boolean; infoDetail?: string } {
+  const infoPatterns = [
+    /\b(send|share|text|sms|whatsapp|message|email|mail)\s+(me\s+)?(the\s+)?(link|details|info|information|brochure|catalog|pricing|rates|quote|specs|website|address)\b/i,
+    /\b(can you|could you|please)\s+(text|sms|send|email|whatsapp)\b/i,
+    /\b(text|sms|email|message)\s+(it\s+to\s+me|them\s+to\s+me|me)\b/i,
+    /\b(drop|ping)\s+me\s+(a\s+)?(message|text|link|details)\b/i,
+  ];
+  const matchingTurn = transcript.find(
+    (turn) => turn.speaker === "user" && infoPatterns.some((pattern) => pattern.test(turn.text))
+  );
+  if (matchingTurn) {
+    return { requested: true, infoDetail: matchingTurn.text };
+  }
+  return { requested: false };
 }
 
 function detectCallbackRequest(transcript: TranscriptTurn[]): string | null {
@@ -79,6 +95,7 @@ export async function analyzeCallTranscript(
     .join("\n");
   const humanRequestedFromTranscript = detectHumanRequest(transcript);
   const optOutRequestedFromTranscript = detectOptOutRequest(transcript);
+  const infoRequestFromTranscript = detectInfoRequest(transcript);
   const callbackUtteranceFromTranscript = !optOutRequestedFromTranscript
     ? detectCallbackRequest(transcript)
     : null;
@@ -107,6 +124,8 @@ Extract the following details in strict JSON format:
   "humanRequested": boolean (true only when the caller explicitly asks to speak to a real person, representative, manager, or support agent),
   "optOutRequested": boolean (true when the caller explicitly asks to stop future outreach, for example "don't call me", "stop contacting this number", "remove my number", or "unsubscribe"; do not treat ending this call or asking for a temporary pause such as "don't call me tomorrow" as permanent opt-out),
   "requestedCallbackTime": "ISO-8601 timestamp with Z or the correct explicit UTC offset for the workspace timezone, resolved from the current timestamp, only when the caller gave a specific date and time; otherwise null",
+  "infoRequested": boolean (true if the caller requested information, a website link, catalog, brochure, pricing, or details sent via SMS, message, or email),
+  "requestedInfo": "Specific info or link the caller asked for, e.g. 'website link', 'pricing brochure', 'consultation booking link'; otherwise null",
   "notes": "actionable notes or next steps for human sales / support reps. Preserve the caller's exact natural-language callback request here when it cannot be safely converted to a specific timestamp."
 }
 
@@ -136,6 +155,8 @@ Output only valid JSON with no markdown backticks or commentary.`;
       followUpRequested: callbackRequestedFromTranscript || Boolean(parsed.followUpRequested),
       humanRequested: humanRequestedFromTranscript || parsed.humanRequested === true,
       optOutRequested: optOutRequestedFromTranscript || parsed.optOutRequested === true,
+      infoRequested: infoRequestFromTranscript.requested || parsed.infoRequested === true,
+      requestedInfo: parsed.requestedInfo || infoRequestFromTranscript.infoDetail || undefined,
       requestedCallbackTime: isTimezoneQualifiedIsoDate(parsed.requestedCallbackTime)
         ? new Date(parsed.requestedCallbackTime).toISOString()
         : undefined,
