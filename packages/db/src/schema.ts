@@ -46,6 +46,7 @@ export const followUpStatusEnum = pgEnum("follow_up_status", ["open", "done", "n
 
 // Messaging
 export const messageChannelEnum = pgEnum("message_channel", ["sms", "whatsapp"]);
+export const messageDirectionEnum = pgEnum("message_direction", ["inbound", "outbound"]);
 
 // Knowledge Base Entry Types (Multi-Tech, Enterprise & Universal)
 export const kbEntryTypeEnum = pgEnum("kb_entry_type", [
