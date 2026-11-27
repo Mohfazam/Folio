@@ -583,5 +583,10 @@ export const messageDeliveryReceipts = pgTable(
     rawStatus: text("raw_status").notNull(),
     payload: jsonb("payload").default({}),
     receivedAt: timestamp("received_at").notNull().defaultNow(),
-  }
+  },
+  (table) => [
+    index("idx_message_delivery_receipts_message").on(table.messageId),
+    index("idx_message_delivery_receipts_provider").on(table.provider),
+    index("idx_message_delivery_receipts_received_at").on(table.receivedAt),
+  ]
 );
