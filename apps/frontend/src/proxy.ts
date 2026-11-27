@@ -62,5 +62,5 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Refresh sessions on protected application routes without adding an
   // authentication lookup to unrelated public pages or static assets.
-  matcher: ["/dashboard/:path*", "/onboarding", "/sign-in", "/auth/callback"],
+  matcher: ["/dashboard/:path*", "/onboarding", "/sign-in", "/sign-up", "/auth/callback"],
 };

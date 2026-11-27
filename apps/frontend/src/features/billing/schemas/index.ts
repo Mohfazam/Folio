@@ -28,6 +28,7 @@ export const createOrderRequestSchema = createBillingOrderRequestSchema;
 
 export const createBillingOrderResponseSchema = z.object({
   orderId: z.string().trim().min(1),
+  subscriptionId: z.string().trim().optional(),
   amount: z.number().int().positive(),
   currency: z.string().trim().min(1).default("INR"),
   keyId: z.string().trim().optional(),
@@ -42,7 +43,8 @@ export const createBillingOrderResponseSchema = z.object({
 
 export const verifyBillingPaymentRequestSchema = z.object({
   planId: purchasablePlanSchema,
-  razorpay_order_id: z.string().trim().min(1),
+  razorpay_order_id: z.string().trim().min(1).optional(),
+  razorpay_subscription_id: z.string().trim().min(1).optional(),
   razorpay_payment_id: z.string().trim().min(1),
   razorpay_signature: z.string().trim().min(1),
   idempotencyKey: z.string().trim().min(1).max(200).optional(),

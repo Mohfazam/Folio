@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { planId, razorpay_order_id, razorpay_payment_id, razorpay_signature, idempotencyKey } =
+  const { planId, razorpay_order_id, razorpay_subscription_id, razorpay_payment_id, razorpay_signature, idempotencyKey } =
     parsed.data;
   const blockedResponse = enforceDevTestPlanAllowed(planId, request.headers);
   if (blockedResponse) {
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       planId,
       razorpay_order_id,
+      razorpay_subscription_id,
       razorpay_payment_id,
       razorpay_signature,
       idempotencyKey,

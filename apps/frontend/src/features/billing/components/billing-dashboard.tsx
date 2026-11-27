@@ -367,7 +367,7 @@ export function BillingDashboard({
         name: "Foolioo",
         description: checkoutSummary.description,
         image: "/Foolioo.svg",
-        order_id: order.orderId,
+        ...(order.subscriptionId ? { subscription_id: order.subscriptionId } : { order_id: order.orderId }),
         prefill: {
           name: order.prefill?.name || billingName.trim() || profile.displayName || undefined,
           email: order.prefill?.email || profile.email || undefined,
@@ -407,7 +407,8 @@ export function BillingDashboard({
           try {
             const verification = await verifyPaymentMutation.mutateAsync({
               planId: checkoutSummary.planIdForApi,
-              razorpay_order_id: response.razorpay_order_id,
+              ...(response.razorpay_order_id ? { razorpay_order_id: response.razorpay_order_id } : {}),
+              ...(response.razorpay_subscription_id ? { razorpay_subscription_id: response.razorpay_subscription_id } : {}),
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
               idempotencyKey,
@@ -422,7 +423,7 @@ export function BillingDashboard({
               );
               trackBillingEvent("payment_reconciling", {
                 planId: checkoutSummary.planIdForApi,
-                orderId: response.razorpay_order_id,
+                orderId: response.razorpay_subscription_id || response.razorpay_order_id,
                 paymentId: response.razorpay_payment_id,
               });
               return;

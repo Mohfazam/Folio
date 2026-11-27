@@ -2651,11 +2651,35 @@ export function CampaignsDashboard({
     },
   ) => {
     if (options?.createdCampaign) {
-      const created = options.createdCampaign;
+      const nowIso = new Date().toISOString();
+      const created: Campaign = {
+        ...options.createdCampaign,
+        createdAt: options.createdCampaign.createdAt ?? nowIso,
+        updatedAt: options.createdCampaign.updatedAt ?? nowIso,
+      };
       setOptimisticCreated((prev) => [
         created,
         ...prev.filter((item) => item.id !== created.id),
       ]);
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: dashboardKeys.campaigns() },
+        (cached) => {
+          if (!cached || !Array.isArray(cached.campaigns)) return cached;
+          const existing = cached.campaigns.filter(
+            (item) =>
+              !(
+                typeof item === "object" &&
+                item !== null &&
+                "id" in item &&
+                (item as { id?: unknown }).id === created.id
+              ),
+          );
+          return {
+            ...cached,
+            campaigns: [created, ...existing],
+          };
+        },
+      );
     }
     setCreating(false);
     setDuplicateSource(null);
@@ -2720,15 +2744,40 @@ export function CampaignsDashboard({
         }}
         onSaved={(msg, patch) => {
           if (patch) {
+            const stampedPatch: Partial<Campaign> = {
+              ...patch,
+              updatedAt: patch.updatedAt ?? new Date().toISOString(),
+            };
             setOptimisticPatches((prev) => ({
               ...prev,
               [selectedDetailCampaign.id]: {
                 ...(prev[selectedDetailCampaign.id] ?? {}),
-                ...patch,
+                ...stampedPatch,
               },
             }));
+            queryClient.setQueriesData<Record<string, unknown>>(
+              { queryKey: dashboardKeys.campaigns() },
+              (cached) => {
+                if (!cached || !Array.isArray(cached.campaigns)) return cached;
+                return {
+                  ...cached,
+                  campaigns: cached.campaigns.map((item) =>
+                    typeof item === "object" &&
+                    item !== null &&
+                    "id" in item &&
+                    (item as { id?: unknown }).id === selectedDetailCampaign.id
+                      ? { ...item, ...stampedPatch }
+                      : item,
+                  ),
+                };
+              },
+            );
           }
           setNotice(msg);
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.campaigns() }),
+            queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+          ]);
           router.refresh();
         }}
       />

@@ -106,36 +106,83 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
   const filtered = useMemo(() => entries.filter(e => (filter === "all" || e.type === filter) && `${e.title ?? ""} ${e.question ?? ""} ${e.content} ${e.category ?? ""}`.toLowerCase().includes(query.toLowerCase())),[entries,filter,query]);
   const activeCount = entries.filter(e=>e.isActive).length;
 
+  const syncKnowledgeBaseCache = (
+    updater: (rows: Entry[], currentTotal: number) => { rows: Entry[]; total: number },
+  ) => {
+    queryClient.setQueriesData<Record<string, unknown>>(
+      { queryKey: dashboardKeys.knowledgeBase() },
+      (cached) => {
+        if (!cached || !Array.isArray(cached.entries)) return cached;
+        const currentRows = cached.entries as Entry[];
+        const currentTotal = typeof cached.total === "number" ? cached.total : currentRows.length;
+        const next = updater(currentRows, currentTotal);
+        return {
+          ...cached,
+          entries: next.rows,
+          total: next.total,
+        };
+      },
+    );
+  };
+
   async function submitEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     const form = new FormData(event.currentTarget);
     const payload = { type:String(form.get("type")), title:String(form.get("title")||"").trim(), category:String(form.get("category")||"").trim(), question:String(form.get("question")||"").trim(), content:String(form.get("content")||"").trim(), tags:String(form.get("tags")||"").split(",").map(x=>x.trim()).filter(Boolean), priority:Number(form.get("priority")||0), isActive:form.get("isActive")==="on" };
     const nowIso = new Date().toISOString();
-    const result = editing ? await updateKnowledgeEntryAction(editing.id,payload) : await createKnowledgeEntryAction(payload);
+    const editingTarget = editing;
+    const result = editingTarget ? await updateKnowledgeEntryAction(editingTarget.id,payload) : await createKnowledgeEntryAction(payload);
     if (!result.ok) { setError(result.error); setBusy(false); return; }
-    const raw = result.data?.entry as Entry | undefined;
-    if (raw) {
-      setEntries(current => editing ? current.map(e=>e.id===editing.id?raw:e) : [raw,...current]);
-    } else if (editing) {
-      setEntries(current => current.map(e=>e.id===editing.id ? { ...e, ...payload, title: payload.title || null, category: payload.category || null, question: payload.question || null, version: e.version + 1, updatedAt: nowIso } : e));
+    const raw = (result.data as { entry?: Entry } | undefined)?.entry;
+    const nextEntry: Entry = raw && typeof raw === "object"
+      ? raw
+      : editingTarget
+        ? {
+            ...editingTarget,
+            ...payload,
+            title: payload.title || null,
+            category: payload.category || null,
+            question: payload.question || null,
+            version: editingTarget.version + 1,
+            updatedAt: nowIso,
+          }
+        : {
+            id: `temp-${Date.now()}`,
+            type: payload.type,
+            title: payload.title || null,
+            category: payload.category || null,
+            question: payload.question || null,
+            content: payload.content,
+            tags: payload.tags,
+            priority: payload.priority,
+            targetPersonas: [],
+            version: 1,
+            isActive: payload.isActive,
+            updatedAt: nowIso,
+          };
+
+    if (editingTarget) {
+      setEntries(current => current.map(e => (e.id === editingTarget.id ? nextEntry : e)));
+      syncKnowledgeBaseCache((rows, currentTotal) => ({
+        rows: rows.map(e => (e.id === editingTarget.id ? nextEntry : e)),
+        total: currentTotal,
+      }));
     } else {
-      const optimisticEntry: Entry = {
-        id: `temp-${Date.now()}`,
-        type: payload.type,
-        title: payload.title || null,
-        category: payload.category || null,
-        question: payload.question || null,
-        content: payload.content,
-        tags: payload.tags,
-        priority: payload.priority,
-        targetPersonas: [],
-        version: 1,
-        isActive: payload.isActive,
-        updatedAt: nowIso,
-      };
-      setEntries(current => [optimisticEntry, ...current]);
+      setEntries(current => [nextEntry, ...current.filter(e => e.id !== nextEntry.id)]);
+      syncKnowledgeBaseCache((rows, currentTotal) => {
+        const deduped = rows.filter(e => e.id !== nextEntry.id);
+        return {
+          rows: [nextEntry, ...deduped],
+          total: currentTotal + 1,
+        };
+      });
     }
-    setEditing(null); setCreating(false); setNotice(editing?"Knowledge entry updated.":"Knowledge entry added."); setBusy(false);
+
+    setEditing(null); setCreating(false); setNotice(editingTarget?"Knowledge entry updated.":"Knowledge entry added."); setBusy(false);
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() }),
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+    ]);
     router.refresh();
   }
   function removeEntry(entry: Entry) {
@@ -145,22 +192,21 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
 
   const evictEntryFromCache = (targetId: string) => {
     setEntries((current) => current.filter((e) => e.id !== targetId));
-    queryClient.setQueriesData<Record<string, unknown>>(
-      { queryKey: dashboardKeys.knowledgeBase() },
-      (cached) => {
-        if (!cached || !Array.isArray(cached.entries)) return cached;
-        const filtered = cached.entries.filter(
-          (item) =>
-            !(
-              typeof item === "object" &&
-              item !== null &&
-              "id" in item &&
-              (item as { id?: unknown }).id === targetId
-            ),
-        );
-        return filtered.length === cached.entries.length ? cached : { ...cached, entries: filtered };
-      },
-    );
+    syncKnowledgeBaseCache((rows, currentTotal) => {
+      const filtered = rows.filter(
+        (item) =>
+          !(
+            typeof item === "object" &&
+            item !== null &&
+            "id" in item &&
+            (item as { id?: unknown }).id === targetId
+          ),
+      );
+      return {
+        rows: filtered,
+        total: filtered.length < rows.length ? Math.max(0, currentTotal - 1) : currentTotal,
+      };
+    });
   };
 
   async function confirmRemoveEntry() {
@@ -177,6 +223,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
       (result.status === 404 || /not found/i.test(result.error));
     if (!result.ok && !alreadyGone) {
       setEntries(previousEntries);
+      syncKnowledgeBaseCache((_, currentTotal) => ({ rows: previousEntries, total: currentTotal + 1 }));
       setError(result.error);
       return;
     }
@@ -184,7 +231,7 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
       evictEntryFromCache(entry.id);
     }
     setNotice(alreadyGone ? "Knowledge entry was already removed. Synced library." : "Knowledge entry deleted.");
-    await Promise.all([
+    void Promise.all([
       queryClient.invalidateQueries({ queryKey: dashboardKeys.knowledgeBase() }),
       queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
     ]);
@@ -216,7 +263,32 @@ export function AiStudioDashboard({ entries: initialEntries, agent: initialAgent
     } else {
       setAgentState(current => ({ ...current, ...nextAgentPayload }));
       setProfileState(current => ({ ...current, guardrails: nextGuardrails, aiPersonaName: nextAgentPayload.agentName, toneOfVoice: nextAgentPayload.tone, complianceNotes: nextAgentPayload.complianceNotes }));
+      queryClient.setQueriesData<Record<string, unknown>>(
+        { queryKey: dashboardKeys.agentSettings() },
+        (cached) => {
+          if (!cached) return cached;
+          return {
+            ...cached,
+            agentSettings: {
+              ...(typeof cached.agentSettings === "object" && cached.agentSettings !== null ? cached.agentSettings : {}),
+              ...nextAgentPayload,
+            },
+            businessProfile: {
+              ...(typeof cached.businessProfile === "object" && cached.businessProfile !== null ? cached.businessProfile : {}),
+              guardrails: nextGuardrails,
+              aiPersonaName: nextAgentPayload.agentName,
+              toneOfVoice: nextAgentPayload.tone,
+              complianceNotes: nextAgentPayload.complianceNotes,
+            },
+          };
+        },
+      );
       setNotice("AI agent settings saved.");
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.agentSettings() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.businessProfile() }),
+        queryClient.invalidateQueries({ queryKey: dashboardKeys.workspaceSetup() }),
+      ]);
       router.refresh();
     }
     setBusy(false);
