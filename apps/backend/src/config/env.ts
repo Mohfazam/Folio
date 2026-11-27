@@ -71,6 +71,11 @@ export const env = {
     keySecret: process.env.RAZORPAY_KEY_SECRET?.trim() || "",
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET?.trim() || "",
   },
+  /** Messenger Service URL & Secret */
+  messenger: {
+    serviceUrl: optional("MESSENGER_SERVICE_URL", "http://localhost:3002"),
+    internalSecret: optional("MESSENGER_INTERNAL_SECRET", optional("BACKEND_WORKER_SECRET", "folio-messenger-internal-secret")),
+  },
 };
 
 /**

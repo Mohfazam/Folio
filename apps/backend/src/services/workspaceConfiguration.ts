@@ -37,6 +37,13 @@ export type WorkspaceRoutingPolicy = {
   highInterest: { enabled: boolean; assignToUserId: string | null };
   humanRequested: { enabled: boolean; assignToUserId: string | null };
   noAnswer: { enabled: boolean; retryAfterMinutes: number; maxRetries: number; maxAttempts: number };
+  postCallMessaging: {
+    enabled: boolean;
+    sendOnHighInterest: boolean;
+    sendOnInfoRequested: boolean;
+    defaultLink: string | null;
+    customNote: string | null;
+  };
   callingHours: { start: string; end: string; timezone: string };
 };
 
@@ -84,6 +91,7 @@ export function getWorkspaceRoutingPolicyFromClient(client: {
   const highInterest = asRecord(saved.highInterest);
   const humanRequested = asRecord(saved.humanRequested);
   const noAnswer = asRecord(saved.noAnswer);
+  const postCallMessaging = asRecord(saved.postCallMessaging);
   const retryEnabled = noAnswer.enabled !== false;
   const maxRetries = retryEnabled ? asBoundedInteger(noAnswer.maxRetries, 2, 0, 5) : 0;
 
@@ -106,6 +114,13 @@ export function getWorkspaceRoutingPolicyFromClient(client: {
       retryAfterMinutes: asBoundedInteger(noAnswer.retryAfterMinutes, 1440, 15, 10080),
       maxRetries,
       maxAttempts: 1 + maxRetries,
+    },
+    postCallMessaging: {
+      enabled: postCallMessaging.enabled === true,
+      sendOnHighInterest: postCallMessaging.sendOnHighInterest !== false,
+      sendOnInfoRequested: postCallMessaging.sendOnInfoRequested !== false,
+      defaultLink: typeof postCallMessaging.defaultLink === "string" ? postCallMessaging.defaultLink.trim() : null,
+      customNote: typeof postCallMessaging.customNote === "string" ? postCallMessaging.customNote.trim() : null,
     },
     callingHours: {
       start: client.callingHoursStart ?? "09:00:00",

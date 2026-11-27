@@ -4,6 +4,7 @@ import { db } from "../config/db.js";
 import { calls, callQueue, clients, contacts, followUps, campaigns, users, callRecordings } from "@repo/db";
 import { processNextEligibleCall } from "../worker/processQueue.js";
 import { getWorkspaceRoutingPolicyFromClient, isFooliooSystemContact, nextWorkspaceCallingTime } from "../services/workspaceConfiguration.js";
+import { triggerPostCallMessage } from "../services/postCallMessengerDispatcher.js";
 import { env } from "../config/env.js";
 
 /**
@@ -61,6 +62,8 @@ interface CallingServicePayload {
     requestedCallbackTime?: string;
     humanRequested?: boolean;
     optOutRequested?: boolean;
+    infoRequested?: boolean;
+    requestedInfo?: string;
     notes?: string;
   };
   costEstimate?: {
@@ -166,6 +169,8 @@ export async function callCompleteRoute(req: Request, res: Response) {
         typeof analysis.followUpRequested !== "boolean" ||
         (analysis.humanRequested !== undefined && typeof analysis.humanRequested !== "boolean") ||
         (analysis.optOutRequested !== undefined && typeof analysis.optOutRequested !== "boolean") ||
+        (analysis.infoRequested !== undefined && typeof analysis.infoRequested !== "boolean") ||
+        (analysis.requestedInfo !== undefined && (typeof analysis.requestedInfo !== "string" || analysis.requestedInfo.length > 5000)) ||
         (analysis.notes !== undefined && (typeof analysis.notes !== "string" || analysis.notes.length > 5000)) ||
         (analysis.requestedCallbackTime !== undefined &&
           (typeof analysis.requestedCallbackTime !== "string" ||
@@ -592,6 +597,19 @@ export async function callCompleteRoute(req: Request, res: Response) {
         costTts,
         totalCost: costTotal,
       },
+      postCallMessagingTrigger: {
+        eligible:
+          outcome === "connected" &&
+          !isTestCall &&
+          !contactOptedOut &&
+          Boolean(contact?.phoneNumber) &&
+          (routingPolicy.postCallMessaging.enabled || analysis?.infoRequested || analysis?.interestLevel === "high"),
+        contactName: contact?.fullName,
+        phoneNumber: contact?.phoneNumber,
+        businessName: client.name,
+        businessWebsite: routingPolicy.postCallMessaging.defaultLink || undefined,
+        fallbackLink: routingPolicy.postCallMessaging.defaultLink || undefined,
+      },
     };
     });
 
@@ -610,6 +628,27 @@ export async function callCompleteRoute(req: Request, res: Response) {
     void processNextEligibleCall().catch((err) => {
       console.error("[calls/complete] Worker trigger error:", err);
     });
+
+    // 5. Trigger contextual Post-Call AI SMS via Messenger Service (non-blocking)
+    if (completion.postCallMessagingTrigger?.eligible && completion.postCallMessagingTrigger.phoneNumber) {
+      void triggerPostCallMessage({
+        callId: completion.callId,
+        clientId: payload.clientId,
+        contactId: payload.contactId,
+        contactName: completion.postCallMessagingTrigger.contactName,
+        phoneNumber: completion.postCallMessagingTrigger.phoneNumber,
+        callSummary: analysis?.summary,
+        interestLevel: analysis?.interestLevel,
+        sentiment: analysis?.sentiment,
+        infoRequested: analysis?.infoRequested,
+        requestedInfo: analysis?.requestedInfo,
+        businessName: completion.postCallMessagingTrigger.businessName,
+        businessWebsite: completion.postCallMessagingTrigger.businessWebsite,
+        fallbackLink: completion.postCallMessagingTrigger.fallbackLink,
+      }).catch((msgErr) => {
+        console.error("[calls/complete] Post-call messenger dispatch error:", msgErr);
+      });
+    }
 
     return res.status(201).json({ ok: true, ...completion });
   } catch (err: unknown) {
