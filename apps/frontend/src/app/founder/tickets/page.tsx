@@ -22,7 +22,7 @@ function backendBaseUrl(): string {
     .replace(/\/+$/, "");
 }
 
-async function isInternalAdminSession(accessToken: string): Promise<boolean> {
+async function hasFounderTicketAccess(accessToken: string): Promise<boolean> {
   try {
     const res = await fetch(`${backendBaseUrl()}/api/auth/me`, {
       method: "GET",
@@ -32,17 +32,18 @@ async function isInternalAdminSession(accessToken: string): Promise<boolean> {
     });
     if (!res.ok) return false;
     const data = (await res.json().catch(() => null)) as {
-      user?: { role?: string; email?: string };
-      role?: string;
+      user?: { email?: string };
       email?: string;
     } | null;
-    const role = data?.user?.role ?? data?.role;
     const email = (data?.user?.email ?? data?.email ?? "").trim().toLowerCase();
-    const founderEmails = (process.env.FOUNDER_ADMIN_EMAILS ?? "")
-      .split(",")
+    const allowedEmails = [
+      process.env.FOUNDER_ADMIN_EMAILS,
+      process.env.CO_FOUNDER_ADMIN_EMAILS,
+    ]
+      .flatMap((value) => value?.split(",") ?? [])
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
-    return role === "internal_admin" || (Boolean(email) && founderEmails.includes(email));
+    return Boolean(email) && allowedEmails.includes(email);
   } catch {
     return false;
   }
@@ -51,7 +52,7 @@ async function isInternalAdminSession(accessToken: string): Promise<boolean> {
 async function FounderQueueContent() {
   await connection();
   const auth = await getDashboardAuthContext();
-  const allowed = auth ? await isInternalAdminSession(auth.accessToken) : false;
+  const allowed = auth ? await hasFounderTicketAccess(auth.accessToken) : false;
 
   if (!allowed) {
     return (
@@ -64,8 +65,8 @@ async function FounderQueueContent() {
         </h1>
         <p className="mt-2.5 font-['Space_Grotesk'] text-[14px] leading-[20px] text-[#525552]">
           {auth
-            ? "Your signed-in account does not have internal_admin founder permissions."
-            : "Sign in with an internal_admin account to view incoming support tickets."}
+            ? "Your signed-in email is not configured for founder ticket access."
+            : "Sign in with an approved founder email to view incoming support tickets."}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
