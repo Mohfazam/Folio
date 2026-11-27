@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { dashboardKeys } from "@/lib/query/keys";
+import { dashboardKeys, type OverviewTimeframeKey } from "@/lib/query/keys";
 import { DashboardApiError, fetchDashboardApi } from "@/lib/query/fetcher";
 import { useDashboardProfile } from "@/components/dashboard/dashboard-shell";
 import { AiStudioDashboard } from "@/components/dashboard/ai-studio-dashboard";
@@ -361,7 +361,7 @@ export function AiStudioQueryContainer() {
 export function AnalyticsQueryContainer({
   timeframe,
 }: {
-  timeframe: "today" | "7d" | "30d" | "all";
+  timeframe: OverviewTimeframeKey;
 }) {
   const analyticsQuery = useQuery({
     queryKey: dashboardKeys.overviewAnalytics(timeframe),
