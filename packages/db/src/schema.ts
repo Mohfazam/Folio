@@ -530,3 +530,20 @@ export const messageThreads = pgTable(
     index("idx_message_threads_last_message").on(table.lastMessageAt),
   ]
 );
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    channel: messageChannelEnum("channel").notNull().default("sms"),
+    direction: messageDirectionEnum("direction").notNull().default("outbound"),
+    type: messageTypeEnum("type").notNull().default("post_call_followup"),
+    status: messageStatusEnum("status").notNull().default("queued"),
+    fromNumber: text("from_number").notNull(),
+    toNumber: text("to_number").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  }
+);
