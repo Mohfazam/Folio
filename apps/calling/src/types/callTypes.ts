@@ -209,6 +209,10 @@ export interface CallAnalysisResult {
   optOutRequested?: boolean;
   /** Explicit callback time as an ISO-8601 timestamp with a timezone, if known. */
   requestedCallbackTime?: string;
+  /** Specific information, links, or details the caller asked to receive (e.g. via SMS/email) */
+  requestedInfo?: string;
+  /** Whether the caller asked to be sent details/links/information via message or email */
+  infoRequested?: boolean;
   /** Additional notes or next steps for human sales / support reps */
   notes?: string;
 }
