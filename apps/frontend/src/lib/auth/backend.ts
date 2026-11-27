@@ -25,6 +25,15 @@ type ApiEnvelope<T> = {
 
 const BACKEND_REQUEST_TIMEOUT_MS = 25_000;
 
+export class AuthIdentityConflictError extends Error {
+  constructor() {
+    super(
+      "This email is linked to a different sign-in account. Return to Sign In and choose the Google account you used previously. If you no longer have access to it, contact support.",
+    );
+    this.name = "AuthIdentityConflictError";
+  }
+}
+
 function backendBaseUrl() {
   const raw =
     process.env.BACKEND_API_URL?.trim() ||
@@ -103,9 +112,12 @@ export async function syncAuthenticatedUser(accessToken: string): Promise<void> 
     body: JSON.stringify({}),
   });
 
-  const payload = await parseJson<{ ok?: boolean; error?: string }>(response).catch(() => ({ ok: false } as { ok?: boolean; error?: string }));
+  const payload = await parseJson<{ ok?: boolean; code?: string; error?: string }>(response).catch(() => ({ ok: false } as { ok?: boolean; code?: string; error?: string }));
   if (!response.ok || payload.ok !== true) {
     console.error("[auth/sync] Backend provisioning failed:", response.status, payload.error);
+    if (payload.code === "AUTH_IDENTITY_CONFLICT") {
+      throw new AuthIdentityConflictError();
+    }
     throw new Error(sanitizeUserError(payload.error, "Unable to provision your Foolioo workspace"));
   }
 }

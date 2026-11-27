@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { getDashboardAuthContext } from "@/lib/auth/dashboard-request";
 import {
+  AuthIdentityConflictError,
   getOnboardingState,
   syncAndGetOnboardingState,
   type OnboardingSnapshot,
@@ -24,6 +25,9 @@ async function OnboardingContent() {
       : await getOnboardingState(auth.accessToken);
   } catch (err) {
     console.error("[onboarding/page] Unable to load onboarding:", err);
+    if (err instanceof AuthIdentityConflictError) {
+      redirect(`/auth-code-error?error=${encodeURIComponent(err.message)}`);
+    }
     throw new Error("We couldn't load your Foolioo workspace. Please refresh and try again.");
   }
 

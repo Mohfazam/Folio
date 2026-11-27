@@ -31,7 +31,7 @@ export function GoogleButton({ redirectTo }: { redirectTo?: string | null }) {
         redirectTo: callbackUrl,
         queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
+          prompt: 'select_account consent',
         },
       },
     });
