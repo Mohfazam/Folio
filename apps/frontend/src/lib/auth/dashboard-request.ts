@@ -16,6 +16,13 @@ export type DashboardAuthContext = {
   displayName: string | null;
 };
 
+type SessionTokenPayload = {
+  userId?: string;
+  email?: string;
+  displayName?: string;
+  exp?: number;
+};
+
 /**
  * Request-scoped, verified dashboard identity.
  * Supports both custom App JWT (Email + Password / OTP auth)
@@ -28,27 +35,22 @@ export const getDashboardAuthContext = cache(async (): Promise<DashboardAuthCont
     const sessionToken = cookieStore.get(FOOLIOO_SESSION_COOKIE)?.value;
     if (sessionToken) {
       const jwtSecret = process.env.JWT_SECRET?.trim();
-      let payload: {
-        userId?: string;
-        email?: string;
-        displayName?: string;
-        exp?: number;
-      } | null = null;
+      let payload: SessionTokenPayload | null = null;
 
       if (jwtSecret) {
         try {
-          const verified = jwt.verify(sessionToken, jwtSecret);
+          const verified: unknown = jwt.verify(sessionToken, jwtSecret);
           if (typeof verified === "object" && verified !== null) {
-            payload = verified as typeof payload;
+            payload = verified as SessionTokenPayload;
           }
         } catch {
           // Invalid or tampered signature — reject custom session cookie
           payload = null;
         }
       } else {
-        const decoded = jwt.decode(sessionToken);
+        const decoded: unknown = jwt.decode(sessionToken);
         if (typeof decoded === "object" && decoded !== null) {
-          payload = decoded as typeof payload;
+          payload = decoded as SessionTokenPayload;
         }
       }
 
