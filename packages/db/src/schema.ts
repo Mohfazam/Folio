@@ -590,3 +590,16 @@ export const messageDeliveryReceipts = pgTable(
     index("idx_message_delivery_receipts_received_at").on(table.receivedAt),
   ]
 );
+
+export const messageOptOuts = pgTable(
+  "message_opt_outs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    phoneNumber: text("phone_number").notNull(),
+    channel: messageChannelEnum("channel").notNull().default("sms"),
+    reason: text("reason").notNull().default("user_stop_request"),
+    metadata: jsonb("metadata").default({}),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  }
+);
