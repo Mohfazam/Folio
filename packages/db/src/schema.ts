@@ -65,6 +65,13 @@ export const messageTypeEnum = pgEnum("message_type", [
   "inbound_reply",
 ]);
 
+export const templateCategoryEnum = pgEnum("template_category", [
+  "utility",
+  "marketing",
+  "authentication",
+  "transactional",
+]);
+
 // Knowledge Base Entry Types (Multi-Tech, Enterprise & Universal)
 export const kbEntryTypeEnum = pgEnum("kb_entry_type", [
   "faq",
