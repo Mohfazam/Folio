@@ -69,6 +69,7 @@ export async function GET(
           Authorization: `Bearer ${auth.accessToken}`,
         },
         cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       });
 
       const payload: unknown = await response.json().catch(() => null);
