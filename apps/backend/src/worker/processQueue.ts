@@ -9,6 +9,8 @@ import { getWorkspaceAgentRuntimeSettings, isFooliooSystemContact } from "../ser
  * picking the same queue entries or exceeding client limits.
  */
 let isProcessingQueue = false;
+const QUEUE_RECOVERY_INTERVAL_MS = 60_000;
+let lastQueueRecoveryAt = 0;
 
 const systemCallQueueEntry = sql`${callQueue.campaignId} IS NULL AND EXISTS (
   SELECT 1 FROM ${contacts}
@@ -197,6 +199,14 @@ async function recoverExpiredQueueClaims() {
   }
 }
 
+async function recoverQueueClaimsIfDue() {
+  const now = Date.now();
+  if (now - lastQueueRecoveryAt < QUEUE_RECOVERY_INTERVAL_MS) return;
+
+  await recoverExpiredQueueClaims();
+  lastQueueRecoveryAt = now;
+}
+
 export interface ProcessQueueResult {
   action: "dialed" | "no_eligible_calls" | "dial_failed" | "already_running";
   contactId?: string;
@@ -227,7 +237,7 @@ export async function processNextEligibleCall(): Promise<ProcessQueueResult> {
   isProcessingQueue = true;
 
   try {
-    await recoverExpiredQueueClaims();
+    await recoverQueueClaimsIfDue();
 
     // Include system calls queued before test/demo calls were made independent of calling hours.
     const pendingEntries = await db
