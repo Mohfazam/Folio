@@ -57,6 +57,14 @@ export const messageStatusEnum = pgEnum("message_status", [
   "received",
 ]);
 
+export const messageTypeEnum = pgEnum("message_type", [
+  "post_call_followup",
+  "campaign_outreach",
+  "manual_direct",
+  "system_alert",
+  "inbound_reply",
+]);
+
 // Knowledge Base Entry Types (Multi-Tech, Enterprise & Universal)
 export const kbEntryTypeEnum = pgEnum("kb_entry_type", [
   "faq",
