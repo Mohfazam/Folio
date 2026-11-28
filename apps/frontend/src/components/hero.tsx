@@ -8,76 +8,70 @@ import { User } from "@supabase/supabase-js";
 
 const AUDIO_SRC = "/samples/hero-sample-call-hi.mp3";
 
-type TranscriptTurn = {
-  speaker: "agent" | "caller";
-  text: string;
-  telemetry: string;
-};
-
-const CALL_TRANSCRIPT: TranscriptTurn[] = [
+const CALL_TRANSCRIPT: {
+  speaker: "AI Agent" | "Customer";
+  language: string;
+  line: string;
+}[] = [
   {
-    speaker: "agent",
-    text: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
-    telemetry: "tool: greet_caller · 0.2s",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
   },
   {
-    speaker: "caller",
-    text: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai sir.",
-    telemetry: "intent: reschedule_booking · rtt 65ms",
+    speaker: "Customer",
+    language: "Hinglish",
+    line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai sir.",
   },
   {
-    speaker: "agent",
-    text: "Main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
-    telemetry: "tool: lookup_prompt · 0.3s",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
   },
   {
-    speaker: "caller",
-    text: "Haan. Note kijiye B-4-1. Rahul Sharma ke naam se hoga.",
-    telemetry: "booking_ref: B41 · jitter 5ms",
+    speaker: "Customer",
+    language: "Hinglish",
+    line: "Haan. Note kijiye B-4-1. Rahul Sharma ke naam se hoga.",
   },
   {
-    speaker: "agent",
-    text: "Mil gaya, Rahul ji, ek minute... Aapki cleaning hai Dr. Patel ke saath, Friday 11 baje. Kab move karna chahenge?",
-    telemetry: "tool: get_booking · 0.6s",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Mil gaya, Rahul ji, ek minute... Aapki cleaning hai Dr. Patel ke saath, Friday 11 baje. Kab move karna chahenge?",
   },
   {
-    speaker: "caller",
-    text: "Agle hafte koi bhi time chalega. Mujhe Tuesday possible hai.",
-    telemetry: "preferred_day: Tuesday · rtt 65ms",
+    speaker: "Customer",
+    language: "Hinglish",
+    line: "Agle hafte koi bhi time chalega. Mujhe Tuesday possible hai.",
   },
   {
-    speaker: "agent",
-    text: "Tuesday. Check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
-    telemetry: "tool: check_slots · 0.5s",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Tuesday. Check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
   },
   {
-    speaker: "caller",
-    text: "Haan, theek hai, chalega.",
-    telemetry: "slot_confirmed: Tue 15:00 · jitter 5ms",
+    speaker: "Customer",
+    language: "Hinglish",
+    line: "Haan, theek hai, chalega.",
   },
   {
-    speaker: "agent",
-    text: "Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
-    telemetry: "tool: book_appointment · sms_queued",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
   },
   {
-    speaker: "caller",
-    text: "Nahi aur kuch nahi. Thanks.",
-    telemetry: "call_state: wrap_up · rtt 65ms",
+    speaker: "Customer",
+    language: "Hinglish",
+    line: "Nahi aur kuch nahi. Thanks.",
   },
   {
-    speaker: "agent",
-    text: "Of course. Aapka din shubh ho, Rahul ji.",
-    telemetry: "call_status: completed · 240ms",
+    speaker: "AI Agent",
+    language: "Hinglish",
+    line: "Of course. Aapka din shubh ho, Rahul ji.",
   },
 ];
 
-const UPPER_WAVE_BARS = [
-  22, 48, 76, 92, 64, 38, 18, 54, 84, 96, 70, 42, 24, 62, 88, 52, 30, 74, 90, 58, 34, 66, 46, 20,
-];
-
-const LOWER_WAVE_BARS = [
-  16, 34, 68, 86, 94, 58, 28, 44, 78, 88, 52, 26, 72, 92, 64, 36, 20, 56, 82, 48, 28, 60, 38, 18,
+const WAVEFORM_HEIGHTS = [
+  32, 68, 48, 88, 60, 96, 44, 78, 54, 92, 38, 74, 84, 50, 66, 90, 42, 72,
 ];
 
 export const Hero = () => {
@@ -140,37 +134,22 @@ export const Hero = () => {
     }
   };
 
-  const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
-    const audio = audioRef.current;
-    const safeDur = durationSec > 0 ? durationSec : 54;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    const nextSec = ratio * safeDur;
-    setElapsedSec(nextSec);
-    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
-      audio.currentTime = nextSec;
-    }
-  };
-
   const signUpHref = workEmail.trim()
     ? `/sign-up?email=${encodeURIComponent(workEmail.trim())}`
     : "/sign-up";
 
   const formatTimer = (sec: number) => {
-    const whole = Math.max(0, Math.floor(sec));
+    const whole = Math.floor(sec);
     const mins = Math.floor(whole / 60);
     const rem = whole % 60;
     return `${String(mins).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
   };
 
   const safeDuration = durationSec > 0 ? durationSec : 54;
-  const progressRatio = Math.min(1, Math.max(0, elapsedSec / safeDuration));
   const activeTurnIndex = Math.min(
     CALL_TRANSCRIPT.length - 1,
-    Math.floor(progressRatio * CALL_TRANSCRIPT.length)
+    Math.floor((elapsedSec / safeDuration) * CALL_TRANSCRIPT.length)
   );
-  const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
-  const sampleCounter = Math.round(progressRatio * 52000);
 
   return (
     <section
@@ -269,9 +248,9 @@ export const Hero = () => {
           </div>
         </div>
 
-        {/* Right Column: Call Scope Audio & Live Turn Inspector */}
+        {/* Right Column: Live Call Recording Player */}
         <div className="lg:col-span-6">
-          <div className="overflow-hidden rounded-xl border border-[#23293A] bg-[#0D1017] text-[#E6EDF7] shadow-[0_20px_50px_rgba(13,16,23,0.22)]">
+          <div className="overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white shadow-[0_14px_40px_rgba(27,28,24,0.07)]">
             <audio
               ref={audioRef}
               preload="metadata"
@@ -287,169 +266,160 @@ export const Hero = () => {
               }}
             />
 
-            {/* Top Inspector Header */}
-            <div className="flex items-center justify-between border-b border-[#1E2536] bg-[#111520] px-4 py-2.5 font-mono text-[12px]">
+            {/* Header bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E9E8E1] bg-[#FAFAF8] px-5 py-3.5">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#3B66F5]" />
-                <span className="font-semibold tracking-tight text-[#F3F6FC]">
-                  foolioo/call-scope
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22A06B] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22A06B]" />
+                </span>
+                <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.8px] text-[#1B1C18]">
+                  Unedited Call Recording
                 </span>
               </div>
-              <span className="text-[#8B95AC]">[recorded call]</span>
+
+              <span className="rounded-md border border-[#E3DFD3] bg-[#F5F3EC] px-2.5 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18]">
+                Hinglish
+              </span>
             </div>
 
-            {/* Dual-Track Waveform + Playhead */}
-            <div
-              onClick={handleScrub}
-              role="slider"
-              tabIndex={0}
-              aria-label="Seek call recording"
-              aria-valuemin={0}
-              aria-valuemax={Math.round(safeDuration)}
-              aria-valuenow={Math.round(elapsedSec)}
-              onKeyDown={(e) => {
-                const audio = audioRef.current;
-                if (!audio) return;
-                if (e.key === "ArrowRight") {
-                  audio.currentTime = Math.min(safeDuration, audio.currentTime + 3);
-                } else if (e.key === "ArrowLeft") {
-                  audio.currentTime = Math.max(0, audio.currentTime - 3);
-                }
-              }}
-              className="relative cursor-pointer select-none border-b border-[#1E2536] bg-[#0B0E15] px-4 pb-6 pt-5"
-            >
-              {/* Playhead vertical cursor */}
-              <div
-                style={{ left: `calc(${progressRatio * 100}% + 16px - ${progressRatio * 32}px)` }}
-                className="pointer-events-none absolute bottom-5 top-3 z-20 w-[1.5px] bg-[#3B66F5]"
-              >
-                <span className="absolute -left-[3.5px] -top-0.5 h-2 w-2 rounded-[1px] bg-[#3B66F5]" />
+            {/* Agent details & Audio Waveform Player */}
+            <div className="border-b border-[#E9E8E1] bg-white p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-['Space_Grotesk'] text-[13px] font-bold text-[#1B1C18]">
+                    Priya · Bright Smile Dental
+                  </p>
+                  <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#525552]">
+                    Rahul Sharma (ID B-4-1) · Dr. Patel Reschedule
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="rounded-md bg-[#F5F3EC] px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] tabular-nums">
+                    240ms latency
+                  </span>
+                  <span className="rounded-md bg-[#E3FCEF] px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#166534]">
+                    Barge-in Active
+                  </span>
+                </div>
               </div>
 
-              {/* Track 1: Caller waveform */}
-              <div className="relative flex h-12 items-center gap-[3px] border-b border-[#1A2030]/80 pb-1">
-                {UPPER_WAVE_BARS.map((height, idx) => {
-                  const barRatio = idx / UPPER_WAVE_BARS.length;
-                  const active = barRatio <= progressRatio;
-                  return (
-                    <div key={idx} className="flex h-full flex-1 items-center justify-center">
+              {/* Audio control bar */}
+              <div className="mt-4 flex items-center gap-3.5 rounded-xl border border-[#EAE6DC] bg-[#FBF9F2] px-4 py-3">
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  aria-label={isPlaying ? "Pause call recording" : "Play call recording"}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] text-white shadow-xs transition-colors hover:bg-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                >
+                  {isPlaying ? (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      aria-hidden="true"
+                      className="ml-0.5"
+                    >
+                      <polygon points="6 4 20 12 6 20 6 4" />
+                    </svg>
+                  )}
+                </button>
+
+                <div
+                  className="flex h-8 flex-1 items-center justify-between gap-1"
+                  aria-hidden="true"
+                >
+                  {WAVEFORM_HEIGHTS.map((height, idx) => {
+                    const progressRatio = elapsedSec / safeDuration;
+                    const barRatio = idx / WAVEFORM_HEIGHTS.length;
+                    const isPlayed = isPlaying && barRatio <= progressRatio;
+                    return (
                       <span
+                        key={idx}
                         style={{ height: `${height}%` }}
-                        className={`w-[2px] rounded-full transition-colors duration-150 ${
-                          active ? "bg-[#E2E8F5]" : "bg-[#6C768D]/65"
+                        className={`w-1 rounded-full transition-all duration-300 ${
+                          isPlayed
+                            ? "bg-[#FD7032]"
+                            : isPlaying
+                              ? "animate-pulse bg-[#1B1C18]/75"
+                              : "bg-[#1B1C18]/25"
                         }`}
                       />
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
 
-              {/* Track 2: Agent waveform */}
-              <div className="relative mt-1 flex h-12 items-center gap-[3px] pt-1">
-                {LOWER_WAVE_BARS.map((height, idx) => {
-                  const barRatio = idx / LOWER_WAVE_BARS.length;
-                  const active = barRatio <= progressRatio;
-                  return (
-                    <div key={idx} className="flex h-full flex-1 items-center justify-center">
-                      <span
-                        style={{ height: `${height}%` }}
-                        className={`w-[2px] rounded-full transition-colors duration-150 ${
-                          active ? "bg-[#3B66F5]" : "bg-[#273B7A]/70"
-                        }`}
-                      />
-                    </div>
-                  );
-                })}
+                <span className="shrink-0 font-['Space_Grotesk'] text-[11px] font-semibold text-[#525552] tabular-nums">
+                  {formatTimer(elapsedSec)} / {formatTimer(safeDuration)}
+                </span>
               </div>
-
-              {/* Bottom Time & Sample Axis */}
-              <div className="mt-2.5 flex items-center justify-between font-mono text-[10px] text-[#6C768D] tabular-nums">
-                <span>{formatTimer(elapsedSec)}</span>
-                <span>{sampleCounter}</span>
-                <span>{formatTimer(safeDuration)}</span>
-              </div>
-
-              {/* Floating Play / Pause Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePlay();
-                }}
-                aria-label={isPlaying ? "Pause call recording" : "Play call recording"}
-                className="absolute bottom-3 right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#3B66F5] text-white shadow-[0_6px_20px_rgba(59,102,245,0.45)] transition-transform hover:scale-105 hover:bg-[#4B74FF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                {isPlaying ? (
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <rect x="6" y="4" width="4" height="16" rx="1" />
-                    <rect x="14" y="4" width="4" height="16" rx="1" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                    className="ml-0.5"
-                  >
-                    <polygon points="6 4 20 12 6 20 6 4" />
-                  </svg>
-                )}
-              </button>
             </div>
 
-            {/* Active Turn Transcript Line (Matching Screenshot) */}
-            <div className="border-b border-[#1E2536] bg-[#10141F] px-4 py-3.5">
-              <div className="flex items-start justify-between gap-3">
-                <p className="font-['Space_Grotesk'] text-[13.5px] leading-[21px] text-[#DCE3F0]">
-                  <span
-                    className={`mr-1.5 font-mono text-[12px] font-semibold ${
-                      activeTurn.speaker === "agent" ? "text-[#4D77FF]" : "text-[#8B95AC]"
+            {/* Transcript */}
+            <div className="flex max-h-[290px] flex-col gap-2.5 overflow-y-auto bg-white p-5">
+              {CALL_TRANSCRIPT.map((turn, index) => {
+                const isHighlighted = isPlaying && index === activeTurnIndex;
+                return (
+                  <div
+                    key={index}
+                    className={`rounded-lg border px-3.5 py-2.5 transition-colors ${
+                      isHighlighted
+                        ? "border-[#FD7032]/40 bg-[#FFF8F4]"
+                        : "border-[#F0EDE5] bg-[#FCFBF8]"
                     }`}
                   >
-                    {activeTurn.speaker}
-                  </span>
-                  <span className="mr-1.5 font-mono text-[11px] text-[#5B657D]">›</span>
-                  <span className="font-medium text-white">{activeTurn.text}</span>
-                </p>
-              </div>
-
-              {/* Turn Selector Dots */}
-              <div className="mt-2.5 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-1">
-                  {CALL_TRANSCRIPT.map((turn, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        const nextSec = (idx / CALL_TRANSCRIPT.length) * safeDuration;
-                        setElapsedSec(nextSec);
-                        if (audioRef.current) audioRef.current.currentTime = nextSec;
-                      }}
-                      aria-label={`Jump to turn ${idx + 1}: ${turn.speaker}`}
-                      className={`h-1.5 rounded-full transition-all ${
-                        idx === activeTurnIndex
-                          ? "w-4 bg-[#3B66F5]"
-                          : "w-1.5 bg-[#262F45] hover:bg-[#3C4866]"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <span className="font-mono text-[10px] text-[#6C768D] tabular-nums">
-                  turn {activeTurnIndex + 1}/{CALL_TRANSCRIPT.length}
-                </span>
-              </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.8px] ${
+                            turn.speaker === "AI Agent" ? "text-[#FD7032]" : "text-[#525552]"
+                          }`}
+                        >
+                          {turn.speaker}
+                        </span>
+                        <span className="rounded bg-[#F5F3EC] px-1.5 py-0.5 font-['Space_Grotesk'] text-[9.5px] font-semibold text-[#525552]">
+                          {turn.language}
+                        </span>
+                      </div>
+                      {index === CALL_TRANSCRIPT.length - 1 && (
+                        <span className="rounded bg-[#E3FCEF] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#166534]">
+                          Booked · Tue 3:00 PM
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 font-['Space_Grotesk'] text-[12.5px] leading-[18px] text-[#1B1C18]">
+                      {turn.line}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
 
-            {/* Bottom Telemetry / Tool Bar */}
-            <div className="flex items-center justify-between bg-[#0D1017] px-4 py-2 font-mono text-[11px] text-[#4D77FF] tabular-nums">
-              <span>{activeTurn.telemetry}</span>
+            {/* Footer */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#E9E8E1] bg-[#FAFAF8] px-5 py-3">
+              <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] font-medium text-[#525552] tabular-nums">
+                <span>Effective rate: ₹4.20/min</span>
+                <span aria-hidden="true">•</span>
+                <span>Booking B-4-1 updated</span>
+              </div>
               <Link
                 href="/live-demo"
-                className="text-[#8B95AC] transition-colors hover:text-white"
+                className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032]"
               >
-                try live call →
+                Test with your own script →
               </Link>
             </div>
           </div>
