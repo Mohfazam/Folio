@@ -246,24 +246,6 @@ export const Hero = () => {
     }
   };
 
-  const jumpToTurn = async (index: number) => {
-    const clamped = Math.min(CALL_TRANSCRIPT.length - 1, Math.max(0, index));
-    const targetSec = CALL_TRANSCRIPT[clamped].startSec;
-
-    setElapsedSec(targetSec);
-    if (audioRef.current) {
-      audioRef.current.currentTime = targetSec;
-      if (!isPlaying) {
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-        } catch {
-          // Ignore autoplay restriction if triggered without play toggle
-        }
-      }
-    }
-  };
-
   const handleWaveformSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     const safeDur = durationSec > 0 ? durationSec : 57;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -520,29 +502,6 @@ export const Hero = () => {
                   {activeTurn.line}
                 </p>
 
-                <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-[#F0EDE5] pt-2.5">
-                  <div className="flex items-center gap-1.5">
-                    {CALL_TRANSCRIPT.map((turn, idx) => {
-                      const isCurrent = idx === activeTurnIndex;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => jumpToTurn(idx)}
-                          aria-label={`Jump to ${turn.speaker} line ${idx + 1}`}
-                          className={`h-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
-                            isCurrent
-                              ? "w-6 bg-[#FD7032]"
-                              : idx < activeTurnIndex
-                                ? "w-1.5 bg-[#1B1C18]/55 hover:bg-[#1B1C18]"
-                                : "w-1.5 bg-[#DCD8CC] hover:bg-[#1B1C18]/40"
-                          }`}
-                        />
-                      );
-                    })}
-                  </div>
-
-                </div>
               </div>
             </div>
 
