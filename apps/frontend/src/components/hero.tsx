@@ -20,79 +20,121 @@ const CALL_TRANSCRIPT: TranscriptTurn[] = [
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 1.0,
-    line: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
-    meta: "tool: greet_caller · 0.2s",
+    startSec: 0.0,
+    line: "Hello, Bright Smile Dental mein aapka swagat hai, main Priya bol rahi hoon. Bataiye, main aapki kaise help kar sakti hoon?",
+    meta: "00:00 – 00:06 · tool: greet_caller",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 6.5,
-    line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai.",
-    meta: "intent: reschedule_booking",
+    startSec: 7.0,
+    line: "Hello, haan, mujhe apni Friday wali appointment reschedule karni hai.",
+    meta: "00:07 – 00:11 · intent: reschedule",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 11.2,
+    startSec: 12.0,
     line: "Sure, main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
-    meta: "tool: lookup_prompt · 0.3s",
+    meta: "00:12 – 00:16 · tool: lookup_prompt",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 15.3,
-    line: "Haan. Note kijiye B-4-2-8-1. Rahul Sharma ke naam se hoga.",
-    meta: "booking_ref: B4281",
+    startSec: 17.0,
+    line: "Haan, note kijiye B-4-2-8-1, Rahul Sharma ke naam se hoga.",
+    meta: "00:17 – 00:23 · booking_ref: B-4-2-8-1",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 21.5,
-    line: "Mil gaya Rahul ji. Ek minute... Aapki cleaning hai Dr. Patel ke saath Friday 11 baje. Kab move karna chahenge?",
-    meta: "tool: get_booking · 0.6s",
+    startSec: 24.0,
+    line: "Mil gaya Rahul ji, ek minute.",
+    meta: "00:24 – 00:26 · tool: get_booking",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 26.0,
+    line: "Aapki cleaning hai Dr. Patel ke saath Friday 11 baje.",
+    meta: "00:26 – 00:29 · booking: Fri 11:00 AM",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 30.0,
+    line: "Kab move karna chahenge?",
+    meta: "00:30 – 00:31 · prompt: target_time",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 28.6,
-    line: "Agle hafte koi bhi time chalega mujhe. Tuesday possible hai kya?",
-    meta: "preferred_day: Tuesday",
-  },
-  {
-    speaker: "agent",
-    language: "Hinglish",
-    startSec: 33.3,
-    line: "Tuesday check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
-    meta: "tool: check_slots · 0.5s",
+    startSec: 32.0,
+    line: "Agle hafte koi bhi time chalega mujhe.",
+    meta: "00:32 – 00:34 · window: next_week",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 40.2,
-    line: "Haan, theek hai chalega.",
-    meta: "slot_confirmed: Tue 3:00 PM",
+    startSec: 35.0,
+    line: "Tuesday possible hai kya?",
+    meta: "00:35 – 00:36 · preferred_day: Tue",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 42.8,
-    line: "Done. Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
-    meta: "tool: book_appointment",
+    startSec: 37.0,
+    line: "Tuesday check karti hoon.",
+    meta: "00:37 – 00:38 · tool: check_slots",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 39.0,
+    line: "Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
+    meta: "00:39 – 00:42 · slot: Tue 3:00 PM",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 49.6,
-    line: "Nahi, aur kuch nahi. Thanks.",
-    meta: "call_state: wrap_up",
+    startSec: 44.0,
+    line: "Haan... haan, theek hai, chalega.",
+    meta: "00:44 – 00:45 · slot_confirmed: Tue 3:00 PM",
   },
   {
     speaker: "agent",
+    language: "Hinglish",
+    startSec: 46.0,
+    line: "Tuesday 3 baje book kar diya.",
+    meta: "00:46 – 00:48 · tool: book_appointment",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 48.0,
+    line: "Aur confirmation aapke phone pe aa jayega.",
+    meta: "00:48 – 00:50 · sms_queued",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 50.0,
+    line: "Aur kuch help chahiye?",
+    meta: "00:50 – 00:51 · prompt: follow_up",
+  },
+  {
+    speaker: "caller",
     language: "Hinglish",
     startSec: 52.0,
-    line: "Of course. Aapka din shubh ho Rahul ji.",
-    meta: "Rescheduled · Tue 3:00 PM",
+    line: "Nahi, aur kuch nahi. Thanks.",
+    meta: "00:52 – 00:53 · call_state: wrap_up",
+  },
+  {
+    speaker: "agent",
+    language: "Hinglish",
+    startSec: 53.0,
+    line: "Of course, aapka din shubh ho Rahul ji.",
+    meta: "00:53 – 00:57 · Rescheduled · Tue 3:00 PM",
   },
 ];
 
@@ -118,7 +160,7 @@ export const Hero = () => {
   const [workEmail, setWorkEmail] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
-  const [durationSec, setDurationSec] = useState(54);
+  const [durationSec, setDurationSec] = useState(57);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const supabase = useMemo(() => createClient(), []);
@@ -191,7 +233,7 @@ export const Hero = () => {
   };
 
   const handleWaveformSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const safeDur = durationSec > 0 ? durationSec : 54;
+    const safeDur = durationSec > 0 ? durationSec : 57;
     const rect = e.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     const nextSec = ratio * safeDur;
@@ -216,7 +258,7 @@ export const Hero = () => {
     return `${String(mins).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
   };
 
-  const safeDuration = durationSec > 0 ? durationSec : 54;
+  const safeDuration = durationSec > 0 ? durationSec : 57;
   const activeTurnIndex = getTurnIndexAtTime(elapsedSec);
   const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
 
@@ -386,7 +428,7 @@ export const Hero = () => {
                     Priya · Bright Smile Dental
                   </p>
                   <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#525552]">
-                    Rahul Sharma (ID B4281) · Dr. Patel Reschedule
+                    Rahul Sharma (ID B-4-2-8-1) · Dr. Patel Reschedule
                   </p>
                 </div>
 
@@ -573,7 +615,7 @@ export const Hero = () => {
               <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] font-medium text-[#525552] tabular-nums">
                 <span>Effective rate: ₹4.20/min</span>
                 <span aria-hidden="true">•</span>
-                <span>Booking B4281 updated</span>
+                <span>Booking B-4-2-8-1 updated</span>
               </div>
               <Link
                 href="/live-demo"
