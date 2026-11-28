@@ -255,6 +255,9 @@ importers:
       '@google/genai':
         specifier: ^2.24.0
         version: 2.24.0
+      '@neondatabase/serverless':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db

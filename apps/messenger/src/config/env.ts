@@ -1,6 +1,9 @@
+import "dotenv/config";
 import dotenv from "dotenv";
 dotenv.config();
-dotenv.config({ path: "apps/calling/.env" }); // Shares Plivo & Gemini creds with calling service
+dotenv.config({ path: "apps/calling/.env" });
+dotenv.config({ path: "packages/db/.env" });
+dotenv.config({ path: "apps/messenger/.env" });
 
 function required(key: string, fallback?: string): string {
   const value = process.env[key] || fallback;
@@ -18,6 +21,7 @@ function optional(key: string, fallback: string): string {
 export const env = {
   port: parseInt(optional("PORT", optional("MESSENGER_PORT", "3002")), 10),
   internalSecret: optional("MESSENGER_INTERNAL_SECRET", optional("BACKEND_WORKER_SECRET", "folio-messenger-internal-secret")),
+  databaseUrl: required("DATABASE_URL"),
   plivoAuthId: required("PLIVO_AUTH_ID"),
   plivoAuthToken: required("PLIVO_AUTH_TOKEN"),
   plivoPhoneNumber: required("PLIVO_PHONE_NUMBER"),

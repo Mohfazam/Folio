@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "@google/genai": "^2.24.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@repo/db": "workspace:*",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

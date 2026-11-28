@@ -1,5 +1,6 @@
-import { db, messages, messageOptOuts } from "@repo/db";
+import { messages, messageOptOuts } from "@repo/db";
 import { and, eq } from "drizzle-orm";
+import { db } from "../config/db.js";
 import { env } from "../config/env.js";
 import { composePostCallMessage } from "./aiComposer.js";
 import { sendPlivoSms } from "./plivoService.js";
@@ -86,8 +87,11 @@ export async function processPostCallMessage(
       })
       .returning({ id: messages.id });
 
-    console.log(`[messenger] Logged post-call SMS (id=${inserted.id}) for call=${payload.callId}`);
-    return { ok: true, messageId: inserted.id };
+    if (inserted?.id) {
+      console.log(`[messenger] Logged post-call SMS (id=${inserted.id}) for call=${payload.callId}`);
+      return { ok: true, messageId: inserted.id };
+    }
+    return { ok: true, reason: "SMS sent, record ID unavailable." };
   } catch (dbErr) {
     console.error("[messenger] Failed to insert message into DB:", dbErr);
     return { ok: true, reason: "SMS sent, but DB record failed." };

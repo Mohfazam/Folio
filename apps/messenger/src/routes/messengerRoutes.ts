@@ -1,10 +1,11 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type Response, type Router as RouterType } from "express";
 import { env } from "../config/env.js";
 import { processPostCallMessage } from "../services/postCallMessengerService.js";
-import { db, messages, messageDeliveryReceipts, messageOptOuts } from "@repo/db";
+import { messages, messageDeliveryReceipts, messageOptOuts } from "@repo/db";
+import { db } from "../config/db.js";
 import { eq } from "drizzle-orm";
 
-export const messengerRouter = Router();
+export const messengerRouter: RouterType = Router();
 
 // Internal authentication middleware
 function requireInternalSecret(req: Request, res: Response, next: () => void) {
