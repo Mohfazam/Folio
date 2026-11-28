@@ -20,78 +20,78 @@ const CALL_TRANSCRIPT: TranscriptTurn[] = [
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 0,
+    startSec: 0.0,
     line: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
     meta: "tool: greet_caller · 0.2s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 5,
-    line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai sir.",
+    startSec: 5.5,
+    line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai.",
     meta: "intent: reschedule_booking",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 10,
-    line: "Main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
+    startSec: 10.2,
+    line: "Sure, main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
     meta: "tool: lookup_prompt · 0.3s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 15,
-    line: "Haan. Note kijiye B-4-1. Rahul Sharma ke naam se hoga.",
-    meta: "booking_ref: B-4-1",
+    startSec: 14.3,
+    line: "Haan. Note kijiye B-4-2-8-1. Rahul Sharma ke naam se hoga.",
+    meta: "booking_ref: B4281",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 20,
-    line: "Mil gaya, Rahul ji, ek minute... Aapki cleaning hai Dr. Patel ke saath, Friday 11 baje. Kab move karna chahenge?",
+    startSec: 20.5,
+    line: "Mil gaya Rahul ji. Ek minute... Aapki cleaning hai Dr. Patel ke saath Friday 11 baje. Kab move karna chahenge?",
     meta: "tool: get_booking · 0.6s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 27,
-    line: "Agle hafte koi bhi time chalega. Mujhe Tuesday possible hai.",
+    startSec: 27.6,
+    line: "Agle hafte koi bhi time chalega mujhe. Tuesday possible hai kya?",
     meta: "preferred_day: Tuesday",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 32,
-    line: "Tuesday. Check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
+    startSec: 32.3,
+    line: "Tuesday check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
     meta: "tool: check_slots · 0.5s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 38,
-    line: "Haan, theek hai, chalega.",
+    startSec: 39.2,
+    line: "Haan, theek hai chalega.",
     meta: "slot_confirmed: Tue 3:00 PM",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 41,
-    line: "Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
+    startSec: 41.8,
+    line: "Done. Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
     meta: "tool: book_appointment",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 47,
-    line: "Nahi aur kuch nahi. Thanks.",
+    startSec: 48.6,
+    line: "Nahi, aur kuch nahi. Thanks.",
     meta: "call_state: wrap_up",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 50,
-    line: "Of course. Aapka din shubh ho, Rahul ji.",
+    startSec: 51.0,
+    line: "Of course. Aapka din shubh ho Rahul ji.",
     meta: "Rescheduled · Tue 3:00 PM",
   },
 ];
@@ -100,27 +100,16 @@ const WAVEFORM_HEIGHTS = [
   32, 68, 48, 88, 60, 96, 44, 78, 54, 92, 38, 74, 84, 50, 66, 90, 42, 72,
 ];
 
-function getTurnIndexAtTime(sec: number, durationSec: number): number {
-  const hasExplicitTimestamps =
-    durationSec > 0 && CALL_TRANSCRIPT[CALL_TRANSCRIPT.length - 1].startSec < durationSec;
-
-  if (hasExplicitTimestamps) {
-    let currentIdx = 0;
-    for (let i = 0; i < CALL_TRANSCRIPT.length; i++) {
-      if (sec >= CALL_TRANSCRIPT[i].startSec) {
-        currentIdx = i;
-      } else {
-        break;
-      }
+function getTurnIndexAtTime(sec: number): number {
+  let currentIdx = 0;
+  for (let i = 0; i < CALL_TRANSCRIPT.length; i++) {
+    if (sec >= CALL_TRANSCRIPT[i].startSec) {
+      currentIdx = i;
+    } else {
+      break;
     }
-    return currentIdx;
   }
-
-  const safeDur = durationSec > 0 ? durationSec : 54;
-  return Math.min(
-    CALL_TRANSCRIPT.length - 1,
-    Math.max(0, Math.floor((sec / safeDur) * CALL_TRANSCRIPT.length))
-  );
+  return currentIdx;
 }
 
 export const Hero = () => {
@@ -185,12 +174,7 @@ export const Hero = () => {
 
   const jumpToTurn = async (index: number) => {
     const clamped = Math.min(CALL_TRANSCRIPT.length - 1, Math.max(0, index));
-    const safeDur = durationSec > 0 ? durationSec : 54;
-    const hasExplicitTimestamps =
-      CALL_TRANSCRIPT[CALL_TRANSCRIPT.length - 1].startSec < safeDur;
-    const targetSec = hasExplicitTimestamps
-      ? CALL_TRANSCRIPT[clamped].startSec
-      : (clamped / CALL_TRANSCRIPT.length) * safeDur;
+    const targetSec = CALL_TRANSCRIPT[clamped].startSec;
 
     setElapsedSec(targetSec);
     if (audioRef.current) {
@@ -212,7 +196,11 @@ export const Hero = () => {
     const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     const nextSec = ratio * safeDur;
     setElapsedSec(nextSec);
-    if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+    if (
+      audioRef.current &&
+      Number.isFinite(audioRef.current.duration) &&
+      audioRef.current.duration > 0
+    ) {
       audioRef.current.currentTime = nextSec;
     }
   };
@@ -229,7 +217,7 @@ export const Hero = () => {
   };
 
   const safeDuration = durationSec > 0 ? durationSec : 54;
-  const activeTurnIndex = getTurnIndexAtTime(elapsedSec, safeDuration);
+  const activeTurnIndex = getTurnIndexAtTime(elapsedSec);
   const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
 
   return (
@@ -372,7 +360,7 @@ export const Hero = () => {
                     Priya · Bright Smile Dental
                   </p>
                   <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#525552]">
-                    Rahul Sharma (ID B-4-1) · Dr. Patel Reschedule
+                    Rahul Sharma (ID B4281) · Dr. Patel Reschedule
                   </p>
                 </div>
 
@@ -533,7 +521,7 @@ export const Hero = () => {
               <div className="flex items-center gap-3 font-['Space_Grotesk'] text-[11px] font-medium text-[#525552] tabular-nums">
                 <span>Effective rate: ₹4.20/min</span>
                 <span aria-hidden="true">•</span>
-                <span>Booking B-4-1 updated</span>
+                <span>Booking B4281 updated</span>
               </div>
               <Link
                 href="/live-demo"
