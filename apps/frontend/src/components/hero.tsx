@@ -163,6 +163,7 @@ export const Hero = () => {
   const [durationSec, setDurationSec] = useState(57);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const rafRef = useRef<number | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -196,6 +197,32 @@ export const Hero = () => {
     };
   }, [supabase]);
 
+  useEffect(() => {
+    if (!isPlaying) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+
+    const tick = () => {
+      const audio = audioRef.current;
+      if (audio) {
+        setElapsedSec(audio.currentTime);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [isPlaying]);
+
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -203,6 +230,7 @@ export const Hero = () => {
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
+      setElapsedSec(audio.currentTime);
     } else {
       try {
         await audio.play();
@@ -259,40 +287,15 @@ export const Hero = () => {
   };
 
   const safeDuration = durationSec > 0 ? durationSec : 57;
+  const progressRatio = Math.min(1, Math.max(0, elapsedSec / safeDuration));
   const activeTurnIndex = getTurnIndexAtTime(elapsedSec);
   const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
-
-  const nextTurnStart =
-    activeTurnIndex < CALL_TRANSCRIPT.length - 1
-      ? CALL_TRANSCRIPT[activeTurnIndex + 1].startSec
-      : safeDuration;
-  const turnSpan = Math.max(0.5, nextTurnStart - activeTurn.startSec);
-  const turnProgressPct = Math.min(
-    100,
-    Math.max(0, ((elapsedSec - activeTurn.startSec) / turnSpan) * 100)
-  );
 
   return (
     <section
       id="demo"
       className="relative mx-auto w-full max-w-[1280px] overflow-hidden px-6 pb-20 pt-10 md:px-10 md:pb-28 md:pt-16"
     >
-      <style jsx>{`
-        @keyframes turnSwap {
-          0% {
-            opacity: 0;
-            transform: translateY(7px) scale(0.99);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-        .turn-swap-anim {
-          animation: turnSwap 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
-      `}</style>
-
       <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
         {/* Left Column: Headline, Subcopy, Auth CTA */}
         <div className="flex flex-col items-start text-left lg:col-span-6">
@@ -329,14 +332,14 @@ export const Hero = () => {
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href="/dashboard"
-                      className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
+                      className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-[#1B1C18] px-6 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-150 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
                     >
                       <span>Go to Dashboard</span>
                       <span aria-hidden="true">→</span>
                     </Link>
                     <Link
                       href="/live-demo"
-                      className="inline-flex h-11 shrink-0 items-center justify-center rounded-md border border-[#E3DFD3] bg-white px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-2xs transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
+                      className="inline-flex h-11 shrink-0 items-center justify-center rounded-md border border-[#E3DFD3] bg-white px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-2xs transition-colors duration-150 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
                     >
                       Do a Trial Call
                     </Link>
@@ -349,18 +352,18 @@ export const Hero = () => {
                       onChange={(e) => setWorkEmail(e.target.value)}
                       placeholder="Enter your work email"
                       aria-label="Work email"
-                      className="h-11 flex-1 rounded-md border border-[#DCD8CC] bg-white px-4 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] placeholder-[#5F6360] shadow-2xs outline-none transition focus:border-[#1B1C18] focus-visible:ring-2 focus-visible:ring-[#FD7032]"
+                      className="h-11 flex-1 rounded-md border border-[#DCD8CC] bg-white px-4 font-['Space_Grotesk'] text-[13px] text-[#1B1C18] placeholder-[#5F6360] shadow-2xs outline-none transition-colors focus:border-[#1B1C18] focus-visible:ring-2 focus-visible:ring-[#FD7032]"
                     />
                     <Link
                       href={signUpHref}
-                      className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
+                      className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-[#1B1C18] px-5 font-['Space_Grotesk'] text-[13px] font-semibold text-white shadow-xs transition-colors duration-150 hover:bg-[#34352F] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
                     >
                       <span>Start free trial</span>
                       <span aria-hidden="true">→</span>
                     </Link>
                     <Link
                       href="/live-demo"
-                      className="flex h-11 shrink-0 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-2xs transition-colors duration-200 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
+                      className="flex h-11 shrink-0 items-center justify-center rounded-md border border-[#DCD8CC] bg-white px-4 font-['Space_Grotesk'] text-[13px] font-semibold text-[#1B1C18] shadow-2xs transition-colors duration-150 hover:bg-[#F5F3EC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF9F2]"
                     >
                       Trial call
                     </Link>
@@ -385,7 +388,7 @@ export const Hero = () => {
           </div>
         </div>
 
-        {/* Right Column: Live Call Recording Player */}
+        {/* Right Column: Call Recording Player */}
         <div className="lg:col-span-6">
           <div className="overflow-hidden rounded-2xl border border-[#E3DFD3] bg-white shadow-[0_14px_40px_rgba(27,28,24,0.07)]">
             <audio
@@ -396,7 +399,6 @@ export const Hero = () => {
                 const dur = e.currentTarget.duration;
                 if (Number.isFinite(dur) && dur > 0) setDurationSec(dur);
               }}
-              onTimeUpdate={(e) => setElapsedSec(e.currentTarget.currentTime)}
               onEnded={() => {
                 setIsPlaying(false);
                 setElapsedSec(0);
@@ -406,12 +408,9 @@ export const Hero = () => {
             {/* Header bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E9E8E1] bg-[#FAFAF8] px-5 py-3.5">
               <div className="flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#22A06B] opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#22A06B]" />
-                </span>
+                <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
                 <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[0.8px] text-[#1B1C18]">
-                  Unedited Call Recording
+                  Call Recording
                 </span>
               </div>
 
@@ -428,18 +427,13 @@ export const Hero = () => {
                     Priya · Bright Smile Dental
                   </p>
                   <p className="mt-0.5 font-['Space_Grotesk'] text-[12px] text-[#525552]">
-                    Rahul Sharma (ID B-4-2-8-1) · Dr. Patel Reschedule
+                    Rahul Sharma · Dr. Patel Reschedule
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-[#F5F3EC] px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] tabular-nums">
-                    240ms latency
-                  </span>
-                  <span className="rounded-md bg-[#E3FCEF] px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#166534]">
-                    Barge-in Active
-                  </span>
-                </div>
+                <span className="rounded-md bg-[#F5F3EC] px-2 py-1 font-['Space_Grotesk'] text-[11px] font-semibold text-[#1B1C18] tabular-nums">
+                  240ms latency
+                </span>
               </div>
 
               {/* Audio control bar */}
@@ -448,7 +442,7 @@ export const Hero = () => {
                   type="button"
                   onClick={togglePlay}
                   aria-label={isPlaying ? "Pause call recording" : "Play call recording"}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] text-white shadow-xs transition-colors hover:bg-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B1C18] text-white shadow-xs transition-colors duration-150 hover:bg-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] focus-visible:ring-offset-2"
                 >
                   {isPlaying ? (
                     <svg
@@ -482,19 +476,14 @@ export const Hero = () => {
                   aria-hidden="true"
                 >
                   {WAVEFORM_HEIGHTS.map((height, idx) => {
-                    const progressRatio = elapsedSec / safeDuration;
                     const barRatio = idx / WAVEFORM_HEIGHTS.length;
-                    const isPlayed = isPlaying && barRatio <= progressRatio;
+                    const isPlayed = elapsedSec > 0 && barRatio <= progressRatio;
                     return (
                       <span
                         key={idx}
                         style={{ height: `${height}%` }}
-                        className={`w-1 rounded-full transition-all duration-300 ${
-                          isPlayed
-                            ? "bg-[#FD7032]"
-                            : isPlaying
-                              ? "animate-pulse bg-[#1B1C18]/75"
-                              : "bg-[#1B1C18]/25"
+                        className={`w-1 rounded-full ${
+                          isPlayed ? "bg-[#FD7032]" : "bg-[#1B1C18]/25"
                         }`}
                       />
                     );
@@ -507,37 +496,11 @@ export const Hero = () => {
               </div>
             </div>
 
-            {/* Dynamic Active Turn Transcript */}
+            {/* Active Turn Transcript */}
             <div className="bg-white p-5">
-              <div
-                className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-300 ${
-                  isPlaying
-                    ? "border-[#FD7032]/45 bg-[#FFFDF9] shadow-[0_6px_20px_rgba(253,112,50,0.08)]"
-                    : "border-[#EAE6DC] bg-[#FCFBF8]"
-                }`}
-              >
-                {/* Live turn progress bar along top edge */}
-                <div className="absolute inset-x-0 top-0 h-[2px] bg-[#EFECE4]">
-                  <div
-                    style={{ width: `${turnProgressPct}%` }}
-                    className="h-full bg-[#FD7032] transition-[width] duration-150 ease-linear"
-                  />
-                </div>
-
-                <div
-                  key={`meta-${activeTurnIndex}`}
-                  className="turn-swap-anim flex items-center justify-between gap-2 pt-0.5"
-                >
+              <div className="rounded-xl border border-[#EAE6DC] bg-[#FCFBF8] p-4">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                    <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${
-                        activeTurn.speaker === "agent"
-                          ? isPlaying
-                            ? "animate-ping bg-[#FD7032]"
-                            : "bg-[#FD7032]"
-                          : "bg-[#1B1C18]"
-                      }`}
-                    />
                     <span
                       className={`font-semibold ${
                         activeTurn.speaker === "agent" ? "text-[#FD7032]" : "text-[#525552]"
@@ -556,10 +519,7 @@ export const Hero = () => {
                   </span>
                 </div>
 
-                <p
-                  key={`line-${activeTurnIndex}`}
-                  className="turn-swap-anim mt-2 font-['Space_Grotesk'] text-[13.5px] font-medium leading-[21px] text-[#1B1C18]"
-                >
+                <p className="mt-2 font-['Space_Grotesk'] text-[13.5px] font-medium leading-[21px] text-[#1B1C18]">
                   {activeTurn.line}
                 </p>
 
@@ -573,7 +533,7 @@ export const Hero = () => {
                           type="button"
                           onClick={() => jumpToTurn(idx)}
                           aria-label={`Jump to ${turn.speaker} line ${idx + 1}`}
-                          className={`h-1.5 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
+                          className={`h-1.5 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
                             isCurrent
                               ? "w-6 bg-[#FD7032]"
                               : idx < activeTurnIndex
@@ -590,7 +550,7 @@ export const Hero = () => {
                       type="button"
                       onClick={() => jumpToTurn(activeTurnIndex - 1)}
                       disabled={activeTurnIndex === 0}
-                      className="rounded px-1.5 py-0.5 transition-colors hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
                     >
                       prev
                     </button>
@@ -601,7 +561,7 @@ export const Hero = () => {
                       type="button"
                       onClick={() => jumpToTurn(activeTurnIndex + 1)}
                       disabled={activeTurnIndex === CALL_TRANSCRIPT.length - 1}
-                      className="rounded px-1.5 py-0.5 transition-colors hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
                     >
                       next
                     </button>
@@ -619,7 +579,7 @@ export const Hero = () => {
               </div>
               <Link
                 href="/live-demo"
-                className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032]"
+                className="font-['Space_Grotesk'] text-[12px] font-semibold text-[#1B1C18] transition-colors duration-150 hover:text-[#FD7032] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032]"
               >
                 Test with your own script →
               </Link>
