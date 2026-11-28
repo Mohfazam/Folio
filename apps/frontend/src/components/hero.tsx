@@ -299,14 +299,7 @@ export const Hero = () => {
       <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
         {/* Left Column: Headline, Subcopy, Auth CTA */}
         <div className="flex flex-col items-start text-left lg:col-span-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#E3DFD3] bg-white px-3 py-1 shadow-2xs">
-            <span className="h-2 w-2 rounded-full bg-[#22A06B]" />
-            <span className="font-['Space_Grotesk'] text-[11px] font-semibold uppercase tracking-[1.1px] text-[#4A4843]">
-              Enterprise Communication Automation
-            </span>
-          </div>
-
-          <h1 className="mt-6 tracking-tight">
+          <h1 className="tracking-tight">
             <span className="block font-['Newsreader'] text-[44px] font-normal leading-[1.06] tracking-[-1px] text-[#1B1C18] sm:text-[54px] xl:text-[62px]">
               Enterprise communication
             </span>
