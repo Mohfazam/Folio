@@ -88,7 +88,7 @@ export const CtaFooter = () => {
   }, [supabase]);
 
   return (
-    <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2]">
+    <section className="w-full bg-[#FBF9F2]">
       {/* CTA Card Container */}
       <div className="mx-auto w-full max-w-[1240px] px-6 py-20 md:px-10 md:py-28">
         <div className="relative overflow-hidden rounded-2xl border border-[#E9E8E1] bg-white p-8 text-center shadow-[0px_8px_30px_rgba(0,0,0,0.04)] md:p-16 lg:p-20">
@@ -158,7 +158,7 @@ export const CtaFooter = () => {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-[#E9E8E1] bg-[#FBF9F2] pb-12 pt-14">
+      <footer className="bg-[#FBF9F2] pb-12 pt-14">
         <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
             <div className="col-span-2 md:col-span-4 lg:col-span-1">

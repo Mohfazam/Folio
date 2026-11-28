@@ -39,7 +39,7 @@ export const VoiceAgent = () => {
   };
 
   return (
-    <section className="w-full border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28">
+    <section className="w-full bg-[#FBF9F2] py-20 md:py-28">
       <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-14">
           {/* Right Column on Desktop: Interactive Flow & Guardrail Card */}

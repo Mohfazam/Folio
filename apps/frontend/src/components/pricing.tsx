@@ -109,7 +109,7 @@ export const Pricing = ({ currentPlan = null, isLoggedIn = false }: PricingProps
   return (
     <section
       id="pricing"
-      className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-28"
+      className="w-full scroll-mt-20 bg-[#FBF9F2] py-20 md:py-28"
     >
       <div className="mx-auto w-full max-w-[1280px] px-6 md:px-10">
         {/* Section Header */}
