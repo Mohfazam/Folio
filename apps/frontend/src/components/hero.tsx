@@ -8,71 +8,120 @@ import { User } from "@supabase/supabase-js";
 
 const AUDIO_SRC = "/samples/hero-sample-call-hi.mp3";
 
-const CALL_TRANSCRIPT: {
-  speaker: "AI Agent" | "Customer";
+type TranscriptTurn = {
+  speaker: "agent" | "caller";
   language: string;
+  startSec: number;
   line: string;
-}[] = [
+  meta: string;
+};
+
+const CALL_TRANSCRIPT: TranscriptTurn[] = [
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 0,
     line: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
+    meta: "tool: greet_caller · 0.2s",
   },
   {
-    speaker: "Customer",
+    speaker: "caller",
     language: "Hinglish",
+    startSec: 5,
     line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai sir.",
+    meta: "intent: reschedule_booking",
   },
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 10,
     line: "Main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
+    meta: "tool: lookup_prompt · 0.3s",
   },
   {
-    speaker: "Customer",
+    speaker: "caller",
     language: "Hinglish",
+    startSec: 15,
     line: "Haan. Note kijiye B-4-1. Rahul Sharma ke naam se hoga.",
+    meta: "booking_ref: B-4-1",
   },
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 20,
     line: "Mil gaya, Rahul ji, ek minute... Aapki cleaning hai Dr. Patel ke saath, Friday 11 baje. Kab move karna chahenge?",
+    meta: "tool: get_booking · 0.6s",
   },
   {
-    speaker: "Customer",
+    speaker: "caller",
     language: "Hinglish",
+    startSec: 27,
     line: "Agle hafte koi bhi time chalega. Mujhe Tuesday possible hai.",
+    meta: "preferred_day: Tuesday",
   },
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 32,
     line: "Tuesday. Check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
+    meta: "tool: check_slots · 0.5s",
   },
   {
-    speaker: "Customer",
+    speaker: "caller",
     language: "Hinglish",
+    startSec: 38,
     line: "Haan, theek hai, chalega.",
+    meta: "slot_confirmed: Tue 3:00 PM",
   },
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 41,
     line: "Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
+    meta: "tool: book_appointment",
   },
   {
-    speaker: "Customer",
+    speaker: "caller",
     language: "Hinglish",
+    startSec: 47,
     line: "Nahi aur kuch nahi. Thanks.",
+    meta: "call_state: wrap_up",
   },
   {
-    speaker: "AI Agent",
+    speaker: "agent",
     language: "Hinglish",
+    startSec: 50,
     line: "Of course. Aapka din shubh ho, Rahul ji.",
+    meta: "Rescheduled · Tue 3:00 PM",
   },
 ];
 
 const WAVEFORM_HEIGHTS = [
   32, 68, 48, 88, 60, 96, 44, 78, 54, 92, 38, 74, 84, 50, 66, 90, 42, 72,
 ];
+
+function getTurnIndexAtTime(sec: number, durationSec: number): number {
+  const hasExplicitTimestamps =
+    durationSec > 0 && CALL_TRANSCRIPT[CALL_TRANSCRIPT.length - 1].startSec < durationSec;
+
+  if (hasExplicitTimestamps) {
+    let currentIdx = 0;
+    for (let i = 0; i < CALL_TRANSCRIPT.length; i++) {
+      if (sec >= CALL_TRANSCRIPT[i].startSec) {
+        currentIdx = i;
+      } else {
+        break;
+      }
+    }
+    return currentIdx;
+  }
+
+  const safeDur = durationSec > 0 ? durationSec : 54;
+  return Math.min(
+    CALL_TRANSCRIPT.length - 1,
+    Math.max(0, Math.floor((sec / safeDur) * CALL_TRANSCRIPT.length))
+  );
+}
 
 export const Hero = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -134,22 +183,54 @@ export const Hero = () => {
     }
   };
 
+  const jumpToTurn = async (index: number) => {
+    const clamped = Math.min(CALL_TRANSCRIPT.length - 1, Math.max(0, index));
+    const safeDur = durationSec > 0 ? durationSec : 54;
+    const hasExplicitTimestamps =
+      CALL_TRANSCRIPT[CALL_TRANSCRIPT.length - 1].startSec < safeDur;
+    const targetSec = hasExplicitTimestamps
+      ? CALL_TRANSCRIPT[clamped].startSec
+      : (clamped / CALL_TRANSCRIPT.length) * safeDur;
+
+    setElapsedSec(targetSec);
+    if (audioRef.current) {
+      audioRef.current.currentTime = targetSec;
+      if (!isPlaying) {
+        try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+        } catch {
+          // Ignore autoplay restriction if triggered without play toggle
+        }
+      }
+    }
+  };
+
+  const handleWaveformSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const safeDur = durationSec > 0 ? durationSec : 54;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const nextSec = ratio * safeDur;
+    setElapsedSec(nextSec);
+    if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
+      audioRef.current.currentTime = nextSec;
+    }
+  };
+
   const signUpHref = workEmail.trim()
     ? `/sign-up?email=${encodeURIComponent(workEmail.trim())}`
     : "/sign-up";
 
   const formatTimer = (sec: number) => {
-    const whole = Math.floor(sec);
+    const whole = Math.max(0, Math.floor(sec));
     const mins = Math.floor(whole / 60);
     const rem = whole % 60;
     return `${String(mins).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
   };
 
   const safeDuration = durationSec > 0 ? durationSec : 54;
-  const activeTurnIndex = Math.min(
-    CALL_TRANSCRIPT.length - 1,
-    Math.floor((elapsedSec / safeDuration) * CALL_TRANSCRIPT.length)
-  );
+  const activeTurnIndex = getTurnIndexAtTime(elapsedSec, safeDuration);
+  const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
 
   return (
     <section
@@ -339,7 +420,9 @@ export const Hero = () => {
                 </button>
 
                 <div
-                  className="flex h-8 flex-1 items-center justify-between gap-1"
+                  onClick={handleWaveformSeek}
+                  className="flex h-8 flex-1 cursor-pointer items-center justify-between gap-1"
+                  title="Click to seek"
                   aria-hidden="true"
                 >
                   {WAVEFORM_HEIGHTS.map((height, idx) => {
@@ -368,44 +451,81 @@ export const Hero = () => {
               </div>
             </div>
 
-            {/* Transcript */}
-            <div className="flex max-h-[290px] flex-col gap-2.5 overflow-y-auto bg-white p-5">
-              {CALL_TRANSCRIPT.map((turn, index) => {
-                const isHighlighted = isPlaying && index === activeTurnIndex;
-                return (
-                  <div
-                    key={index}
-                    className={`rounded-lg border px-3.5 py-2.5 transition-colors ${
-                      isHighlighted
-                        ? "border-[#FD7032]/40 bg-[#FFF8F4]"
-                        : "border-[#F0EDE5] bg-[#FCFBF8]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`font-['Space_Grotesk'] text-[10px] font-bold uppercase tracking-[0.8px] ${
-                            turn.speaker === "AI Agent" ? "text-[#FD7032]" : "text-[#525552]"
-                          }`}
-                        >
-                          {turn.speaker}
-                        </span>
-                        <span className="rounded bg-[#F5F3EC] px-1.5 py-0.5 font-['Space_Grotesk'] text-[9.5px] font-semibold text-[#525552]">
-                          {turn.language}
-                        </span>
-                      </div>
-                      {index === CALL_TRANSCRIPT.length - 1 && (
-                        <span className="rounded bg-[#E3FCEF] px-2 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#166534]">
-                          Booked · Tue 3:00 PM
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 font-['Space_Grotesk'] text-[12.5px] leading-[18px] text-[#1B1C18]">
-                      {turn.line}
-                    </p>
+            {/* Dynamic Active Turn Transcript (Call-Scope Style) */}
+            <div className="bg-white p-5">
+              <div className="rounded-xl border border-[#EAE6DC] bg-[#FCFBF8] p-4 transition-all duration-200">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                    <span
+                      className={`font-semibold ${
+                        activeTurn.speaker === "agent" ? "text-[#FD7032]" : "text-[#525552]"
+                      }`}
+                    >
+                      {activeTurn.speaker}
+                    </span>
+                    <span className="text-[#9A9E9A]">›</span>
+                    <span className="rounded bg-[#F5F3EC] px-1.5 py-0.5 font-['Space_Grotesk'] text-[10px] font-semibold text-[#525552]">
+                      {activeTurn.language}
+                    </span>
                   </div>
-                );
-              })}
+
+                  <span className="font-mono text-[10.5px] text-[#525552] tabular-nums">
+                    {activeTurn.meta}
+                  </span>
+                </div>
+
+                <p
+                  key={activeTurnIndex}
+                  className="mt-2 font-['Space_Grotesk'] text-[13.5px] font-medium leading-[21px] text-[#1B1C18]"
+                >
+                  {activeTurn.line}
+                </p>
+
+                <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-[#F0EDE5] pt-2.5">
+                  <div className="flex items-center gap-1.5">
+                    {CALL_TRANSCRIPT.map((turn, idx) => {
+                      const isCurrent = idx === activeTurnIndex;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => jumpToTurn(idx)}
+                          aria-label={`Jump to ${turn.speaker} line ${idx + 1}`}
+                          className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
+                            isCurrent
+                              ? "w-5 bg-[#FD7032]"
+                              : idx < activeTurnIndex
+                                ? "w-1.5 bg-[#1B1C18]/55 hover:bg-[#1B1C18]"
+                                : "w-1.5 bg-[#DCD8CC] hover:bg-[#1B1C18]/40"
+                          }`}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center gap-2 font-mono text-[10.5px] text-[#525552] tabular-nums">
+                    <button
+                      type="button"
+                      onClick={() => jumpToTurn(activeTurnIndex - 1)}
+                      disabled={activeTurnIndex === 0}
+                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                    >
+                      prev
+                    </button>
+                    <span>
+                      {activeTurnIndex + 1}/{CALL_TRANSCRIPT.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => jumpToTurn(activeTurnIndex + 1)}
+                      disabled={activeTurnIndex === CALL_TRANSCRIPT.length - 1}
+                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                    >
+                      next
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
