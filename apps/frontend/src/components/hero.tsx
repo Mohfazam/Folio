@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/supabase/auth";
 import { User } from "@supabase/supabase-js";
 
-const AUDIO_SRC = "/hero-sample-call-hi.mp3";
+const AUDIO_SRC = "/samples/hero-sample-call-hi.mp3";
 
 const CALL_TRANSCRIPT: {
   speaker: "AI Agent" | "Customer";
