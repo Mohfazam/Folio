@@ -42,7 +42,7 @@ export const Faq = () => {
   return (
     <section
       id="faq"
-      className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] py-20 md:py-24"
+      className="w-full scroll-mt-20 bg-[#FBF9F2] py-20 md:py-24"
     >
       <div className="mx-auto w-full max-w-[860px] px-6 md:px-10">
         <div className="flex flex-col items-center text-center">

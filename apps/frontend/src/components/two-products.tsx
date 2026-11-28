@@ -895,7 +895,7 @@ export const TwoProducts = () => {
     const [activeTab, setActiveTab] = useState<"campaigns" | "agent">("campaigns");
 
     return (
-      <section id="products" className="w-full scroll-mt-20 border-t border-[#E9E8E1] bg-[#FBF9F2] pt-20 pb-16 md:pt-28 md:pb-24">
+      <section id="products" className="w-full scroll-mt-20 bg-[#FBF9F2] pt-20 pb-16 md:pt-28 md:pb-24">
         <div className="mx-auto w-full max-w-[1240px] px-6 md:px-10">
           {/* Section header */}
           <div className="flex flex-col items-center text-center">
