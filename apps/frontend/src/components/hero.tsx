@@ -154,6 +154,10 @@ function getTurnIndexAtTime(sec: number): number {
   return currentIdx;
 }
 
+function getVisibleTurnMeta(meta: string): string {
+  return meta.replace(/^[^·]+·\s*/, "");
+}
+
 export const Hero = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -508,7 +512,7 @@ export const Hero = () => {
                   </div>
 
                   <span className="font-mono text-[10.5px] text-[#525552] tabular-nums">
-                    {activeTurn.meta}
+                    {getVisibleTurnMeta(activeTurn.meta)}
                   </span>
                 </div>
 
