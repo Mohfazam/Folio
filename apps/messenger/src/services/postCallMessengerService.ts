@@ -1,7 +1,5 @@
-import { messages, messageOptOuts } from "@repo/db";
-import { and, eq } from "drizzle-orm";
-import { db } from "../config/db.js";
 import { env } from "../config/env.js";
+import { backendApi } from "../config/backendClient.js";
 import { composePostCallMessage } from "./aiComposer.js";
 import { sendPlivoSms } from "./plivoService.js";
 
@@ -23,24 +21,13 @@ export interface PostCallMessageRequest {
 
 /**
  * Orchestrates compliance checks, AI message synthesis, Plivo dispatch,
- * and database audit record persistence.
+ * and database audit record persistence via backend internal API.
  */
 export async function processPostCallMessage(
   payload: PostCallMessageRequest
 ): Promise<{ ok: boolean; messageId?: string; reason?: string }> {
-  // 1. Compliance: Check if recipient has opted out of SMS
-  const [optedOut] = await db
-    .select({ id: messageOptOuts.id })
-    .from(messageOptOuts)
-    .where(
-      and(
-        eq(messageOptOuts.clientId, payload.clientId),
-        eq(messageOptOuts.phoneNumber, payload.phoneNumber),
-        eq(messageOptOuts.channel, "sms")
-      )
-    )
-    .limit(1);
-
+  // 1. Compliance: Check if recipient has opted out of SMS via backend
+  const optedOut = await backendApi.checkOptOut(payload.clientId, payload.phoneNumber, "sms");
   if (optedOut) {
     console.log(`[messenger] Contact ${payload.phoneNumber} is opted out. Suppressing SMS.`);
     return { ok: false, reason: "Recipient has opted out of SMS communications." };
@@ -61,39 +48,32 @@ export async function processPostCallMessage(
   // 3. Dispatch SMS via Plivo
   const sendResult = await sendPlivoSms(payload.phoneNumber, smsBody, env.plivoPhoneNumber);
 
-  // 4. Save record to messages table
-  try {
-    const [inserted] = await db
-      .insert(messages)
-      .values({
-        clientId: payload.clientId,
-        contactId: payload.contactId,
-        callId: payload.callId,
-        channel: "sms",
-        direction: "outbound",
-        status: sendResult.status === "failed" ? "failed" : "queued",
-        type: "post_call_followup",
-        fromNumber: env.plivoPhoneNumber,
-        toNumber: payload.phoneNumber,
-        body: smsBody,
-        providerMessageId: sendResult.providerMessageId || null,
-        errorMessage: sendResult.error || null,
-        metadata: {
-          generatedBy: "gemini-flash-lite",
-          callSummary: payload.callSummary,
-          interestLevel: payload.interestLevel,
-          requestedInfo: payload.requestedInfo,
-        },
-      })
-      .returning({ id: messages.id });
+  // 4. Save record to messages table via backend API
+  const messageId = await backendApi.logMessage({
+    clientId: payload.clientId,
+    contactId: payload.contactId,
+    callId: payload.callId,
+    channel: "sms",
+    direction: "outbound",
+    status: sendResult.status === "failed" ? "failed" : "queued",
+    type: "post_call_followup",
+    fromNumber: env.plivoPhoneNumber,
+    toNumber: payload.phoneNumber,
+    body: smsBody,
+    providerMessageId: sendResult.providerMessageId || null,
+    errorMessage: sendResult.error || null,
+    metadata: {
+      generatedBy: "gemini-flash-lite",
+      callSummary: payload.callSummary,
+      interestLevel: payload.interestLevel,
+      requestedInfo: payload.requestedInfo,
+    },
+  });
 
-    if (inserted?.id) {
-      console.log(`[messenger] Logged post-call SMS (id=${inserted.id}) for call=${payload.callId}`);
-      return { ok: true, messageId: inserted.id };
-    }
-    return { ok: true, reason: "SMS sent, record ID unavailable." };
-  } catch (dbErr) {
-    console.error("[messenger] Failed to insert message into DB:", dbErr);
-    return { ok: true, reason: "SMS sent, but DB record failed." };
+  if (messageId) {
+    console.log(`[messenger] Logged post-call SMS (id=${messageId}) for call=${payload.callId}`);
+    return { ok: true, messageId };
   }
+
+  return { ok: true, reason: "SMS sent, backend logged status." };
 }

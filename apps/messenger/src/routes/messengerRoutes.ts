@@ -1,9 +1,7 @@
 import { Router, type Request, type Response, type Router as RouterType } from "express";
 import { env } from "../config/env.js";
+import { backendApi } from "../config/backendClient.js";
 import { processPostCallMessage } from "../services/postCallMessengerService.js";
-import { messages, messageDeliveryReceipts, messageOptOuts } from "@repo/db";
-import { db } from "../config/db.js";
-import { eq } from "drizzle-orm";
 
 export const messengerRouter: RouterType = Router();
 
@@ -54,39 +52,8 @@ messengerRouter.post("/webhook/status", async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, error: "Missing MessageUUID in webhook" });
     }
 
-    const [found] = await db
-      .select({ id: messages.id, clientId: messages.clientId })
-      .from(messages)
-      .where(eq(messages.providerMessageId, messageUuid))
-      .limit(1);
-
-    if (found) {
-      const now = new Date();
-      const statusMap: Record<string, "delivered" | "failed" | "sent" | "undelivered"> = {
-        delivered: "delivered",
-        undelivered: "undelivered",
-        failed: "failed",
-        sent: "sent",
-      };
-      const dbStatus = statusMap[status?.toLowerCase()] || "sent";
-
-      await db
-        .update(messages)
-        .set({
-          status: dbStatus,
-          providerStatus: status,
-          ...(dbStatus === "delivered" ? { deliveredAt: now } : {}),
-          ...(dbStatus === "failed" || dbStatus === "undelivered" ? { failedAt: now } : {}),
-        })
-        .where(eq(messages.id, found.id));
-
-      await db.insert(messageDeliveryReceipts).values({
-        messageId: found.id,
-        provider: "plivo",
-        rawStatus: status || "unknown",
-        payload,
-      });
-    }
+    // Forward receipt persistence to backend internal API
+    void backendApi.recordDeliveryReceipt(messageUuid, status, payload);
 
     return res.status(200).json({ ok: true });
   } catch (err: unknown) {
@@ -103,32 +70,15 @@ messengerRouter.post("/webhook/inbound", async (req: Request, res: Response) => 
   try {
     const payload = req.body || {};
     const fromNumber = payload.From || payload.from;
-    const toNumber = payload.To || payload.to;
     const text = (payload.Text || payload.text || "").trim();
 
     if (fromNumber && text) {
       const isStop = /^(stop|unsubscribe|cancel|end|quit)$/i.test(text);
 
       if (isStop) {
-        // Query recent message to match clientId
-        const [recent] = await db
-          .select({ clientId: messages.clientId })
-          .from(messages)
-          .where(eq(messages.toNumber, fromNumber))
-          .limit(1);
-
-        if (recent) {
-          await db
-            .insert(messageOptOuts)
-            .values({
-              clientId: recent.clientId,
-              phoneNumber: fromNumber,
-              channel: "sms",
-              reason: `Inbound text: ${text}`,
-            })
-            .onConflictDoNothing();
-          console.log(`[messenger] Recorded STOP opt-out for ${fromNumber}`);
-        }
+        // Forward opt-out recording to backend internal API
+        void backendApi.recordInboundOptOut(fromNumber, `Inbound text: ${text}`);
+        console.log(`[messenger] Forwarded STOP opt-out for ${fromNumber} to backend`);
       }
     }
 

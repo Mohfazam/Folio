@@ -65,6 +65,7 @@ import {
   launchCampaignRoute,
   skipTestCallSetupRoute,
 } from "./workspaceSetup.js";
+import { messengerInternalRouter } from "./messengerInternal.js";
 
 export function registerRoutes(app: Express) {
   // Liveness & Readiness endpoints (unauthenticated, probe-friendly)
@@ -99,6 +100,7 @@ export function registerRoutes(app: Express) {
   api.post("/queue/process", requireWorkerSecret, processQueueRoute);
   api.post("/worker/recordings/ingest", requireWorkerSecret, ingestWorkerRecordingsRoute);
   api.post("/worker/queue/cleanup", requireWorkerSecret, cleanupWorkerQueueRoute);
+  api.use("/internal/messenger", messengerInternalRouter);
 
   // Anonymous public demo is isolated behind the trusted frontend proxy secret.
   api.post("/public-demo", publicDemoRateLimiter, createPublicDemoRoute);
