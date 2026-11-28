@@ -542,27 +542,6 @@ export const Hero = () => {
                     })}
                   </div>
 
-                  <div className="flex items-center gap-2 font-mono text-[10.5px] text-[#525552] tabular-nums">
-                    <button
-                      type="button"
-                      onClick={() => jumpToTurn(activeTurnIndex - 1)}
-                      disabled={activeTurnIndex === 0}
-                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
-                    >
-                      prev
-                    </button>
-                    <span>
-                      {activeTurnIndex + 1}/{CALL_TRANSCRIPT.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => jumpToTurn(activeTurnIndex + 1)}
-                      disabled={activeTurnIndex === CALL_TRANSCRIPT.length - 1}
-                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
-                    >
-                      next
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
