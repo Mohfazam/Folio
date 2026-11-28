@@ -20,77 +20,77 @@ const CALL_TRANSCRIPT: TranscriptTurn[] = [
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 0.0,
+    startSec: 1.0,
     line: "Hello! Bright Smile Dental mein aapka swagat hai. Main Priya bol rahi hoon. Bataiye main aapki kaise help kar sakti hoon?",
     meta: "tool: greet_caller · 0.2s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 5.5,
+    startSec: 6.5,
     line: "Hello. Haan, mujhe apni Friday wali appointment reschedule karni hai.",
     meta: "intent: reschedule_booking",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 10.2,
+    startSec: 11.2,
     line: "Sure, main abhi dekhti hoon. Kya aap apna booking ID ya naam bata sakte hain?",
     meta: "tool: lookup_prompt · 0.3s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 14.3,
+    startSec: 15.3,
     line: "Haan. Note kijiye B-4-2-8-1. Rahul Sharma ke naam se hoga.",
     meta: "booking_ref: B4281",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 20.5,
+    startSec: 21.5,
     line: "Mil gaya Rahul ji. Ek minute... Aapki cleaning hai Dr. Patel ke saath Friday 11 baje. Kab move karna chahenge?",
     meta: "tool: get_booking · 0.6s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 27.6,
+    startSec: 28.6,
     line: "Agle hafte koi bhi time chalega mujhe. Tuesday possible hai kya?",
     meta: "preferred_day: Tuesday",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 32.3,
+    startSec: 33.3,
     line: "Tuesday check karti hoon. Dr. Patel ke saath 3 PM ka slot available hai. Chalega?",
     meta: "tool: check_slots · 0.5s",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 39.2,
+    startSec: 40.2,
     line: "Haan, theek hai chalega.",
     meta: "slot_confirmed: Tue 3:00 PM",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 41.8,
+    startSec: 42.8,
     line: "Done. Tuesday 3 baje book kar diya aur confirmation aapke phone pe aa jayega. Aur kuch help chahiye?",
     meta: "tool: book_appointment",
   },
   {
     speaker: "caller",
     language: "Hinglish",
-    startSec: 48.6,
+    startSec: 49.6,
     line: "Nahi, aur kuch nahi. Thanks.",
     meta: "call_state: wrap_up",
   },
   {
     speaker: "agent",
     language: "Hinglish",
-    startSec: 51.0,
+    startSec: 52.0,
     line: "Of course. Aapka din shubh ho Rahul ji.",
     meta: "Rescheduled · Tue 3:00 PM",
   },
@@ -220,11 +220,37 @@ export const Hero = () => {
   const activeTurnIndex = getTurnIndexAtTime(elapsedSec);
   const activeTurn = CALL_TRANSCRIPT[activeTurnIndex];
 
+  const nextTurnStart =
+    activeTurnIndex < CALL_TRANSCRIPT.length - 1
+      ? CALL_TRANSCRIPT[activeTurnIndex + 1].startSec
+      : safeDuration;
+  const turnSpan = Math.max(0.5, nextTurnStart - activeTurn.startSec);
+  const turnProgressPct = Math.min(
+    100,
+    Math.max(0, ((elapsedSec - activeTurn.startSec) / turnSpan) * 100)
+  );
+
   return (
     <section
       id="demo"
       className="relative mx-auto w-full max-w-[1280px] overflow-hidden px-6 pb-20 pt-10 md:px-10 md:pb-28 md:pt-16"
     >
+      <style jsx>{`
+        @keyframes turnSwap {
+          0% {
+            opacity: 0;
+            transform: translateY(7px) scale(0.99);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .turn-swap-anim {
+          animation: turnSwap 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+      `}</style>
+
       <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-12">
         {/* Left Column: Headline, Subcopy, Auth CTA */}
         <div className="flex flex-col items-start text-left lg:col-span-6">
@@ -439,11 +465,37 @@ export const Hero = () => {
               </div>
             </div>
 
-            {/* Dynamic Active Turn Transcript (Call-Scope Style) */}
+            {/* Dynamic Active Turn Transcript */}
             <div className="bg-white p-5">
-              <div className="rounded-xl border border-[#EAE6DC] bg-[#FCFBF8] p-4 transition-all duration-200">
-                <div className="flex items-center justify-between gap-2">
+              <div
+                className={`relative overflow-hidden rounded-xl border p-4 transition-all duration-300 ${
+                  isPlaying
+                    ? "border-[#FD7032]/45 bg-[#FFFDF9] shadow-[0_6px_20px_rgba(253,112,50,0.08)]"
+                    : "border-[#EAE6DC] bg-[#FCFBF8]"
+                }`}
+              >
+                {/* Live turn progress bar along top edge */}
+                <div className="absolute inset-x-0 top-0 h-[2px] bg-[#EFECE4]">
+                  <div
+                    style={{ width: `${turnProgressPct}%` }}
+                    className="h-full bg-[#FD7032] transition-[width] duration-150 ease-linear"
+                  />
+                </div>
+
+                <div
+                  key={`meta-${activeTurnIndex}`}
+                  className="turn-swap-anim flex items-center justify-between gap-2 pt-0.5"
+                >
                   <div className="flex items-center gap-1.5 font-mono text-[11px]">
+                    <span
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${
+                        activeTurn.speaker === "agent"
+                          ? isPlaying
+                            ? "animate-ping bg-[#FD7032]"
+                            : "bg-[#FD7032]"
+                          : "bg-[#1B1C18]"
+                      }`}
+                    />
                     <span
                       className={`font-semibold ${
                         activeTurn.speaker === "agent" ? "text-[#FD7032]" : "text-[#525552]"
@@ -463,8 +515,8 @@ export const Hero = () => {
                 </div>
 
                 <p
-                  key={activeTurnIndex}
-                  className="mt-2 font-['Space_Grotesk'] text-[13.5px] font-medium leading-[21px] text-[#1B1C18]"
+                  key={`line-${activeTurnIndex}`}
+                  className="turn-swap-anim mt-2 font-['Space_Grotesk'] text-[13.5px] font-medium leading-[21px] text-[#1B1C18]"
                 >
                   {activeTurn.line}
                 </p>
@@ -479,9 +531,9 @@ export const Hero = () => {
                           type="button"
                           onClick={() => jumpToTurn(idx)}
                           aria-label={`Jump to ${turn.speaker} line ${idx + 1}`}
-                          className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
+                          className={`h-1.5 rounded-full transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FD7032] ${
                             isCurrent
-                              ? "w-5 bg-[#FD7032]"
+                              ? "w-6 bg-[#FD7032]"
                               : idx < activeTurnIndex
                                 ? "w-1.5 bg-[#1B1C18]/55 hover:bg-[#1B1C18]"
                                 : "w-1.5 bg-[#DCD8CC] hover:bg-[#1B1C18]/40"
@@ -496,7 +548,7 @@ export const Hero = () => {
                       type="button"
                       onClick={() => jumpToTurn(activeTurnIndex - 1)}
                       disabled={activeTurnIndex === 0}
-                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                      className="rounded px-1.5 py-0.5 transition-colors hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
                     >
                       prev
                     </button>
@@ -507,7 +559,7 @@ export const Hero = () => {
                       type="button"
                       onClick={() => jumpToTurn(activeTurnIndex + 1)}
                       disabled={activeTurnIndex === CALL_TRANSCRIPT.length - 1}
-                      className="rounded px-1.5 py-0.5 hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
+                      className="rounded px-1.5 py-0.5 transition-colors hover:bg-[#F5F3EC] hover:text-[#1B1C18] disabled:opacity-35"
                     >
                       next
                     </button>
